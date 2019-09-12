@@ -1,7 +1,5 @@
-#from context import bonob
+from context import bonob
 
-
-# content of test_sample.py
 def f(x):
     return x + 1
 
