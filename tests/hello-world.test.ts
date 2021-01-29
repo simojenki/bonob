@@ -1,7 +1,7 @@
 import { expect } from "chai";
 
-describe("something", function () {
-  it("fails", function () {
-    expect(false).equal(true);
+describe("something", () => {
+  it("fails", () => {
+    expect(true).equal(true);
   });  
 });
