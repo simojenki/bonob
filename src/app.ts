@@ -1,26 +1,12 @@
-import express from "express";
-import * as Eta from "eta";
+import sonos from "./sonos";
+import server from "./server";
 
-// import { Navidrome } from "./music_service";
-import makeSonos from "./sonos";
+const PORT = process.env["PORT"] || 3000;
 
-const PORT = 3000;
+const app = server(sonos(process.env["BONOB_SONOS_SEED_HOST"]));
 
-makeSonos().then((sonos) => {
-  const app = express();
-  app.use(express.static("./web/public"));
-
-  app.engine("eta", Eta.renderFile);
-  app.set("view engine", "eta");
-  app.set("views", "./web/views");
-
-  app.get("/", (_, res) => {
-    res.render("index", {
-      devices: sonos.devices(),
-    });
-  });
-
-  app.listen(PORT, () => {
-    console.info(`Listening on ${PORT}`);
-  });
+app.listen(PORT, () => {
+  console.info(`Listening on ${PORT}`);
 });
+
+export default app;
