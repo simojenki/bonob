@@ -2,4 +2,4 @@
 
 A bridge between sonos and ?
 
-![foo bar](https://github.com/simojenki/bonob/workflows/.github/workflows/master.yml/badge.svg)
+![Build](https://github.com/simojenki/bonob/workflows/Build/badge.svg)
