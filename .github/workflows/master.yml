@@ -1,4 +1,4 @@
-name: CI/CD
+name: master test and release
 
 on:
   push:
