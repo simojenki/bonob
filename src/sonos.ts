@@ -23,7 +23,10 @@ const asDevice = (sonosDevice: SonosDevice) => ({
   port: sonosDevice.Port,
 });
 
-const setupDiscovery = (manager: SonosManager, sonosSeedHost?: string): Promise<boolean> => {
+const setupDiscovery = (
+  manager: SonosManager,
+  sonosSeedHost?: string
+): Promise<boolean> => {
   if (sonosSeedHost == undefined || sonosSeedHost == "") {
     logger.info("Trying to auto discover sonos devices");
     return manager.InitializeWithDiscovery(10);
@@ -35,14 +38,24 @@ const setupDiscovery = (manager: SonosManager, sonosSeedHost?: string): Promise<
 
 export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
   const manager = new SonosManager();
-  
-  setupDiscovery(manager, sonosSeedHost).then((r) => {
-    if (r) logger.info({ devices: manager.Devices.map(asDevice) });
-    else logger.warn("Failed to auto discover hosts!");
-  });
+
+  setupDiscovery(manager, sonosSeedHost)
+    .then((r) => {
+      if (r) logger.info({ devices: manager.Devices.map(asDevice) });
+      else logger.warn("Failed to auto discover hosts!");
+    })
+    .catch((e) => {
+      logger.warn(`Failed to find sonos devices ${e}`);
+    });
 
   return {
-    devices: () => manager.Devices.map(asDevice),
+    devices: () => {
+      try {
+        return manager.Devices.map(asDevice)
+      }catch(e) {
+        return []
+      }
+    },
   };
 }
 
