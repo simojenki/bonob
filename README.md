@@ -1,4 +1,5 @@
 # bonob
-sonos bridge
-test
-[![CircleCI](https://circleci.com/gh/simojenki/bonob.svg?style=svg)](https://circleci.com/gh/simojenki/bonob)
+
+A bridge between sonos and ?
+
+![build](https://github.com/simojenki/bonob/workflows/.github/workflows/master.yml/badge.svg)
