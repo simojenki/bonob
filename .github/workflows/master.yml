@@ -3,12 +3,12 @@ name: CI/CD
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
 
 jobs:
 
-  build:
+  build_and_test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -19,6 +19,7 @@ jobs:
       - run: yarn test
 
   push_to_registry:
+    needs: build_and_test
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
