@@ -1,5 +1,4 @@
-import { SonosManager } from "@svrooij/sonos";
-
+import { SonosManager, SonosDevice } from "@svrooij/sonos";
 import logger from "./logger";
 
 type Device = {
@@ -9,40 +8,49 @@ type Device = {
   port: number;
 };
 
-interface Sonos
- {
+export interface Sonos {
   devices: () => Device[];
 }
 
-class RealSonos implements Sonos {
-  manager: SonosManager;
-
-  constructor(manager: SonosManager) {
-    this.manager = manager;
-  }
-
-  devices = (): Device[] => {
-    const devices = this.manager.Devices.map((d) => ({
-      name: d.Name,
-      group: d.GroupName || "",
-      ip: d.Host,
-      port: d.Port,
-    }));
-    logger.debug({ devices })
-    return devices;
-  }
-}
-
-const SonosDisabled: Sonos = {
+export const SONOS_DISABLED: Sonos = {
   devices: () => [],
 };
 
-export default function (): Promise<Sonos> {
+const asDevice = (sonosDevice: SonosDevice) => ({
+  name: sonosDevice.Name,
+  group: sonosDevice.GroupName || "",
+  ip: sonosDevice.Host,
+  port: sonosDevice.Port,
+});
+
+const setupDiscovery = (manager: SonosManager, sonosSeedHost?: string): Promise<boolean> => {
+  if (sonosSeedHost == undefined || sonosSeedHost == "") {
+    logger.info("Trying to auto discover sonos devices");
+    return manager.InitializeWithDiscovery(10);
+  } else {
+    logger.info(`Trying to discover sonos devices using seed ${sonosSeedHost}`);
+    return manager.InitializeFromDevice(sonosSeedHost);
+  }
+};
+
+export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
   const manager = new SonosManager();
-  return manager
-    .InitializeWithDiscovery(10)
-    .then((it) => (it ? new RealSonos(manager) : SonosDisabled))
-    .catch((_) => {
-      return SonosDisabled;
-    });
+  
+  setupDiscovery(manager, sonosSeedHost).then((r) => {
+    if (r) logger.info({ devices: manager.Devices.map(asDevice) });
+    else logger.warn("Failed to auto discover hosts!");
+  });
+
+  return {
+    devices: () => manager.Devices.map(asDevice),
+  };
+}
+
+export default function sonos(sonosSeedHost?: string): Sonos {
+  switch (sonosSeedHost) {
+    case "disabled":
+      return SONOS_DISABLED;
+    default:
+      return autoDiscoverySonos(sonosSeedHost);
+  }
 }
