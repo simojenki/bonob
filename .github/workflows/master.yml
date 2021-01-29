@@ -1,5 +1,3 @@
-name: master test and release
-
 on:
   push:
     branches: [ master ]
