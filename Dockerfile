@@ -14,7 +14,7 @@ RUN yarn install && \
 
 FROM node:14.15-alpine
 
-EXPOSE 3000
+EXPOSE 4534
 
 WORKDIR /bonob
 
