@@ -1,0 +1,6 @@
+<ul>
+<% it.devices.forEach(function(d){ %>
+<li><%= d.name %> (<%= d.ip %>:<%= d.port %>)</li>
+<% }) %>
+</ul>
+

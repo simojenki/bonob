@@ -1,0 +1,11 @@
+<% layout('./layout') %>
+
+<div id="content">
+  <h1>bonob</h1>
+  <h2>Devices</h2>
+  <ul>
+    <% it.devices.forEach(function(d){ %>
+    <li><%= d.name %> (<%= d.ip %>:<%= d.port %>)</li>
+    <% }) %>
+  </ul>
+</div>
