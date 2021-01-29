@@ -1,27 +1,49 @@
 import { SonosManager, SonosDevice } from "@svrooij/sonos";
+// import { MusicService } from "@svrooij/sonos/lib/services";
+import { uniq } from "underscore";
 import logger from "./logger";
 
-type Device = {
+export type Device = {
   name: string;
   group: string;
   ip: string;
   port: number;
+  services: Service[];
+};
+
+export type Service = {
+  name: string;
+  id: number;
 };
 
 export interface Sonos {
-  devices: () => Device[];
+  devices: () => Promise<Device[]>;
 }
 
 export const SONOS_DISABLED: Sonos = {
-  devices: () => [],
+  devices: () => Promise.resolve([]),
 };
 
-const asDevice = (sonosDevice: SonosDevice) => ({
-  name: sonosDevice.Name,
-  group: sonosDevice.GroupName || "",
-  ip: sonosDevice.Host,
-  port: sonosDevice.Port,
-});
+export const servicesFrom = (devices: Device[]) =>
+  uniq(
+    devices.flatMap((d) => d.services),
+    false,
+    (s) => s.id
+  );
+
+export const asDevice = (sonosDevice: SonosDevice): Promise<Device> =>
+  sonosDevice.MusicServicesService.ListAndParseAvailableServices().then(
+    (services) => ({
+      name: sonosDevice.Name,
+      group: sonosDevice.GroupName || "",
+      ip: sonosDevice.Host,
+      port: sonosDevice.Port,
+      services: services.map((s) => ({
+        name: s.Name,
+        id: s.Id,
+      })),
+    })
+  );
 
 const setupDiscovery = (
   manager: SonosManager,
@@ -37,24 +59,24 @@ const setupDiscovery = (
 };
 
 export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
-  const manager = new SonosManager();
-
-  setupDiscovery(manager, sonosSeedHost)
-    .then((r) => {
-      if (r) logger.info({ devices: manager.Devices.map(asDevice) });
-      else logger.warn("Failed to auto discover hosts!");
-    })
-    .catch((e) => {
-      logger.warn(`Failed to find sonos devices ${e}`);
-    });
-
   return {
-    devices: () => {
-      try {
-        return manager.Devices.map(asDevice)
-      }catch(e) {
-        return []
-      }
+    devices: async () => {
+      const manager = new SonosManager();
+      return setupDiscovery(manager, sonosSeedHost)
+        .then((success) => {
+          if (success) {
+            const devices = Promise.all(manager.Devices.map(asDevice));
+            logger.info({ devices });
+            return devices;
+          } else {
+            logger.warn("Didn't find any sonos devices!");
+            return [];
+          }
+        })
+        .catch((e) => {
+          logger.error(`Failed looking for sonos devices ${e}`);
+          return [];
+        });
     },
   };
 }
@@ -62,6 +84,7 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
 export default function sonos(sonosSeedHost?: string): Sonos {
   switch (sonosSeedHost) {
     case "disabled":
+      logger.info("Sonos device discovery disabled");
       return SONOS_DISABLED;
     default:
       return autoDiscoverySonos(sonosSeedHost);

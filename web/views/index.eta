@@ -5,7 +5,13 @@
   <h2>Devices</h2>
   <ul>
     <% it.devices.forEach(function(d){ %>
-    <li><%= d.name %> (<%= d.ip %>:<%= d.port %>)</li>
+      <li><%= d.name %> (<%= d.ip %>:<%= d.port %>)</li>
+    <% }) %>
+  </ul>
+  <h2>Services <%= it.services.length %></h2>
+  <ul>
+    <% it.services.forEach(function(s){ %>
+      <li><%= s.name %> (<%= s.id %>)</li>
     <% }) %>
   </ul>
 </div>
