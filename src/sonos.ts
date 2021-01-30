@@ -1,6 +1,6 @@
 import { SonosManager, SonosDevice } from "@svrooij/sonos";
 // import { MusicService } from "@svrooij/sonos/lib/services";
-import { uniq } from "underscore";
+import { sortBy, uniq } from "underscore";
 import logger from "./logger";
 
 export type Device = {
@@ -25,10 +25,13 @@ export const SONOS_DISABLED: Sonos = {
 };
 
 export const servicesFrom = (devices: Device[]) =>
-  uniq(
-    devices.flatMap((d) => d.services),
-    false,
-    (s) => s.id
+  sortBy(
+    uniq(
+      devices.flatMap((d) => d.services),
+      false,
+      (s) => s.id
+    ),
+    "name"
   );
 
 export const asDevice = (sonosDevice: SonosDevice): Promise<Device> =>
