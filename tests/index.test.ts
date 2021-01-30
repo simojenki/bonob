@@ -1,10 +1,15 @@
 import request from "supertest";
 import makeServer from "../src/server";
-import { SONOS_DISABLED, Sonos, Device, BONOB_SERVICE } from "../src/sonos";
+import { SONOS_DISABLED, Sonos, Device, Service } from "../src/sonos";
 
 describe("index", () => {
+  const BONOB_FOR_TEST: Service = {
+    name: "test bonob",
+    id: 999
+  }
+
   describe("when sonos integration is disabled", () => {
-    const server = makeServer(SONOS_DISABLED);
+    const server = makeServer(SONOS_DISABLED, BONOB_FOR_TEST);
 
     describe("devices list", () => {
       it("should be empty", async () => {
@@ -55,7 +60,7 @@ describe("index", () => {
       devices: () =>Promise.resolve([device1, device2]),
     };
 
-    const server = makeServer(fakeSonos);
+    const server = makeServer(fakeSonos, BONOB_FOR_TEST);
 
     describe("devices list", () => {
       it("should contain the devices returned from sonos", async () => {
@@ -89,7 +94,7 @@ describe("index", () => {
         const res = await request(server).get("/").send();
         expect(res.status).toEqual(200);
         expect(res.text).toMatch(
-          /Not registered/
+          /test bonob\s+\(999\) is not-registered/
         );
       })
     });
@@ -110,7 +115,7 @@ describe("index", () => {
           name: "s2",
           id: 2,
         },
-        BONOB_SERVICE
+        BONOB_FOR_TEST
       ],
     };
   
@@ -128,7 +133,7 @@ describe("index", () => {
           name: "s4",
           id: 4,
         },
-        BONOB_SERVICE
+        BONOB_FOR_TEST
       ],
     }
 
@@ -136,14 +141,14 @@ describe("index", () => {
       devices: () =>Promise.resolve([device1, device2]),
     };
 
-    const server = makeServer(fakeSonos);
+    const server = makeServer(fakeSonos, BONOB_FOR_TEST);
 
     describe("registration status", () => {
       it("should be registered", async () => {
         const res = await request(server).get("/").send();
         expect(res.status).toEqual(200);
         expect(res.text).toMatch(
-          /Registered/
+          /test bonob\s+\(999\) is registered/
         );
       })
     });
