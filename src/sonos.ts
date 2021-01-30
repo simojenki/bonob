@@ -16,6 +16,13 @@ export type Service = {
   id: number;
 };
 
+export type BonobRegistrationStatus = 'registered' | 'not-registered'
+
+export const BONOB_SERVICE: Service = {
+  name: "bonob",
+  id: 245
+}
+
 export interface Sonos {
   devices: () => Promise<Device[]>;
 }
@@ -33,6 +40,14 @@ export const servicesFrom = (devices: Device[]) =>
     ),
     "name"
   );
+
+export const registrationStatus = (services: Service[]): BonobRegistrationStatus => {
+  if(services.find(s => s.id == BONOB_SERVICE.id) != undefined) {
+    return "registered"
+  } else {
+    return "not-registered"
+  }
+}
 
 export const asDevice = (sonosDevice: SonosDevice): Promise<Device> =>
   sonosDevice.MusicServicesService.ListAndParseAvailableServices().then(
