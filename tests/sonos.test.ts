@@ -1,5 +1,7 @@
 import { SonosManager, SonosDevice } from "@svrooij/sonos";
 import { MusicServicesService } from "@svrooij/sonos/lib/services";
+import { shuffle } from 'underscore';
+
 jest.mock("@svrooij/sonos");
 
 import { AMAZON_MUSIC, APPLE_MUSIC, AUDIBLE } from "./music_services";
@@ -62,19 +64,19 @@ describe("sonos", () => {
   }
 
   describe("servicesFrom", () => {
-    it("should only return uniq services", () => {
-      const service1 = { id: 1, name: "service1" };
-      const service2 = { id: 2, name: "service2" };
-      const service3 = { id: 3, name: "service3" };
-      const service4 = { id: 4, name: "service4" };
+    it("should only return uniq services, sorted by name", () => {
+      const service1 = { id: 1, name: "D" };
+      const service2 = { id: 2, name: "B" };
+      const service3 = { id: 3, name: "C" };
+      const service4 = { id: 4, name: "A" };
 
-      const d1 = someDevice({ services: [service1, service2] });
-      const d2 = someDevice({ services: [service1, service2, service3] });
-      const d3 = someDevice({ services: [service4] });
+      const d1 = someDevice({ services: shuffle([service1, service2]) });
+      const d2 = someDevice({ services: shuffle([service1, service2, service3]) });
+      const d3 = someDevice({ services: shuffle([service4]) });
 
       const devices: Device[] = [d1, d2, d3];
 
-      expect(servicesFrom(devices)).toEqual([service1, service2, service3, service4])
+      expect(servicesFrom(devices)).toEqual([service4, service2, service3, service1])
     });
   });
 
