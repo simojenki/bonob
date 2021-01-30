@@ -18,10 +18,10 @@ export type Service = {
 
 export type BonobRegistrationStatus = 'registered' | 'not-registered'
 
-export const BONOB_SERVICE: Service = {
-  name: "bonob",
-  id: 245
-}
+export const bonobService = (name: string, id: number): Service => ({
+  name,
+  id
+})
 
 export interface Sonos {
   devices: () => Promise<Device[]>;
@@ -41,8 +41,8 @@ export const servicesFrom = (devices: Device[]) =>
     "name"
   );
 
-export const registrationStatus = (services: Service[]): BonobRegistrationStatus => {
-  if(services.find(s => s.id == BONOB_SERVICE.id) != undefined) {
+export const registrationStatus = (services: Service[], bonob: Service): BonobRegistrationStatus => {
+  if(services.find(s => s.id == bonob.id) != undefined) {
     return "registered"
   } else {
     return "not-registered"

@@ -2,11 +2,7 @@
 
 <div id="content">
   <h1>bonob</h1>
-  <% if(it.registration == "registered") { %>
-  <h2 class="registered">Registered</h2>
-  <% } else if(it.registration == "not-registered") {  %>
-  <h2 class="not-registered">Not registered</h2>
-  <% } %>
+  <h2><%= it.bonob.name %> (<%= it.bonob.id %>) is <%= it.registration %></h2>
   <h2>Devices</h2>
   <ul>
     <% it.devices.forEach(function(d){ %>

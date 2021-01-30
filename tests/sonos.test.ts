@@ -12,7 +12,6 @@ import sonos, {
   Device,
   servicesFrom,
   registrationStatus,
-  BONOB_SERVICE,
 } from "../src/sonos";
 
 const mockSonosManagerConstructor = <jest.Mock<SonosManager>>SonosManager;
@@ -25,21 +24,31 @@ describe("sonos", () => {
   describe("bonobRegistrationStatus", () => {
     describe("when bonob is registered", () => {
       it("should return 'registered'", () => {
+        const bonob = {
+          name: "some bonob",
+          id: 123,
+        };
         expect(
-          registrationStatus([
-            { id: 1, name: "not bonob" },
-            BONOB_SERVICE,
-            { id: 2, name: "also not bonob" },
-          ])
+          registrationStatus(
+            [
+              { id: 1, name: "not bonob" },
+              bonob,
+              { id: 2, name: "also not bonob" },
+            ],
+            bonob
+          )
         ).toBe("registered");
       });
     });
 
     describe("when bonob is not registered", () => {
       it("should return not-registered", () => {
-        expect(registrationStatus([{ id: 1, name: "not bonob" }])).toBe(
-          "not-registered"
-        );
+        expect(
+          registrationStatus([{ id: 1, name: "not bonob" }], {
+            name: "bonob",
+            id: 999,
+          })
+        ).toBe("not-registered");
       });
     });
   });
