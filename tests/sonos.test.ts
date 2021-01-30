@@ -1,18 +1,47 @@
 import { SonosManager, SonosDevice } from "@svrooij/sonos";
 import { MusicServicesService } from "@svrooij/sonos/lib/services";
-import { shuffle } from 'underscore';
+import { shuffle } from "underscore";
 
 jest.mock("@svrooij/sonos");
 
 import { AMAZON_MUSIC, APPLE_MUSIC, AUDIBLE } from "./music_services";
 
-import sonos, { SONOS_DISABLED, asDevice, Device, servicesFrom } from "../src/sonos";
+import sonos, {
+  SONOS_DISABLED,
+  asDevice,
+  Device,
+  servicesFrom,
+  registrationStatus,
+  BONOB_SERVICE,
+} from "../src/sonos";
 
 const mockSonosManagerConstructor = <jest.Mock<SonosManager>>SonosManager;
 
 describe("sonos", () => {
   beforeEach(() => {
     mockSonosManagerConstructor.mockClear();
+  });
+
+  describe("bonobRegistrationStatus", () => {
+    describe("when bonob is registered", () => {
+      it("should return 'registered'", () => {
+        expect(
+          registrationStatus([
+            { id: 1, name: "not bonob" },
+            BONOB_SERVICE,
+            { id: 2, name: "also not bonob" },
+          ])
+        ).toBe("registered");
+      });
+    });
+
+    describe("when bonob is not registered", () => {
+      it("should return not-registered", () => {
+        expect(registrationStatus([{ id: 1, name: "not bonob" }])).toBe(
+          "not-registered"
+        );
+      });
+    });
   });
 
   describe("asDevice", () => {
@@ -71,12 +100,19 @@ describe("sonos", () => {
       const service4 = { id: 4, name: "A" };
 
       const d1 = someDevice({ services: shuffle([service1, service2]) });
-      const d2 = someDevice({ services: shuffle([service1, service2, service3]) });
+      const d2 = someDevice({
+        services: shuffle([service1, service2, service3]),
+      });
       const d3 = someDevice({ services: shuffle([service4]) });
 
       const devices: Device[] = [d1, d2, d3];
 
-      expect(servicesFrom(devices)).toEqual([service4, service2, service3, service1])
+      expect(servicesFrom(devices)).toEqual([
+        service4,
+        service2,
+        service3,
+        service1,
+      ]);
     });
   });
 
