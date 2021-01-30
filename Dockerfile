@@ -25,4 +25,6 @@ COPY web web
 
 RUN yarn install --prod
 
+USER nobody 
+
 CMD ["node", "./app.js"]
