@@ -1,20 +1,19 @@
 import sonos, { bonobService } from "./sonos";
 import server from "./server";
-import logger from "./logger"
+import logger from "./logger";
 
-const PORT = process.env["PORT"] || 4534;
+const PORT = process.env["BONOB_PORT"] || 4534;
+const WEB_ADDRESS = process.env["BONOB_WEB_ADDRESS"] || `http://localhost:${PORT}`;
 
 const bonob = bonobService(
   process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
-  Number(process.env["BONOS_SONOS_SERVICE_ID"] || "246")
-)
-const app = server(
-  sonos(process.env["BONOB_SONOS_SEED_HOST"]),
-  bonob
+  Number(process.env["BONOS_SONOS_SERVICE_ID"] || "246"),
+  WEB_ADDRESS
 );
+const app = server(sonos(process.env["BONOB_SONOS_SEED_HOST"]), bonob);
 
 app.listen(PORT, () => {
-  logger.info(`Listening on ${PORT}`);
+  logger.info(`Listening on ${PORT} available @ ${WEB_ADDRESS}`);
 });
 
 export default app;
