@@ -1,6 +1,8 @@
 import { SonosManager, SonosDevice } from "@svrooij/sonos";
-// import { MusicService } from "@svrooij/sonos/lib/services";
-import { sortBy, uniq } from "underscore";
+import axios from "axios";
+import { parse } from "node-html-parser";
+import { MusicService } from "@svrooij/sonos/lib/services";
+import { head } from "underscore";
 import logger from "./logger";
 
 export type Device = {
@@ -8,60 +10,95 @@ export type Device = {
   group: string;
   ip: string;
   port: number;
-  services: Service[];
 };
 
 export type Service = {
   name: string;
-  id: number;
+  sid: number;
+  uri: string;
+  secureUri: string;
+  strings: { uri?: string; version?: string };
+  presentation: { uri?: string; version?: string };
+  pollInterval?: number;
+  authType: string;
 };
 
-export type BonobRegistrationStatus = 'registered' | 'not-registered'
+const stripTailingSlash = (url: string) =>
+  url.endsWith("/") ? url.substring(0, url.length - 1) : url;
 
-export const bonobService = (name: string, id: number): Service => ({
+export const bonobService = (
+  name: string,
+  sid: number,
+  bonobRoot: string
+): Service => ({
   name,
-  id
-})
+  sid,
+  uri: `${stripTailingSlash(bonobRoot)}/ws/sonos`,
+  secureUri: `${stripTailingSlash(bonobRoot)}/ws/sonos`,
+  strings: {
+    uri: `${stripTailingSlash(bonobRoot)}/sonos/strings.xml`,
+    version: "1",
+  },
+  presentation: {
+    uri: `${stripTailingSlash(bonobRoot)}/sonos/presentationMap.xml`,
+    version: "1",
+  },
+  pollInterval: 1200,
+  authType: "Anonymous",
+});
 
 export interface Sonos {
   devices: () => Promise<Device[]>;
+  services: () => Promise<Service[]>;
+  register: (service: Service) => Promise<boolean>;
 }
 
 export const SONOS_DISABLED: Sonos = {
   devices: () => Promise.resolve([]),
+  services: () => Promise.resolve([]),
+  register: (_: Service) => Promise.resolve(false),
 };
 
-export const servicesFrom = (devices: Device[]) =>
-  sortBy(
-    uniq(
-      devices.flatMap((d) => d.services),
-      false,
-      (s) => s.id
-    ),
-    "name"
-  );
+export const asService = (musicService: MusicService): Service => ({
+  name: musicService.Name,
+  sid: musicService.Id,
+  uri: musicService.Uri,
+  secureUri: musicService.SecureUri,
+  strings: {
+    uri: musicService.Presentation?.Strings?.Uri,
+    version: musicService.Presentation?.Strings?.Version,
+  },
+  presentation: {
+    uri: musicService.Presentation?.PresentationMap?.Uri,
+    version: musicService.Presentation?.PresentationMap?.Version,
+  },
+  pollInterval: musicService.Policy.PollInterval,
+  authType: musicService.Policy.Auth,
+});
 
-export const registrationStatus = (services: Service[], bonob: Service): BonobRegistrationStatus => {
-  if(services.find(s => s.id == bonob.id) != undefined) {
-    return "registered"
-  } else {
-    return "not-registered"
-  }
-}
+export const asDevice = (sonosDevice: SonosDevice): Device => ({
+  name: sonosDevice.Name,
+  group: sonosDevice.GroupName || "",
+  ip: sonosDevice.Host,
+  port: sonosDevice.Port,
+});
 
-export const asDevice = (sonosDevice: SonosDevice): Promise<Device> =>
-  sonosDevice.MusicServicesService.ListAndParseAvailableServices().then(
-    (services) => ({
-      name: sonosDevice.Name,
-      group: sonosDevice.GroupName || "",
-      ip: sonosDevice.Host,
-      port: sonosDevice.Port,
-      services: services.map((s) => ({
-        name: s.Name,
-        id: s.Id,
-      })),
-    })
-  );
+export const asCustomdForm = (csrfToken: string, service: Service) => ({
+  csrfToken,
+  sid: `${service.sid}`,
+  name: service.name,
+  uri: service.uri,
+  secureUri: service.secureUri,
+  pollInterval: `${service.pollInterval || 1200}`,
+  authType: service.authType,
+  stringsVersion: service.strings.version || "",
+  stringsUri: service.strings.uri || "",
+  presentationMapVersion: service.presentation.version || "",
+  presentationMapUri: service.presentation.uri || "",
+  manifestVersion: "0",
+  manifestUri: "",
+  containerType: "MService",
+});
 
 const setupDiscovery = (
   manager: SonosManager,
@@ -77,29 +114,73 @@ const setupDiscovery = (
 };
 
 export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
-  return {
-    devices: async () => {
-      const manager = new SonosManager();
-      return setupDiscovery(manager, sonosSeedHost)
-        .then((success) => {
-          if (success) {
-            const devices = Promise.all(manager.Devices.map(asDevice));
-            logger.info({ devices });
-            return devices;
-          } else {
-            logger.warn("Didn't find any sonos devices!");
-            return [];
-          }
-        })
-        .catch((e) => {
-          logger.error(`Failed looking for sonos devices ${e}`);
+  const sonosDevices = async (): Promise<SonosDevice[]> => {
+    const manager = new SonosManager();
+    return setupDiscovery(manager, sonosSeedHost)
+      .then((success) => {
+        if (success) {
+          console.log("had success");
+          return manager.Devices;
+        } else {
+          logger.warn("Didn't find any sonos devices!");
           return [];
-        });
+        }
+      })
+      .catch((e) => {
+        console.log("booom");
+        logger.error(`Failed looking for sonos devices ${e}`);
+        return [];
+      });
+  };
+
+  return {
+    devices: async () => sonosDevices().then((it) => it.map(asDevice)),
+
+    services: async () =>
+      sonosDevices()
+        .then((it) => head(it))
+        .then(
+          (device) =>
+            device?.MusicServicesService?.ListAndParseAvailableServices() || []
+        )
+        .then((it) => it.map(asService)),
+
+    register: async (service: Service) => {
+      const anyDevice = await sonosDevices().then((devices) => head(devices));
+
+      if (!anyDevice) {
+        logger.warn("Failed to find a device to register with...")
+        return false
+      };
+
+      const customd = `http://${anyDevice.Host}:${anyDevice.Port}/customsd`;
+
+      const csrfToken = await axios.get(customd).then((response) =>
+        parse(response.data)
+          .querySelectorAll("input")
+          .find((it) => it.getAttribute("name") == "csrfToken")
+          ?.getAttribute("value")
+      );
+
+      if (!csrfToken) {
+        logger.warn(`Failed to find csrfToken at GET -> ${customd}, cannot register service`)
+        return false
+      };
+
+      return axios
+        .post(customd, new URLSearchParams(asCustomdForm(csrfToken, service)), {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        })
+        .then((response) => response.status == 200);
     },
   };
 }
 
-export default function sonos(sonosSeedHost?: string): Sonos {
+export default function sonos(
+  sonosSeedHost: string | undefined = undefined
+): Sonos {
   switch (sonosSeedHost) {
     case "disabled":
       logger.info("Sonos device discovery disabled");

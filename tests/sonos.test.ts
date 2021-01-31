@@ -1,18 +1,27 @@
 import { SonosManager, SonosDevice } from "@svrooij/sonos";
-import { MusicServicesService } from "@svrooij/sonos/lib/services";
-import { shuffle } from "underscore";
-
+import {
+  MusicServicesService,
+  MusicService,
+} from "@svrooij/sonos/lib/services";
 jest.mock("@svrooij/sonos");
+
+import axios from "axios";
+jest.mock("axios");
+
+import { v4 as uuid } from 'uuid';
 
 import { AMAZON_MUSIC, APPLE_MUSIC, AUDIBLE } from "./music_services";
 
 import sonos, {
   SONOS_DISABLED,
   asDevice,
-  Device,
-  servicesFrom,
-  registrationStatus,
+  asService,
+  asCustomdForm,
+  bonobService,
+  Service,
 } from "../src/sonos";
+
+import { aSonosDevice, aService } from "./builders";
 
 const mockSonosManagerConstructor = <jest.Mock<SonosManager>>SonosManager;
 
@@ -21,40 +30,54 @@ describe("sonos", () => {
     mockSonosManagerConstructor.mockClear();
   });
 
-  describe("bonobRegistrationStatus", () => {
-    describe("when bonob is registered", () => {
-      it("should return 'registered'", () => {
-        const bonob = {
-          name: "some bonob",
-          id: 123,
-        };
-        expect(
-          registrationStatus(
-            [
-              { id: 1, name: "not bonob" },
-              bonob,
-              { id: 2, name: "also not bonob" },
-            ],
-            bonob
-          )
-        ).toBe("registered");
-      });
-    });
+  describe("asService", () => {
+    it("should convert", () => {
+      const musicService: MusicService = {
+        Name: "Amazon Music",
+        Version: "1.1",
+        Uri: "https://sonos.amazonmusic.com/",
+        SecureUri: "https://sonos.amazonmusic.com/",
+        ContainerType: "MService",
+        Capabilities: "2208321",
+        Presentation: {
+          Strings: {
+            Version: "23",
+            Uri: "https://sonos.amazonmusic.com/strings.xml",
+          },
+          PresentationMap: {
+            Version: "17",
+            Uri: "https://sonos.amazonmusic.com/PresentationMap.xml",
+          },
+        },
+        Id: 201,
+        Policy: { Auth: "DeviceLink", PollInterval: 60 },
+        Manifest: {
+          Uri: "",
+          Version: "",
+        },
+      };
 
-    describe("when bonob is not registered", () => {
-      it("should return not-registered", () => {
-        expect(
-          registrationStatus([{ id: 1, name: "not bonob" }], {
-            name: "bonob",
-            id: 999,
-          })
-        ).toBe("not-registered");
+      expect(asService(musicService)).toEqual({
+        name: "Amazon Music",
+        sid: 201,
+        uri: "https://sonos.amazonmusic.com/",
+        secureUri: "https://sonos.amazonmusic.com/",
+        strings: {
+          uri: "https://sonos.amazonmusic.com/strings.xml",
+          version: "23",
+        },
+        presentation: {
+          uri: "https://sonos.amazonmusic.com/PresentationMap.xml",
+          version: "17",
+        },
+        pollInterval: 60,
+        authType: "DeviceLink",
       });
     });
   });
 
   describe("asDevice", () => {
-    it("should convert", async () => {
+    it("should convert", () => {
       const musicServicesService = {
         ListAndParseAvailableServices: jest.fn(),
       };
@@ -71,57 +94,119 @@ describe("sonos", () => {
         APPLE_MUSIC,
       ]);
 
-      expect(await asDevice(device)).toEqual({
+      expect(asDevice(device)).toEqual({
         name: "d1",
         group: "g1",
         ip: "127.0.0.222",
         port: 123,
-        services: [
-          {
-            name: AMAZON_MUSIC.Name,
-            id: AMAZON_MUSIC.Id,
-          },
-          {
-            name: APPLE_MUSIC.Name,
-            id: APPLE_MUSIC.Id,
-          },
-        ],
       });
     });
   });
 
-  function someDevice(params: Partial<Device> = {}): Device {
-    const device = {
-      name: "device123",
-      group: "",
-      ip: "127.0.0.11",
-      port: 123,
-      services: [],
-    };
-    return { ...device, ...params };
-  }
-
-  describe("servicesFrom", () => {
-    it("should only return uniq services, sorted by name", () => {
-      const service1 = { id: 1, name: "D" };
-      const service2 = { id: 2, name: "B" };
-      const service3 = { id: 3, name: "C" };
-      const service4 = { id: 4, name: "A" };
-
-      const d1 = someDevice({ services: shuffle([service1, service2]) });
-      const d2 = someDevice({
-        services: shuffle([service1, service2, service3]),
+  describe("bonobService", () => {
+    describe("when the bonob root does not have a trailing /", () => {
+      it("should return a valid bonob service", () => {
+        expect(
+          bonobService("some-bonob", 876, "http://bonob.example.com")
+        ).toEqual({
+          name: "some-bonob",
+          sid: 876,
+          uri: `http://bonob.example.com/ws/sonos`,
+          secureUri: `http://bonob.example.com/ws/sonos`,
+          strings: {
+            uri: `http://bonob.example.com/sonos/strings.xml`,
+            version: "1",
+          },
+          presentation: {
+            uri: `http://bonob.example.com/sonos/presentationMap.xml`,
+            version: "1",
+          },
+          pollInterval: 1200,
+          authType: "Anonymous",
+        });
       });
-      const d3 = someDevice({ services: shuffle([service4]) });
+    });
 
-      const devices: Device[] = [d1, d2, d3];
+    describe("when the bonob root does have a trailing /", () => {
+      it("should return a valid bonob service", () => {
+        expect(
+          bonobService("some-bonob", 876, "http://bonob.example.com/")
+        ).toEqual({
+          name: "some-bonob",
+          sid: 876,
+          uri: `http://bonob.example.com/ws/sonos`,
+          secureUri: `http://bonob.example.com/ws/sonos`,
+          strings: {
+            uri: `http://bonob.example.com/sonos/strings.xml`,
+            version: "1",
+          },
+          presentation: {
+            uri: `http://bonob.example.com/sonos/presentationMap.xml`,
+            version: "1",
+          },
+          pollInterval: 1200,
+          authType: "Anonymous",
+        });
+      });
+    });
+  });
 
-      expect(servicesFrom(devices)).toEqual([
-        service4,
-        service2,
-        service3,
-        service1,
-      ]);
+  describe("asCustomdForm", () => {
+    describe("when all values specified", () => {
+      it("should return a form", () => {
+        const csrfToken = uuid();
+        const service: Service = {
+          name: "the new service",
+          sid: 888,
+          uri: "http://aa.example.com",
+          secureUri: "https://aa.example.com",
+          strings: { uri: "http://strings.example.com", version: "26" },
+          presentation: {
+            uri: "http://presentation.example.com",
+            version: "27",
+          },
+          pollInterval: 5600,
+          authType: "SpecialAuth",
+        };
+
+        expect(asCustomdForm(csrfToken, service)).toEqual({
+          csrfToken,
+          sid: "888",
+          name: "the new service",
+          uri: "http://aa.example.com",
+          secureUri: "https://aa.example.com",
+          pollInterval: "5600",
+          authType: "SpecialAuth",
+          stringsVersion: "26",
+          stringsUri: "http://strings.example.com",
+          presentationMapVersion: "27",
+          presentationMapUri: "http://presentation.example.com",
+          manifestVersion: "0",
+          manifestUri: "",
+          containerType: "MService",
+        });
+      });
+    });
+
+    describe("when pollInterval undefined", () => {
+      it("should default to 1200", () => {
+        const service: Service = aService({ pollInterval: undefined });
+        expect(asCustomdForm(uuid(), service).pollInterval).toEqual("1200");
+      });
+    });
+
+    describe("when strings and presentation are undefined", () => {
+      it("should default to 1200", () => {
+        const service: Service = aService({
+          strings: { uri: undefined, version: undefined },
+          presentation: { uri: undefined, version: undefined },
+        });
+        const form = asCustomdForm(uuid(), service)
+        expect(form.stringsUri).toEqual("");
+        expect(form.stringsVersion).toEqual("");
+        expect(form.presentationMapUri).toEqual("");
+        expect(form.presentationMapVersion).toEqual("");
+      });
     });
   });
 
@@ -131,36 +216,25 @@ describe("sonos", () => {
 
       expect(disabled).toEqual(SONOS_DISABLED);
       expect(await disabled.devices()).toEqual([]);
+      expect(await disabled.services()).toEqual([]);
+      expect(await disabled.register(aService())).toEqual(false);
     });
   });
 
   describe("sonos device discovery", () => {
-    const device1_MusicServicesService = {
-      ListAndParseAvailableServices: jest.fn(),
-    };
     const device1 = {
       Name: "device1",
       GroupName: "group1",
       Host: "127.0.0.11",
       Port: 111,
-      MusicServicesService: (device1_MusicServicesService as unknown) as MusicServicesService,
     } as SonosDevice;
 
-    const device2_MusicServicesService = {
-      ListAndParseAvailableServices: jest.fn(),
-    };
     const device2 = {
       Name: "device2",
       GroupName: "group2",
       Host: "127.0.0.22",
       Port: 222,
-      MusicServicesService: (device2_MusicServicesService as unknown) as MusicServicesService,
     } as SonosDevice;
-
-    beforeEach(() => {
-      device1_MusicServicesService.ListAndParseAvailableServices.mockClear();
-      device2_MusicServicesService.ListAndParseAvailableServices.mockClear();
-    });
 
     describe("when no sonos seed host is provided", () => {
       it("should perform auto-discovery", async () => {
@@ -241,21 +315,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        device1_MusicServicesService.ListAndParseAvailableServices.mockResolvedValue(
-          [AMAZON_MUSIC, APPLE_MUSIC]
-        );
-        device2_MusicServicesService.ListAndParseAvailableServices.mockResolvedValue(
-          [AUDIBLE]
-        );
-
         const actualDevices = await sonos(undefined).devices();
-
-        expect(
-          device1_MusicServicesService.ListAndParseAvailableServices
-        ).toHaveBeenCalled();
-        expect(
-          device2_MusicServicesService.ListAndParseAvailableServices
-        ).toHaveBeenCalled();
 
         expect(actualDevices).toEqual([
           {
@@ -263,77 +323,315 @@ describe("sonos", () => {
             group: device1.GroupName,
             ip: device1.Host,
             port: device1.Port,
-            services: [
-              {
-                name: AMAZON_MUSIC.Name,
-                id: AMAZON_MUSIC.Id,
-              },
-              {
-                name: APPLE_MUSIC.Name,
-                id: APPLE_MUSIC.Id,
-              },
-            ],
           },
           {
             name: device2.Name,
             group: device2.GroupName,
             ip: device2.Host,
             port: device2.Port,
-            services: [
-              {
-                name: AUDIBLE.Name,
-                id: AUDIBLE.Id,
-              },
-            ],
           },
         ]);
       });
     });
 
-    describe("when initialisation returns false", () => {
-      it("should return empty []", async () => {
-        const initialize = jest.fn();
+    describe("when SonosManager initialisation returns false", () => {
+      it("should return no devices", async () => {
         const sonosManager = {
-          InitializeWithDiscovery: initialize as (
-            x: number
-          ) => Promise<boolean>,
+          InitializeWithDiscovery: jest.fn(),
           Devices: [device1, device2],
-        } as SonosManager;
+        };
 
-        mockSonosManagerConstructor.mockReturnValue(sonosManager);
-        initialize.mockResolvedValue(false);
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(false);
 
-        const actualDevices = await sonos("").devices();
+        expect(await sonos("").devices()).toEqual([]);
+      });
+    });
+  });
+
+  describe("sonos service discovery", () => {
+    const device1 = {
+      Name: "device1",
+      GroupName: "group1",
+      Host: "127.0.0.11",
+      Port: 111,
+      MusicServicesService: {
+        ListAndParseAvailableServices: jest.fn(),
+      },
+    };
+
+    const device2 = {
+      Name: "device2",
+      GroupName: "group2",
+      Host: "127.0.0.22",
+      Port: 222,
+    };
+
+    beforeEach(() => {
+      device1.MusicServicesService.ListAndParseAvailableServices.mockClear();
+    });
+
+    describe("when there are no devices", () => {
+      it("should return no services", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+        const services = await sonos().services();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
-        expect(initialize).toHaveBeenCalledWith(10);
+        expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
 
-        expect(actualDevices).toEqual([]);
+        expect(services).toEqual([]);
+      });
+    });
+
+    describe("when there are some devices", () => {
+      it("should return the services from the first device", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [device1, device2],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+        device1.MusicServicesService.ListAndParseAvailableServices.mockResolvedValue(
+          [AMAZON_MUSIC, APPLE_MUSIC, AUDIBLE]
+        );
+
+        const services = await sonos().services();
+
+        expect(SonosManager).toHaveBeenCalledTimes(1);
+        expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
+
+        expect(services).toEqual([
+          asService(AMAZON_MUSIC),
+          asService(APPLE_MUSIC),
+          asService(AUDIBLE),
+        ]);
+      });
+    });
+
+    describe("when SonosManager initialisation returns false", () => {
+      it("should return no devices", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [device1, device2],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(false);
+
+        const services = await sonos().services();
+
+        expect(SonosManager).toHaveBeenCalledTimes(1);
+        expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
+
+        expect(services).toEqual([]);
       });
     });
 
     describe("when getting devices fails", () => {
-      it("should return empty []", async () => {
-        const initialize = jest.fn();
-
-        const sonosManager = ({
-          InitializeWithDiscovery: initialize as (
-            x: number
-          ) => Promise<boolean>,
+      it("should return no devices", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
           Devices: () => {
             throw Error("Boom");
           },
-        } as unknown) as SonosManager;
+        };
 
-        mockSonosManagerConstructor.mockReturnValue(sonosManager);
-        initialize.mockResolvedValue(true);
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        const actualDevices = await sonos("").devices();
+        const services = await sonos().services();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
-        expect(initialize).toHaveBeenCalledWith(10);
+        expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
 
-        expect(actualDevices).toEqual([]);
+        expect(services).toEqual([]);
+      });
+    });
+  });
+
+  describe("registering a service", () => {
+    const device1 = aSonosDevice({
+      Name: "d1",
+      Host: "127.0.0.11",
+      Port: 111,
+    });
+
+    const device2 = aSonosDevice({
+      Name: "d2",
+    });
+
+    const POST_CONFIG = {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    };
+
+    const serviceToAdd = aService({
+      name: "new service",
+      sid: 123,
+    });
+
+    const mockGet = jest.fn();
+    const mockPost = jest.fn();
+
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockPost.mockClear();
+
+      axios.get = mockGet;
+      axios.post = mockPost;
+    });
+
+    describe("when successful", () => {
+      it("should post the service into the first found sonos device, returning true", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [device1, device2],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+        const csrfToken = `csrfToken-${uuid()}`;
+
+        mockGet.mockResolvedValue({
+          status: 200,
+          data: `<html><input name='csrfToken' value='${csrfToken}'></html>`,
+        });
+        mockPost.mockResolvedValue({ status: 200, data: "" });
+
+        const result = await sonos().register(serviceToAdd);
+
+        expect(mockGet).toHaveBeenCalledWith(
+          `http://${device1.Host}:${device1.Port}/customsd`
+        );
+
+        expect(mockPost).toHaveBeenCalledWith(
+          `http://${device1.Host}:${device1.Port}/customsd`,
+          new URLSearchParams(asCustomdForm(csrfToken, serviceToAdd)),
+          POST_CONFIG
+        );
+
+        expect(result).toEqual(true);
+      });
+    });
+
+    describe("when cannot find any devices", () => {
+      it("should return false", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+        const result = await sonos().register(serviceToAdd);
+
+        expect(mockGet).not.toHaveBeenCalled();
+        expect(mockPost).not.toHaveBeenCalled();
+
+        expect(result).toEqual(false);
+      });
+    });
+
+    describe("when cannot get csrfToken", () => {
+      describe("when the token is missing", () => {
+        it("should return false", async () => {
+          const sonosManager = {
+            InitializeWithDiscovery: jest.fn(),
+            Devices: [device1, device2],
+          };
+
+          mockSonosManagerConstructor.mockReturnValue(
+            (sonosManager as unknown) as SonosManager
+          );
+          sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+          mockGet.mockResolvedValue({
+            status: 200,
+            data: `<html></html>`,
+          });
+
+          const result = await sonos().register(serviceToAdd);
+
+          expect(mockPost).not.toHaveBeenCalled();
+
+          expect(result).toEqual(false);
+        });
+      });
+
+      describe("when the token call returns a non 200", () => {
+        it("should return false", async () => {
+          const sonosManager = {
+            InitializeWithDiscovery: jest.fn(),
+            Devices: [device1, device2],
+          };
+
+          mockSonosManagerConstructor.mockReturnValue(
+            (sonosManager as unknown) as SonosManager
+          );
+          sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+          mockGet.mockResolvedValue({
+            status: 400,
+            data: `<html></html>`,
+          });
+
+          const result = await sonos().register(serviceToAdd);
+
+          expect(mockPost).not.toHaveBeenCalled();
+
+          expect(result).toEqual(false);
+        });
+      });
+    });
+
+    describe("when posting in the service definition fails", () => {
+      it("should return false", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [device1, device2],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+        const csrfToken = `csrfToken-${uuid()}`;
+
+        mockGet.mockResolvedValue({
+          status: 200,
+          data: `<html><input name='csrfToken' value='${csrfToken}'></html>`,
+        });
+        mockPost.mockResolvedValue({ status: 500, data: "" });
+
+        const result = await sonos().register(serviceToAdd);
+
+        expect(result).toEqual(false);
       });
     });
   });

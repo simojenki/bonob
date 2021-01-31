@@ -2,7 +2,16 @@
 
 <div id="content">
   <h1>bonob</h1>
-  <h2><%= it.bonob.name %> (<%= it.bonob.id %>) is <%= it.registration %></h2>
+  <h2><%= it.bonobService.name %> (<%= it.bonobService.sid %>)
+  <h3>Expected config</h3>
+  <div><%= JSON.stringify(it.bonobService) %></div>
+  <% if(it.registeredBonobService) { %>
+  <h3>Existing service config</h3>
+  <div><%= JSON.stringify(it.registeredBonobService) %></div>
+  <% } else { %>
+  <h3>No existing service registration</h3>
+  <% } %>
+  <form action="/register" method="POST"><button>Re-register</button></form>
   <h2>Devices</h2>
   <ul>
     <% it.devices.forEach(function(d){ %>
@@ -12,7 +21,7 @@
   <h2>Services <%= it.services.length %></h2>
   <ul>
     <% it.services.forEach(function(s){ %>
-      <li><%= s.name %> (<%= s.id %>)</li>
+      <li><%= s.name %> (<%= s.sid %>)</li>
     <% }) %>
   </ul>
 </div>

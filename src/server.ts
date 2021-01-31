@@ -1,8 +1,8 @@
 import express, { Express } from "express";
 import * as Eta from "eta";
-import { Sonos, servicesFrom, registrationStatus, Service } from "./sonos";
+import { Sonos, Service } from "./sonos";
 
-function server(sonos: Sonos, bonob: Service): Express {
+function server(sonos: Sonos, bonobService: Service): Express {
   const app = express();
 
   app.use(express.static("./web/public"));
@@ -12,15 +12,25 @@ function server(sonos: Sonos, bonob: Service): Express {
   app.set("views", "./web/views");
 
   app.get("/", (_, res) => {
-    sonos.devices().then((devices) => {
-      const services = servicesFrom(devices);
+    Promise.all([
+      sonos.devices(),
+      sonos.services()
+    ]).then(([devices, services]) => {
+      const registeredBonobService = services.find(it => it.sid == bonobService.sid);
       res.render("index", {
         devices,
         services,
-        bonob,
-        registration: registrationStatus(services, bonob),
+        bonobService,
+        registeredBonobService
       });
-    });
+    })
+  });
+
+  app.post("/register", (_, res) => {
+    sonos.register(bonobService).then(success => {
+      if(success) res.send("Yay")
+      else res.send("boo hoo")
+    })
   });
 
   return app;
