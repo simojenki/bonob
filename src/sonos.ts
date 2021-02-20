@@ -4,6 +4,11 @@ import { parse } from "node-html-parser";
 import { MusicService } from "@svrooij/sonos/lib/services";
 import { head } from "underscore";
 import logger from "./logger";
+import STRINGS from './strings';
+
+export const SOAP_PATH = "/ws/sonos";
+export const STRINGS_PATH = "/sonos/strings.xml";
+export const PRESENTATION_MAP_PATH = "/sonos/presentationMap.xml";
 
 export type Device = {
   name: string;
@@ -20,7 +25,7 @@ export type Service = {
   strings: { uri?: string; version?: string };
   presentation: { uri?: string; version?: string };
   pollInterval?: number;
-  authType: string;
+  authType: 'Anonymous' | 'AppLink' | 'DeviceLink' | 'UserId';
 };
 
 const stripTailingSlash = (url: string) =>
@@ -29,22 +34,23 @@ const stripTailingSlash = (url: string) =>
 export const bonobService = (
   name: string,
   sid: number,
-  bonobRoot: string
+  bonobRoot: string,
+  authType: 'Anonymous' | 'AppLink' | 'DeviceLink' | 'UserId' = 'AppLink'
 ): Service => ({
   name,
   sid,
-  uri: `${stripTailingSlash(bonobRoot)}/ws/sonos`,
-  secureUri: `${stripTailingSlash(bonobRoot)}/ws/sonos`,
+  uri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
+  secureUri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
   strings: {
-    uri: `${stripTailingSlash(bonobRoot)}/sonos/strings.xml`,
-    version: "1",
+    uri: `${stripTailingSlash(bonobRoot)}${STRINGS_PATH}`,
+    version: STRINGS.version,
   },
   presentation: {
-    uri: `${stripTailingSlash(bonobRoot)}/sonos/presentationMap.xml`,
+    uri: `${stripTailingSlash(bonobRoot)}${PRESENTATION_MAP_PATH}`,
     version: "1",
   },
   pollInterval: 1200,
-  authType: "Anonymous",
+  authType,
 });
 
 export interface Sonos {
@@ -119,7 +125,6 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
     return setupDiscovery(manager, sonosSeedHost)
       .then((success) => {
         if (success) {
-          console.log("had success");
           return manager.Devices;
         } else {
           logger.warn("Didn't find any sonos devices!");

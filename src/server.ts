@@ -3,8 +3,17 @@ import * as Eta from "eta";
 import { listen } from "soap";
 import { readFileSync } from "fs";
 import path from "path";
+import morgan from "morgan";
 
-import { Sonos, Service } from "./sonos";
+import {
+  Sonos,
+  Service,
+  SOAP_PATH,
+  STRINGS_PATH,
+  PRESENTATION_MAP_PATH,
+} from "./sonos";
+import { LinkCodes, InMemoryLinkCodes } from './link_codes'
+import { MusicService } from './music_service'
 import logger from "./logger";
 
 const WSDL_FILE = path.resolve(
@@ -12,8 +21,17 @@ const WSDL_FILE = path.resolve(
   "Sonoswsdl-1.19.4-20190411.142401-3.wsdl"
 );
 
-function server(sonos: Sonos, bonobService: Service): Express {
+function server(
+  sonos: Sonos,
+  bonobService: Service,
+  webAddress: string | "http://localhost:1234",
+  musicService: MusicService,
+  linkCodes: LinkCodes = new InMemoryLinkCodes()
+): Express {
   const app = express();
+
+  app.use(morgan("combined"));
+  app.use(express.urlencoded({ extended: false })); 
 
   app.use(express.static("./web/public"));
   app.engine("eta", Eta.renderFile);
@@ -44,18 +62,62 @@ function server(sonos: Sonos, bonobService: Service): Express {
     });
   });
 
+  app.get("/login", (req, res) => {
+    res.render("login", {
+      bonobService,
+      linkCode: req.query.linkCode
+    });
+  });
+
+  app.post("/login", (req, res) => {
+    const canLogIn = musicService.login({ username: req.body.username, password: req.body.password})
+    if(canLogIn)
+      res.send("ok")
+    else
+      res.send("boo")
+  });
+
+  app.get(STRINGS_PATH, (_, res) => {
+    res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
+<stringtables xmlns="http://sonos.com/sonosapi">
+    <stringtable rev="1" xml:lang="en-US">
+        <string stringId="AppLinkMessage">Linking sonos with bonob</string>
+    </stringtable>
+</stringtables>
+`);
+  });
+
+  app.get(PRESENTATION_MAP_PATH, (_, res) => {
+    res.send("");
+  });
+
   const sonosService = {
     Sonos: {
       SonosSoap: {
+        getAppLink: () => {
+          const linkCode = linkCodes.mint();
+          return {
+            getAppLinkResult: {
+              authorizeAccount: {
+                appUrlStringId: 'AppLinkMessage',
+                deviceLink: {
+                  regUrl: `${webAddress}/login?linkCode=${linkCode}`,
+                  linkCode: linkCode,
+                  showLinkCode: false,
+                },
+              },
+            }
+          };
+        },
         getSessionId: ({
-          username
+          username,
         }: {
           username: string;
           password: string;
         }) => {
           return Promise.resolve({
             username,
-            sessionId: '123'
+            sessionId: "123",
           });
         },
       },
@@ -64,7 +126,7 @@ function server(sonos: Sonos, bonobService: Service): Express {
 
   const x = listen(
     app,
-    "/ws",
+    SOAP_PATH,
     sonosService,
     readFileSync(WSDL_FILE, "utf8")
   );
@@ -72,16 +134,16 @@ function server(sonos: Sonos, bonobService: Service): Express {
   x.log = (type, data) => {
     switch (type) {
       case "info":
-        logger.info({ data });
+        logger.info({ level:"info", data });
         break;
       case "warn":
-        logger.warn({ data });
+        logger.warn({ level:"warn", data });
         break;
       case "error":
-        logger.error({ data });
+        logger.error({ level:"error", data });
         break;
       default:
-        logger.debug({ data });
+        logger.debug({ level:"debug", data });
     }
   };
 

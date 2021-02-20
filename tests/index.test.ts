@@ -2,11 +2,11 @@ import request from "supertest";
 import makeServer from "../src/server";
 import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
-import { aDevice, aService } from './builders';
+import { aDevice, aService, InMemoryMusicService } from './builders';
 
 describe("index", () => {
   describe("when sonos integration is disabled", () => {
-    const server = makeServer(SONOS_DISABLED, aService());
+    const server = makeServer(SONOS_DISABLED, aService(), 'http://localhost:1234', new InMemoryMusicService());
 
     describe("devices list", () => {
       it("should be empty", async () => {
@@ -58,7 +58,7 @@ describe("index", () => {
       register: () => Promise.resolve(false),
     };
 
-    const server = makeServer(fakeSonos, missingBonobService);
+    const server = makeServer(fakeSonos, missingBonobService, 'http://localhost:1234', new InMemoryMusicService());
 
     describe("devices list", () => {
       it("should contain the devices returned from sonos", async () => {
@@ -108,7 +108,7 @@ describe("index", () => {
       register: () => Promise.resolve(false),
     };
 
-    const server = makeServer(fakeSonos, bonobService);
+    const server = makeServer(fakeSonos, bonobService, 'http://localhost:1234', new InMemoryMusicService());
 
     describe("registration status", () => {
       it("should be registered", async () => {
