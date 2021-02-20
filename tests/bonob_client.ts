@@ -5,16 +5,19 @@ import sonos, { bonobService } from "../src/sonos";
 import server from "../src/server";
 
 import logger from "../src/logger";
+import { InMemoryMusicService } from "builders";
 
-const bonob = bonobService("bonob-test", 247, "http://localhost:1234");
-const app = server(sonos("disabled"), bonob);
+const WEB_ADDRESS = "http://localhost:1234"
+
+const bonob = bonobService("bonob-test", 247, WEB_ADDRESS, 'Anonymous');
+const app = server(sonos("disabled"), bonob, WEB_ADDRESS, new InMemoryMusicService());
 
 getPort().then((port) => {
   logger.debug(`Starting on port ${port}`);
   app.listen(port);
 
-  createClientAsync(`http://localhost:${port}/ws?wsdl`, {
-    endpoint: `http://localhost:${port}/ws`,
+  createClientAsync(`${bonob.uri}?wsdl`, {
+    endpoint: bonob.uri,
   }).then((client) => {
     client
       .getSessionIdAsync(

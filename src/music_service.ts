@@ -6,7 +6,17 @@ const navidrome = process.env["BONOB_NAVIDROME_URL"];
 const u = process.env["BONOB_USER"];
 const t = Md5.hashStr(`${process.env["BONOB_PASSWORD"]}${s}`);
 
-export class Navidrome {
+export type Credentials = { username: string, password: string }
+
+export interface MusicService {
+  login(credentials: Credentials): boolean
+}
+
+export class Navidrome implements MusicService {
+  login(_: Credentials) {
+    return false
+  }
+
   ping = (): Promise<boolean> =>
     axios
       .get(
@@ -18,3 +28,6 @@ export class Navidrome {
         return false;
       });
 }
+
+
+

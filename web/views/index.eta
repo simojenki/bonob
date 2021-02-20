@@ -1,7 +1,7 @@
 <% layout('./layout') %>
 
 <div id="content">
-  <h1>bonob</h1>
+  <h1>bonob service</h1>
   <h2><%= it.bonobService.name %> (<%= it.bonobService.sid %>)
   <h3>Expected config</h3>
   <div><%= JSON.stringify(it.bonobService) %></div>

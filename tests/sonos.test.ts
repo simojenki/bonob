@@ -122,7 +122,7 @@ describe("sonos", () => {
             version: "1",
           },
           pollInterval: 1200,
-          authType: "Anonymous",
+          authType: "AppLink",
         });
       });
     });
@@ -145,7 +145,30 @@ describe("sonos", () => {
             version: "1",
           },
           pollInterval: 1200,
-          authType: "Anonymous",
+          authType: "AppLink",
+        });
+      });
+    });
+
+    describe("when authType is specified", () => {
+      it("should return a valid bonob service", () => {
+        expect(
+          bonobService("some-bonob", 876, "http://bonob.example.com", 'DeviceLink')
+        ).toEqual({
+          name: "some-bonob",
+          sid: 876,
+          uri: `http://bonob.example.com/ws/sonos`,
+          secureUri: `http://bonob.example.com/ws/sonos`,
+          strings: {
+            uri: `http://bonob.example.com/sonos/strings.xml`,
+            version: "1",
+          },
+          presentation: {
+            uri: `http://bonob.example.com/sonos/presentationMap.xml`,
+            version: "1",
+          },
+          pollInterval: 1200,
+          authType: "DeviceLink",
         });
       });
     });
@@ -166,7 +189,7 @@ describe("sonos", () => {
             version: "27",
           },
           pollInterval: 5600,
-          authType: "SpecialAuth",
+          authType: "UserId",
         };
 
         expect(asCustomdForm(csrfToken, service)).toEqual({
@@ -176,7 +199,7 @@ describe("sonos", () => {
           uri: "http://aa.example.com",
           secureUri: "https://aa.example.com",
           pollInterval: "5600",
-          authType: "SpecialAuth",
+          authType: "UserId",
           stringsVersion: "26",
           stringsUri: "http://strings.example.com",
           presentationMapVersion: "27",
