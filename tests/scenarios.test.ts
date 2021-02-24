@@ -4,7 +4,8 @@ import { Express } from "express";
 import request from "supertest";
 
 import { GetAppLinkResult } from "../src/smapi";
-import { InMemoryMusicService, getAppLinkMessage } from "./builders";
+import { getAppLinkMessage } from "./builders";
+import { InMemoryMusicService } from "./in_memory_music_service";
 import { InMemoryLinkCodes } from "../src/link_codes";
 import { Credentials } from "../src/music_service";
 import makeServer from "../src/server";
@@ -53,13 +54,14 @@ class SonosDriver {
               .post(this.stripServiceRoot(regUrl))
               .type("form")
               .send({ username, password, linkCode })
-              .expect(200)
               .then(response => ({
                 expectSuccess: () => {
-                  expect(response.text).toContain("ok")
+                  expect(response.status).toEqual(200);
+                  expect(response.text).toContain("Login Successful")
                 },
                 expectFailure: () => {
-                  expect(response.text).toContain("boo")
+                  expect(response.status).toEqual(403);
+                  expect(response.text).toContain("Login failed")
                 },
               }));
           },

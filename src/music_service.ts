@@ -8,13 +8,27 @@ const t = Md5.hashStr(`${process.env["BONOB_PASSWORD"]}${s}`);
 
 export type Credentials = { username: string, password: string }
 
+export function isSuccess(authResult: AuthSuccess | AuthFailure): authResult is AuthSuccess {
+  return (authResult as AuthSuccess).authToken !== undefined;
+}
+
+export type AuthSuccess = {
+  authToken: string
+  userId: string
+  nickname: string  
+}
+
+export type AuthFailure = {
+  message: string
+}
+
 export interface MusicService {
-  login(credentials: Credentials): boolean
+  login(credentials: Credentials): AuthSuccess | AuthFailure
 }
 
 export class Navidrome implements MusicService {
-  login(_: Credentials) {
-    return false
+  login({ username }: Credentials) {
+    return { authToken: `${username}`, userId: username, nickname: username }
   }
 
   ping = (): Promise<boolean> =>

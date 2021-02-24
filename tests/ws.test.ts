@@ -1,7 +1,8 @@
 import makeServer from "../src/server";
 import { SONOS_DISABLED, SOAP_PATH } from "../src/sonos";
 
-import { aService, InMemoryMusicService } from "./builders";
+import { aService } from "./builders";
+import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from './supersoap';
 
 import { createClientAsync } from "soap";

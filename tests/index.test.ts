@@ -2,7 +2,8 @@ import request from "supertest";
 import makeServer from "../src/server";
 import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
-import { aDevice, aService, InMemoryMusicService } from './builders';
+import { aDevice, aService } from './builders';
+import { InMemoryMusicService } from "./in_memory_music_service";
 
 describe("index", () => {
   describe("when sonos integration is disabled", () => {
