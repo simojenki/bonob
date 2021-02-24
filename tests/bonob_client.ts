@@ -5,7 +5,7 @@ import sonos, { bonobService } from "../src/sonos";
 import server from "../src/server";
 
 import logger from "../src/logger";
-import { InMemoryMusicService } from "builders";
+import { InMemoryMusicService } from "./in_memory_music_service";
 
 const WEB_ADDRESS = "http://localhost:1234"
 
