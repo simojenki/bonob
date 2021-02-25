@@ -7,8 +7,8 @@ const randomInt = (max: number) => Math.floor(Math.random() * max);
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
 
 export const aService = (fields: Partial<Service> = {}): Service => ({
-  name: `Test Music Service ${uuid()}`,
   sid: randomInt(500),
+  name: `Test Music Service ${uuid()}`,
   uri: "https://sonos-test.example.com/",
   secureUri: "https://sonos-test.example.com/",
   strings: {

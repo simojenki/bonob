@@ -25,7 +25,7 @@ const WSDL_FILE = path.resolve(
 function server(
   sonos: Sonos,
   bonobService: Service,
-  webAddress: string | "http://localhost:1234",
+  webAddress: string | "http://localhost:4534",
   musicService: MusicService,
   linkCodes: LinkCodes = new InMemoryLinkCodes()
 ): Express {
@@ -58,8 +58,15 @@ function server(
 
   app.post("/register", (_, res) => {
     sonos.register(bonobService).then((success) => {
-      if (success) res.send("Yay");
-      else res.send("boo hoo");
+      if (success) {
+        res.render("success", {
+          message: `Successfully registered`,
+        });
+      } else {
+        res.status(500).render("failure", {
+          message: `Registration failed!`,
+        });
+      }
     });
   });
 
@@ -79,7 +86,9 @@ function server(
     if (isSuccess(authResult)) {
       if (linkCodes.has(linkCode)) {
         linkCodes.associate(linkCode, authResult);
-        res.render("loginOK");
+        res.render("success", {
+          message: `Login successful`,
+        });
       } else {
         res.status(400).render("failure", {
           message: `Invalid linkCode!`,
@@ -138,7 +147,7 @@ function server(
                     .update(association.userId)
                     .digest("hex"),
                 },
-                }
+              },
             };
           } else {
             throw {
@@ -147,10 +156,10 @@ function server(
                 faultstring: "Link Code not found retry...",
                 detail: {
                   ExceptionInfo: "NOT_LINKED_RETRY",
-                  SonosError: "5"
-                }
-              }
-            }
+                  SonosError: "5",
+                },
+              },
+            };
           }
         },
         getSessionId: ({

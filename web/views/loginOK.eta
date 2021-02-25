@@ -1,5 +1,0 @@
-<% layout('./layout', { title: "Login Successful" }) %>
-
-<div id="content">
-  <h1>Login successful</h1>
-</div>
