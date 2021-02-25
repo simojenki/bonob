@@ -175,7 +175,7 @@ describe("api", () => {
     describe("when there is a linkCode association", () => {
       it("should return a device auth token", async () => {
         const linkCode = linkCodes.mint();
-        const association = { authToken: "at", userId: "uid", nickname: "nn" };
+        const association = { authToken: { value: "at", version: "66" }, userId: "uid", nickname: "nn" };
         linkCodes.associate(linkCode, association);
 
         const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -187,8 +187,8 @@ describe("api", () => {
 
         expect(result[0]).toEqual({
           getDeviceAuthTokenResult: {
-            authToken: association.authToken,
-            privateKey: "v1",
+            authToken: association.authToken.value,
+            privateKey: association.authToken.version,
             userInfo: {
               nickname: association.nickname,
               userIdHashCode: crypto

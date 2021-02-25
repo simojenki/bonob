@@ -15,7 +15,7 @@ export class InMemoryMusicService implements MusicService {
       password != undefined &&
       this.users[username] == password
     ) {
-      return { authToken: "token123", userId: username, nickname: username };
+      return { authToken: { value: "token123", version: "1" }, userId: username, nickname: username };
     } else {
       return { message: `Invalid user:${username}` };
     }

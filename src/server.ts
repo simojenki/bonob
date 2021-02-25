@@ -129,8 +129,8 @@ function server(
           if (association) {
             return {
               getDeviceAuthTokenResult: {
-                authToken: association.authToken,
-                privateKey: "v1",
+                authToken: association.authToken.value,
+                privateKey: association.authToken.version,
                 userInfo: {
                   nickname: association.nickname,
                   userIdHashCode: crypto

@@ -1,5 +1,6 @@
 import axios from "axios";
 import { Md5 } from "ts-md5/dist/md5";
+import { AuthToken } from "./link_codes";
 
 const s = "foobar100";
 const navidrome = process.env["BONOB_NAVIDROME_URL"];
@@ -13,7 +14,7 @@ export function isSuccess(authResult: AuthSuccess | AuthFailure): authResult is 
 }
 
 export type AuthSuccess = {
-  authToken: string
+  authToken: AuthToken
   userId: string
   nickname: string  
 }
@@ -28,7 +29,7 @@ export interface MusicService {
 
 export class Navidrome implements MusicService {
   login({ username }: Credentials) {
-    return { authToken: `${username}`, userId: username, nickname: username }
+    return { authToken: { value: `${username}`, version: "1" }, userId: username, nickname: username }
   }
 
   ping = (): Promise<boolean> =>
