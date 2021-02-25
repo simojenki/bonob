@@ -57,7 +57,7 @@ class SonosDriver {
               .then(response => ({
                 expectSuccess: () => {
                   expect(response.status).toEqual(200);
-                  expect(response.text).toContain("Login Successful")
+                  expect(response.text).toContain("Login successful")
                 },
                 expectFailure: () => {
                   expect(response.status).toEqual(403);
@@ -95,7 +95,7 @@ describe("scenarios", () => {
       const username = "validuser";
       const password = "validpassword";
 
-      it("should successfully sign up", async () => {
+      it("should successfuly sign up", async () => {
         musicService.hasUser({ username, password });
 
         await sonosDriver
