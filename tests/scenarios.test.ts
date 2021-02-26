@@ -1,9 +1,9 @@
-import { createClientAsync } from "soap";
+import { createClientAsync, Client } from "soap";
 import { Express } from "express";
 
 import request from "supertest";
 
-import { GetAppLinkResult } from "../src/smapi";
+import { GetAppLinkResult, GetDeviceAuthTokenResult } from "../src/smapi";
 import { getAppLinkMessage } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import { InMemoryLinkCodes } from "../src/link_codes";
@@ -11,6 +11,16 @@ import { Credentials } from "../src/music_service";
 import makeServer from "../src/server";
 import { Service, bonobService, SONOS_DISABLED } from "../src/sonos";
 import supersoap from "./supersoap";
+
+class FooDriver {
+  client: Client;
+  token: GetDeviceAuthTokenResult;
+
+  constructor(client: Client, token: GetDeviceAuthTokenResult) {
+    this.client = client;
+    this.token = token;
+  }
+}
 
 class SonosDriver {
   server: Express;
@@ -36,37 +46,43 @@ class SonosDriver {
       .get(this.stripServiceRoot(this.service.presentation.uri!))
       .expect(200);
 
-    return createClientAsync(`${this.service.uri}?wsdl`, {
+    const client = await createClientAsync(`${this.service.uri}?wsdl`, {
       endpoint: this.service.uri,
       httpClient: supersoap(this.server, this.rootUrl),
-    }).then((client) =>
-      client
-        .getAppLinkAsync(getAppLinkMessage())
-        .then(
-          ([result]: [GetAppLinkResult]) =>
-            result.getAppLinkResult.authorizeAccount.deviceLink
-        )
-        .then(({ regUrl, linkCode }: { regUrl: string; linkCode: string }) => ({
-          login: async ({ username, password }: Credentials) => {
-            await request(this.server).get(this.stripServiceRoot(regUrl)).expect(200);
+    });
 
-            return request(this.server)
-              .post(this.stripServiceRoot(regUrl))
-              .type("form")
-              .send({ username, password, linkCode })
-              .then(response => ({
-                expectSuccess: () => {
-                  expect(response.status).toEqual(200);
-                  expect(response.text).toContain("Login successful")
-                },
-                expectFailure: () => {
-                  expect(response.status).toEqual(403);
-                  expect(response.text).toContain("Login failed")
-                },
-              }));
-          },
-        }))
-    );
+    return client
+      .getAppLinkAsync(getAppLinkMessage())
+      .then(
+        ([result]: [GetAppLinkResult]) =>
+          result.getAppLinkResult.authorizeAccount.deviceLink
+      )
+      .then(({ regUrl, linkCode }: { regUrl: string; linkCode: string }) => ({
+        login: async ({ username, password }: Credentials) => {
+          await request(this.server)
+            .get(this.stripServiceRoot(regUrl))
+            .expect(200);
+
+          return request(this.server)
+            .post(this.stripServiceRoot(regUrl))
+            .type("form")
+            .send({ username, password, linkCode })
+            .then((response) => ({
+              expectSuccess: async () => {
+                expect(response.status).toEqual(200);
+                expect(response.text).toContain("Login successful");
+
+                return client
+                  .getDeviceAuthTokenAsync({ linkCode })
+                  .then((authToken: [GetDeviceAuthTokenResult, any]) => new FooDriver(client, authToken[0]));
+              },
+              expectFailure: () => {
+                expect(response.status).toEqual(403);
+                expect(response.text).toContain("Login failed");
+              },
+            }));
+        },
+      }));
   }
 }
 
