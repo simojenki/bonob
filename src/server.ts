@@ -1,26 +1,17 @@
 import express, { Express } from "express";
 import * as Eta from "eta";
-import { listen } from "soap";
-import { readFileSync } from "fs";
-import path from "path";
 import morgan from "morgan";
-import crypto from "crypto";
 
 import {
   Sonos,
   Service,
-  SOAP_PATH,
-  STRINGS_PATH,
-  PRESENTATION_MAP_PATH,
 } from "./sonos";
+import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE, LOGIN_ROUTE } from './smapi';
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
-import logger from "./logger";
+// import logger from "./logger";
+import bindSmapiSoapServiceToExpress from "./smapi";
 
-const WSDL_FILE = path.resolve(
-  __dirname,
-  "Sonoswsdl-1.19.4-20190411.142401-3.wsdl"
-);
 
 function server(
   sonos: Sonos,
@@ -70,14 +61,15 @@ function server(
     });
   });
 
-  app.get("/login", (req, res) => {
+  app.get(LOGIN_ROUTE, (req, res) => {
     res.render("login", {
       bonobService,
       linkCode: req.query.linkCode,
+      loginRoute: LOGIN_ROUTE
     });
   });
 
-  app.post("/login", (req, res) => {
+  app.post(LOGIN_ROUTE, (req, res) => {
     const { username, password, linkCode } = req.body;
     const authResult = musicService.login({
       username,
@@ -101,7 +93,7 @@ function server(
     }
   });
 
-  app.get(STRINGS_PATH, (_, res) => {
+  app.get(STRINGS_ROUTE, (_, res) => {
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
 <stringtables xmlns="http://sonos.com/sonosapi">
     <stringtable rev="1" xml:lang="en-US">
@@ -111,94 +103,11 @@ function server(
 `);
   });
 
-  app.get(PRESENTATION_MAP_PATH, (_, res) => {
+  app.get(PRESENTATION_MAP_ROUTE, (_, res) => {
     res.send("");
   });
 
-  const sonosService = {
-    Sonos: {
-      SonosSoap: {
-        getAppLink: () => {
-          const linkCode = linkCodes.mint();
-          return {
-            getAppLinkResult: {
-              authorizeAccount: {
-                appUrlStringId: "AppLinkMessage",
-                deviceLink: {
-                  regUrl: `${webAddress}/login?linkCode=${linkCode}`,
-                  linkCode: linkCode,
-                  showLinkCode: false,
-                },
-              },
-            },
-          };
-        },
-        getDeviceAuthToken: ({ linkCode }: { linkCode: string }) => {
-          const association = linkCodes.associationFor(linkCode);
-          if (association) {
-            return {
-              getDeviceAuthTokenResult: {
-                authToken: association.authToken.value,
-                privateKey: association.authToken.version,
-                userInfo: {
-                  nickname: association.nickname,
-                  userIdHashCode: crypto
-                    .createHash("sha256")
-                    .update(association.userId)
-                    .digest("hex"),
-                },
-              },
-            };
-          } else {
-            throw {
-              Fault: {
-                faultcode: "Client.NOT_LINKED_RETRY",
-                faultstring: "Link Code not found retry...",
-                detail: {
-                  ExceptionInfo: "NOT_LINKED_RETRY",
-                  SonosError: "5",
-                },
-              },
-            };
-          }
-        },
-        getSessionId: ({
-          username,
-        }: {
-          username: string;
-          password: string;
-        }) => {
-          return Promise.resolve({
-            username,
-            sessionId: "123",
-          });
-        },
-      },
-    },
-  };
-
-  const x = listen(
-    app,
-    SOAP_PATH,
-    sonosService,
-    readFileSync(WSDL_FILE, "utf8")
-  );
-
-  x.log = (type, data) => {
-    switch (type) {
-      case "info":
-        logger.info({ level: "info", data });
-        break;
-      case "warn":
-        logger.warn({ level: "warn", data });
-        break;
-      case "error":
-        logger.error({ level: "error", data });
-        break;
-      default:
-        logger.debug({ level: "debug", data });
-    }
-  };
+  bindSmapiSoapServiceToExpress(app, SOAP_PATH, webAddress, linkCodes);
 
   return app;
 }

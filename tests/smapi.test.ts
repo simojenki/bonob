@@ -7,7 +7,8 @@ import * as xpath from "xpath-ts";
 
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import makeServer from "../src/server";
-import { bonobService, SONOS_DISABLED, STRINGS_PATH } from "../src/sonos";
+import { bonobService, SONOS_DISABLED } from "../src/sonos";
+import { STRINGS_ROUTE, LOGIN_ROUTE } from "../src/smapi";
 
 import { aService, getAppLinkMessage } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
@@ -26,7 +27,7 @@ describe("service config", () => {
     );
 
     it("should return xml for the strings", async () => {
-      const res = await request(server).get(STRINGS_PATH).send();
+      const res = await request(server).get(STRINGS_ROUTE).send();
 
       expect(res.status).toEqual(200);
 
@@ -61,7 +62,7 @@ describe("api", () => {
       linkCodes
     );
 
-    describe("/login", () => {
+    describe(LOGIN_ROUTE, () => {
       describe("when the credentials are valid", () => {
         it("should return 200 ok and have associated linkCode with user", async () => {
           const username = "jane";
@@ -71,7 +72,7 @@ describe("api", () => {
           musicService.hasUser({ username, password });
 
           const res = await request(server)
-            .post("/login")
+            .post(LOGIN_ROUTE)
             .type("form")
             .send({ username, password, linkCode })
             .expect(200);
@@ -92,7 +93,7 @@ describe("api", () => {
           musicService.hasNoUsers();
 
           const res = await request(server)
-            .post("/login")
+            .post(LOGIN_ROUTE)
             .type("form")
             .send({ username, password, linkCode })
             .expect(403);
@@ -110,7 +111,7 @@ describe("api", () => {
           musicService.hasUser({ username, password });
 
           const res = await request(server)
-            .post("/login")
+            .post(LOGIN_ROUTE)
             .type("form")
             .send({ username, password, linkCode })
             .expect(400);
@@ -160,69 +161,71 @@ describe("api", () => {
         });
       });
     });
-  });
 
-  describe("getDeviceAuthToken", () => {
-    const linkCodes = new InMemoryLinkCodes();
-    const server = makeServer(
-      SONOS_DISABLED,
-      service,
-      rootUrl,
-      musicService,
-      linkCodes
-    );
-
-    describe("when there is a linkCode association", () => {
-      it("should return a device auth token", async () => {
-        const linkCode = linkCodes.mint();
-        const association = { authToken: { value: "at", version: "66" }, userId: "uid", nickname: "nn" };
-        linkCodes.associate(linkCode, association);
-
-        const ws = await createClientAsync(`${service.uri}?wsdl`, {
-          endpoint: service.uri,
-          httpClient: supersoap(server, rootUrl),
-        });
-
-        const result = await ws.getDeviceAuthTokenAsync({ linkCode });
-
-        expect(result[0]).toEqual({
-          getDeviceAuthTokenResult: {
-            authToken: association.authToken.value,
-            privateKey: association.authToken.version,
-            userInfo: {
-              nickname: association.nickname,
-              userIdHashCode: crypto
-                .createHash("sha256")
-                .update(association.userId)
-                .digest("hex"),
-            },
-          },
-        });
-      });
-    });
-
-    describe("when there is no linkCode association", () => {
-      it("should return a device auth token", async () => {
-        const linkCode = "invalidLinkCode";
-
-        const ws = await createClientAsync(`${service.uri}?wsdl`, {
-          endpoint: service.uri,
-          httpClient: supersoap(server, rootUrl),
-        });
-
-        await ws
-          .getDeviceAuthTokenAsync({ linkCode })
-          .then(() => {
-            throw "Shouldnt get here";
-          })
-          .catch((e: any) => {
-            expect(e.root.Envelope.Body.Fault).toEqual({
-              faultcode: "Client.NOT_LINKED_RETRY",
-              faultstring: "Link Code not found retry...",
-              detail: { ExceptionInfo: "NOT_LINKED_RETRY", SonosError: "5" },
-            });
+    describe("getDeviceAuthToken", () => {
+      const linkCodes = new InMemoryLinkCodes();
+      const server = makeServer(
+        SONOS_DISABLED,
+        service,
+        rootUrl,
+        musicService,
+        linkCodes
+      );
+  
+      describe("when there is a linkCode association", () => {
+        it("should return a device auth token", async () => {
+          const linkCode = linkCodes.mint();
+          const association = { authToken: { value: "at", version: "66" }, userId: "uid", nickname: "nn" };
+          linkCodes.associate(linkCode, association);
+  
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
           });
+  
+          const result = await ws.getDeviceAuthTokenAsync({ linkCode });
+  
+          expect(result[0]).toEqual({
+            getDeviceAuthTokenResult: {
+              authToken: association.authToken.value,
+              privateKey: association.authToken.version,
+              userInfo: {
+                nickname: association.nickname,
+                userIdHashCode: crypto
+                  .createHash("sha256")
+                  .update(association.userId)
+                  .digest("hex"),
+              },
+            },
+          });
+        });
+      });
+  
+      describe("when there is no linkCode association", () => {
+        it("should return a device auth token", async () => {
+          const linkCode = "invalidLinkCode";
+  
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+  
+          await ws
+            .getDeviceAuthTokenAsync({ linkCode })
+            .then(() => {
+              throw "Shouldnt get here";
+            })
+            .catch((e: any) => {
+              expect(e.root.Envelope.Body.Fault).toEqual({
+                faultcode: "Client.NOT_LINKED_RETRY",
+                faultstring: "Link Code not found retry...",
+                detail: { ExceptionInfo: "NOT_LINKED_RETRY", SonosError: "5" },
+              });
+            });
+        });
       });
     });
+  
   });
+
 });

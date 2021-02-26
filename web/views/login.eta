@@ -2,7 +2,7 @@
 
 <div id="content">
   <h1>Log in to <%= it.bonobService.name %></h1>
-  <form action="/login" method="POST">
+  <form action="<%= it.loginRoute %>" method="POST">
     <label for="username">Username:</label><input type="text" id="username" name="username"><br>
     <label for="password">Password:</label><input type="text" id="password" name="password"><br>
     <input type="hidden" name="linkCode" value="<%= it.linkCode %>">

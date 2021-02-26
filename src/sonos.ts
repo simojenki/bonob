@@ -5,10 +5,7 @@ import { MusicService } from "@svrooij/sonos/lib/services";
 import { head } from "underscore";
 import logger from "./logger";
 import STRINGS from './strings';
-
-export const SOAP_PATH = "/ws/sonos";
-export const STRINGS_PATH = "/sonos/strings.xml";
-export const PRESENTATION_MAP_PATH = "/sonos/presentationMap.xml";
+import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from './smapi';
 
 export type Device = {
   name: string;
@@ -42,11 +39,11 @@ export const bonobService = (
   uri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
   secureUri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
   strings: {
-    uri: `${stripTailingSlash(bonobRoot)}${STRINGS_PATH}`,
+    uri: `${stripTailingSlash(bonobRoot)}${STRINGS_ROUTE}`,
     version: STRINGS.version,
   },
   presentation: {
-    uri: `${stripTailingSlash(bonobRoot)}${PRESENTATION_MAP_PATH}`,
+    uri: `${stripTailingSlash(bonobRoot)}${PRESENTATION_MAP_ROUTE}`,
     version: "1",
   },
   pollInterval: 1200,
