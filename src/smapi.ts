@@ -71,7 +71,7 @@ class SonosSoap {
     if (association) {
       return {
         getDeviceAuthTokenResult: {
-          authToken: association.authToken.value,
+          authToken: association.authToken,
           privateKey: "",
           userInfo: {
             nickname: association.nickname,
