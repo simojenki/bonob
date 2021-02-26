@@ -1,12 +1,8 @@
 import { v4 as uuid } from 'uuid';
 
-export type AuthToken = {
-  value: string,
-  version: string
-}
 
 export type Association = {
-  authToken: AuthToken
+  authToken: string
   userId: string
   nickname: string  
 }

@@ -72,7 +72,7 @@ class SonosSoap {
       return {
         getDeviceAuthTokenResult: {
           authToken: association.authToken.value,
-          privateKey: association.authToken.version,
+          privateKey: "",
           userInfo: {
             nickname: association.nickname,
             userIdHashCode: crypto
