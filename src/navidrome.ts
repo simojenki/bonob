@@ -9,6 +9,14 @@ import randomString from "./random_string";
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
 
+export const t_and_s = (password: string) => {
+  const s = randomString();
+  return {
+    t: t(password, s),
+    s,
+  };
+};
+
 export type SubconicEnvelope = {
   "subsonic-response": SubsonicResponse;
 };
@@ -43,39 +51,32 @@ export class Navidrome implements MusicService {
     { username, password }: Credentials,
     path: string,
     q: {} = {}
-  ): Promise<SubsonicResponse> => {
-    const s = randomString();
-    return axios
+  ): Promise<SubsonicResponse> =>
+    axios
       .get(`${this.url}${path}`, {
         params: {
           ...q,
           u: username,
-          t: t(password, s),
-          s: s,
+          ...t_and_s(password),
           v: "1.16.1",
           c: "bonob",
         },
       })
       .then((response) => new X2JS().xml2js(response.data) as SubconicEnvelope)
-      .then((json) => json["subsonic-response"]);
-  };
-
-  generateToken = async (credentials: Credentials) => {
-    return this.get(credentials, "/rest/ping.view")
+      .then((json) => json["subsonic-response"])
       .then((json) => {
         if (isError(json)) throw json.error._message;
         else return json;
-      })
-      .then((_) => {
-        return {
-          authToken: Buffer.from(
-            JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
-          ).toString("base64"),
-          userId: credentials.username,
-          nickname: credentials.username,
-        };
       });
-  };
+
+  generateToken = async (credentials: Credentials) =>
+    this.get(credentials, "/rest/ping.view").then((_) => ({
+      authToken: Buffer.from(
+        JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
+      ).toString("base64"),
+      userId: credentials.username,
+      nickname: credentials.username,
+    }));
 
   parseToken = (token: string): Credentials =>
     JSON.parse(
