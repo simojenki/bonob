@@ -1,5 +1,5 @@
 import { Md5 } from "ts-md5/dist/md5";
-import { Credentials, MusicService } from "./music_service";
+import { Credentials, MusicService, Paging, Album, Artist } from "./music_service";
 import X2JS from "x2js";
 
 import axios from "axios";
@@ -25,6 +25,15 @@ export type SubsonicResponse = {
   _status: string;
 };
 
+export type GetArtistsResponse = SubsonicResponse & {
+  artists: {
+    index: {
+      artist: { _id: string; _name: string; _albumCount: string }[];
+      _name: string;
+    }[];
+  };
+};
+
 export type SubsonicError = SubsonicResponse & {
   error: {
     _code: string;
@@ -47,11 +56,11 @@ export class Navidrome implements MusicService {
     this.encryption = encryption;
   }
 
-  get = async (
+  get = async <T>(
     { username, password }: Credentials,
     path: string,
     q: {} = {}
-  ): Promise<SubsonicResponse> =>
+  ): Promise<T> =>
     axios
       .get(`${this.url}${path}`, {
         params: {
@@ -66,11 +75,11 @@ export class Navidrome implements MusicService {
       .then((json) => json["subsonic-response"])
       .then((json) => {
         if (isError(json)) throw json.error._message;
-        else return json;
+        else return (json as unknown) as T;
       });
 
   generateToken = async (credentials: Credentials) =>
-    this.get(credentials, "/rest/ping.view").then((_) => ({
+    this.get(credentials, "/rest/ping.view").then(() => ({
       authToken: Buffer.from(
         JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
       ).toString("base64"),
@@ -85,17 +94,33 @@ export class Navidrome implements MusicService {
       )
     );
 
-  async login(_: string) {
-    // const credentials: Credentials = this.parseToken(token);
+  async login(token: string) {
+    const navidrome = this;
+    const credentials: Credentials = this.parseToken(token);
     return Promise.resolve({
-      artists: () => [],
+      artists: ({ _index, _count }: Paging): Promise<[Artist[], number]> =>
+        navidrome
+          .get<GetArtistsResponse>(credentials, "/rest/getArtists")
+          .then((it) => it.artists.index.flatMap((it) => it.artist))
+          .then((artists) =>
+            artists.map((it) => ({ id: it._id, name: it._name }))
+          )
+          .then((artists) => {
+            const i0 = _index || 0;
+            const i1 = _count ? i0 + _count : undefined;
+            return [artists.slice(i0, i1), artists.length];
+          }),
       artist: (id: string) => ({
         id,
         name: id,
       }),
-      albums: ({ artistId }: { artistId?: string }) => {
+      albums: ({
+        artistId,
+      }: {
+        artistId?: string;
+      } & Paging): Promise<[Album[], number]> => {
         console.log(artistId);
-        return [];
+        return Promise.resolve([[], 0]);
       },
     });
   }

@@ -18,7 +18,7 @@ const app = server(
   sonos(process.env["BONOB_SONOS_SEED_HOST"]),
   bonob,
   WEB_ADDRESS,
-  new Navidrome(process.env["BONOB_NAVIDROME_URL"] || "http://localhost:4533", encryption())
+  new Navidrome(process.env["BONOB_NAVIDROME_URL"] || "http://localhost:4533", encryption(process.env["BONOB_SECRET"] || "bonob"))
 );
 
 app.listen(PORT, () => {

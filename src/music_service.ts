@@ -1,4 +1,3 @@
-
 export type Credentials = { username: string; password: string };
 
 export function isSuccess(
@@ -38,8 +37,19 @@ export type Album = {
   name: string;
 };
 
+export type Paging = {
+  _index?: number;
+  _count?: number;
+};
+
 export interface MusicLibrary {
-  artists(): Artist[];
+  artists({ _index, _count }: Paging): Promise<[Artist[], number]>;
   artist(id: string): Artist;
-  albums({ artistId, _index, _count }: { artistId?: string, _index?: number, _count?: number }): Album[];
+  albums({
+    artistId,
+    _index,
+    _count,
+  }: {
+    artistId?: string;
+  } & Paging): Promise<[Album[], number]>;
 }

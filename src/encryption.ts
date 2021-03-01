@@ -1,8 +1,7 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from "crypto";
 
 const ALGORITHM = "aes-256-cbc"
 const IV = randomBytes(16);
-const KEY = randomBytes(32);
 
 export type Hash = {
   iv: string,
@@ -14,17 +13,18 @@ export type Encryption = {
   decrypt: (hash: Hash) => string
 }
 
-const encryption = (): Encryption => {
+const encryption = (secret: string): Encryption => {
+  const key = createHash('sha256').update(String(secret)).digest('base64').substr(0, 32);
   return {
     encrypt: (value: string) => {
-      const cipher = createCipheriv(ALGORITHM, KEY, IV);
+      const cipher = createCipheriv(ALGORITHM, key, IV);
       return { 
         iv: IV.toString("hex"), 
         encryptedData: Buffer.concat([cipher.update(value), cipher.final()]).toString("hex") 
       };
     },
     decrypt: (hash: Hash) => {
-      const decipher = createDecipheriv(ALGORITHM, KEY, Buffer.from(hash.iv, 'hex'));
+      const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(hash.iv, 'hex'));
       return Buffer.concat([decipher.update(Buffer.from(hash.encryptedData, 'hex')), decipher.final()]).toString();
     }
   }

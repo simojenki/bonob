@@ -61,11 +61,11 @@ export function someCredentials(token: string): Credentials {
   return {
     loginToken: {
       token,
-      householdId: "hh1"
+      householdId: "hh1",
     },
     deviceId: "d1",
-    deviceProvider: "dp1"
-  }
+    deviceProvider: "dp1",
+  };
 }
 
 export type ArtistWithAlbums = Artist & {
@@ -96,3 +96,25 @@ export const MADONNA: ArtistWithAlbums = {
   name: "Madonna",
   albums: [],
 };
+
+export const METALLICA: ArtistWithAlbums = {
+  id: uuid(),
+  name: "Metallica",
+  albums: [
+    {
+      id: uuid(),
+      name: "Ride the Lightening",
+    },
+    {
+      id: uuid(),
+      name: "Master of Puppets",
+    },
+  ],
+};
+
+export const ALL_ALBUMS = [
+  ...BOB_MARLEY.albums,
+  ...BLONDIE.albums,
+  ...MADONNA.albums,
+  ...METALLICA.albums,
+];
