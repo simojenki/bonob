@@ -10,6 +10,8 @@ import {
   Artist,
   MusicLibrary,
   Paging,
+  slice2,
+  asResult,
 } from "../src/music_service";
 
 const artistWithAlbumsToArtist = (it: ArtistWithAlbums): Artist => ({
@@ -55,12 +57,10 @@ export class InMemoryMusicService implements MusicService {
     if (this.users[credentials.username] != credentials.password)
       return Promise.reject("Invalid auth token");
     return Promise.resolve({
-      artists: ({ _index, _count }: Paging) => {
-        const i0 = _index || 0;
-        const i1 = _count ? i0 + _count : undefined;
-        const artists = this.artists.map(artistWithAlbumsToArtist);
-        return Promise.resolve([artists.slice(i0, i1), artists.length]);
-      },
+      artists: (paging: Paging) =>
+        Promise.resolve(this.artists.map(artistWithAlbumsToArtist))
+          .then(slice2(paging))
+          .then(asResult),
       artist: (id: string) =>
         pipe(
           this.artists.find((it) => it.id === id),
@@ -76,20 +76,19 @@ export class InMemoryMusicService implements MusicService {
         artistId?: string;
         _index?: number;
         _count?: number;
-      }) => {
-        const i0 = _index || 0;
-        const i1 = _count ? i0 + _count : undefined;
-        const albums = this.artists
-          .filter(
+      }) =>
+        Promise.resolve(
+          this.artists.filter(
             pipe(
               O.fromNullable(artistId),
               O.map(artistWithId),
               O.getOrElse(() => all)
             )
           )
-          .flatMap((it) => it.albums);
-        return Promise.resolve([albums.slice(i0, i1), albums.length]);
-      },
+        )
+          .then((artists) => artists.flatMap((it) => it.albums))
+          .then(slice2({ _index, _count }))
+          .then(asResult),
     });
   }
 

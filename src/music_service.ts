@@ -42,8 +42,21 @@ export type Paging = {
   _count?: number;
 };
 
+export type Result<T> = {
+  results: T[],
+  total: number
+}
+
+export function slice2<T>({ _index, _count }: Paging) {
+  const i0 = _index || 0;
+  const i1 = _count ? i0 + _count : undefined;
+  return (things: T[]): [T[], number] => [things.slice(i0, i1), things.length]
+}
+
+export const asResult = <T>([results, total]: [T[], number]) => ({ results, total })
+
 export interface MusicLibrary {
-  artists({ _index, _count }: Paging): Promise<[Artist[], number]>;
+  artists({ _index, _count }: Paging): Promise<Result<Artist>>;
   artist(id: string): Artist;
   albums({
     artistId,
@@ -51,5 +64,5 @@ export interface MusicLibrary {
     _count,
   }: {
     artistId?: string;
-  } & Paging): Promise<[Album[], number]>;
+  } & Paging): Promise<Result<Album>>;
 }

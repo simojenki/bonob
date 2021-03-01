@@ -1,5 +1,5 @@
 import { Md5 } from "ts-md5/dist/md5";
-import { Credentials, MusicService, Paging, Album, Artist } from "./music_service";
+import { Credentials, MusicService, Paging, Album, Artist, Result, slice2, asResult } from "./music_service";
 import X2JS from "x2js";
 
 import axios from "axios";
@@ -98,18 +98,15 @@ export class Navidrome implements MusicService {
     const navidrome = this;
     const credentials: Credentials = this.parseToken(token);
     return Promise.resolve({
-      artists: ({ _index, _count }: Paging): Promise<[Artist[], number]> =>
+      artists: (paging: Paging): Promise<Result<Artist>> =>
         navidrome
           .get<GetArtistsResponse>(credentials, "/rest/getArtists")
           .then((it) => it.artists.index.flatMap((it) => it.artist))
           .then((artists) =>
             artists.map((it) => ({ id: it._id, name: it._name }))
           )
-          .then((artists) => {
-            const i0 = _index || 0;
-            const i1 = _count ? i0 + _count : undefined;
-            return [artists.slice(i0, i1), artists.length];
-          }),
+          .then(slice2(paging))
+          .then(asResult),
       artist: (id: string) => ({
         id,
         name: id,
@@ -118,9 +115,9 @@ export class Navidrome implements MusicService {
         artistId,
       }: {
         artistId?: string;
-      } & Paging): Promise<[Album[], number]> => {
+      } & Paging): Promise<Result<Album>> => {
         console.log(artistId);
-        return Promise.resolve([[], 0]);
+        return Promise.resolve({ results: [], total: 0});
       },
     });
   }

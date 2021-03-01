@@ -6,7 +6,7 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import { MusicLibrary, MusicService } from "./music_service";
+import { Artist, MusicLibrary, MusicService } from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -227,9 +227,9 @@ function bindSmapiSoapServiceToExpress(
               case "artists":
                 return await musicLibrary
                   .artists(paging)
-                  .then(([artists, total]) =>
+                  .then(({ results, total }: { results: Artist[], total: number}) =>
                     getMetadataResult({
-                      mediaCollection: artists.map((it) =>
+                      mediaCollection: results.map((it) =>
                         container({
                           id: `artist:${it.id}`,
                           title: it.name,
@@ -242,9 +242,9 @@ function bindSmapiSoapServiceToExpress(
               case "albums":
                 return await musicLibrary
                   .albums(paging)
-                  .then(([albums, total]) =>
+                  .then(({ results, total }: { results: Artist[], total: number}) =>
                     getMetadataResult({
-                      mediaCollection: albums.map((it) =>
+                      mediaCollection: results.map((it) =>
                         container({
                           id: `album:${it.id}`,
                           title: it.name,
