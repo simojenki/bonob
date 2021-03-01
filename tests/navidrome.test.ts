@@ -51,10 +51,16 @@ describe("navidrome", () => {
         expect(token.userId).toEqual(username);
 
         expect(axios.get).toHaveBeenCalledWith(
-          `${url}/rest/ping.view?u=${username}&t=${t(
-            password,
-            salt
-          )}&s=${salt}&v=1.16.1.0&c=bonob`
+          `${url}/rest/ping.view`,
+          {
+            params: {
+              u: username,
+              t: t(password, salt),
+              s: salt,
+              v: "1.16.1",
+              c: "bonob",
+            },
+          }
         );
       });
     });
@@ -68,7 +74,9 @@ describe("navidrome", () => {
                  </subsonic-response>`,
         });
 
-        return expect(navidrome.generateToken({ username, password })).rejects.toMatch("Wrong username or password");
+        return expect(
+          navidrome.generateToken({ username, password })
+        ).rejects.toMatch("Wrong username or password");
       });
     });
   });

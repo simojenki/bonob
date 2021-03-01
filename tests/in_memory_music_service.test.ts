@@ -22,7 +22,7 @@ describe("InMemoryMusicService", () => {
       expect(musicLibrary).toBeDefined();
     });
 
-    it.only("should fail with an exception if an invalid token is used", async () => {
+    it("should fail with an exception if an invalid token is used", async () => {
       const credentials = { username: "bob", password: "smith" };
 
       service.hasUser(credentials);

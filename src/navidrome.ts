@@ -39,17 +39,29 @@ export class Navidrome implements MusicService {
     this.encryption = encryption;
   }
 
-  generateToken = async ({ username, password }: Credentials) => {
+  get = async (
+    { username, password }: Credentials,
+    path: string,
+    q: {} = {}
+  ): Promise<SubsonicResponse> => {
     const s = randomString();
     return axios
-      .get(
-        `${this.url}/rest/ping.view?u=${username}&t=${t(
-          password,
-          s
-        )}&s=${s}&v=1.16.1.0&c=bonob`
-      )
+      .get(`${this.url}${path}`, {
+        params: {
+          ...q,
+          u: username,
+          t: t(password, s),
+          s: s,
+          v: "1.16.1",
+          c: "bonob",
+        },
+      })
       .then((response) => new X2JS().xml2js(response.data) as SubconicEnvelope)
-      .then((json) => json["subsonic-response"])
+      .then((json) => json["subsonic-response"]);
+  };
+
+  generateToken = async (credentials: Credentials) => {
+    return this.get(credentials, "/rest/ping.view")
       .then((json) => {
         if (isError(json)) throw json.error._message;
         else return json;
@@ -57,12 +69,10 @@ export class Navidrome implements MusicService {
       .then((_) => {
         return {
           authToken: Buffer.from(
-            JSON.stringify(
-              this.encryption.encrypt(JSON.stringify({ username, password }))
-            )
+            JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
           ).toString("base64"),
-          userId: username,
-          nickname: username,
+          userId: credentials.username,
+          nickname: credentials.username,
         };
       });
   };
