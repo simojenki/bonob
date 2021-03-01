@@ -114,7 +114,7 @@ describe("navidrome", () => {
           { id: "3c5113007a6b11eb87173bfb9b07f9b1", name: "AAAB" },
           { id: "3ca781c27a6b11eb897ebbb5773603ad", name: "BAAB" },
         ];
-        expect(artists).toEqual([expectedArtists, 4]);
+        expect(artists).toEqual({ results: expectedArtists, total: 4 });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
           params: authParams,
@@ -133,7 +133,7 @@ describe("navidrome", () => {
           { id: "3c0b9d7a7a6b11eb9773f398e6236ad6", name: "1200 Ounces" },
           { id: "3c5113007a6b11eb87173bfb9b07f9b1", name: "AAAB" },
         ];
-        expect(artists).toEqual([expectedArtists, 4]);
+        expect(artists).toEqual({ results: expectedArtists, total: 4 });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
           params: authParams,
