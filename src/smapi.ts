@@ -6,7 +6,7 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import {  MusicLibrary, MusicService } from "./music_service";
+import { MusicLibrary, MusicService } from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -64,14 +64,18 @@ export type GetMetadataResponse = {
 
 export function getMetadataResult({
   mediaCollection,
+  index,
+  total,
 }: {
   mediaCollection: any[] | undefined;
+  index: number;
+  total: number;
 }): GetMetadataResponse {
   return {
     getMetadataResult: {
       count: mediaCollection?.length || 0,
-      index: 0,
-      total: mediaCollection?.length || 0,
+      index,
+      total,
       mediaCollection: mediaCollection || [],
     },
   };
@@ -181,8 +185,8 @@ function bindSmapiSoapServiceToExpress(
               id,
               index,
               count,
-              // recursive,
-            }: { id: string; index: number; count: number; recursive: boolean },
+            }: // recursive,
+            { id: string; index: number; count: number; recursive: boolean },
             _,
             headers?: SoapyHeaders
           ) => {
@@ -194,21 +198,22 @@ function bindSmapiSoapServiceToExpress(
                 },
               };
             }
-            const login = await musicService.login(
-              headers.credentials.loginToken.token
-            ).catch(_ => {
-              throw {
-                Fault: {
-                  faultcode: "Client.LoginUnauthorized",
-                  faultstring: "Credentials not found...",
-                },
-              };
-            });
+            const login = await musicService
+              .login(headers.credentials.loginToken.token)
+              .catch((_) => {
+                throw {
+                  Fault: {
+                    faultcode: "Client.LoginUnauthorized",
+                    faultstring: "Credentials not found...",
+                  },
+                };
+              });
 
             const musicLibrary = login as MusicLibrary;
 
-            // const [type, typeId] = id.split(":");
-            const type = id;
+            const [type, typeId] = id.split(":");
+            const paging = { _index: index, _count: count };
+            logger.debug(`Fetching type=${type}, typeId=${typeId}`);
             switch (type) {
               case "root":
                 return getMetadataResult({
@@ -216,27 +221,39 @@ function bindSmapiSoapServiceToExpress(
                     container({ id: "artists", title: "Artists" }),
                     container({ id: "albums", title: "Albums" }),
                   ],
+                  index: 0,
+                  total: 2,
                 });
               case "artists":
-                return getMetadataResult({
-                  mediaCollection: musicLibrary.artists().map((it) =>
-                    container({
-                      id: `artist:${it.id}`,
-                      title: it.name,
+                return await musicLibrary
+                  .artists(paging)
+                  .then(([artists, total]) =>
+                    getMetadataResult({
+                      mediaCollection: artists.map((it) =>
+                        container({
+                          id: `artist:${it.id}`,
+                          title: it.name,
+                        })
+                      ),
+                      index: paging._index,
+                      total,
                     })
-                  ),
-                });
+                  );
               case "albums":
-                return getMetadataResult({
-                  mediaCollection: musicLibrary
-                    .albums({ _index: index, _count: count })
-                    .map((it) =>
-                      container({
-                        id: `album:${it.id}`,
-                        title: it.name,
-                      })
-                    ),
-                });
+                return await musicLibrary
+                  .albums(paging)
+                  .then(([albums, total]) =>
+                    getMetadataResult({
+                      mediaCollection: albums.map((it) =>
+                        container({
+                          id: `album:${it.id}`,
+                          title: it.name,
+                        })
+                      ),
+                      index: paging._index,
+                      total,
+                    })
+                  );
               default:
                 throw `Unsupported id:${id}`;
             }

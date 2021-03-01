@@ -42,7 +42,9 @@ describe("service config", () => {
         arrayAccessFormPaths: ["stringtables", "stringtables.stringtable"],
       }).xml2js(res.text);
 
-      expect(strings.stringtables.stringtable[0].string[0]._stringId).toEqual("AppLinkMessage")
+      expect(strings.stringtables.stringtable[0].string[0]._stringId).toEqual(
+        "AppLinkMessage"
+      );
     });
   });
 });
@@ -50,11 +52,15 @@ describe("service config", () => {
 describe("getMetadataResult", () => {
   describe("when there are a zero mediaCollections", () => {
     it("should have zero count", () => {
-      const result = getMetadataResult({ mediaCollection: [] });
+      const result = getMetadataResult({
+        mediaCollection: [],
+        index: 33,
+        total: 99,
+      });
 
       expect(result.getMetadataResult.count).toEqual(0);
-      expect(result.getMetadataResult.index).toEqual(0);
-      expect(result.getMetadataResult.total).toEqual(0);
+      expect(result.getMetadataResult.index).toEqual(33);
+      expect(result.getMetadataResult.total).toEqual(99);
       expect(result.getMetadataResult.mediaCollection).toEqual([]);
     });
   });
@@ -62,11 +68,15 @@ describe("getMetadataResult", () => {
   describe("when there are a number of mediaCollections", () => {
     it("should add correct counts", () => {
       const mediaCollection = [{}, {}];
-      const result = getMetadataResult({ mediaCollection });
+      const result = getMetadataResult({
+        mediaCollection,
+        index: 22,
+        total: 3,
+      });
 
       expect(result.getMetadataResult.count).toEqual(2);
-      expect(result.getMetadataResult.index).toEqual(0);
-      expect(result.getMetadataResult.total).toEqual(2);
+      expect(result.getMetadataResult.index).toEqual(22);
+      expect(result.getMetadataResult.total).toEqual(3);
       expect(result.getMetadataResult.mediaCollection).toEqual(mediaCollection);
     });
   });
@@ -349,6 +359,8 @@ describe("api", () => {
                   container({ id: "artists", title: "Artists" }),
                   container({ id: "albums", title: "Albums" }),
                 ],
+                index: 0,
+                total: 2,
               })
             );
           });
@@ -365,9 +377,9 @@ describe("api", () => {
             });
             expect(artists[0]).toEqual(
               getMetadataResult({
-                mediaCollection: [BLONDIE, BOB_MARLEY].map((it) =>
-                  container({ id: `artist:${it.id}`, title: it.name })
-                ),
+                mediaCollection: [BLONDIE, BOB_MARLEY].map((it) => container({ id: `artist:${it.id}`, title: it.name })),
+                index: 0,
+                total: 2
               })
             );
           });
@@ -390,6 +402,8 @@ describe("api", () => {
                 ].map((it) =>
                   container({ id: `album:${it.id}`, title: it.name })
                 ),
+                index: 0,
+                total: BLONDIE.albums.length + BOB_MARLEY.albums.length
               })
             );
           });
@@ -419,6 +433,8 @@ describe("api", () => {
                     title: BOB_MARLEY.albums[1]!.name,
                   }),
                 ],
+                index: 2,
+                total: BLONDIE.albums.length + BOB_MARLEY.albums.length
               })
             );
           });

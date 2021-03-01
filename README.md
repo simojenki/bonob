@@ -39,6 +39,8 @@ item | default value | description
 ---- | ------------- | -----------
 BONOB_PORT | 4534 | Default http port for bonob to listen on
 BONOB_WEB_ADDRESS | http://localhost:4534 | Web address for bonob
+BONOB_SECRET | bonob | secret used for encrypting credentials
 BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for auto-discovery, or 'disabled' to turn off device discovery entirely
 BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
-BONOS_SONOS_SERVICE_ID | 246 | service id for sonos
+BONOB_SONOS_SERVICE_ID | 246 | service id for sonos
+BONOB_NAVIDROME_URL | http://localhost:4533 | URL for navidrome
