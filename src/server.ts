@@ -98,7 +98,12 @@ function server(
 <stringtables xmlns="http://sonos.com/sonosapi">
     <stringtable rev="1" xml:lang="en-US">
         <string stringId="AppLinkMessage">Linking sonos with bonob</string>
+        <string stringId="string2">string2</string>
     </stringtable>
+    <stringtable rev="1" xml:lang="fr-FR">
+        <string stringId="AppLinkMessage">Linking sonos with bonob fr</string>
+        <string stringId="string2">string2 fr</string>
+    </stringtable>    
 </stringtables>
 `);
   });
