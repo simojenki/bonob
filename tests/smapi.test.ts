@@ -289,7 +289,7 @@ describe("api", () => {
           const username = "userThatGetsDeleted";
           const password = "password1";
           musicService.hasUser({ username, password });
-          const token = musicService.generateToken({
+          const token = await musicService.generateToken({
             username,
             password,
           }) as AuthSuccess;
@@ -321,7 +321,7 @@ describe("api", () => {
 
         beforeEach(async () => {
           musicService.hasUser({ username, password });
-          token = musicService.generateToken({
+          token = await musicService.generateToken({
             username,
             password,
           }) as AuthSuccess;

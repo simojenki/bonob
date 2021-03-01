@@ -1,18 +1,16 @@
 import { option as O } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
+
+import { ArtistWithAlbums } from "./builders";
 import {
   MusicService,
   Credentials,
   AuthSuccess,
   AuthFailure,
   Artist,
-  Album,
   MusicLibrary,
 } from "../src/music_service";
 
-export type ArtistWithAlbums = Artist & {
-  albums: Album[];
-};
 
 const artistWithAlbumsToArtist = (it: ArtistWithAlbums): Artist => ({
   id: it.id,
@@ -36,30 +34,26 @@ export class InMemoryMusicService implements MusicService {
   generateToken({
     username,
     password,
-  }: Credentials): AuthSuccess | AuthFailure {
+  }: Credentials): Promise<AuthSuccess | AuthFailure> {
     if (
       username != undefined &&
       password != undefined &&
       this.users[username] == password
     ) {
-      return {
+      return Promise.resolve({
         authToken: JSON.stringify({ username, password }),
         userId: username,
         nickname: username,
-      };
+      });
     } else {
-      return { message: `Invalid user:${username}` };
+      return Promise.resolve({ message: `Invalid user:${username}` });
     }
   }
 
-  login(token: string): MusicLibrary | AuthFailure {
+  login(token: string): Promise<MusicLibrary> {
     const credentials = JSON.parse(token) as Credentials;
-    if (this.users[credentials.username] != credentials.password) {
-      return {
-        message: "Invalid auth token",
-      };
-    }
-    return {
+    if (this.users[credentials.username] != credentials.password) return Promise.reject("Invalid auth token")
+    return Promise.resolve({
       artists: () => this.artists.map(artistWithAlbumsToArtist),
       artist: (id: string) =>
         pipe(
@@ -90,7 +84,7 @@ export class InMemoryMusicService implements MusicService {
           .flatMap((it) => it.albums)
           .slice(i0, i1);
       },
-    };
+    });
   }
 
   hasUser(credentials: Credentials) {

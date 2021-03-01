@@ -6,7 +6,7 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import { isFailure, MusicLibrary, MusicService } from "./music_service";
+import {  MusicLibrary, MusicService } from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -176,7 +176,7 @@ function bindSmapiSoapServiceToExpress(
           getAppLink: () => sonosSoap.getAppLink(),
           getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>
             sonosSoap.getDeviceAuthToken({ linkCode }),
-          getMetadata: (
+          getMetadata: async (
             {
               id,
               index,
@@ -194,17 +194,16 @@ function bindSmapiSoapServiceToExpress(
                 },
               };
             }
-            const login = musicService.login(
+            const login = await musicService.login(
               headers.credentials.loginToken.token
-            );
-            if (isFailure(login)) {
+            ).catch(_ => {
               throw {
                 Fault: {
                   faultcode: "Client.LoginUnauthorized",
                   faultstring: "Credentials not found...",
                 },
               };
-            }
+            });
 
             const musicLibrary = login as MusicLibrary;
 

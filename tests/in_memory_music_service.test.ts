@@ -1,20 +1,18 @@
-import {
-  InMemoryMusicService,
-} from "./in_memory_music_service";
+import { InMemoryMusicService } from "./in_memory_music_service";
 import { AuthSuccess, MusicLibrary } from "../src/music_service";
 import { v4 as uuid } from "uuid";
-import { BOB_MARLEY, MADONNA, BLONDIE } from './builders'
+import { BOB_MARLEY, MADONNA, BLONDIE } from "./builders";
 
 describe("InMemoryMusicService", () => {
   const service = new InMemoryMusicService();
 
   describe("generateToken", () => {
-    it("should be able to generate a token and then use it to log in", () => {
+    it("should be able to generate a token and then use it to log in", async () => {
       const credentials = { username: "bob", password: "smith" };
 
       service.hasUser(credentials);
 
-      const token = service.generateToken(credentials) as AuthSuccess;
+      const token = (await service.generateToken(credentials)) as AuthSuccess;
 
       expect(token.userId).toEqual(credentials.username);
       expect(token.nickname).toEqual(credentials.username);
@@ -24,35 +22,31 @@ describe("InMemoryMusicService", () => {
       expect(musicLibrary).toBeDefined();
     });
 
-    it("should fail with an exception if an invalid token is used", () => {
+    it.only("should fail with an exception if an invalid token is used", async () => {
       const credentials = { username: "bob", password: "smith" };
 
       service.hasUser(credentials);
 
-      const token = service.generateToken(credentials) as AuthSuccess;
+      const token = (await service.generateToken(credentials)) as AuthSuccess;
 
       service.clear();
 
-      expect(service.login(token.authToken)).toEqual({
-        message: "Invalid auth token",
-      });
+      return expect(service.login(token.authToken)).rejects.toEqual("Invalid auth token");
     });
   });
 
   describe("Music Library", () => {
-  
-
     const user = { username: "user100", password: "password100" };
     let musicLibrary: MusicLibrary;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       service.clear();
 
       service.hasArtists(BOB_MARLEY, MADONNA, BLONDIE);
       service.hasUser(user);
 
-      const token = service.generateToken(user) as AuthSuccess;
-      musicLibrary = service.login(token.authToken) as MusicLibrary;
+      const token = (await service.generateToken(user)) as AuthSuccess;
+      musicLibrary = (await service.login(token.authToken)) as MusicLibrary;
     });
 
     describe("artists", () => {
