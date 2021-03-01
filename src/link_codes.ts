@@ -10,7 +10,7 @@ export type Association = {
 export interface LinkCodes {
   mint(): string
   clear(): any
-  count(): Number
+  count(): number
   has(linkCode: string): boolean
   associate(linkCode: string, association: Association): any
   associationFor(linkCode: string): Association | undefined

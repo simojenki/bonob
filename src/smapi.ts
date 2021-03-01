@@ -6,8 +6,9 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
+import { isFailure, MusicLibrary, MusicService } from "./music_service";
 
-export const LOGIN_ROUTE = "/login"
+export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
 export const STRINGS_ROUTE = "/sonos/strings.xml";
 export const PRESENTATION_MAP_ROUTE = "/sonos/presentationMap.xml";
@@ -16,6 +17,15 @@ const WSDL_FILE = path.resolve(
   __dirname,
   "Sonoswsdl-1.19.4-20190411.142401-3.wsdl"
 );
+
+export type Credentials = {
+  loginToken: {
+    token: string;
+    householdId: string;
+  };
+  deviceId: string;
+  deviceProvider: string;
+};
 
 export type GetAppLinkResult = {
   getAppLinkResult: {
@@ -36,6 +46,36 @@ export type GetDeviceAuthTokenResult = {
     };
   };
 };
+
+export type MediaCollection = {
+  id: string;
+  itemType: "collection";
+  title: string;
+};
+
+export type GetMetadataResponse = {
+  getMetadataResult: {
+    count: number;
+    index: number;
+    total: number;
+    mediaCollection: MediaCollection[];
+  };
+};
+
+export function getMetadataResult({
+  mediaCollection,
+}: {
+  mediaCollection: any[] | undefined;
+}): GetMetadataResponse {
+  return {
+    getMetadataResult: {
+      count: mediaCollection?.length || 0,
+      index: 0,
+      total: mediaCollection?.length || 0,
+      mediaCollection: mediaCollection || [],
+    },
+  };
+}
 
 class SonosSoap {
   linkCodes: LinkCodes;
@@ -97,7 +137,35 @@ class SonosSoap {
   }
 }
 
-function bindSmapiSoapServiceToExpress(app: Express, soapPath:string, webAddress: string, linkCodes: LinkCodes) {
+export type Container = {
+  itemType: "container";
+  id: string;
+  title: string;
+};
+
+export const container = ({
+  id,
+  title,
+}: {
+  id: string;
+  title: string;
+}): Container => ({
+  itemType: "container",
+  id,
+  title,
+});
+
+type SoapyHeaders = {
+  credentials?: Credentials;
+};
+
+function bindSmapiSoapServiceToExpress(
+  app: Express,
+  soapPath: string,
+  webAddress: string,
+  linkCodes: LinkCodes,
+  musicService: MusicService
+) {
   const sonosSoap = new SonosSoap(webAddress, linkCodes);
   const soapyService = listen(
     app,
@@ -108,6 +176,72 @@ function bindSmapiSoapServiceToExpress(app: Express, soapPath:string, webAddress
           getAppLink: () => sonosSoap.getAppLink(),
           getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>
             sonosSoap.getDeviceAuthToken({ linkCode }),
+          getMetadata: (
+            {
+              id,
+              index,
+              count,
+              // recursive,
+            }: { id: string; index: number; count: number; recursive: boolean },
+            _,
+            headers?: SoapyHeaders
+          ) => {
+            if (!headers?.credentials) {
+              throw {
+                Fault: {
+                  faultcode: "Client.LoginUnsupported",
+                  faultstring: "Missing credentials...",
+                },
+              };
+            }
+            const login = musicService.login(
+              headers.credentials.loginToken.token
+            );
+            if (isFailure(login)) {
+              throw {
+                Fault: {
+                  faultcode: "Client.LoginUnauthorized",
+                  faultstring: "Credentials not found...",
+                },
+              };
+            }
+
+            const musicLibrary = login as MusicLibrary;
+
+            // const [type, typeId] = id.split(":");
+            const type = id;
+            switch (type) {
+              case "root":
+                return getMetadataResult({
+                  mediaCollection: [
+                    container({ id: "artists", title: "Artists" }),
+                    container({ id: "albums", title: "Albums" }),
+                  ],
+                });
+              case "artists":
+                return getMetadataResult({
+                  mediaCollection: musicLibrary.artists().map((it) =>
+                    container({
+                      id: `artist:${it.id}`,
+                      title: it.name,
+                    })
+                  ),
+                });
+              case "albums":
+                return getMetadataResult({
+                  mediaCollection: musicLibrary
+                    .albums({ _index: index, _count: count })
+                    .map((it) =>
+                      container({
+                        id: `album:${it.id}`,
+                        title: it.name,
+                      })
+                    ),
+                });
+              default:
+                throw `Unsupported id:${id}`;
+            }
+          },
         },
       },
     },
