@@ -1,22 +1,28 @@
 import crypto from "crypto";
 import request from "supertest";
 import { Client, createClientAsync } from "soap";
-
-import { DOMParserImpl } from "xmldom-ts";
-import * as xpath from "xpath-ts";
+import X2JS from "x2js";
 
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import makeServer from "../src/server";
 import { bonobService, SONOS_DISABLED } from "../src/sonos";
-import { STRINGS_ROUTE, LOGIN_ROUTE, getMetadataResult, container } from "../src/smapi";
+import {
+  STRINGS_ROUTE,
+  LOGIN_ROUTE,
+  getMetadataResult,
+  container,
+} from "../src/smapi";
 
-import { aService, BLONDIE, BOB_MARLEY, getAppLinkMessage, someCredentials } from "./builders";
+import {
+  aService,
+  BLONDIE,
+  BOB_MARLEY,
+  getAppLinkMessage,
+  someCredentials,
+} from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
 import { AuthSuccess } from "../src/music_service";
-
-const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
-const select = xpath.useNamespaces({ sonos: "http://sonos.com/sonosapi" });
 
 describe("service config", () => {
   describe("strings.xml", () => {
@@ -32,13 +38,11 @@ describe("service config", () => {
 
       expect(res.status).toEqual(200);
 
-      const xml = parseXML(res.text);
-      const x = select(
-        "//sonos:string[@stringId='AppLinkMessage']/text()",
-        xml
-      ) as Node[];
-      expect(x.length).toEqual(1);
-      expect(x[0]!.nodeValue).toEqual("Linking sonos with bonob");
+      const strings: any = new X2JS({
+        arrayAccessFormPaths: ["stringtables", "stringtables.stringtable"],
+      }).xml2js(res.text);
+
+      expect(strings.stringtables.stringtable[0].string[0]._stringId).toEqual("AppLinkMessage")
     });
   });
 });
@@ -289,10 +293,10 @@ describe("api", () => {
           const username = "userThatGetsDeleted";
           const password = "password1";
           musicService.hasUser({ username, password });
-          const token = await musicService.generateToken({
+          const token = (await musicService.generateToken({
             username,
             password,
-          }) as AuthSuccess;
+          })) as AuthSuccess;
           musicService.hasNoUsers();
 
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -321,10 +325,10 @@ describe("api", () => {
 
         beforeEach(async () => {
           musicService.hasUser({ username, password });
-          token = await musicService.generateToken({
+          token = (await musicService.generateToken({
             username,
             password,
-          }) as AuthSuccess;
+          })) as AuthSuccess;
           ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
@@ -339,12 +343,14 @@ describe("api", () => {
               index: 0,
               count: 100,
             });
-            expect(root[0]).toEqual(getMetadataResult({
-              mediaCollection: [
-                container({ id: "artists", title: "Artists" }),
-                container({ id: "albums", title: "Albums" }),
-              ],
-            }));
+            expect(root[0]).toEqual(
+              getMetadataResult({
+                mediaCollection: [
+                  container({ id: "artists", title: "Artists" }),
+                  container({ id: "albums", title: "Albums" }),
+                ],
+              })
+            );
           });
         });
 
@@ -357,9 +363,13 @@ describe("api", () => {
               index: 0,
               count: 100,
             });
-            expect(artists[0]).toEqual(getMetadataResult({
-              mediaCollection: [BLONDIE, BOB_MARLEY].map(it  => container({ id: `artist:${it.id}`, title: it.name })),
-            }));
+            expect(artists[0]).toEqual(
+              getMetadataResult({
+                mediaCollection: [BLONDIE, BOB_MARLEY].map((it) =>
+                  container({ id: `artist:${it.id}`, title: it.name })
+                ),
+              })
+            );
           });
         });
 
@@ -372,9 +382,16 @@ describe("api", () => {
               index: 0,
               count: 100,
             });
-            expect(albums[0]).toEqual(getMetadataResult({
-              mediaCollection: [...BLONDIE.albums, ...BOB_MARLEY.albums].map(it  => container({ id: `album:${it.id}`, title: it.name })),
-            }));
+            expect(albums[0]).toEqual(
+              getMetadataResult({
+                mediaCollection: [
+                  ...BLONDIE.albums,
+                  ...BOB_MARLEY.albums,
+                ].map((it) =>
+                  container({ id: `album:${it.id}`, title: it.name })
+                ),
+              })
+            );
           });
         });
 
@@ -390,15 +407,22 @@ describe("api", () => {
               index: 2,
               count: 2,
             });
-            expect(albums[0]).toEqual(getMetadataResult({
-              mediaCollection: [
-                container({ id: `album:${BOB_MARLEY.albums[0]!.id}`, title: BOB_MARLEY.albums[0]!.name }),
-                container({ id: `album:${BOB_MARLEY.albums[1]!.id}`, title: BOB_MARLEY.albums[1]!.name }),
-              ],
-            }));
+            expect(albums[0]).toEqual(
+              getMetadataResult({
+                mediaCollection: [
+                  container({
+                    id: `album:${BOB_MARLEY.albums[0]!.id}`,
+                    title: BOB_MARLEY.albums[0]!.name,
+                  }),
+                  container({
+                    id: `album:${BOB_MARLEY.albums[1]!.id}`,
+                    title: BOB_MARLEY.albums[1]!.name,
+                  }),
+                ],
+              })
+            );
           });
         });
-
       });
     });
   });
