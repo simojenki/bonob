@@ -101,12 +101,12 @@ describe("navidrome", () => {
       });
     });
 
-    describe("when no paging specified", () => {
+    describe("when no paging is ineffect", () => {
       it("should return all the artists", async () => {
         const artists = await navidrome
           .generateToken({ username, password })
           .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.artists({}));
+          .then((it) => it.artists({ _index: 0, _count: 100 }));
 
         const expectedArtists = [
           { id: "2911b2d67a6b11eb804dd360a6225680", name: "10 Planets" },

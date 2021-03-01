@@ -66,7 +66,7 @@ describe("InMemoryMusicService", () => {
             { id: BLONDIE.id, name: BLONDIE.name },
             { id: METALLICA.id, name: METALLICA.name },
           ];
-          expect(await musicLibrary.artists({})).toEqual({
+          expect(await musicLibrary.artists({ _index: 0, _count: 100 })).toEqual({
             results: artists,
             total: 4,
           });
@@ -126,7 +126,7 @@ describe("InMemoryMusicService", () => {
     describe("albums", () => {
       describe("fetching with no filtering", () => {
         it("should return all the albums for all the artists", async () => {
-          expect(await musicLibrary.albums({})).toEqual({
+          expect(await musicLibrary.albums({ _index: 0, _count: 100 })).toEqual({
             results: ALL_ALBUMS,
             total: ALL_ALBUMS.length,
           });
@@ -135,52 +135,23 @@ describe("InMemoryMusicService", () => {
 
       describe("fetching for a single artist", () => {
         it("should return them all if the artist has some", async () => {
-          expect(await musicLibrary.albums({ artistId: BLONDIE.id })).toEqual({
+          expect(await musicLibrary.albums({ artistId: BLONDIE.id, _index: 0, _count: 100 })).toEqual({
             results: BLONDIE.albums,
             total: BLONDIE.albums.length,
           });
         });
 
         it("should return empty list of the artists does not have any", async () => {
-          expect(await musicLibrary.albums({ artistId: MADONNA.id })).toEqual({
+          expect(await musicLibrary.albums({ artistId: MADONNA.id, _index: 0, _count: 100 })).toEqual({
             results: [],
             total: 0,
           });
         });
 
         it("should return empty list if the artist id is not valid", async () => {
-          expect(await musicLibrary.albums({ artistId: uuid() })).toEqual({
+          expect(await musicLibrary.albums({ artistId: uuid(), _index: 0, _count: 100 })).toEqual({
             results: [],
             total: 0,
-          });
-        });
-      });
-
-      describe("fetching with just index", () => {
-        it("should return everything after", async () => {
-          const albums = [
-            BOB_MARLEY.albums[2],
-            ...BLONDIE.albums,
-            ...MADONNA.albums,
-            ...METALLICA.albums,
-          ];
-          expect(await musicLibrary.albums({ _index: 2 })).toEqual({
-            results: albums,
-            total: ALL_ALBUMS.length,
-          });
-        });
-      });
-
-      describe("fetching with just count", () => {
-        it("should return first n items", async () => {
-          const albums = [
-            BOB_MARLEY.albums[0],
-            BOB_MARLEY.albums[1],
-            BOB_MARLEY.albums[2],
-          ];
-          expect(await musicLibrary.albums({ _count: 3 })).toEqual({
-            results: albums,
-            total: ALL_ALBUMS.length,
           });
         });
       });

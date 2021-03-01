@@ -9,7 +9,8 @@ import {
   AuthFailure,
   Artist,
   MusicLibrary,
-  Paging,
+  ArtistQuery,
+  AlbumQuery,
   slice2,
   asResult,
 } from "../src/music_service";
@@ -57,9 +58,9 @@ export class InMemoryMusicService implements MusicService {
     if (this.users[credentials.username] != credentials.password)
       return Promise.reject("Invalid auth token");
     return Promise.resolve({
-      artists: (paging: Paging) =>
+      artists: (q: ArtistQuery) =>
         Promise.resolve(this.artists.map(artistWithAlbumsToArtist))
-          .then(slice2(paging))
+          .then(slice2(q))
           .then(asResult),
       artist: (id: string) =>
         pipe(
@@ -68,26 +69,18 @@ export class InMemoryMusicService implements MusicService {
           O.map(artistWithAlbumsToArtist),
           getOrThrow(`No artist with id '${id}'`)
         ),
-      albums: ({
-        artistId,
-        _index,
-        _count,
-      }: {
-        artistId?: string;
-        _index?: number;
-        _count?: number;
-      }) =>
+      albums: (q: AlbumQuery) =>
         Promise.resolve(
           this.artists.filter(
             pipe(
-              O.fromNullable(artistId),
+              O.fromNullable(q.artistId),
               O.map(artistWithId),
               O.getOrElse(() => all)
             )
           )
         )
           .then((artists) => artists.flatMap((it) => it.albums))
-          .then(slice2({ _index, _count }))
+          .then(slice2(q))
           .then(asResult),
     });
   }
