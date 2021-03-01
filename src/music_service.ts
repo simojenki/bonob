@@ -6,29 +6,72 @@ const navidrome = process.env["BONOB_NAVIDROME_URL"];
 const u = process.env["BONOB_USER"];
 const t = Md5.hashStr(`${process.env["BONOB_PASSWORD"]}${s}`);
 
-export type Credentials = { username: string, password: string }
+export type Credentials = { username: string; password: string };
 
-export function isSuccess(authResult: AuthSuccess | AuthFailure): authResult is AuthSuccess {
+export function isSuccess(
+  authResult: AuthSuccess | AuthFailure
+): authResult is AuthSuccess {
   return (authResult as AuthSuccess).authToken !== undefined;
 }
 
-export type AuthSuccess = {
-  authToken: string
-  userId: string
-  nickname: string  
+export function isFailure(
+  authResult: any | AuthFailure
+): authResult is AuthFailure {
+  return (authResult as AuthFailure).message !== undefined;
 }
+
+export type AuthSuccess = {
+  authToken: string;
+  userId: string;
+  nickname: string;
+};
 
 export type AuthFailure = {
-  message: string
-}
+  message: string;
+};
 
 export interface MusicService {
-  login(credentials: Credentials): AuthSuccess | AuthFailure
+  generateToken(credentials: Credentials): AuthSuccess | AuthFailure;
+  login(authToken: string): MusicLibrary | AuthFailure;
+}
+
+export type Artist = {
+  id: string;
+  name: string;
+};
+
+export type Album = {
+  id: string;
+  name: string;
+};
+
+export interface MusicLibrary {
+  artists(): Artist[];
+  artist(id: string): Artist;
+  albums({ artistId, _index, _count }: { artistId?: string, _index?: number, _count?: number }): Album[];
 }
 
 export class Navidrome implements MusicService {
-  login({ username }: Credentials) {
-    return { authToken: `v1:${username}`, userId: username, nickname: username }
+  generateToken({ username }: Credentials) {
+    return {
+      authToken: `v1:${username}`,
+      userId: username,
+      nickname: username,
+    };
+  }
+
+  login(_: string) {
+    return {
+      artists: () => [],
+      artist: (id: string) => ({
+        id,
+        name: id,
+      }),
+      albums: ({ artistId }: { artistId?: string }) => {
+        console.log(artistId)
+        return []
+      },
+    };
   }
 
   ping = (): Promise<boolean> =>
@@ -42,6 +85,3 @@ export class Navidrome implements MusicService {
         return false;
       });
 }
-
-
-

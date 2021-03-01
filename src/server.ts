@@ -71,7 +71,7 @@ function server(
 
   app.post(LOGIN_ROUTE, (req, res) => {
     const { username, password, linkCode } = req.body;
-    const authResult = musicService.login({
+    const authResult = musicService.generateToken({
       username,
       password,
     });
@@ -107,7 +107,7 @@ function server(
     res.send("");
   });
 
-  bindSmapiSoapServiceToExpress(app, SOAP_PATH, webAddress, linkCodes);
+  bindSmapiSoapServiceToExpress(app, SOAP_PATH, webAddress, linkCodes, musicService);
 
   return app;
 }

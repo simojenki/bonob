@@ -1,5 +1,7 @@
 import { SonosDevice } from "@svrooij/sonos/lib";
+import { ArtistWithAlbums } from "in_memory_music_service";
 import { v4 as uuid } from "uuid";
+import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
 
@@ -54,3 +56,39 @@ export function getAppLinkMessage() {
     callbackPath: "",
   };
 }
+
+export function someCredentials(token: string): Credentials {
+  return {
+    loginToken: {
+      token,
+      householdId: "hh1"
+    },
+    deviceId: "d1",
+    deviceProvider: "dp1"
+  }
+}
+
+export const BOB_MARLEY: ArtistWithAlbums = {
+  id: uuid(),
+  name: "Bob Marley",
+  albums: [
+    { id: uuid(), name: "Burin'" },
+    { id: uuid(), name: "Exodus" },
+    { id: uuid(), name: "Kaya" },
+  ],
+};
+
+export const BLONDIE: ArtistWithAlbums = {
+  id: uuid(),
+  name: "Blondie",
+  albums: [
+    { id: uuid(), name: "Blondie" },
+    { id: uuid(), name: "Parallel Lines" },
+  ],
+};
+
+export const MADONNA: ArtistWithAlbums = {
+  id: uuid(),
+  name: "Madonna",
+  albums: [],
+};
