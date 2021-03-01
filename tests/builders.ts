@@ -1,9 +1,9 @@
 import { SonosDevice } from "@svrooij/sonos/lib";
-import { ArtistWithAlbums } from "in_memory_music_service";
 import { v4 as uuid } from "uuid";
 import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
+import { Album, Artist } from "../src/music_service";
 
 const randomInt = (max: number) => Math.floor(Math.random() * max);
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -67,6 +67,10 @@ export function someCredentials(token: string): Credentials {
     deviceProvider: "dp1"
   }
 }
+
+export type ArtistWithAlbums = Artist & {
+  albums: Album[];
+};
 
 export const BOB_MARLEY: ArtistWithAlbums = {
   id: uuid(),

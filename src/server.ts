@@ -69,27 +69,27 @@ function server(
     });
   });
 
-  app.post(LOGIN_ROUTE, (req, res) => {
+  app.post(LOGIN_ROUTE, async (req, res) => {
     const { username, password, linkCode } = req.body;
-    const authResult = musicService.generateToken({
-      username,
-      password,
-    });
-    if (isSuccess(authResult)) {
-      if (linkCodes.has(linkCode)) {
+    if (!linkCodes.has(linkCode)) {
+      res.status(400).render("failure", {
+        message: `Invalid linkCode!`,
+      });
+    } else {
+      const authResult = await musicService.generateToken({
+        username,
+        password,
+      });
+      if (isSuccess(authResult)) {
         linkCodes.associate(linkCode, authResult);
         res.render("success", {
           message: `Login successful`,
         });
-      } else {
-        res.status(400).render("failure", {
-          message: `Invalid linkCode!`,
+    } else {
+        res.status(403).render("failure", {
+          message: `Login failed, ${authResult.message}!`,
         });
       }
-    } else {
-      res.status(403).render("failure", {
-        message: `Login failed, ${authResult.message}!`,
-      });
     }
   });
 
