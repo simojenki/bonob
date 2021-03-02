@@ -1,5 +1,15 @@
 import { Md5 } from "ts-md5/dist/md5";
-import { Credentials, MusicService, Album, Artist, Result, slice2, asResult, AlbumQuery, ArtistQuery } from "./music_service";
+import {
+  Credentials,
+  MusicService,
+  Album,
+  Artist,
+  Result,
+  slice2,
+  asResult,
+  AlbumQuery,
+  ArtistQuery,
+} from "./music_service";
 import X2JS from "x2js";
 
 import axios from "axios";
@@ -85,7 +95,7 @@ export class Navidrome implements MusicService {
       ).toString("base64"),
       userId: credentials.username,
       nickname: credentials.username,
-    }));
+    })).catch(e => ({ message: `${e}` }));
 
   parseToken = (token: string): Credentials =>
     JSON.parse(
@@ -112,7 +122,7 @@ export class Navidrome implements MusicService {
         name: id,
       }),
       albums: (_: AlbumQuery): Promise<Result<Album>> => {
-        return Promise.resolve({ results: [], total: 0});
+        return Promise.resolve({ results: [], total: 0 });
       },
     });
   }

@@ -7,6 +7,7 @@ import axios from "axios";
 jest.mock("axios");
 
 import randomString from "../src/random_string";
+import { AuthSuccess } from "../src/music_service";
 jest.mock("../src/random_string");
 
 describe("t", () => {
@@ -52,7 +53,7 @@ describe("navidrome", () => {
                  </subsonic-response>`,
         });
 
-        const token = await navidrome.generateToken({ username, password });
+        const token = await navidrome.generateToken({ username, password }) as AuthSuccess;
 
         expect(token.authToken).toBeDefined();
         expect(token.nickname).toEqual(username);
@@ -73,9 +74,8 @@ describe("navidrome", () => {
                  </subsonic-response>`,
         });
 
-        return expect(
-          navidrome.generateToken({ username, password })
-        ).rejects.toMatch("Wrong username or password");
+        const token = await navidrome.generateToken({ username, password });
+        expect(token).toEqual({ message: "Wrong username or password" })
       });
     });
   });
@@ -101,10 +101,11 @@ describe("navidrome", () => {
       });
     });
 
-    describe("when no paging is ineffect", () => {
+    describe("when no paging is in effect", () => {
       it("should return all the artists", async () => {
         const artists = await navidrome
           .generateToken({ username, password })
+          .then(it => it as AuthSuccess)
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.artists({ _index: 0, _count: 100 }));
 
@@ -126,6 +127,7 @@ describe("navidrome", () => {
       it("should return only the correct page of artists", async () => {
         const artists = await navidrome
           .generateToken({ username, password })
+          .then(it => it as AuthSuccess)
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.artists({ _index: 1, _count: 2 }));
 

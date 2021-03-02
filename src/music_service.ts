@@ -22,10 +22,6 @@ export type AuthFailure = {
   message: string;
 };
 
-export interface MusicService {
-  generateToken(credentials: Credentials): Promise<AuthSuccess | AuthFailure>;
-  login(authToken: string): Promise<MusicLibrary>;
-}
 
 export type Artist = {
   id: string;
@@ -63,6 +59,10 @@ export type ArtistQuery = Paging
 
 export type AlbumQuery = Paging & {
   artistId?: string
+}
+export interface MusicService {
+  generateToken(credentials: Credentials): Promise<AuthSuccess | AuthFailure>;
+  login(authToken: string): Promise<MusicLibrary>;
 }
 
 export interface MusicLibrary {
