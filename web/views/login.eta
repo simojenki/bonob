@@ -1,11 +1,13 @@
 <% layout('./layout', { title: "Login" }) %>
 
 <div id="content">
-  <h1>Log in to <%= it.bonobService.name %></h1>
+  <h1 class="login">Log<br>in<br>to<br><%= it.bonobService.name %></h1>
   <form action="<%= it.loginRoute %>" method="POST">
-    <label for="username">Username:</label><input type="text" id="username" name="username"><br>
-    <label for="password">Password:</label><input type="text" id="password" name="password"><br>
+    <label for="username">Username:</label><br>
+    <input type="text" id="username" name="username"><br><br>
+    <label for="password">Password:</label><br>
+    <input type="password" id="password" name="password"><br>
     <input type="hidden" name="linkCode" value="<%= it.linkCode %>">
-    <input type="submit" value="Login">
+    <input type="submit" value="Login" id="submit">
   </form>
 </div>

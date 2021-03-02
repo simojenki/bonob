@@ -83,11 +83,11 @@ function server(
       if (isSuccess(authResult)) {
         linkCodes.associate(linkCode, authResult);
         res.render("success", {
-          message: `Login successful`,
+          message: `Login successful!`,
         });
     } else {
         res.status(403).render("failure", {
-          message: `Login failed, ${authResult.message}!`,
+          message: `Login failed! ${authResult.message}!`,
         });
       }
     }

@@ -138,7 +138,7 @@ describe("api", () => {
             .send({ username, password, linkCode })
             .expect(403);
 
-          expect(res.text).toContain(`Login failed, Invalid user:${username}`);
+          expect(res.text).toContain(`Login failed! Invalid user:${username}`);
         });
       });
 

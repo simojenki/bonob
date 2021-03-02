@@ -1,5 +1,5 @@
 <% layout('./layout', { title: "Yippee" }) %>
 
 <div id="content">
-  <h1><%= it.message %></h1>
+  <h1 class="success"><%= it.message %></h1>
 </div>
