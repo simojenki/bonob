@@ -6,7 +6,7 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import { Artist, MusicLibrary, MusicService } from "./music_service";
+import { Album, Artist, MusicLibrary, MusicService } from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -218,8 +218,8 @@ function bindSmapiSoapServiceToExpress(
               case "root":
                 return getMetadataResult({
                   mediaCollection: [
-                    container({ id: "artists", title: "Artists" }),
-                    container({ id: "albums", title: "Albums" }),
+                    { itemType: "container", id: "artists", title: "Artists" },
+                    { itemType: "container", id: "albums", title: "Albums" },
                   ],
                   index: 0,
                   total: 2,
@@ -230,9 +230,12 @@ function bindSmapiSoapServiceToExpress(
                   .then(({ results, total }: { results: Artist[], total: number}) =>
                     getMetadataResult({
                       mediaCollection: results.map((it) =>
-                        container({
+                        ({
+                          itemType: "artist",
                           id: `artist:${it.id}`,
+                          artistId: it.id,
                           title: it.name,
+                          albumArtURI: it.image.small
                         })
                       ),
                       index: paging._index,
@@ -242,7 +245,7 @@ function bindSmapiSoapServiceToExpress(
               case "albums":
                 return await musicLibrary
                   .albums(paging)
-                  .then(({ results, total }: { results: Artist[], total: number}) =>
+                  .then(({ results, total }: { results: Album[], total: number}) =>
                     getMetadataResult({
                       mediaCollection: results.map((it) =>
                         container({

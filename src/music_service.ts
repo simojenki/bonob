@@ -26,6 +26,11 @@ export type AuthFailure = {
 export type Artist = {
   id: string;
   name: string;
+  image: {
+    small: string | undefined,
+    medium: string | undefined,
+    large: string | undefined,
+  }
 };
 
 export type Album = {

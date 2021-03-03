@@ -1,4 +1,4 @@
-import { InMemoryMusicService } from "./in_memory_music_service";
+import { InMemoryMusicService, artistWithAlbumsToArtist } from "./in_memory_music_service";
 import { AuthSuccess, MusicLibrary } from "../src/music_service";
 import { v4 as uuid } from "uuid";
 import {
@@ -43,6 +43,16 @@ describe("InMemoryMusicService", () => {
     });
   });
 
+  describe("artistWithAlbumsToArtist", () => {
+    it("should map fields correctly", () => {
+      expect(artistWithAlbumsToArtist(BOB_MARLEY)).toEqual({
+        id: BOB_MARLEY.id,
+        name: BOB_MARLEY.name,
+        image: BOB_MARLEY.image
+      })
+    });
+  });
+
   describe("Music Library", () => {
     const user = { username: "user100", password: "password100" };
     let musicLibrary: MusicLibrary;
@@ -61,10 +71,10 @@ describe("InMemoryMusicService", () => {
       describe("fetching all", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            { id: BOB_MARLEY.id, name: BOB_MARLEY.name },
-            { id: MADONNA.id, name: MADONNA.name },
-            { id: BLONDIE.id, name: BLONDIE.name },
-            { id: METALLICA.id, name: METALLICA.name },
+            artistWithAlbumsToArtist(BOB_MARLEY),
+            artistWithAlbumsToArtist(MADONNA),
+            artistWithAlbumsToArtist(BLONDIE),
+            artistWithAlbumsToArtist(METALLICA),
           ];
           expect(await musicLibrary.artists({ _index: 0, _count: 100 })).toEqual({
             results: artists,
@@ -76,8 +86,8 @@ describe("InMemoryMusicService", () => {
       describe("fetching the second page", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            { id: BLONDIE.id, name: BLONDIE.name },
-            { id: METALLICA.id, name: METALLICA.name },
+            artistWithAlbumsToArtist(BLONDIE),
+            artistWithAlbumsToArtist(METALLICA),
           ];
           expect(await musicLibrary.artists({ _index: 2, _count: 2 })).toEqual({
             results: artists,
@@ -89,9 +99,9 @@ describe("InMemoryMusicService", () => {
       describe("fetching the more items than fit on the second page", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            { id: MADONNA.id, name: MADONNA.name },
-            { id: BLONDIE.id, name: BLONDIE.name },
-            { id: METALLICA.id, name: METALLICA.name },
+            artistWithAlbumsToArtist(MADONNA),
+            artistWithAlbumsToArtist(BLONDIE),
+            artistWithAlbumsToArtist(METALLICA),
           ];
           expect(
             await musicLibrary.artists({ _index: 1, _count: 50 })
@@ -103,14 +113,8 @@ describe("InMemoryMusicService", () => {
     describe("artist", () => {
       describe("when it exists", () => {
         it("should provide an artist", () => {
-          expect(musicLibrary.artist(MADONNA.id)).toEqual({
-            id: MADONNA.id,
-            name: MADONNA.name,
-          });
-          expect(musicLibrary.artist(BLONDIE.id)).toEqual({
-            id: BLONDIE.id,
-            name: BLONDIE.name,
-          });
+          expect(musicLibrary.artist(MADONNA.id)).toEqual(artistWithAlbumsToArtist(MADONNA));
+          expect(musicLibrary.artist(BLONDIE.id)).toEqual(artistWithAlbumsToArtist(BLONDIE));
         });
       });
 
