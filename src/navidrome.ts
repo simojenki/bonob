@@ -38,7 +38,12 @@ export type SubsonicResponse = {
 export type GetArtistsResponse = SubsonicResponse & {
   artists: {
     index: {
-      artist: { _id: string; _name: string; _albumCount: string }[];
+      artist: {
+        _id: string;
+        _name: string;
+        _albumCount: string;
+        _artistImageUrl: string | undefined;
+      }[];
       _name: string;
     }[];
   };
@@ -49,6 +54,19 @@ export type SubsonicError = SubsonicResponse & {
     _code: string;
     _message: string;
   };
+};
+
+export type artistInfo = {
+  biography: string | undefined;
+  musicBrainzId: string | undefined;
+  lastFmUrl: string | undefined;
+  smallImageUrl: string | undefined;
+  mediumImageUrl: string | undefined;
+  largeImageUrl: string | undefined;
+};
+
+export type GetArtistInfoResponse = {
+  artistInfo: artistInfo;
 };
 
 export function isError(
@@ -89,13 +107,15 @@ export class Navidrome implements MusicService {
       });
 
   generateToken = async (credentials: Credentials) =>
-    this.get(credentials, "/rest/ping.view").then(() => ({
-      authToken: Buffer.from(
-        JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
-      ).toString("base64"),
-      userId: credentials.username,
-      nickname: credentials.username,
-    })).catch(e => ({ message: `${e}` }));
+    this.get(credentials, "/rest/ping.view")
+      .then(() => ({
+        authToken: Buffer.from(
+          JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
+        ).toString("base64"),
+        userId: credentials.username,
+        nickname: credentials.username,
+      }))
+      .catch((e) => ({ message: `${e}` }));
 
   parseToken = (token: string): Credentials =>
     JSON.parse(
@@ -113,13 +133,33 @@ export class Navidrome implements MusicService {
           .get<GetArtistsResponse>(credentials, "/rest/getArtists")
           .then((it) => it.artists.index.flatMap((it) => it.artist))
           .then((artists) =>
-            artists.map((it) => ({ id: it._id, name: it._name }))
+            Promise.all(
+              artists.map((artist) =>
+                navidrome
+                  .get<GetArtistInfoResponse>(
+                    credentials,
+                    "/rest/getArtistInfo",
+                    { id: artist._id }
+                  )
+                  .then((it) => it.artistInfo)
+                  .then((artistInfo) => ({
+                    id: artist._id,
+                    name: artist._name,
+                    image: {
+                      small: artistInfo.smallImageUrl,
+                      medium: artistInfo.mediumImageUrl,
+                      large: artistInfo.largeImageUrl,
+                    },
+                  }))
+              )
+            )
           )
           .then(slice2(q))
           .then(asResult),
       artist: (id: string) => ({
         id,
         name: id,
+        image: { small: undefined, medium: undefined, large: undefined },
       }),
       albums: (_: AlbumQuery): Promise<Result<Album>> => {
         return Promise.resolve({ results: [], total: 0 });

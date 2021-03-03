@@ -15,9 +15,10 @@ import {
   asResult,
 } from "../src/music_service";
 
-const artistWithAlbumsToArtist = (it: ArtistWithAlbums): Artist => ({
+export const artistWithAlbumsToArtist = (it: ArtistWithAlbums): Artist => ({
   id: it.id,
   name: it.name,
+  image: it.image
 });
 
 const getOrThrow = (message: string) =>

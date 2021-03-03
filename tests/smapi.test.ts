@@ -377,9 +377,15 @@ describe("api", () => {
             });
             expect(artists[0]).toEqual(
               getMetadataResult({
-                mediaCollection: [BLONDIE, BOB_MARLEY].map((it) => container({ id: `artist:${it.id}`, title: it.name })),
+                mediaCollection: [BLONDIE, BOB_MARLEY].map((it) => ({
+                  itemType: "artist",
+                  id: `artist:${it.id}`,
+                  artistId: it.id,
+                  title: it.name,
+                  albumArtURI: it.image.small,
+                })),
                 index: 0,
-                total: 2
+                total: 2,
               })
             );
           });
@@ -403,7 +409,7 @@ describe("api", () => {
                   container({ id: `album:${it.id}`, title: it.name })
                 ),
                 index: 0,
-                total: BLONDIE.albums.length + BOB_MARLEY.albums.length
+                total: BLONDIE.albums.length + BOB_MARLEY.albums.length,
               })
             );
           });
@@ -434,7 +440,7 @@ describe("api", () => {
                   }),
                 ],
                 index: 2,
-                total: BLONDIE.albums.length + BOB_MARLEY.albums.length
+                total: BLONDIE.albums.length + BOB_MARLEY.albums.length,
               })
             );
           });

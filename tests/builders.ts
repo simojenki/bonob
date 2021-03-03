@@ -80,6 +80,11 @@ export const BOB_MARLEY: ArtistWithAlbums = {
     { id: uuid(), name: "Exodus" },
     { id: uuid(), name: "Kaya" },
   ],
+  image: {
+    small: "http://localhost/BOB_MARLEY/sml",
+    medium: "http://localhost/BOB_MARLEY/med",
+    large: "http://localhost/BOB_MARLEY/lge",
+  }
 };
 
 export const BLONDIE: ArtistWithAlbums = {
@@ -89,12 +94,22 @@ export const BLONDIE: ArtistWithAlbums = {
     { id: uuid(), name: "Blondie" },
     { id: uuid(), name: "Parallel Lines" },
   ],
+  image: {
+    small: undefined,
+    medium: undefined,
+    large: undefined,
+  }
 };
 
 export const MADONNA: ArtistWithAlbums = {
   id: uuid(),
   name: "Madonna",
   albums: [],
+  image: {
+    small: "http://localhost/MADONNA/sml",
+    medium: undefined,
+    large: "http://localhost/MADONNA/lge",
+  }
 };
 
 export const METALLICA: ArtistWithAlbums = {
@@ -110,6 +125,11 @@ export const METALLICA: ArtistWithAlbums = {
       name: "Master of Puppets",
     },
   ],
+  image: {
+    small: "http://localhost/METALLICA/sml",
+    medium: "http://localhost/METALLICA/med",
+    large: "http://localhost/METALLICA/lge",
+  }
 };
 
 export const ALL_ALBUMS = [
