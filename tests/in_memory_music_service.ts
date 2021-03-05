@@ -13,18 +13,20 @@ import {
   AlbumQuery,
   slice2,
   asResult,
+  ArtistSummary,
 } from "../src/music_service";
 
-export const artistWithAlbumsToArtist = (it: ArtistWithAlbums): Artist => ({
+export const artistWithAlbumsToArtistSummary = (
+  it: ArtistWithAlbums
+): ArtistSummary => ({
   id: it.id,
   name: it.name,
-  image: it.image
+  image: it.image,
 });
 
-const getOrThrow = (message: string) =>
-  O.getOrElseW(() => {
-    throw message;
-  });
+export const artistWithAlbumsToArtist = (it: ArtistWithAlbums): Artist => ({
+  ...artistWithAlbumsToArtistSummary(it),
+});
 
 type P<T> = (t: T) => boolean;
 const all: P<any> = (_: any) => true;
@@ -60,7 +62,7 @@ export class InMemoryMusicService implements MusicService {
       return Promise.reject("Invalid auth token");
     return Promise.resolve({
       artists: (q: ArtistQuery) =>
-        Promise.resolve(this.artists.map(artistWithAlbumsToArtist))
+        Promise.resolve(this.artists.map(artistWithAlbumsToArtistSummary))
           .then(slice2(q))
           .then(asResult),
       artist: (id: string) =>
@@ -68,7 +70,8 @@ export class InMemoryMusicService implements MusicService {
           this.artists.find((it) => it.id === id),
           O.fromNullable,
           O.map(artistWithAlbumsToArtist),
-          getOrThrow(`No artist with id '${id}'`)
+          O.map(it => Promise.resolve(it)),
+          O.getOrElse(() => Promise.reject(`No artist with id '${id}'`))
         ),
       albums: (q: AlbumQuery) =>
         Promise.resolve(

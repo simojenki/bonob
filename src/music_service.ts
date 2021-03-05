@@ -22,15 +22,19 @@ export type AuthFailure = {
   message: string;
 };
 
-
-export type Artist = {
+export type ArtistSummary = {
   id: string;
   name: string;
-  image: {
-    small: string | undefined,
-    medium: string | undefined,
-    large: string | undefined,
-  }
+  image: Images
+}
+
+export type Images = {
+  small: string | undefined,
+  medium: string | undefined,
+  large: string | undefined,
+}
+
+export type Artist = ArtistSummary & {
 };
 
 export type Album = {
@@ -71,7 +75,7 @@ export interface MusicService {
 }
 
 export interface MusicLibrary {
-  artists(q: ArtistQuery): Promise<Result<Artist>>;
-  artist(id: string): Artist;
+  artists(q: ArtistQuery): Promise<Result<ArtistSummary>>;
+  artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<Album>>;
 }

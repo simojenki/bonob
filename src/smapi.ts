@@ -6,7 +6,12 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import { Album, Artist, MusicLibrary, MusicService } from "./music_service";
+import {
+  Album,
+  ArtistSummary,
+  MusicLibrary,
+  MusicService,
+} from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -227,35 +232,41 @@ function bindSmapiSoapServiceToExpress(
               case "artists":
                 return await musicLibrary
                   .artists(paging)
-                  .then(({ results, total }: { results: Artist[], total: number}) =>
-                    getMetadataResult({
-                      mediaCollection: results.map((it) =>
-                        ({
+                  .then(
+                    ({
+                      results,
+                      total,
+                    }: {
+                      results: ArtistSummary[];
+                      total: number;
+                    }) =>
+                      getMetadataResult({
+                        mediaCollection: results.map((it) => ({
                           itemType: "artist",
                           id: `artist:${it.id}`,
                           artistId: it.id,
                           title: it.name,
-                          albumArtURI: it.image.small
-                        })
-                      ),
-                      index: paging._index,
-                      total,
-                    })
+                          albumArtURI: it.image.small,
+                        })),
+                        index: paging._index,
+                        total,
+                      })
                   );
               case "albums":
                 return await musicLibrary
                   .albums(paging)
-                  .then(({ results, total }: { results: Album[], total: number}) =>
-                    getMetadataResult({
-                      mediaCollection: results.map((it) =>
-                        container({
-                          id: `album:${it.id}`,
-                          title: it.name,
-                        })
-                      ),
-                      index: paging._index,
-                      total,
-                    })
+                  .then(
+                    ({ results, total }: { results: Album[]; total: number }) =>
+                      getMetadataResult({
+                        mediaCollection: results.map((it) =>
+                          container({
+                            id: `album:${it.id}`,
+                            title: it.name,
+                          })
+                        ),
+                        index: paging._index,
+                        total,
+                      })
                   );
               default:
                 throw `Unsupported id:${id}`;
