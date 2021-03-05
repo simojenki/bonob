@@ -6,7 +6,7 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import { Album, MusicLibrary, MusicService, slice2 } from "./music_service";
+import { AlbumSummary, MusicLibrary, MusicService, slice2 } from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -159,10 +159,16 @@ const container = ({
   title,
 });
 
-const album = (album: Album) => ({
+const album = (album: AlbumSummary) => ({
   itemType: "album",
   id: `album:${album.id}`,
   title: album.name,
+  // albumArtURI: {
+  //   attributes: {
+  //     requiresAuthentication: "true"
+  //   },
+  //   $value: `${webAddress}/album/${album.id}/art`
+  // }
 });
 
 type SoapyHeaders = {
@@ -244,6 +250,14 @@ function bindSmapiSoapServiceToExpress(
                     total: result.total,
                   })
                 );
+                case "albums":
+                  return await musicLibrary.albums(paging).then((result) =>
+                    getMetadataResult({
+                      mediaCollection: result.results.map(album),
+                      index: paging._index,
+                      total: result.total,
+                    })
+                  );
               case "artist":
                 return await musicLibrary
                   .artist(typeId!)
@@ -256,14 +270,6 @@ function bindSmapiSoapServiceToExpress(
                       total,
                     })
                   );
-              case "albums":
-                return await musicLibrary.albums(paging).then((result) =>
-                  getMetadataResult({
-                    mediaCollection: result.results.map(album),
-                    index: paging._index,
-                    total: result.total,
-                  })
-                );
               default:
                 throw `Unsupported id:${id}`;
             }

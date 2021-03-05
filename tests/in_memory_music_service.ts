@@ -14,6 +14,8 @@ import {
   slice2,
   asResult,
   ArtistSummary,
+  Album,
+  AlbumSummary
 } from "../src/music_service";
 
 export const artistToArtistSummary = (
@@ -22,6 +24,15 @@ export const artistToArtistSummary = (
   id: it.id,
   name: it.name,
   image: it.image,
+});
+
+export const albumToAlbumSummary = (
+  it: Album
+): AlbumSummary => ({
+  id: it.id,
+  name: it.name,
+  year: it.year,
+  genre: it.genre,
 });
 
 type P<T> = (t: T) => boolean;
@@ -79,8 +90,10 @@ export class InMemoryMusicService implements MusicService {
           )
         )
           .then((artists) => artists.flatMap((it) => it.albums))
+          .then(it => it.map(albumToAlbumSummary))
           .then(slice2(q))
           .then(asResult),
+      // album: (id: albumId) => Promise.resolve(this.artists.flatMap(it => it.albums).find(it => it.id === id))
     });
   }
 
