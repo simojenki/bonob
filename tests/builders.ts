@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
-import { Artist } from "../src/music_service";
+import { Album, Artist } from "../src/music_service";
 
 const randomInt = (max: number) => Math.floor(Math.random() * max);
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -68,20 +68,31 @@ export function someCredentials(token: string): Credentials {
   };
 }
 
-export const BOB_MARLEY: Artist = {
-  id: uuid(),
-  name: "Bob Marley",
-  albums: [
-    { id: uuid(), name: "Burin'", year: "1973", genre: "Reggae" },
-    { id: uuid(), name: "Exodus", year: "1977", genre: "Reggae" },
-    { id: uuid(), name: "Kaya", year: "1978", genre: "Ska" },
-  ],
-  image: {
-    small: "http://localhost/BOB_MARLEY/sml",
-    medium: "http://localhost/BOB_MARLEY/med",
-    large: "http://localhost/BOB_MARLEY/lge",
-  },
-};
+export function anArtist(fields: Partial<Artist> = {}): Artist {
+  const id = uuid();
+  return {
+    id,
+    name: `Artist ${id}`,
+    albums: [],
+    image: {
+      small: undefined,
+      medium: undefined,
+      large: undefined
+    },
+    ...fields
+  }
+}
+
+export function anAlbum(fields: Partial<Album> = {}): Album {
+  const id = uuid();
+  return {
+    id,
+    name: `Album ${id}`,
+    genre: "Metal",
+    year: "1900",
+    ...fields
+  }
+}
 
 export const BLONDIE: Artist = {
   id: uuid(),
@@ -104,6 +115,21 @@ export const BLONDIE: Artist = {
     small: undefined,
     medium: undefined,
     large: undefined,
+  },
+};
+
+export const BOB_MARLEY: Artist = {
+  id: uuid(),
+  name: "Bob Marley",
+  albums: [
+    { id: uuid(), name: "Burin'", year: "1973", genre: "Reggae" },
+    { id: uuid(), name: "Exodus", year: "1977", genre: "Reggae" },
+    { id: uuid(), name: "Kaya", year: "1978", genre: "Ska" },
+  ],
+  image: {
+    small: "http://localhost/BOB_MARLEY/sml",
+    medium: "http://localhost/BOB_MARLEY/med",
+    large: "http://localhost/BOB_MARLEY/lge",
   },
 };
 
@@ -142,9 +168,6 @@ export const METALLICA: Artist = {
   },
 };
 
-export const ALL_ALBUMS = [
-  ...BOB_MARLEY.albums,
-  ...BLONDIE.albums,
-  ...MADONNA.albums,
-  ...METALLICA.albums,
-];
+export const ALL_ARTISTS = [BOB_MARLEY, BLONDIE, MADONNA, METALLICA]
+
+export const ALL_ALBUMS = ALL_ARTISTS.flatMap(it => it.albums || []);

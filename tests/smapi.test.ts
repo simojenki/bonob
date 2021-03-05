@@ -6,19 +6,14 @@ import X2JS from "x2js";
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import makeServer from "../src/server";
 import { bonobService, SONOS_DISABLED } from "../src/sonos";
-import {
-  STRINGS_ROUTE,
-  LOGIN_ROUTE,
-  getMetadataResult,
-  container,
-} from "../src/smapi";
+import { STRINGS_ROUTE, LOGIN_ROUTE, getMetadataResult } from "../src/smapi";
 
 import {
   aService,
-  BLONDIE,
-  BOB_MARLEY,
   getAppLinkMessage,
   someCredentials,
+  anArtist,
+  anAlbum,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -356,93 +351,228 @@ describe("api", () => {
             expect(root[0]).toEqual(
               getMetadataResult({
                 mediaCollection: [
-                  container({ id: "artists", title: "Artists" }),
-                  container({ id: "albums", title: "Albums" }),
+                  { itemType: "container", id: "artists", title: "Artists" },
+                  { itemType: "container", id: "albums", title: "Albums" },
                 ],
                 index: 0,
                 total: 2,
               })
             );
+          });
+        });
+
+        describe("asking for a single artist", () => {
+          const artistWithManyAlbums = anArtist({
+            albums: [
+              anAlbum(),
+              anAlbum(),
+              anAlbum(),
+              anAlbum(),
+              anAlbum(),
+            ],
+          });
+
+          beforeEach(() => {
+            musicService.hasArtists(artistWithManyAlbums);
+          });
+
+          describe("asking for all albums", () => {
+            it("should return a collection of albums", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `artist:${artistWithManyAlbums.id}`,
+                index: 0,
+                count: 100,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: artistWithManyAlbums.albums.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                  })),
+                  index: 0,
+                  total: artistWithManyAlbums.albums.length,
+                })
+              );
+            });
+          });
+
+          describe("asking for a page of albums", () => {
+            it("should return just that page", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `artist:${artistWithManyAlbums.id}`,
+                index: 2,
+                count: 2,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: [
+                    artistWithManyAlbums.albums[2]!,
+                    artistWithManyAlbums.albums[3]!,
+                  ].map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                  })),
+                  index: 0,
+                  total: artistWithManyAlbums.albums.length,
+                })
+              );
+            });
           });
         });
 
         describe("asking for artists", () => {
-          it("should return it", async () => {
-            musicService.hasArtists(BLONDIE, BOB_MARLEY);
+          const artists = [
+            anArtist(),
+            anArtist(),
+            anArtist(),
+            anArtist(),
+            anArtist(),
+          ];
 
-            const artists = await ws.getMetadataAsync({
-              id: "artists",
-              index: 0,
-              count: 100,
-            });
-            expect(artists[0]).toEqual(
-              getMetadataResult({
-                mediaCollection: [BLONDIE, BOB_MARLEY].map((it) => ({
-                  itemType: "artist",
-                  id: `artist:${it.id}`,
-                  artistId: it.id,
-                  title: it.name,
-                  albumArtURI: it.image.small,
-                })),
+          beforeEach(() => {
+            musicService.hasArtists(...artists);
+          });
+
+          describe("asking for all artists", () => {
+            it("should return them all", async () => {
+              const result = await ws.getMetadataAsync({
+                id: "artists",
                 index: 0,
-                total: 2,
-              })
-            );
+                count: 100,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: artists.map((it) => ({
+                    itemType: "artist",
+                    id: `artist:${it.id}`,
+                    artistId: it.id,
+                    title: it.name,
+                    albumArtURI: it.image.small,
+                  })),
+                  index: 0,
+                  total: artists.length,
+                })
+              );
+            });
+          });
+
+          describe("asking for a page of artists", () => {
+            it("should return it", async () => {
+              const result = await ws.getMetadataAsync({
+                id: "artists",
+                index: 1,
+                count: 3,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: [artists[1]!, artists[2]!, artists[3]!].map(
+                    (it) => ({
+                      itemType: "artist",
+                      id: `artist:${it.id}`,
+                      artistId: it.id,
+                      title: it.name,
+                      albumArtURI: it.image.small,
+                    })
+                  ),
+                  index: 1,
+                  total: artists.length,
+                })
+              );
+            });
           });
         });
 
-        describe("asking for all albums", () => {
-          it("should return it", async () => {
-            musicService.hasArtists(BLONDIE, BOB_MARLEY);
+        // describe("asking for an album by id", () => {
+        //   it("should return it", async () => {
+        //     musicService.hasArtists(BLONDIE, BOB_MARLEY);
+        //     const album = BOB_MARLEY.albums[0]!;
 
-            const albums = await ws.getMetadataAsync({
-              id: "albums",
-              index: 0,
-              count: 100,
-            });
-            expect(albums[0]).toEqual(
-              getMetadataResult({
-                mediaCollection: [
-                  ...BLONDIE.albums,
-                  ...BOB_MARLEY.albums,
-                ].map((it) =>
-                  container({ id: `album:${it.id}`, title: it.name })
-                ),
-                index: 0,
-                total: BLONDIE.albums.length + BOB_MARLEY.albums.length,
-              })
-            );
+        //     const result = await ws.getMetadataAsync({
+        //       id: `album:${album.id}`,
+        //       index: 0,
+        //       count: 100,
+        //     });
+        //     expect(result).toEqual(
+        //       getMetadataResult({
+        //         mediaCollection: [
+        //           ...BLONDIE.albums,
+        //           ...BOB_MARLEY.albums,
+        //         ].map((it) =>
+        //           ({ itemType: "album", id: `album:${it.id}`, title: it.name })
+        //         ),
+        //         index: 0,
+        //         total: BLONDIE.albums.length + BOB_MARLEY.albums.length,
+        //       })
+        //     );
+        //   });
+        // });
+
+        describe("asking for albums", () => {
+          const artist1 = anArtist({
+            albums: [anAlbum(), anAlbum(), anAlbum()],
           });
-        });
+          const artist2 = anArtist({
+            albums: [anAlbum(), anAlbum()],
+          });
+          const artist3 = anArtist({
+            albums: [],
+          });
+          const artist4 = anArtist({
+            albums: [anAlbum()],
+          });
 
-        describe("asking for albums with paging", () => {
-          it("should return it", async () => {
-            musicService.hasArtists(BLONDIE, BOB_MARLEY);
+          beforeEach(() => {
+            musicService.hasArtists(artist1, artist2, artist3, artist4);
+          });
 
-            expect(BLONDIE.albums.length).toEqual(2);
-            expect(BOB_MARLEY.albums.length).toEqual(3);
-
-            const albums = await ws.getMetadataAsync({
-              id: "albums",
-              index: 2,
-              count: 2,
+          describe("asking for all albums", () => {
+            it("should return them all", async () => {
+              const result = await ws.getMetadataAsync({
+                id: "albums",
+                index: 0,
+                count: 100,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: [artist1, artist2, artist3, artist4]
+                    .flatMap((it) => it.albums)
+                    .map((it) => ({
+                      itemType: "album",
+                      id: `album:${it.id}`,
+                      title: it.name,
+                    })),
+                  index: 0,
+                  total: 6,
+                })
+              );
             });
-            expect(albums[0]).toEqual(
-              getMetadataResult({
-                mediaCollection: [
-                  container({
-                    id: `album:${BOB_MARLEY.albums[0]!.id}`,
-                    title: BOB_MARLEY.albums[0]!.name,
-                  }),
-                  container({
-                    id: `album:${BOB_MARLEY.albums[1]!.id}`,
-                    title: BOB_MARLEY.albums[1]!.name,
-                  }),
-                ],
+          });
+
+          describe("asking for a page of albums", () => {
+            it("should return only that page", async () => {
+              const result = await ws.getMetadataAsync({
+                id: "albums",
                 index: 2,
-                total: BLONDIE.albums.length + BOB_MARLEY.albums.length,
-              })
-            );
+                count: 3,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: [
+                    artist1.albums[2]!,
+                    artist2.albums[0]!,
+                    artist2.albums[1]!,
+                  ].map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                  })),
+                  index: 2,
+                  total: 6,
+                })
+              );
+            });
           });
         });
       });
