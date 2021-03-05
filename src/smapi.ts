@@ -6,12 +6,7 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import {
-  Album,
-  ArtistSummary,
-  MusicLibrary,
-  MusicService,
-} from "./music_service";
+import { Album, MusicLibrary, MusicService, slice2 } from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -152,7 +147,7 @@ export type Container = {
   title: string;
 };
 
-export const container = ({
+const container = ({
   id,
   title,
 }: {
@@ -162,6 +157,12 @@ export const container = ({
   itemType: "container",
   id,
   title,
+});
+
+const album = (album: Album) => ({
+  itemType: "album",
+  id: `album:${album.id}`,
+  title: album.name,
 });
 
 type SoapyHeaders = {
@@ -223,51 +224,46 @@ function bindSmapiSoapServiceToExpress(
               case "root":
                 return getMetadataResult({
                   mediaCollection: [
-                    { itemType: "container", id: "artists", title: "Artists" },
-                    { itemType: "container", id: "albums", title: "Albums" },
+                    container({ id: "artists", title: "Artists" }),
+                    container({ id: "albums", title: "Albums" }),
                   ],
                   index: 0,
                   total: 2,
                 });
               case "artists":
+                return await musicLibrary.artists(paging).then((result) =>
+                  getMetadataResult({
+                    mediaCollection: result.results.map((it) => ({
+                      itemType: "artist",
+                      id: `artist:${it.id}`,
+                      artistId: it.id,
+                      title: it.name,
+                      albumArtURI: it.image.small,
+                    })),
+                    index: paging._index,
+                    total: result.total,
+                  })
+                );
+              case "artist":
                 return await musicLibrary
-                  .artists(paging)
-                  .then(
-                    ({
-                      results,
+                  .artist(typeId!)
+                  .then((artist) => artist.albums)
+                  .then(slice2(paging))
+                  .then(([page, total]) =>
+                    getMetadataResult({
+                      mediaCollection: page.map(album),
+                      index: 0,
                       total,
-                    }: {
-                      results: ArtistSummary[];
-                      total: number;
-                    }) =>
-                      getMetadataResult({
-                        mediaCollection: results.map((it) => ({
-                          itemType: "artist",
-                          id: `artist:${it.id}`,
-                          artistId: it.id,
-                          title: it.name,
-                          albumArtURI: it.image.small,
-                        })),
-                        index: paging._index,
-                        total,
-                      })
+                    })
                   );
               case "albums":
-                return await musicLibrary
-                  .albums(paging)
-                  .then(
-                    ({ results, total }: { results: Album[]; total: number }) =>
-                      getMetadataResult({
-                        mediaCollection: results.map((it) =>
-                          container({
-                            id: `album:${it.id}`,
-                            title: it.name,
-                          })
-                        ),
-                        index: paging._index,
-                        total,
-                      })
-                  );
+                return await musicLibrary.albums(paging).then((result) =>
+                  getMetadataResult({
+                    mediaCollection: result.results.map(album),
+                    index: paging._index,
+                    total: result.total,
+                  })
+                );
               default:
                 throw `Unsupported id:${id}`;
             }
