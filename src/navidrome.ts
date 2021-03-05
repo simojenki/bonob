@@ -4,11 +4,14 @@ import {
   MusicService,
   Album,
   Artist,
+  ArtistSummary,
   Result,
   slice2,
   asResult,
   AlbumQuery,
   ArtistQuery,
+  MusicLibrary,
+  Images,
 } from "./music_service";
 import X2JS from "x2js";
 
@@ -35,15 +38,17 @@ export type SubsonicResponse = {
   _status: string;
 };
 
+export type artist = {
+  _id: string;
+  _name: string;
+  _albumCount: string;
+  _artistImageUrl: string | undefined;
+};
+
 export type GetArtistsResponse = SubsonicResponse & {
   artists: {
     index: {
-      artist: {
-        _id: string;
-        _name: string;
-        _albumCount: string;
-        _artistImageUrl: string | undefined;
-      }[];
+      artist: artist[];
       _name: string;
     }[];
   };
@@ -65,8 +70,16 @@ export type artistInfo = {
   largeImageUrl: string | undefined;
 };
 
+export type ArtistInfo = {
+  image: Images;
+};
+
 export type GetArtistInfoResponse = {
   artistInfo: artistInfo;
+};
+
+export type GetArtistResponse = {
+  artist: artist;
 };
 
 export function isError(
@@ -74,6 +87,11 @@ export function isError(
 ): subsonicResponse is SubsonicError {
   return (subsonicResponse as SubsonicError).error !== undefined;
 }
+
+export type IdName = {
+  id: string;
+  name: string;
+};
 
 export class Navidrome implements MusicService {
   url: string;
@@ -124,46 +142,80 @@ export class Navidrome implements MusicService {
       )
     );
 
+  artistInfo = (credentials: Credentials, id: string): Promise<ArtistInfo> =>
+    this.get<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
+      id,
+    }).then((it) => ({
+      image: {
+        small: it.artistInfo.smallImageUrl,
+        medium: it.artistInfo.mediumImageUrl,
+        large: it.artistInfo.largeImageUrl,
+      },
+    }));
+
   async login(token: string) {
     const navidrome = this;
     const credentials: Credentials = this.parseToken(token);
-    return Promise.resolve({
-      artists: (q: ArtistQuery): Promise<Result<Artist>> =>
+
+    const musicLibrary: MusicLibrary = {
+      artists: (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
         navidrome
           .get<GetArtistsResponse>(credentials, "/rest/getArtists")
-          .then((it) => it.artists.index.flatMap((it) => it.artist))
+          .then((it) => it.artists.index.flatMap((it) => it.artist || []))
           .then((artists) =>
+            artists.map((artist) => ({
+              id: artist._id,
+              name: artist._name,
+            }))
+          )
+          .then(slice2(q))
+          .then(asResult)
+          .then((result) =>
             Promise.all(
-              artists.map((artist) =>
-                navidrome
-                  .get<GetArtistInfoResponse>(
-                    credentials,
-                    "/rest/getArtistInfo",
-                    { id: artist._id }
-                  )
-                  .then((it) => it.artistInfo)
-                  .then((artistInfo) => ({
-                    id: artist._id,
-                    name: artist._name,
-                    image: {
-                      small: artistInfo.smallImageUrl,
-                      medium: artistInfo.mediumImageUrl,
-                      large: artistInfo.largeImageUrl,
-                    },
-                  }))
+              result.results.map((idName: IdName) =>
+                navidrome.artistInfo(credentials, idName.id).then((artist) => ({
+                  total: result.total,
+                  result: {
+                    id: idName.id,
+                    name: idName.name,
+                    image: artist.image,
+                  },
+                }))
               )
             )
           )
-          .then(slice2(q))
-          .then(asResult),
-      artist: (id: string) => ({
-        id,
-        name: id,
-        image: { small: undefined, medium: undefined, large: undefined },
-      }),
+          .then((resultWithInfo) => {
+            return {
+              total: resultWithInfo[0]?.total || 0,
+              results: resultWithInfo.map((it) => it.result),
+            };
+          }),
+      artist: async (id: string): Promise<Artist> => {
+        return navidrome
+          .get<GetArtistResponse>(credentials, "/rest/getArtist", {
+            id,
+          })
+          .then(async (artist: GetArtistResponse) => {
+            return navidrome
+              .get<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
+                id,
+              })
+              .then((artistInfo: GetArtistInfoResponse) => ({
+                id: artist.artist._id,
+                name: artist.artist._name,
+                image: {
+                  small: artistInfo.artistInfo.smallImageUrl,
+                  medium: artistInfo.artistInfo.mediumImageUrl,
+                  large: artistInfo.artistInfo.largeImageUrl,
+                },
+              }));
+          });
+      },
       albums: (_: AlbumQuery): Promise<Result<Album>> => {
         return Promise.resolve({ results: [], total: 0 });
       },
-    });
+    };
+
+    return Promise.resolve(musicLibrary);
   }
 }

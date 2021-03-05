@@ -2,16 +2,17 @@ import express, { Express } from "express";
 import * as Eta from "eta";
 import morgan from "morgan";
 
+import { Sonos, Service } from "./sonos";
 import {
-  Sonos,
-  Service,
-} from "./sonos";
-import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE, LOGIN_ROUTE } from './smapi';
+  SOAP_PATH,
+  STRINGS_ROUTE,
+  PRESENTATION_MAP_ROUTE,
+  LOGIN_ROUTE,
+} from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
 // import logger from "./logger";
 import bindSmapiSoapServiceToExpress from "./smapi";
-
 
 function server(
   sonos: Sonos,
@@ -65,7 +66,7 @@ function server(
     res.render("login", {
       bonobService,
       linkCode: req.query.linkCode,
-      loginRoute: LOGIN_ROUTE
+      loginRoute: LOGIN_ROUTE,
     });
   });
 
@@ -85,7 +86,7 @@ function server(
         res.render("success", {
           message: `Login successful!`,
         });
-    } else {
+      } else {
         res.status(403).render("failure", {
           message: `Login failed! ${authResult.message}!`,
         });
@@ -112,7 +113,33 @@ function server(
     res.send("");
   });
 
-  bindSmapiSoapServiceToExpress(app, SOAP_PATH, webAddress, linkCodes, musicService);
+  // app.get("/artist/:artistId/image", (req, res) => {
+  //   console.log(`Trying to load image for ${req.params["artistId"]}, token ${JSON.stringify(req.cookies)}`)
+  //   const authToken = req.headers["X-AuthToken"]! as string;
+  //   const artistId = req.params["artistId"]!;
+  //   musicService
+  //     .login(authToken)
+  //     .then((it) => it.artist(artistId))
+  //     .then(artist => artist.image.small)
+  //     .then((url) => {
+  //       if (url) {
+  //         console.log(`${artistId} sending 307 -> ${url}`)
+  //         res.setHeader("Location", url);
+  //         res.status(307).send();
+  //       } else {
+  //         console.log(`${artistId} sending 404`)
+  //         res.status(404).send();
+  //       }
+  //     });
+  // });
+
+  bindSmapiSoapServiceToExpress(
+    app,
+    SOAP_PATH,
+    webAddress,
+    linkCodes,
+    musicService
+  );
 
   return app;
 }

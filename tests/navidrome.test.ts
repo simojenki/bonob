@@ -1,13 +1,13 @@
 import { Md5 } from "ts-md5/dist/md5";
 
-import { Navidrome, t, artistInfo } from "../src/navidrome";
+import { Navidrome, t } from "../src/navidrome";
 import encryption from "../src/encryption";
 
 import axios from "axios";
 jest.mock("axios");
 
 import randomString from "../src/random_string";
-import { AuthSuccess } from "../src/music_service";
+import { Artist, AuthSuccess, Images } from "../src/music_service";
 jest.mock("../src/random_string");
 
 describe("t", () => {
@@ -24,23 +24,21 @@ const ok = (data: string) => ({
 });
 
 const artistInfoXml = (
-  artistInfo: Partial<artistInfo>
+  images: Images
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
           <artistInfo>
               <biography></biography>
               <musicBrainzId></musicBrainzId>
               <lastFmUrl></lastFmUrl>
-              <smallImageUrl>${artistInfo.smallImageUrl || ""}</smallImageUrl>
-              <mediumImageUrl>${
-                artistInfo.mediumImageUrl || ""
-              }</mediumImageUrl>
-              <largeImageUrl>${artistInfo.largeImageUrl || ""}</largeImageUrl>
+              <smallImageUrl>${images.small || ""}</smallImageUrl>
+              <mediumImageUrl>${images.medium || ""}</mediumImageUrl>
+              <largeImageUrl>${images.large || ""}</largeImageUrl>
           </artistInfo>
         </subsonic-response>`;
 
 const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
 
-describe("navidrome", () => {
+describe("Navidrome", () => {
   const url = "http://127.0.0.22:4567";
   const username = "user1";
   const password = "pass1";
@@ -49,7 +47,7 @@ describe("navidrome", () => {
   const navidrome = new Navidrome(url, encryption("secret"));
 
   const mockedRandomString = (randomString as unknown) as jest.Mock;
-  const mockGET = jest.fn()
+  const mockGET = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -102,54 +100,147 @@ describe("navidrome", () => {
     });
   });
 
-  describe("getArtists", () => {
-    const getArtistsXml = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                              <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
-                                <index name="#">
-                                  <artist id="2911b2d67a6b11eb804dd360a6225680" name="artist1" albumCount="22"></artist>
-                                  <artist id="3c0b9d7a7a6b11eb9773f398e6236ad6" name="artist2" albumCount="9"></artist>
-                                </index>
-                                <index name="A">
-                                  <artist id="3c5113007a6b11eb87173bfb9b07f9b1" name="artist3" albumCount="2"></artist>
-                                </index>
-                                <index name="B">
-                                  <artist id="3ca781c27a6b11eb897ebbb5773603ad" name="artist4" albumCount="2"></artist>
-                                </index>
-                              </artists>
-                            </subsonic-response>`;
+  describe("getArtist", () => {
+    const artistId = "someUUID_123";
+    const artistName = "BananaMan";
 
-    const artist1_getArtistInfoXml = artistInfoXml({
-      smallImageUrl: "sml1",
-      mediumImageUrl: "med1",
-      largeImageUrl: "lge1",
-    });
-    const artist2_getArtistInfoXml = artistInfoXml({
-      smallImageUrl: "sml2",
-      mediumImageUrl: undefined,
-      largeImageUrl: "lge2",
-    });
-    const artist3_getArtistInfoXml = artistInfoXml({
-      smallImageUrl: undefined,
-      mediumImageUrl: "med3",
-      largeImageUrl: undefined,
-    });
-    const artist4_getArtistInfoXml = artistInfoXml({
-      smallImageUrl: "sml4",
-      mediumImageUrl: "med4",
-      largeImageUrl: "lge4",
+    const artistXml = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                        <artist id="${artistId}" name="${artistName}" albumCount="9" artistImageUrl="....">
+                        </artist>
+                      </subsonic-response>`;
+
+    const getArtistInfoXml = artistInfoXml({
+      small: "sml1",
+      medium: "med1",
+      large: "lge1",
     });
 
     beforeEach(() => {
       mockGET
-      .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-      .mockImplementationOnce(() => Promise.resolve(ok(getArtistsXml)))
-      .mockImplementationOnce(() => Promise.resolve(ok(artist1_getArtistInfoXml)))
-      .mockImplementationOnce(() => Promise.resolve(ok(artist2_getArtistInfoXml)))
-      .mockImplementationOnce(() => Promise.resolve(ok(artist3_getArtistInfoXml)))
-      .mockImplementationOnce(() => Promise.resolve(ok(artist4_getArtistInfoXml)));
+        .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+        .mockImplementationOnce(() => Promise.resolve(ok(artistXml)))
+        .mockImplementationOnce(() => Promise.resolve(ok(getArtistInfoXml)));
+    });
+
+    it("should do it", async () => {
+      const artist = await navidrome
+        .generateToken({ username, password })
+        .then((it) => it as AuthSuccess)
+        .then((it) => navidrome.login(it.authToken))
+        .then((it) => it.artist(artistId));
+
+      expect(artist).toEqual({
+        id: artistId,
+        name: artistName,
+        image: { small: "sml1", medium: "med1", large: "lge1" },
+      });
+
+      expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+        params: {
+          id: artistId,
+          ...authParams,
+        },
+      });
+
+      expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+        params: {
+          id: artistId,
+          ...authParams,
+        },
+      });
+    });
+  });
+
+  describe("getArtists", () => {
+    const artist1: Artist = {
+      id: "artist1.id",
+      name: "artist1.name",
+      image: { small: "s1", medium: "m1", large: "l1" },
+    };
+    const artist2: Artist = {
+      id: "artist2.id",
+      name: "artist2.name",
+      image: { small: "s2", medium: "m2", large: "l2" },
+    };
+    const artist3: Artist = {
+      id: "artist3.id",
+      name: "artist3.name",
+      image: { small: "s3", medium: "m3", large: "l3" },
+    };
+    const artist4: Artist = {
+      id: "artist4.id",
+      name: "artist4.name",
+      image: { small: "s4", medium: "m4", large: "l4" },
+    };
+
+    const getArtistsXml = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                              <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
+                                <index name="#">
+                                  <artist id="${artist1.id}" name="${artist1.name}" albumCount="22"></artist>
+                                  <artist id="${artist2.id}" name="${artist2.name}" albumCount="9"></artist>
+                                </index>
+                                <index name="A">
+                                  <artist id="${artist3.id}" name="${artist3.name}" albumCount="2"></artist>
+                                </index>
+                                <index name="B">
+                                  <artist id="${artist4.id}" name="${artist4.name}" albumCount="2"></artist>
+                                </index>
+                              </artists>
+                            </subsonic-response>`;
+
+    describe("when there are no results", () => {
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(`<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                    <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
+                      <index name="#">
+                      </index>
+                      <index name="A">
+                      </index>
+                      <index name="B">
+                      </index>
+                    </artists>
+                  </subsonic-response>`)
+            )
+          );
+      });
+
+      it("should return empty", async () => {
+        const artists = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.artists({ _index: 0, _count: 100 }));
+
+        expect(artists).toEqual({
+          results: [],
+          total: 0,
+        });
+      });
     });
 
     describe("when no paging is in effect", () => {
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(ok(getArtistsXml)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(artistInfoXml(artist1.image)))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(artistInfoXml(artist2.image)))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(artistInfoXml(artist3.image)))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(artistInfoXml(artist4.image)))
+          );
+      });
+
       it("should return all the artists", async () => {
         const artists = await navidrome
           .generateToken({ username, password })
@@ -157,54 +248,35 @@ describe("navidrome", () => {
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.artists({ _index: 0, _count: 100 }));
 
-        const expectedArtists = [
-          {
-            id: "2911b2d67a6b11eb804dd360a6225680",
-            name: "artist1",
-            image: { small: "sml1", medium: "med1", large: "lge1" },
-          },
-          {
-            id: "3c0b9d7a7a6b11eb9773f398e6236ad6",
-            name: "artist2",
-            image: { small: "sml2", medium: "", large: "lge2" },
-          },
-          {
-            id: "3c5113007a6b11eb87173bfb9b07f9b1",
-            name: "artist3",
-            image: { small: "", medium: "med3", large: "" },
-          },
-          {
-            id: "3ca781c27a6b11eb897ebbb5773603ad",
-            name: "artist4",
-            image: { small: "sml4", medium: "med4", large: "lge4" },
-          },
-        ];
-        expect(artists).toEqual({ results: expectedArtists, total: 4 });
+        expect(artists).toEqual({
+          results: [artist1, artist2, artist3, artist4],
+          total: 4,
+        });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
           params: authParams,
         });
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
           params: {
-            id: "2911b2d67a6b11eb804dd360a6225680",
+            id: artist1.id,
             ...authParams,
           },
         });
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
           params: {
-            id: "3c0b9d7a7a6b11eb9773f398e6236ad6",
+            id: artist2.id,
             ...authParams,
           },
         });
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
           params: {
-            id: "3c5113007a6b11eb87173bfb9b07f9b1",
+            id: artist3.id,
             ...authParams,
           },
         });
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
           params: {
-            id: "3ca781c27a6b11eb897ebbb5773603ad",
+            id: artist4.id,
             ...authParams,
           },
         });
@@ -212,6 +284,18 @@ describe("navidrome", () => {
     });
 
     describe("when paging specified", () => {
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(ok(getArtistsXml)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(artistInfoXml(artist2.image)))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(artistInfoXml(artist3.image)))
+          );
+      });
+
       it("should return only the correct page of artists", async () => {
         const artists = await navidrome
           .generateToken({ username, password })
@@ -219,44 +303,20 @@ describe("navidrome", () => {
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.artists({ _index: 1, _count: 2 }));
 
-          const expectedArtists = [
-            {
-              id: "3c0b9d7a7a6b11eb9773f398e6236ad6",
-              name: "artist2",
-              image: { small: "sml2", medium: "", large: "lge2" },
-            },
-            {
-              id: "3c5113007a6b11eb87173bfb9b07f9b1",
-              name: "artist3",
-              image: { small: "", medium: "med3", large: "" },
-            },
-          ];
-          expect(artists).toEqual({ results: expectedArtists, total: 4 });
+        expect(artists).toEqual({ results: [artist2, artist3], total: 4 });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
           params: authParams,
         });
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
           params: {
-            id: "2911b2d67a6b11eb804dd360a6225680",
+            id: artist2.id,
             ...authParams,
           },
         });
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
           params: {
-            id: "3c0b9d7a7a6b11eb9773f398e6236ad6",
-            ...authParams,
-          },
-        });
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-          params: {
-            id: "3c5113007a6b11eb87173bfb9b07f9b1",
-            ...authParams,
-          },
-        });
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-          params: {
-            id: "3ca781c27a6b11eb897ebbb5773603ad",
+            id: artist3.id,
             ...authParams,
           },
         });

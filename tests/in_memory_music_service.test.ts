@@ -1,4 +1,8 @@
-import { InMemoryMusicService, artistWithAlbumsToArtist } from "./in_memory_music_service";
+import {
+  InMemoryMusicService,
+  artistWithAlbumsToArtist,
+  artistWithAlbumsToArtistSummary,
+} from "./in_memory_music_service";
 import { AuthSuccess, MusicLibrary } from "../src/music_service";
 import { v4 as uuid } from "uuid";
 import {
@@ -48,8 +52,18 @@ describe("InMemoryMusicService", () => {
       expect(artistWithAlbumsToArtist(BOB_MARLEY)).toEqual({
         id: BOB_MARLEY.id,
         name: BOB_MARLEY.name,
-        image: BOB_MARLEY.image
-      })
+        image: BOB_MARLEY.image,
+      });
+    });
+  });
+
+  describe("artistWithAlbumsToArtistSummary", () => {
+    it("should map fields correctly", () => {
+      expect(artistWithAlbumsToArtistSummary(BOB_MARLEY)).toEqual({
+        id: BOB_MARLEY.id,
+        name: BOB_MARLEY.name,
+        image: BOB_MARLEY.image,
+      });
     });
   });
 
@@ -71,12 +85,14 @@ describe("InMemoryMusicService", () => {
       describe("fetching all", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            artistWithAlbumsToArtist(BOB_MARLEY),
-            artistWithAlbumsToArtist(MADONNA),
-            artistWithAlbumsToArtist(BLONDIE),
-            artistWithAlbumsToArtist(METALLICA),
+            artistWithAlbumsToArtistSummary(BOB_MARLEY),
+            artistWithAlbumsToArtistSummary(MADONNA),
+            artistWithAlbumsToArtistSummary(BLONDIE),
+            artistWithAlbumsToArtistSummary(METALLICA),
           ];
-          expect(await musicLibrary.artists({ _index: 0, _count: 100 })).toEqual({
+          expect(
+            await musicLibrary.artists({ _index: 0, _count: 100 })
+          ).toEqual({
             results: artists,
             total: 4,
           });
@@ -86,8 +102,8 @@ describe("InMemoryMusicService", () => {
       describe("fetching the second page", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            artistWithAlbumsToArtist(BLONDIE),
-            artistWithAlbumsToArtist(METALLICA),
+            artistWithAlbumsToArtistSummary(BLONDIE),
+            artistWithAlbumsToArtistSummary(METALLICA),
           ];
           expect(await musicLibrary.artists({ _index: 2, _count: 2 })).toEqual({
             results: artists,
@@ -99,9 +115,9 @@ describe("InMemoryMusicService", () => {
       describe("fetching the more items than fit on the second page", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            artistWithAlbumsToArtist(MADONNA),
-            artistWithAlbumsToArtist(BLONDIE),
-            artistWithAlbumsToArtist(METALLICA),
+            artistWithAlbumsToArtistSummary(MADONNA),
+            artistWithAlbumsToArtistSummary(BLONDIE),
+            artistWithAlbumsToArtistSummary(METALLICA),
           ];
           expect(
             await musicLibrary.artists({ _index: 1, _count: 50 })
@@ -112,15 +128,19 @@ describe("InMemoryMusicService", () => {
 
     describe("artist", () => {
       describe("when it exists", () => {
-        it("should provide an artist", () => {
-          expect(musicLibrary.artist(MADONNA.id)).toEqual(artistWithAlbumsToArtist(MADONNA));
-          expect(musicLibrary.artist(BLONDIE.id)).toEqual(artistWithAlbumsToArtist(BLONDIE));
+        it("should provide an artist", async () => {
+          expect(await musicLibrary.artist(MADONNA.id)).toEqual(
+            artistWithAlbumsToArtist(MADONNA)
+          );
+          expect(await musicLibrary.artist(BLONDIE.id)).toEqual(
+            artistWithAlbumsToArtist(BLONDIE)
+          );
         });
       });
 
       describe("when it doesnt exist", () => {
-        it("should provide an artist", () => {
-          expect(() => musicLibrary.artist("-1")).toThrow(
+        it("should blow up", async () => {
+          return expect(musicLibrary.artist("-1")).rejects.toEqual(
             "No artist with id '-1'"
           );
         });
@@ -130,30 +150,50 @@ describe("InMemoryMusicService", () => {
     describe("albums", () => {
       describe("fetching with no filtering", () => {
         it("should return all the albums for all the artists", async () => {
-          expect(await musicLibrary.albums({ _index: 0, _count: 100 })).toEqual({
-            results: ALL_ALBUMS,
-            total: ALL_ALBUMS.length,
-          });
+          expect(await musicLibrary.albums({ _index: 0, _count: 100 })).toEqual(
+            {
+              results: ALL_ALBUMS,
+              total: ALL_ALBUMS.length,
+            }
+          );
         });
       });
 
       describe("fetching for a single artist", () => {
         it("should return them all if the artist has some", async () => {
-          expect(await musicLibrary.albums({ artistId: BLONDIE.id, _index: 0, _count: 100 })).toEqual({
+          expect(
+            await musicLibrary.albums({
+              artistId: BLONDIE.id,
+              _index: 0,
+              _count: 100,
+            })
+          ).toEqual({
             results: BLONDIE.albums,
             total: BLONDIE.albums.length,
           });
         });
 
         it("should return empty list of the artists does not have any", async () => {
-          expect(await musicLibrary.albums({ artistId: MADONNA.id, _index: 0, _count: 100 })).toEqual({
+          expect(
+            await musicLibrary.albums({
+              artistId: MADONNA.id,
+              _index: 0,
+              _count: 100,
+            })
+          ).toEqual({
             results: [],
             total: 0,
           });
         });
 
         it("should return empty list if the artist id is not valid", async () => {
-          expect(await musicLibrary.albums({ artistId: uuid(), _index: 0, _count: 100 })).toEqual({
+          expect(
+            await musicLibrary.albums({
+              artistId: uuid(),
+              _index: 0,
+              _count: 100,
+            })
+          ).toEqual({
             results: [],
             total: 0,
           });
