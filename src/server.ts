@@ -113,21 +113,21 @@ function server(
     res.send("");
   });
 
-  // app.get("/artist/:artistId/image", (req, res) => {
-  //   console.log(`Trying to load image for ${req.params["artistId"]}, token ${JSON.stringify(req.cookies)}`)
+  // app.get("/album/:albumId/art", (req, res) => {
+  //   console.log(`Trying to load image for ${req.params["albumId"]}, token ${JSON.stringify(req.cookies)}`)
   //   const authToken = req.headers["X-AuthToken"]! as string;
-  //   const artistId = req.params["artistId"]!;
+  //   const albumId = req.params["albumId"]!;
   //   musicService
   //     .login(authToken)
-  //     .then((it) => it.artist(artistId))
-  //     .then(artist => artist.image.small)
+  //     // .then((it) => it.artist(artistId))
+  //     // .then(artist => artist.image.small)
   //     .then((url) => {
   //       if (url) {
-  //         console.log(`${artistId} sending 307 -> ${url}`)
-  //         res.setHeader("Location", url);
+  //         console.log(`${albumId} sending 307 -> ${url}`)
+  //         // res.setHeader("Location", url);
   //         res.status(307).send();
   //       } else {
-  //         console.log(`${artistId} sending 404`)
+  //         console.log(`${albumId} sending 404`)
   //         res.status(404).send();
   //       }
   //     });

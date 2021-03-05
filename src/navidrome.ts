@@ -7,11 +7,11 @@ import {
   ArtistSummary,
   Result,
   slice2,
-  asResult,
   AlbumQuery,
   ArtistQuery,
   MusicLibrary,
   Images,
+  AlbumSummary,
 } from "./music_service";
 import X2JS from "x2js";
 
@@ -203,14 +203,13 @@ export class Navidrome implements MusicService {
         navidrome
           .getArtists(credentials)
           .then(slice2(q))
-          .then(asResult)
-          .then((result) =>
+          .then(([page, total]) =>
             Promise.all(
-              result.results.map((idName: IdName) =>
+              page.map((idName: IdName) =>
                 navidrome
                   .getArtistInfo(credentials, idName.id)
                   .then((artistInfo) => ({
-                    total: result.total,
+                    total,
                     result: {
                       id: idName.id,
                       name: idName.name,
@@ -236,7 +235,7 @@ export class Navidrome implements MusicService {
           image: artistInfo.image,
           albums: artist.albums,
         })),
-      albums: (_: AlbumQuery): Promise<Result<Album>> => {
+      albums: (_: AlbumQuery): Promise<Result<AlbumSummary>> => {
         return Promise.resolve({ results: [], total: 0 });
       },
     };

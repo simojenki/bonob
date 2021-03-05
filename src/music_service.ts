@@ -38,11 +38,14 @@ export type Artist = ArtistSummary & {
   albums: Album[]
 };
 
-export type Album = {
+export type AlbumSummary = {
   id: string;
   name: string;
   year: string | undefined;
   genre: string | undefined;
+}
+
+export type Album = AlbumSummary & {
 };
 
 export type Paging = {
@@ -80,5 +83,6 @@ export interface MusicService {
 export interface MusicLibrary {
   artists(q: ArtistQuery): Promise<Result<ArtistSummary>>;
   artist(id: string): Promise<Artist>;
-  albums(q: AlbumQuery): Promise<Result<Album>>;
+  albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
+  // album(id: string): Promise<Album>;
 }
