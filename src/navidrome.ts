@@ -142,7 +142,17 @@ export class Navidrome implements MusicService {
       )
     );
 
-  artistInfo = (credentials: Credentials, id: string): Promise<ArtistInfo> =>
+  getArtists = (credentials: Credentials): Promise<IdName[]> =>
+    this.get<GetArtistsResponse>(credentials, "/rest/getArtists")
+      .then((it) => it.artists.index.flatMap((it) => it.artist || []))
+      .then((artists) =>
+        artists.map((artist) => ({
+          id: artist._id,
+          name: artist._name,
+        }))
+      );
+
+  getArtistInfo = (credentials: Credentials, id: string): Promise<ArtistInfo> =>
     this.get<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
       id,
     }).then((it) => ({
@@ -153,6 +163,11 @@ export class Navidrome implements MusicService {
       },
     }));
 
+  getArtist = (credentials: Credentials, id: string): Promise<IdName> =>
+    this.get<GetArtistResponse>(credentials, "/rest/getArtist", {
+      id,
+    }).then((it) => ({ id: it.artist._id, name: it.artist._name }));
+    
   async login(token: string) {
     const navidrome = this;
     const credentials: Credentials = this.parseToken(token);
@@ -160,27 +175,22 @@ export class Navidrome implements MusicService {
     const musicLibrary: MusicLibrary = {
       artists: (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
         navidrome
-          .get<GetArtistsResponse>(credentials, "/rest/getArtists")
-          .then((it) => it.artists.index.flatMap((it) => it.artist || []))
-          .then((artists) =>
-            artists.map((artist) => ({
-              id: artist._id,
-              name: artist._name,
-            }))
-          )
+          .getArtists(credentials)
           .then(slice2(q))
           .then(asResult)
           .then((result) =>
             Promise.all(
               result.results.map((idName: IdName) =>
-                navidrome.artistInfo(credentials, idName.id).then((artist) => ({
-                  total: result.total,
-                  result: {
-                    id: idName.id,
-                    name: idName.name,
-                    image: artist.image,
-                  },
-                }))
+                navidrome
+                  .getArtistInfo(credentials, idName.id)
+                  .then((artistInfo) => ({
+                    total: result.total,
+                    result: {
+                      id: idName.id,
+                      name: idName.name,
+                      image: artistInfo.image,
+                    },
+                  }))
               )
             )
           )
@@ -190,27 +200,15 @@ export class Navidrome implements MusicService {
               results: resultWithInfo.map((it) => it.result),
             };
           }),
-      artist: async (id: string): Promise<Artist> => {
-        return navidrome
-          .get<GetArtistResponse>(credentials, "/rest/getArtist", {
-            id,
-          })
-          .then(async (artist: GetArtistResponse) => {
-            return navidrome
-              .get<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
-                id,
-              })
-              .then((artistInfo: GetArtistInfoResponse) => ({
-                id: artist.artist._id,
-                name: artist.artist._name,
-                image: {
-                  small: artistInfo.artistInfo.smallImageUrl,
-                  medium: artistInfo.artistInfo.mediumImageUrl,
-                  large: artistInfo.artistInfo.largeImageUrl,
-                },
-              }));
-          });
-      },
+      artist: async (id: string): Promise<Artist> =>
+        Promise.all([
+          navidrome.getArtist(credentials, id),
+          navidrome.getArtistInfo(credentials, id),
+        ]).then(([artist, artistInfo]) => ({
+          id: artist.id,
+          name: artist.name,
+          image: artistInfo.image,
+        })),
       albums: (_: AlbumQuery): Promise<Result<Album>> => {
         return Promise.resolve({ results: [], total: 0 });
       },
