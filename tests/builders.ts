@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
-import { Album, Artist } from "../src/music_service";
+import { Artist } from "../src/music_service";
 
 const randomInt = (max: number) => Math.floor(Math.random() * max);
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -68,40 +68,46 @@ export function someCredentials(token: string): Credentials {
   };
 }
 
-export type ArtistWithAlbums = Artist & {
-  albums: Album[];
-};
-
-export const BOB_MARLEY: ArtistWithAlbums = {
+export const BOB_MARLEY: Artist = {
   id: uuid(),
   name: "Bob Marley",
   albums: [
-    { id: uuid(), name: "Burin'" },
-    { id: uuid(), name: "Exodus" },
-    { id: uuid(), name: "Kaya" },
+    { id: uuid(), name: "Burin'", year: "1973", genre: "Reggae" },
+    { id: uuid(), name: "Exodus", year: "1977", genre: "Reggae" },
+    { id: uuid(), name: "Kaya", year: "1978", genre: "Ska" },
   ],
   image: {
     small: "http://localhost/BOB_MARLEY/sml",
     medium: "http://localhost/BOB_MARLEY/med",
     large: "http://localhost/BOB_MARLEY/lge",
-  }
+  },
 };
 
-export const BLONDIE: ArtistWithAlbums = {
+export const BLONDIE: Artist = {
   id: uuid(),
   name: "Blondie",
   albums: [
-    { id: uuid(), name: "Blondie" },
-    { id: uuid(), name: "Parallel Lines" },
+    {
+      id: uuid(),
+      name: "Blondie",
+      year: "1976",
+      genre: "New Wave",
+    },
+    {
+      id: uuid(),
+      name: "Parallel Lines",
+      year: "1978",
+      genre: "Pop Rock",
+    },
   ],
   image: {
     small: undefined,
     medium: undefined,
     large: undefined,
-  }
+  },
 };
 
-export const MADONNA: ArtistWithAlbums = {
+export const MADONNA: Artist = {
   id: uuid(),
   name: "Madonna",
   albums: [],
@@ -109,27 +115,31 @@ export const MADONNA: ArtistWithAlbums = {
     small: "http://localhost/MADONNA/sml",
     medium: undefined,
     large: "http://localhost/MADONNA/lge",
-  }
+  },
 };
 
-export const METALLICA: ArtistWithAlbums = {
+export const METALLICA: Artist = {
   id: uuid(),
   name: "Metallica",
   albums: [
     {
       id: uuid(),
       name: "Ride the Lightening",
+      year: "1984",
+      genre: "Heavy Metal",
     },
     {
       id: uuid(),
       name: "Master of Puppets",
+      year: "1986",
+      genre: "Heavy Metal",
     },
   ],
   image: {
     small: "http://localhost/METALLICA/sml",
     medium: "http://localhost/METALLICA/med",
     large: "http://localhost/METALLICA/lge",
-  }
+  },
 };
 
 export const ALL_ALBUMS = [
