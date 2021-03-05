@@ -35,11 +35,14 @@ export type Images = {
 }
 
 export type Artist = ArtistSummary & {
+  albums: Album[]
 };
 
 export type Album = {
   id: string;
   name: string;
+  year: string | undefined;
+  genre: string | undefined;
 };
 
 export type Paging = {

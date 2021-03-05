@@ -30,6 +30,9 @@ export const t_and_s = (password: string) => {
   };
 };
 
+export const isDodgyImage = (url: string) =>
+  url.endsWith("2a96cbd8b46e442fc41c2b86b821562f.png");
+
 export type SubconicEnvelope = {
   "subsonic-response": SubsonicResponse;
 };
@@ -38,11 +41,20 @@ export type SubsonicResponse = {
   _status: string;
 };
 
+export type album = {
+  _id: string;
+  _name: string;
+  _genre: string | undefined;
+  _year: string | undefined;
+  _coverArt: string;
+};
+
 export type artist = {
   _id: string;
   _name: string;
   _albumCount: string;
   _artistImageUrl: string | undefined;
+  album: album[];
 };
 
 export type GetArtistsResponse = SubsonicResponse & {
@@ -163,11 +175,25 @@ export class Navidrome implements MusicService {
       },
     }));
 
-  getArtist = (credentials: Credentials, id: string): Promise<IdName> =>
+  getArtist = (
+    credentials: Credentials,
+    id: string
+  ): Promise<IdName & { albums: Album[] }> =>
     this.get<GetArtistResponse>(credentials, "/rest/getArtist", {
       id,
-    }).then((it) => ({ id: it.artist._id, name: it.artist._name }));
-    
+    })
+      .then((it) => it.artist)
+      .then((it) => ({
+        id: it._id,
+        name: it._name,
+        albums: it.album.map((album) => ({
+          id: album._id,
+          name: album._name,
+          year: album._year,
+          genre: album._genre,
+        })),
+      }));
+
   async login(token: string) {
     const navidrome = this;
     const credentials: Credentials = this.parseToken(token);
@@ -208,6 +234,7 @@ export class Navidrome implements MusicService {
           id: artist.id,
           name: artist.name,
           image: artistInfo.image,
+          albums: artist.albums,
         })),
       albums: (_: AlbumQuery): Promise<Result<Album>> => {
         return Promise.resolve({ results: [], total: 0 });

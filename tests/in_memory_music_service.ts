@@ -1,7 +1,7 @@
 import { option as O } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 
-import { ArtistWithAlbums } from "./builders";
+
 import {
   MusicService,
   Credentials,
@@ -16,16 +16,12 @@ import {
   ArtistSummary,
 } from "../src/music_service";
 
-export const artistWithAlbumsToArtistSummary = (
-  it: ArtistWithAlbums
+export const artistToArtistSummary = (
+  it: Artist
 ): ArtistSummary => ({
   id: it.id,
   name: it.name,
   image: it.image,
-});
-
-export const artistWithAlbumsToArtist = (it: ArtistWithAlbums): Artist => ({
-  ...artistWithAlbumsToArtistSummary(it),
 });
 
 type P<T> = (t: T) => boolean;
@@ -35,7 +31,7 @@ const artistWithId = (id: string): P<Artist> => (artist: Artist) =>
 
 export class InMemoryMusicService implements MusicService {
   users: Record<string, string> = {};
-  artists: ArtistWithAlbums[] = [];
+  artists: Artist[] = [];
 
   generateToken({
     username,
@@ -62,14 +58,13 @@ export class InMemoryMusicService implements MusicService {
       return Promise.reject("Invalid auth token");
     return Promise.resolve({
       artists: (q: ArtistQuery) =>
-        Promise.resolve(this.artists.map(artistWithAlbumsToArtistSummary))
+        Promise.resolve(this.artists.map(artistToArtistSummary))
           .then(slice2(q))
           .then(asResult),
       artist: (id: string) =>
         pipe(
           this.artists.find((it) => it.id === id),
           O.fromNullable,
-          O.map(artistWithAlbumsToArtist),
           O.map(it => Promise.resolve(it)),
           O.getOrElse(() => Promise.reject(`No artist with id '${id}'`))
         ),
@@ -99,7 +94,7 @@ export class InMemoryMusicService implements MusicService {
     return this;
   }
 
-  hasArtists(...newArtists: ArtistWithAlbums[]) {
+  hasArtists(...newArtists: Artist[]) {
     this.artists = [...this.artists, ...newArtists];
     return this;
   }

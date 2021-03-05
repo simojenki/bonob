@@ -1,7 +1,6 @@
 import {
   InMemoryMusicService,
-  artistWithAlbumsToArtist,
-  artistWithAlbumsToArtistSummary,
+  artistToArtistSummary,
 } from "./in_memory_music_service";
 import { AuthSuccess, MusicLibrary } from "../src/music_service";
 import { v4 as uuid } from "uuid";
@@ -47,19 +46,9 @@ describe("InMemoryMusicService", () => {
     });
   });
 
-  describe("artistWithAlbumsToArtist", () => {
+  describe("artistToArtistSummary", () => {
     it("should map fields correctly", () => {
-      expect(artistWithAlbumsToArtist(BOB_MARLEY)).toEqual({
-        id: BOB_MARLEY.id,
-        name: BOB_MARLEY.name,
-        image: BOB_MARLEY.image,
-      });
-    });
-  });
-
-  describe("artistWithAlbumsToArtistSummary", () => {
-    it("should map fields correctly", () => {
-      expect(artistWithAlbumsToArtistSummary(BOB_MARLEY)).toEqual({
+      expect(artistToArtistSummary(BOB_MARLEY)).toEqual({
         id: BOB_MARLEY.id,
         name: BOB_MARLEY.name,
         image: BOB_MARLEY.image,
@@ -85,10 +74,10 @@ describe("InMemoryMusicService", () => {
       describe("fetching all", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            artistWithAlbumsToArtistSummary(BOB_MARLEY),
-            artistWithAlbumsToArtistSummary(MADONNA),
-            artistWithAlbumsToArtistSummary(BLONDIE),
-            artistWithAlbumsToArtistSummary(METALLICA),
+            artistToArtistSummary(BOB_MARLEY),
+            artistToArtistSummary(MADONNA),
+            artistToArtistSummary(BLONDIE),
+            artistToArtistSummary(METALLICA),
           ];
           expect(
             await musicLibrary.artists({ _index: 0, _count: 100 })
@@ -102,8 +91,8 @@ describe("InMemoryMusicService", () => {
       describe("fetching the second page", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            artistWithAlbumsToArtistSummary(BLONDIE),
-            artistWithAlbumsToArtistSummary(METALLICA),
+            artistToArtistSummary(BLONDIE),
+            artistToArtistSummary(METALLICA),
           ];
           expect(await musicLibrary.artists({ _index: 2, _count: 2 })).toEqual({
             results: artists,
@@ -115,9 +104,9 @@ describe("InMemoryMusicService", () => {
       describe("fetching the more items than fit on the second page", () => {
         it("should provide an array of artists", async () => {
           const artists = [
-            artistWithAlbumsToArtistSummary(MADONNA),
-            artistWithAlbumsToArtistSummary(BLONDIE),
-            artistWithAlbumsToArtistSummary(METALLICA),
+            artistToArtistSummary(MADONNA),
+            artistToArtistSummary(BLONDIE),
+            artistToArtistSummary(METALLICA),
           ];
           expect(
             await musicLibrary.artists({ _index: 1, _count: 50 })
@@ -130,10 +119,10 @@ describe("InMemoryMusicService", () => {
       describe("when it exists", () => {
         it("should provide an artist", async () => {
           expect(await musicLibrary.artist(MADONNA.id)).toEqual(
-            artistWithAlbumsToArtist(MADONNA)
+            MADONNA
           );
           expect(await musicLibrary.artist(BLONDIE.id)).toEqual(
-            artistWithAlbumsToArtist(BLONDIE)
+            BLONDIE
           );
         });
       });
