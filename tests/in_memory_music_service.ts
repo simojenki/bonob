@@ -1,5 +1,8 @@
 import { option as O } from "fp-ts";
+import * as A from "fp-ts/Array";
+import { eqString } from "fp-ts/lib/Eq";
 import { pipe } from "fp-ts/lib/function";
+import { ordString } from "fp-ts/lib/Ord";
 
 import {
   MusicService,
@@ -53,6 +56,7 @@ export class InMemoryMusicService implements MusicService {
     const credentials = JSON.parse(token) as Credentials;
     if (this.users[credentials.username] != credentials.password)
       return Promise.reject("Invalid auth token");
+
     return Promise.resolve({
       artists: (q: ArtistQuery) =>
         Promise.resolve(this.artists.map(artistToArtistSummary))
@@ -71,15 +75,9 @@ export class InMemoryMusicService implements MusicService {
             .flatMap((artist) => artist.albums.map((album) => [artist, album]))
             .filter(
               pipe(
-                pipe(
-                  O.fromNullable(q.artistId), 
-                  O.map(albumByArtist)
-                ),
+                pipe(O.fromNullable(q.artistId), O.map(albumByArtist)),
                 O.alt(() =>
-                  pipe(
-                    O.fromNullable(q.genre), 
-                    O.map(albumWithGenre)
-                  )
+                  pipe(O.fromNullable(q.genre), O.map(albumWithGenre))
                 ),
                 O.getOrElse(() => all)
               )
@@ -95,6 +93,18 @@ export class InMemoryMusicService implements MusicService {
           O.fromNullable,
           O.map((it) => Promise.resolve(it)),
           O.getOrElse(() => Promise.reject(`No album with id '${id}'`))
+        ),
+      genres: () =>
+        Promise.resolve(
+          pipe(
+            this.artists,
+            A.map((it) => it.albums),
+            A.flatten,
+            A.map((it) => O.fromNullable(it.genre)),
+            A.compact,
+            A.uniq(eqString),
+            A.sort(ordString)
+          )
         ),
     });
   }
