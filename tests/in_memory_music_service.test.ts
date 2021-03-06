@@ -260,96 +260,14 @@ describe("InMemoryMusicService", () => {
         });
       });
 
-      describe("filtering by artist", () => {
-        describe("fetching all", () => {
-          it("should return all artist albums", async () => {
-            expect(
-              await musicLibrary.albums({
-                artistId: artist3.id,
-                _index: 0,
-                _count: 100,
-              })
-            ).toEqual({
-              results: [
-                albumToAlbumSummary(artist3_album1),
-                albumToAlbumSummary(artist3_album2),
-              ],
-              total: artist3.albums.length,
-            });
-          });
-        });
-
-        describe("when the artist has more albums than a single page", () => {
-          describe("can fetch a single page", () => {
-            it("should return only the albums for that page", async () => {
-              expect(
-                await musicLibrary.albums({
-                  artistId: artist1.id,
-                  _index: 1,
-                  _count: 3,
-                })
-              ).toEqual({
-                results: [
-                  albumToAlbumSummary(artist1_album2),
-                  albumToAlbumSummary(artist1_album3),
-                  albumToAlbumSummary(artist1_album4),
-                ],
-                total: artist1.albums.length,
-              });
-            });
-          });
-
-          describe("can fetch the last page", () => {
-            it("should return only the albums for the last page", async () => {
-              expect(
-                await musicLibrary.albums({
-                  artistId: artist1.id,
-                  _index: 4,
-                  _count: 100,
-                })
-              ).toEqual({
-                results: [albumToAlbumSummary(artist1_album5)],
-                total: artist1.albums.length,
-              });
-            });
-          });
-        });
-
-        it("should return empty list if the artists does not have any", async () => {
-          expect(
-            await musicLibrary.albums({
-              artistId: artistWithNoAlbums.id,
-              _index: 0,
-              _count: 100,
-            })
-          ).toEqual({
-            results: [],
-            total: 0,
-          });
-        });
-
-        it("should return empty list if the artist id is not valid", async () => {
-          expect(
-            await musicLibrary.albums({
-              artistId: uuid(),
-              _index: 0,
-              _count: 100,
-            })
-          ).toEqual({
-            results: [],
-            total: 0,
-          });
-        });
-      });
-
       describe("filtering by genre", () => {
         describe("fetching all on one page", () => {
-          it.only("should return all the albums of that genre for all the artists", async () => {
+          it("should return all the albums of that genre for all the artists", async () => {
             expect(
               await musicLibrary.albums({
+                genre: "Pop",
                 _index: 0,
                 _count: 100,
-                genre: "Pop",
               })
             ).toEqual({
               results: [
@@ -370,14 +288,12 @@ describe("InMemoryMusicService", () => {
                 await musicLibrary.albums({
                   genre: "Pop",
                   _index: 1,
-                  _count: 3,
+                  _count: 2,
                 })
               ).toEqual({
                 results: [
-                  albumToAlbumSummary(artist1_album1),
                   albumToAlbumSummary(artist1_album4),
                   albumToAlbumSummary(artist1_album5),
-                  albumToAlbumSummary(artist3_album2),
                 ],
                 total: 4,
               });
@@ -388,13 +304,13 @@ describe("InMemoryMusicService", () => {
             it("should return only the albums for the last page", async () => {
               expect(
                 await musicLibrary.albums({
-                  artistId: artist1.id,
-                  _index: 4,
+                  genre: "Pop",
+                  _index: 3,
                   _count: 100,
                 })
               ).toEqual({
-                results: [albumToAlbumSummary(artist1_album5)],
-                total: artist1.albums.length,
+                results: [albumToAlbumSummary(artist3_album2)],
+                total: 4,
               });
             });
           });
