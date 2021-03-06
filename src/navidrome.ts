@@ -1,3 +1,5 @@
+import { option as O } from "fp-ts";
+import { pipe } from "fp-ts/lib/function";
 import { Md5 } from "ts-md5/dist/md5";
 import {
   Credentials,
@@ -18,6 +20,7 @@ import X2JS from "x2js";
 import axios from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
+
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -66,6 +69,12 @@ export type GetArtistsResponse = SubsonicResponse & {
   };
 };
 
+export type GetAlbumListResponse = SubsonicResponse & {
+  albumList: {
+    album: album[];
+  };
+};
+
 export type SubsonicError = SubsonicResponse & {
   error: {
     _code: string;
@@ -104,6 +113,17 @@ export type IdName = {
   id: string;
   name: string;
 };
+
+export type getAlbumListParams = {
+  type: string,
+  size?: number;
+  offet?: number;
+  fromYear?: string,
+  toYear?: string,
+  genre?: string
+}
+
+const MAX_ALBUM_LIST = 500;
 
 export class Navidrome implements MusicService {
   url: string;
@@ -235,8 +255,36 @@ export class Navidrome implements MusicService {
           image: artistInfo.image,
           albums: artist.albums,
         })),
-      albums: (_: AlbumQuery): Promise<Result<AlbumSummary>> => {
-        return Promise.resolve({ results: [], total: 0 });
+      albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
+        const p = pipe(
+          O.fromNullable(q.genre),
+          O.map<string, getAlbumListParams>(genre => ({ type: "byGenre", genre })),
+          O.getOrElse<getAlbumListParams>(() => ({ type: "alphabeticalByArtist" })),
+        )
+        
+        return navidrome
+          .get<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
+            ...p,
+            size: MAX_ALBUM_LIST,
+            offset: 0,
+          })
+          .then((response) => response.albumList.album)
+          .then((albumList) =>
+            albumList.map((album) => ({
+              id: album._id,
+              name: album._name,
+              year: album._year,
+              genre: album._genre,
+            }))
+          )
+          .then(slice2(q))
+          .then(([page, total]) => ({
+            results: page,
+            total: Math.min(MAX_ALBUM_LIST, total),
+          }));
+      },
+      album: (_: string): Promise<Album> => {
+        return Promise.reject("not implemented");
       },
     };
 

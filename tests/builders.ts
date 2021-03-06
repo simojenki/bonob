@@ -5,7 +5,7 @@ import { Credentials } from "../src/smapi";
 import { Service, Device } from "../src/sonos";
 import { Album, Artist } from "../src/music_service";
 
-const randomInt = (max: number) => Math.floor(Math.random() * max);
+const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
 
 export const aService = (fields: Partial<Service> = {}): Service => ({
@@ -73,25 +73,26 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
   return {
     id,
     name: `Artist ${id}`,
-    albums: [],
+    albums: [anAlbum(), anAlbum(), anAlbum()],
     image: {
-      small: undefined,
-      medium: undefined,
-      large: undefined
+      small: `/artist/art/${id}/small`,
+      medium: `/artist/art/${id}/small`,
+      large: `/artist/art/${id}/large`,
     },
-    ...fields
-  }
+    ...fields,
+  };
 }
 
 export function anAlbum(fields: Partial<Album> = {}): Album {
+  const genres = ["Metal", "Pop", "Rock", "Hip-Hop"];
   const id = uuid();
   return {
     id,
     name: `Album ${id}`,
-    genre: "Metal",
-    year: "1900",
-    ...fields
-  }
+    genre: genres[randomInt(genres.length)],
+    year: `19${randomInt(99)}`,
+    ...fields,
+  };
 }
 
 export const BLONDIE: Artist = {
@@ -168,6 +169,6 @@ export const METALLICA: Artist = {
   },
 };
 
-export const ALL_ARTISTS = [BOB_MARLEY, BLONDIE, MADONNA, METALLICA]
+export const ALL_ARTISTS = [BOB_MARLEY, BLONDIE, MADONNA, METALLICA];
 
-export const ALL_ALBUMS = ALL_ARTISTS.flatMap(it => it.albums || []);
+export const ALL_ALBUMS = ALL_ARTISTS.flatMap((it) => it.albums || []);
