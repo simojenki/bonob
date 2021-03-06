@@ -13,6 +13,8 @@ import {
   AuthSuccess,
   Images,
   albumToAlbumSummary,
+  range,
+  asArtistAlbumPairs,
 } from "../src/music_service";
 import { anAlbum, anArtist } from "./builders";
 
@@ -99,6 +101,17 @@ const artistXml = (
         </artist>
         </subsonic-response>`;
 
+const genresXml = (
+  genres: string[]
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                                          <genres>
+                                            ${genres.map(
+                                              (it) =>
+                                                `<genre songCount="1475" albumCount="86">${it}</genre>`
+                                            )}
+                                          </genres>
+                                          </subsonic-response>`;
+
 const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
 
 describe("Navidrome", () => {
@@ -159,6 +172,31 @@ describe("Navidrome", () => {
 
         const token = await navidrome.generateToken({ username, password });
         expect(token).toEqual({ message: "Wrong username or password" });
+      });
+    });
+  });
+
+  describe("getting genres", () => {
+    const genres = ["HipHop", "Rap", "TripHop", "Pop", "Rock"];
+    beforeEach(() => {
+      mockGET
+        .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+        .mockImplementationOnce(() => Promise.resolve(ok(genresXml(genres))));
+    });
+
+    it.only("should return them alphabetically sorted", async () => {
+      const result = await navidrome
+        .generateToken({ username, password })
+        .then((it) => it as AuthSuccess)
+        .then((it) => navidrome.login(it.authToken))
+        .then((it) => it.genres());
+
+      expect(result).toEqual(genres.sort());
+
+      expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
+        params: {
+          ...authParams,
+        },
       });
     });
   });
@@ -386,30 +424,30 @@ describe("Navidrome", () => {
     });
   });
 
-  const range = (size: number) => [...Array(size).keys()];
-
-  const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
-    artists.flatMap((artist) =>
-      artist.albums.map((album) => [artist, album] as [Artist, Album])
-    );
-
   describe("getting albums", () => {
     describe("filtering", () => {
       const album1 = anAlbum({ genre: "Pop" });
       const album2 = anAlbum({ genre: "Rock" });
       const album3 = anAlbum({ genre: "Pop" });
-      
-      const artist = anArtist({ albums: [album1, album2, album3]});
+
+      const artist = anArtist({ albums: [album1, album2, album3] });
 
       describe("by genre", () => {
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(albumListXml([[artist, album1], [artist, album3]])))
+              Promise.resolve(
+                ok(
+                  albumListXml([
+                    [artist, album1],
+                    [artist, album3],
+                  ])
+                )
+              )
             );
         });
-  
+
         it("should pass the filter to navidrome", async () => {
           const q = { _index: 0, _count: 500, genre: "Pop" };
           const result = await navidrome
@@ -417,12 +455,12 @@ describe("Navidrome", () => {
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.albums(q));
-  
+
           expect(result).toEqual({
             results: [album1, album3].map(albumToAlbumSummary),
             total: 2,
           });
-  
+
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
             params: {
               type: "byGenre",
@@ -434,7 +472,6 @@ describe("Navidrome", () => {
           });
         });
       });
-  
     });
 
     describe("when there are less than 500 albums", () => {
@@ -505,7 +542,7 @@ describe("Navidrome", () => {
             },
           });
         });
-      });  
+      });
     });
 
     describe("when there are more than 500 albums", () => {

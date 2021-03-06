@@ -346,7 +346,11 @@ describe("InMemoryMusicService", () => {
         describe("fetching all on one page", () => {
           it.only("should return all the albums of that genre for all the artists", async () => {
             expect(
-              await musicLibrary.albums({ _index: 0, _count: 100, genre: "Pop" })
+              await musicLibrary.albums({
+                _index: 0,
+                _count: 100,
+                genre: "Pop",
+              })
             ).toEqual({
               results: [
                 albumToAlbumSummary(artist1_album1),
@@ -379,7 +383,7 @@ describe("InMemoryMusicService", () => {
               });
             });
           });
-  
+
           describe("can fetch the last page", () => {
             it("should return only the albums for the last page", async () => {
               expect(
@@ -394,7 +398,6 @@ describe("InMemoryMusicService", () => {
               });
             });
           });
- 
         });
 
         it("should return empty list if there are no albums for the genre", async () => {
@@ -408,6 +411,28 @@ describe("InMemoryMusicService", () => {
             results: [],
             total: 0,
           });
+        });
+      });
+    });
+
+    describe("genres", () => {
+      const artist1 = anArtist({ albums: [anAlbum({ genre: "Pop" }),     anAlbum({ genre: "Rock" }), anAlbum({ genre: "Pop" })] });
+      const artist2 = anArtist({ albums: [anAlbum({ genre: "Hip-Hop" }), anAlbum({ genre: "Rap" }), anAlbum({ genre: "Pop" })] });
+
+      beforeEach(() => {
+        service.hasArtists(artist1, artist2);
+      });
+
+      describe("fetching all in one page", () => {
+        it("should provide an array of artists", async () => {
+          expect(
+            await musicLibrary.genres()
+          ).toEqual([
+            "Hip-Hop",
+            "Pop",
+            "Rap",
+            "Rock"
+          ]);
         });
       });
     });

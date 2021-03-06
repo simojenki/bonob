@@ -25,17 +25,17 @@ export type AuthFailure = {
 export type ArtistSummary = {
   id: string;
   name: string;
-  image: Images
-}
+  image: Images;
+};
 
 export type Images = {
-  small: string | undefined,
-  medium: string | undefined,
-  large: string | undefined,
-}
+  small: string | undefined;
+  medium: string | undefined;
+  large: string | undefined;
+};
 
 export type Artist = ArtistSummary & {
-  albums: Album[]
+  albums: Album[];
 };
 
 export type AlbumSummary = {
@@ -43,10 +43,9 @@ export type AlbumSummary = {
   name: string;
   year: string | undefined;
   genre: string | undefined;
-}
-
-export type Album = AlbumSummary & {
 };
+
+export type Album = AlbumSummary & {};
 
 export type Paging = {
   _index: number;
@@ -70,29 +69,32 @@ export const asResult = <T>([results, total]: [T[], number]) => ({
   total,
 });
 
-export type ArtistQuery = Paging
+export type ArtistQuery = Paging;
 
 export type AlbumQuery = Paging & {
-  artistId?: string
-  genre?: string
-}
+  artistId?: string;
+  genre?: string;
+};
 
-export const artistToArtistSummary = (
-  it: Artist
-): ArtistSummary => ({
+export const artistToArtistSummary = (it: Artist): ArtistSummary => ({
   id: it.id,
   name: it.name,
   image: it.image,
 });
 
-export const albumToAlbumSummary = (
-  it: Album
-): AlbumSummary => ({
+export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
   id: it.id,
   name: it.name,
   year: it.year,
   genre: it.genre,
 });
+
+export const range = (size: number) => [...Array(size).keys()];
+
+export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
+  artists.flatMap((artist) =>
+    artist.albums.map((album) => [artist, album] as [Artist, Album])
+  );
 
 export interface MusicService {
   generateToken(credentials: Credentials): Promise<AuthSuccess | AuthFailure>;
@@ -104,4 +106,5 @@ export interface MusicLibrary {
   artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
   album(id: string): Promise<Album>;
+  genres(): Promise<string[]>;
 }

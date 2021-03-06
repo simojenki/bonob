@@ -1,4 +1,6 @@
 import { option as O } from "fp-ts";
+import * as A from "fp-ts/Array";
+import { ordString } from "fp-ts/lib/Ord";
 import { pipe } from "fp-ts/lib/function";
 import { Md5 } from "ts-md5/dist/md5";
 import {
@@ -20,7 +22,6 @@ import X2JS from "x2js";
 import axios from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
-
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -75,6 +76,18 @@ export type GetAlbumListResponse = SubsonicResponse & {
   };
 };
 
+export type genre = {
+  _songCount: string;
+  _albumCount: string;
+  __text: string;
+};
+
+export type GenGenresResponse = SubsonicResponse & {
+  genres: {
+    genre: genre[];
+  };
+};
+
 export type SubsonicError = SubsonicResponse & {
   error: {
     _code: string;
@@ -115,13 +128,13 @@ export type IdName = {
 };
 
 export type getAlbumListParams = {
-  type: string,
+  type: string;
   size?: number;
   offet?: number;
-  fromYear?: string,
-  toYear?: string,
-  genre?: string
-}
+  fromYear?: string;
+  toYear?: string;
+  genre?: string;
+};
 
 const MAX_ALBUM_LIST = 500;
 
@@ -258,10 +271,15 @@ export class Navidrome implements MusicService {
       albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
         const p = pipe(
           O.fromNullable(q.genre),
-          O.map<string, getAlbumListParams>(genre => ({ type: "byGenre", genre })),
-          O.getOrElse<getAlbumListParams>(() => ({ type: "alphabeticalByArtist" })),
-        )
-        
+          O.map<string, getAlbumListParams>((genre) => ({
+            type: "byGenre",
+            genre,
+          })),
+          O.getOrElse<getAlbumListParams>(() => ({
+            type: "alphabeticalByArtist",
+          }))
+        );
+
         return navidrome
           .get<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
             ...p,
@@ -286,6 +304,14 @@ export class Navidrome implements MusicService {
       album: (_: string): Promise<Album> => {
         return Promise.reject("not implemented");
       },
+      genres: () =>
+        navidrome
+          .get<GenGenresResponse>(credentials, "/rest/getGenres")
+          .then((it) => pipe(
+            it.genres.genre,
+            A.map(it => it.__text),
+            A.sort(ordString)
+          )),
     };
 
     return Promise.resolve(musicLibrary);
