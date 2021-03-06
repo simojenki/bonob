@@ -23,9 +23,6 @@ import {
 type P<T> = (t: T) => boolean;
 const all: P<any> = (_: any) => true;
 
-const albumByArtist = (id: string): P<[Artist, Album]> => ([artist, _]) =>
-  artist.id === id;
-
 const albumWithGenre = (genre: string): P<[Artist, Album]> => ([_, album]) =>
   album.genre === genre;
 
@@ -75,10 +72,8 @@ export class InMemoryMusicService implements MusicService {
             .flatMap((artist) => artist.albums.map((album) => [artist, album]))
             .filter(
               pipe(
-                pipe(O.fromNullable(q.artistId), O.map(albumByArtist)),
-                O.alt(() =>
-                  pipe(O.fromNullable(q.genre), O.map(albumWithGenre))
-                ),
+                O.fromNullable(q.genre),
+                O.map(albumWithGenre),
                 O.getOrElse(() => all)
               )
             )

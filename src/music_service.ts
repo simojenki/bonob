@@ -72,7 +72,6 @@ export const asResult = <T>([results, total]: [T[], number]) => ({
 export type ArtistQuery = Paging;
 
 export type AlbumQuery = Paging & {
-  artistId?: string;
   genre?: string;
 };
 
