@@ -6,7 +6,12 @@ import path from "path";
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
-import { AlbumSummary, MusicLibrary, MusicService, slice2 } from "./music_service";
+import {
+  AlbumSummary,
+  MusicLibrary,
+  MusicService,
+  slice2,
+} from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -250,14 +255,14 @@ function bindSmapiSoapServiceToExpress(
                     total: result.total,
                   })
                 );
-                case "albums":
-                  return await musicLibrary.albums(paging).then((result) =>
-                    getMetadataResult({
-                      mediaCollection: result.results.map(album),
-                      index: paging._index,
-                      total: result.total,
-                    })
-                  );
+              case "albums":
+                return await musicLibrary.albums(paging).then((result) =>
+                  getMetadataResult({
+                    mediaCollection: result.results.map(album),
+                    index: paging._index,
+                    total: result.total,
+                  })
+                );
               case "artist":
                 return await musicLibrary
                   .artist(typeId!)

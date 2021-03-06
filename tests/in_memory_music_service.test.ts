@@ -1,16 +1,12 @@
+import { InMemoryMusicService } from "./in_memory_music_service";
 import {
-  InMemoryMusicService,
+  AuthSuccess,
+  MusicLibrary,
   artistToArtistSummary,
-} from "./in_memory_music_service";
-import { AuthSuccess, MusicLibrary } from "../src/music_service";
+  albumToAlbumSummary,
+} from "../src/music_service";
 import { v4 as uuid } from "uuid";
-import {
-  BOB_MARLEY,
-  MADONNA,
-  BLONDIE,
-  METALLICA,
-  ALL_ALBUMS,
-} from "./builders";
+import { anArtist, anAlbum } from "./builders";
 
 describe("InMemoryMusicService", () => {
   const service = new InMemoryMusicService();
@@ -48,10 +44,19 @@ describe("InMemoryMusicService", () => {
 
   describe("artistToArtistSummary", () => {
     it("should map fields correctly", () => {
-      expect(artistToArtistSummary(BOB_MARLEY)).toEqual({
-        id: BOB_MARLEY.id,
-        name: BOB_MARLEY.name,
-        image: BOB_MARLEY.image,
+      const artist = anArtist({
+        id: uuid(),
+        name: "The Artist",
+        image: {
+          small: "/path/to/small/jpg",
+          medium: "/path/to/medium/jpg",
+          large: "/path/to/large/jpg",
+        },
+      });
+      expect(artistToArtistSummary(artist)).toEqual({
+        id: artist.id,
+        name: artist.name,
+        image: artist.image,
       });
     });
   });
@@ -63,7 +68,6 @@ describe("InMemoryMusicService", () => {
     beforeEach(async () => {
       service.clear();
 
-      service.hasArtists(BOB_MARLEY, MADONNA, BLONDIE, METALLICA);
       service.hasUser(user);
 
       const token = (await service.generateToken(user)) as AuthSuccess;
@@ -71,59 +75,67 @@ describe("InMemoryMusicService", () => {
     });
 
     describe("artists", () => {
-      describe("fetching all", () => {
+      const artist1 = anArtist();
+      const artist2 = anArtist();
+      const artist3 = anArtist();
+      const artist4 = anArtist();
+      const artist5 = anArtist();
+
+      beforeEach(() => {
+        service.hasArtists(artist1, artist2, artist3, artist4, artist5);
+      });
+
+      describe("fetching all in one page", () => {
         it("should provide an array of artists", async () => {
-          const artists = [
-            artistToArtistSummary(BOB_MARLEY),
-            artistToArtistSummary(MADONNA),
-            artistToArtistSummary(BLONDIE),
-            artistToArtistSummary(METALLICA),
-          ];
           expect(
             await musicLibrary.artists({ _index: 0, _count: 100 })
           ).toEqual({
-            results: artists,
-            total: 4,
+            results: [
+              artistToArtistSummary(artist1),
+              artistToArtistSummary(artist2),
+              artistToArtistSummary(artist3),
+              artistToArtistSummary(artist4),
+              artistToArtistSummary(artist5),
+            ],
+            total: 5,
           });
         });
       });
 
       describe("fetching the second page", () => {
         it("should provide an array of artists", async () => {
-          const artists = [
-            artistToArtistSummary(BLONDIE),
-            artistToArtistSummary(METALLICA),
-          ];
           expect(await musicLibrary.artists({ _index: 2, _count: 2 })).toEqual({
-            results: artists,
-            total: 4,
+            results: [
+              artistToArtistSummary(artist3),
+              artistToArtistSummary(artist4),
+            ],
+            total: 5,
           });
         });
       });
 
-      describe("fetching the more items than fit on the second page", () => {
+      describe("fetching the last page", () => {
         it("should provide an array of artists", async () => {
-          const artists = [
-            artistToArtistSummary(MADONNA),
-            artistToArtistSummary(BLONDIE),
-            artistToArtistSummary(METALLICA),
-          ];
-          expect(
-            await musicLibrary.artists({ _index: 1, _count: 50 })
-          ).toEqual({ results: artists, total: 4 });
+          expect(await musicLibrary.artists({ _index: 4, _count: 2 })).toEqual({
+            results: [artistToArtistSummary(artist5)],
+            total: 5,
+          });
         });
       });
     });
 
     describe("artist", () => {
+      const artist1 = anArtist({ id: uuid(), name: "Artist 1" });
+      const artist2 = anArtist({ id: uuid(), name: "Artist 2" });
+
+      beforeEach(() => {
+        service.hasArtists(artist1, artist2);
+      });
+
       describe("when it exists", () => {
         it("should provide an artist", async () => {
-          expect(await musicLibrary.artist(MADONNA.id)).toEqual(
-            MADONNA
-          );
-          expect(await musicLibrary.artist(BLONDIE.id)).toEqual(
-            BLONDIE
-          );
+          expect(await musicLibrary.artist(artist1.id)).toEqual(artist1);
+          expect(await musicLibrary.artist(artist2.id)).toEqual(artist2);
         });
       });
 
@@ -136,36 +148,177 @@ describe("InMemoryMusicService", () => {
       });
     });
 
-    describe("albums", () => {
-      describe("fetching with no filtering", () => {
-        it("should return all the albums for all the artists", async () => {
-          expect(await musicLibrary.albums({ _index: 0, _count: 100 })).toEqual(
-            {
-              results: ALL_ALBUMS,
-              total: ALL_ALBUMS.length,
-            }
+    describe("album", () => {
+      describe("when it exists", () => {
+        const albumToLookFor = anAlbum({ id: "albumToLookFor" });
+        const artist1 = anArtist({ albums: [anAlbum(), anAlbum(), anAlbum()] });
+        const artist2 = anArtist({
+          albums: [anAlbum(), albumToLookFor, anAlbum()],
+        });
+
+        beforeEach(() => {
+          service.hasArtists(artist1, artist2);
+        });
+
+        it("should provide an artist", async () => {
+          expect(await musicLibrary.album(albumToLookFor.id)).toEqual(
+            albumToLookFor
           );
         });
       });
 
-      describe("fetching for a single artist", () => {
-        it("should return them all if the artist has some", async () => {
-          expect(
-            await musicLibrary.albums({
-              artistId: BLONDIE.id,
-              _index: 0,
-              _count: 100,
-            })
-          ).toEqual({
-            results: BLONDIE.albums,
-            total: BLONDIE.albums.length,
+      describe("when it doesnt exist", () => {
+        it("should blow up", async () => {
+          return expect(musicLibrary.album("-1")).rejects.toEqual(
+            "No album with id '-1'"
+          );
+        });
+      });
+    });
+
+    describe("albums", () => {
+      const artist1_album1 = anAlbum({ genre: "Pop" });
+      const artist1_album2 = anAlbum({ genre: "Rock" });
+      const artist1_album3 = anAlbum({ genre: "Metal" });
+      const artist1_album4 = anAlbum({ genre: "Pop" });
+      const artist1_album5 = anAlbum({ genre: "Pop" });
+
+      const artist2_album1 = anAlbum({ genre: "Metal" });
+
+      const artist3_album1 = anAlbum({ genre: "Hip-Hop" });
+      const artist3_album2 = anAlbum({ genre: "Pop" });
+
+      const totalAlbumCount = 8;
+
+      const artist1 = anArtist({
+        albums: [
+          artist1_album1,
+          artist1_album2,
+          artist1_album3,
+          artist1_album4,
+          artist1_album5,
+        ],
+      });
+      const artist2 = anArtist({ albums: [artist2_album1] });
+      const artist3 = anArtist({ albums: [artist3_album1, artist3_album2] });
+      const artistWithNoAlbums = anArtist({ albums: [] });
+
+      beforeEach(() => {
+        service.hasArtists(artist1, artist2, artist3, artistWithNoAlbums);
+      });
+
+      describe("with no filtering", () => {
+        describe("fetching all on one page", () => {
+          it("should return all the albums for all the artists", async () => {
+            expect(
+              await musicLibrary.albums({ _index: 0, _count: 100 })
+            ).toEqual({
+              results: [
+                albumToAlbumSummary(artist1_album1),
+                albumToAlbumSummary(artist1_album2),
+                albumToAlbumSummary(artist1_album3),
+                albumToAlbumSummary(artist1_album4),
+                albumToAlbumSummary(artist1_album5),
+
+                albumToAlbumSummary(artist2_album1),
+
+                albumToAlbumSummary(artist3_album1),
+                albumToAlbumSummary(artist3_album2),
+              ],
+              total: totalAlbumCount,
+            });
           });
         });
 
-        it("should return empty list of the artists does not have any", async () => {
+        describe("fetching a page", () => {
+          it("should return only that page", async () => {
+            expect(await musicLibrary.albums({ _index: 4, _count: 3 })).toEqual(
+              {
+                results: [
+                  albumToAlbumSummary(artist1_album5),
+                  albumToAlbumSummary(artist2_album1),
+                  albumToAlbumSummary(artist3_album1),
+                ],
+                total: totalAlbumCount,
+              }
+            );
+          });
+        });
+
+        describe("fetching the last page", () => {
+          it("should return only that page", async () => {
+            expect(
+              await musicLibrary.albums({ _index: 6, _count: 100 })
+            ).toEqual({
+              results: [
+                albumToAlbumSummary(artist3_album1),
+                albumToAlbumSummary(artist3_album2),
+              ],
+              total: totalAlbumCount,
+            });
+          });
+        });
+      });
+
+      describe("filtering by artist", () => {
+        describe("fetching all", () => {
+          it("should return all artist albums", async () => {
+            expect(
+              await musicLibrary.albums({
+                artistId: artist3.id,
+                _index: 0,
+                _count: 100,
+              })
+            ).toEqual({
+              results: [
+                albumToAlbumSummary(artist3_album1),
+                albumToAlbumSummary(artist3_album2),
+              ],
+              total: artist3.albums.length,
+            });
+          });
+        });
+
+        describe("when the artist has more albums than a single page", () => {
+          describe("can fetch a single page", () => {
+            it("should return only the albums for that page", async () => {
+              expect(
+                await musicLibrary.albums({
+                  artistId: artist1.id,
+                  _index: 1,
+                  _count: 3,
+                })
+              ).toEqual({
+                results: [
+                  albumToAlbumSummary(artist1_album2),
+                  albumToAlbumSummary(artist1_album3),
+                  albumToAlbumSummary(artist1_album4),
+                ],
+                total: artist1.albums.length,
+              });
+            });
+          });
+
+          describe("can fetch the last page", () => {
+            it("should return only the albums for the last page", async () => {
+              expect(
+                await musicLibrary.albums({
+                  artistId: artist1.id,
+                  _index: 4,
+                  _count: 100,
+                })
+              ).toEqual({
+                results: [albumToAlbumSummary(artist1_album5)],
+                total: artist1.albums.length,
+              });
+            });
+          });
+        });
+
+        it("should return empty list if the artists does not have any", async () => {
           expect(
             await musicLibrary.albums({
-              artistId: MADONNA.id,
+              artistId: artistWithNoAlbums.id,
               _index: 0,
               _count: 100,
             })
@@ -189,25 +342,71 @@ describe("InMemoryMusicService", () => {
         });
       });
 
-      describe("fetching with index and count", () => {
-        it("should be able to return the first page", async () => {
-          const albums = [BOB_MARLEY.albums[0], BOB_MARLEY.albums[1]];
-          expect(await musicLibrary.albums({ _index: 0, _count: 2 })).toEqual({
-            results: albums,
-            total: ALL_ALBUMS.length,
+      describe("filtering by genre", () => {
+        describe("fetching all on one page", () => {
+          it.only("should return all the albums of that genre for all the artists", async () => {
+            expect(
+              await musicLibrary.albums({ _index: 0, _count: 100, genre: "Pop" })
+            ).toEqual({
+              results: [
+                albumToAlbumSummary(artist1_album1),
+                albumToAlbumSummary(artist1_album4),
+                albumToAlbumSummary(artist1_album5),
+                albumToAlbumSummary(artist3_album2),
+              ],
+              total: 4,
+            });
           });
         });
-        it("should be able to return the second page", async () => {
-          const albums = [BOB_MARLEY.albums[2], BLONDIE.albums[0]];
-          expect(await musicLibrary.albums({ _index: 2, _count: 2 })).toEqual({
-            results: albums,
-            total: ALL_ALBUMS.length,
+
+        describe("when the genre has more albums than a single page", () => {
+          describe("can fetch a single page", () => {
+            it("should return only the albums for that page", async () => {
+              expect(
+                await musicLibrary.albums({
+                  genre: "Pop",
+                  _index: 1,
+                  _count: 3,
+                })
+              ).toEqual({
+                results: [
+                  albumToAlbumSummary(artist1_album1),
+                  albumToAlbumSummary(artist1_album4),
+                  albumToAlbumSummary(artist1_album5),
+                  albumToAlbumSummary(artist3_album2),
+                ],
+                total: 4,
+              });
+            });
           });
+  
+          describe("can fetch the last page", () => {
+            it("should return only the albums for the last page", async () => {
+              expect(
+                await musicLibrary.albums({
+                  artistId: artist1.id,
+                  _index: 4,
+                  _count: 100,
+                })
+              ).toEqual({
+                results: [albumToAlbumSummary(artist1_album5)],
+                total: artist1.albums.length,
+              });
+            });
+          });
+ 
         });
-        it("should be able to return the last page", async () => {
-          expect(await musicLibrary.albums({ _index: 5, _count: 2 })).toEqual({
-            results: METALLICA.albums,
-            total: ALL_ALBUMS.length,
+
+        it("should return empty list if there are no albums for the genre", async () => {
+          expect(
+            await musicLibrary.albums({
+              genre: "genre with no albums",
+              _index: 0,
+              _count: 100,
+            })
+          ).toEqual({
+            results: [],
+            total: 0,
           });
         });
       });

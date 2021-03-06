@@ -7,7 +7,15 @@ import axios from "axios";
 jest.mock("axios");
 
 import randomString from "../src/random_string";
-import { Album, Artist, AuthSuccess, Images } from "../src/music_service";
+import {
+  Album,
+  Artist,
+  AuthSuccess,
+  Images,
+  albumToAlbumSummary,
+} from "../src/music_service";
+import { anAlbum, anArtist } from "./builders";
+
 jest.mock("../src/random_string");
 
 describe("t", () => {
@@ -70,6 +78,16 @@ const albumXml = (artist: Artist, album: Album) => `<album id="${album.id}"
             artistId="${artist.id}" 
             songCount="19" 
             isVideo="false"></album>`;
+
+const albumListXml = (
+  albums: [Artist, Album][]
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                    <albumList>
+                      ${albums.map(([artist, album]) =>
+                        albumXml(artist, album)
+                      )}
+                    </albumList>
+                  </subsonic-response>`;
 
 const artistXml = (
   artist: Artist
@@ -145,31 +163,14 @@ describe("Navidrome", () => {
     });
   });
 
-  describe("getArtist", () => {
-    const album1: Album = {
-      id: "album1",
-      name: "super album",
-      year: "2001",
-      genre: "Pop",
-    };
+  describe("getting an artist", () => {
+    const album1: Album = anAlbum();
 
-    const album2: Album = {
-      id: "album2",
-      name: "bad album",
-      year: "2002",
-      genre: "Rock",
-    };
+    const album2: Album = anAlbum();
 
-    const artist: Artist = {
-      id: "someUUID_123",
-      name: "BananaMan",
-      image: {
-        small: "sml1",
-        medium: "med1",
-        large: "lge1",
-      },
+    const artist: Artist = anArtist({
       albums: [album1, album2],
-    };
+    });
 
     beforeEach(() => {
       mockGET
@@ -180,37 +181,39 @@ describe("Navidrome", () => {
         );
     });
 
-    it.only("should do it", async () => {
-      const result: Artist = await navidrome
-        .generateToken({ username, password })
-        .then((it) => it as AuthSuccess)
-        .then((it) => navidrome.login(it.authToken))
-        .then((it) => it.artist(artist.id));
+    describe("when the artist exists", () => {
+      it("should return it", async () => {
+        const result: Artist = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.artist(artist.id));
 
-      expect(result).toEqual({
-        id: artist.id,
-        name: artist.name,
-        image: { small: "sml1", medium: "med1", large: "lge1" },
-        albums: [album1, album2]
-      });
-
-      expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-        params: {
+        expect(result).toEqual({
           id: artist.id,
-          ...authParams,
-        },
-      });
+          name: artist.name,
+          image: artist.image,
+          albums: artist.albums,
+        });
 
-      expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-        params: {
-          id: artist.id,
-          ...authParams,
-        },
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          params: {
+            id: artist.id,
+            ...authParams,
+          },
+        });
+
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          params: {
+            id: artist.id,
+            ...authParams,
+          },
+        });
       });
     });
   });
 
-  describe("getArtists", () => {
+  describe("getting artists", () => {
     describe("when there are no results", () => {
       beforeEach(() => {
         mockGET
@@ -246,30 +249,10 @@ describe("Navidrome", () => {
     });
 
     describe("when there are artists", () => {
-      const artist1: Artist = {
-        id: "artist1.id",
-        name: "artist1.name",
-        image: { small: "s1", medium: "m1", large: "l1" },
-        albums: [],
-      };
-      const artist2: Artist = {
-        id: "artist2.id",
-        name: "artist2.name",
-        image: { small: "s2", medium: "m2", large: "l2" },
-        albums: [],
-      };
-      const artist3: Artist = {
-        id: "artist3.id",
-        name: "artist3.name",
-        image: { small: "s3", medium: "m3", large: "l3" },
-        albums: [],
-      };
-      const artist4: Artist = {
-        id: "artist4.id",
-        name: "artist4.name",
-        image: { small: "s4", medium: "m4", large: "l4" },
-        albums: [],
-      };
+      const artist1 = anArtist();
+      const artist2 = anArtist();
+      const artist3 = anArtist();
+      const artist4 = anArtist();
 
       const getArtistsXml = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
               <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
@@ -395,6 +378,180 @@ describe("Navidrome", () => {
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
             params: {
               id: artist3.id,
+              ...authParams,
+            },
+          });
+        });
+      });
+    });
+  });
+
+  const range = (size: number) => [...Array(size).keys()];
+
+  const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
+    artists.flatMap((artist) =>
+      artist.albums.map((album) => [artist, album] as [Artist, Album])
+    );
+
+  describe("getting albums", () => {
+    describe("filtering", () => {
+      const album1 = anAlbum({ genre: "Pop" });
+      const album2 = anAlbum({ genre: "Rock" });
+      const album3 = anAlbum({ genre: "Pop" });
+      
+      const artist = anArtist({ albums: [album1, album2, album3]});
+
+      describe("by genre", () => {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(albumListXml([[artist, album1], [artist, album3]])))
+            );
+        });
+  
+        it("should pass the filter to navidrome", async () => {
+          const q = { _index: 0, _count: 500, genre: "Pop" };
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.albums(q));
+  
+          expect(result).toEqual({
+            results: [album1, album3].map(albumToAlbumSummary),
+            total: 2,
+          });
+  
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            params: {
+              type: "byGenre",
+              genre: "Pop",
+              size: 500,
+              offset: 0,
+              ...authParams,
+            },
+          });
+        });
+      });
+  
+    });
+
+    describe("when there are less than 500 albums", () => {
+      const artist1 = anArtist({
+        name: "abba",
+        albums: [anAlbum(), anAlbum(), anAlbum()],
+      });
+      const artist2 = anArtist({
+        name: "babba",
+        albums: [anAlbum(), anAlbum(), anAlbum()],
+      });
+      const artists = [artist1, artist2];
+      const albums = artists.flatMap((artist) => artist.albums);
+
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
+          );
+      });
+
+      describe("querying for all of them", () => {
+        it("should return all of them with corrent paging information", async () => {
+          const paging = { _index: 0, _count: 500 };
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.albums(paging));
+
+          expect(result).toEqual({
+            results: albums.map(albumToAlbumSummary),
+            total: 6,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            params: {
+              type: "alphabeticalByArtist",
+              size: 500,
+              offset: 0,
+              ...authParams,
+            },
+          });
+        });
+      });
+
+      describe("querying for a page of them", () => {
+        it("should return the page with the corrent paging information", async () => {
+          const paging = { _index: 2, _count: 2 };
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.albums(paging));
+
+          expect(result).toEqual({
+            results: [albums[2], albums[3]],
+            total: 6,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            params: {
+              type: "alphabeticalByArtist",
+              size: 500,
+              offset: 0,
+              ...authParams,
+            },
+          });
+        });
+      });  
+    });
+
+    describe("when there are more than 500 albums", () => {
+      const first500Albums = range(500).map((i) =>
+        anAlbum({ name: `album ${i}` })
+      );
+      const artist = anArtist({
+        name: "> 500 albums",
+        albums: [...first500Albums, anAlbum(), anAlbum(), anAlbum()],
+      });
+
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                albumListXml(
+                  first500Albums.map(
+                    (album) => [artist, album] as [Artist, Album]
+                  )
+                )
+              )
+            )
+          );
+      });
+
+      describe("querying for all of them", () => {
+        it("will return only the first 500 with the correct paging information", async () => {
+          const paging = { _index: 0, _count: 1000 };
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.albums(paging));
+
+          expect(result).toEqual({
+            results: first500Albums.map(albumToAlbumSummary),
+            total: 500,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            params: {
+              type: "alphabeticalByArtist",
+              size: 500,
+              offset: 0,
               ...authParams,
             },
           });

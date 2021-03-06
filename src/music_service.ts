@@ -74,7 +74,26 @@ export type ArtistQuery = Paging
 
 export type AlbumQuery = Paging & {
   artistId?: string
+  genre?: string
 }
+
+export const artistToArtistSummary = (
+  it: Artist
+): ArtistSummary => ({
+  id: it.id,
+  name: it.name,
+  image: it.image,
+});
+
+export const albumToAlbumSummary = (
+  it: Album
+): AlbumSummary => ({
+  id: it.id,
+  name: it.name,
+  year: it.year,
+  genre: it.genre,
+});
+
 export interface MusicService {
   generateToken(credentials: Credentials): Promise<AuthSuccess | AuthFailure>;
   login(authToken: string): Promise<MusicLibrary>;
@@ -84,5 +103,5 @@ export interface MusicLibrary {
   artists(q: ArtistQuery): Promise<Result<ArtistSummary>>;
   artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
-  // album(id: string): Promise<Album>;
+  album(id: string): Promise<Album>;
 }
