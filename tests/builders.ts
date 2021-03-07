@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
-import { Album, Artist } from "../src/music_service";
+import { Album, Artist, Track } from "../src/music_service";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -83,6 +83,17 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
   };
 }
 
+export function aTrack(fields: Partial<Track> = {}): Track {
+  const id = uuid();
+  return {
+    id,
+    name: `Track ${id}`,
+    mimeType: `audio/mp3-${id}`,
+    duration: `${randomInt(500)}`,
+    ...fields
+  }
+}
+
 export function anAlbum(fields: Partial<Album> = {}): Album {
   const genres = ["Metal", "Pop", "Rock", "Hip-Hop"];
   const id = uuid();
@@ -91,6 +102,7 @@ export function anAlbum(fields: Partial<Album> = {}): Album {
     name: `Album ${id}`,
     genre: genres[randomInt(genres.length)],
     year: `19${randomInt(99)}`,
+    tracks: [aTrack(), aTrack(), aTrack()],
     ...fields,
   };
 }
@@ -123,9 +135,9 @@ export const BOB_MARLEY: Artist = {
   id: uuid(),
   name: "Bob Marley",
   albums: [
-    { id: uuid(), name: "Burin'", year: "1973", genre: "Reggae" },
-    { id: uuid(), name: "Exodus", year: "1977", genre: "Reggae" },
-    { id: uuid(), name: "Kaya", year: "1978", genre: "Ska" },
+    { id: uuid(), name: "Burin'", year: "1973", genre: "Reggae", },
+    { id: uuid(), name: "Exodus", year: "1977", genre: "Reggae", },
+    { id: uuid(), name: "Kaya", year: "1978", genre: "Ska", },
   ],
   image: {
     small: "http://localhost/BOB_MARLEY/sml",
