@@ -164,6 +164,12 @@ const container = ({
   title,
 });
 
+const genre = (genre: string) => ({
+  itemType: "container",
+  id: `genre:${genre}`,
+  title: genre,
+})
+
 const album = (album: AlbumSummary) => ({
   itemType: "album",
   id: `album:${album.id}`,
@@ -237,9 +243,10 @@ function bindSmapiSoapServiceToExpress(
                   mediaCollection: [
                     container({ id: "artists", title: "Artists" }),
                     container({ id: "albums", title: "Albums" }),
+                    container({ id: "genres", title: "Genres" }),
                   ],
                   index: 0,
-                  total: 2,
+                  total: 3,
                 });
               case "artists":
                 return await musicLibrary.artists(paging).then((result) =>
@@ -263,6 +270,17 @@ function bindSmapiSoapServiceToExpress(
                     total: result.total,
                   })
                 );
+              case "genres":
+                return await musicLibrary
+                  .genres()
+                  .then(slice2(paging))
+                  .then(([page, total]) =>
+                    getMetadataResult({
+                      mediaCollection: page.map(genre),
+                      index: paging._index,
+                      total,
+                    })
+                  );
               case "artist":
                 return await musicLibrary
                   .artist(typeId!)
