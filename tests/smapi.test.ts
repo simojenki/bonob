@@ -353,23 +353,79 @@ describe("api", () => {
                 mediaCollection: [
                   { itemType: "container", id: "artists", title: "Artists" },
                   { itemType: "container", id: "albums", title: "Albums" },
+                  { itemType: "container", id: "genres", title: "Genres" },
                 ],
                 index: 0,
-                total: 2,
+                total: 3,
               })
             );
           });
         });
 
+        describe("asking for a genres", () => {
+          const artist1 = anArtist({
+            albums: [anAlbum({ genre: "Pop" }), anAlbum({ genre: "Rock" })],
+          });
+          const artist2 = anArtist({
+            albums: [
+              anAlbum({ genre: "Trip-Hop" }),
+              anAlbum({ genre: "Punk" }),
+              anAlbum({ genre: "Pop" }),
+            ],
+          });
+
+          const expectedGenres = ["Pop", "Punk", "Rock", "Trip-Hop"];
+
+          beforeEach(() => {
+            musicService.hasArtists(artist1, artist2);
+          });
+
+          describe("asking for all genres", () => {
+            it("should return a collection of genres", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `genres`,
+                index: 0,
+                count: 100,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: expectedGenres.map((genre) => ({
+                    itemType: "container",
+                    id: `genre:${genre}`,
+                    title: genre,
+                  })),
+                  index: 0,
+                  total: expectedGenres.length,
+                })
+              );
+            });
+          });
+
+          describe("asking for a page of genres", () => {
+            it("should return just that page", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `genres`,
+                index: 1,
+                count: 2,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: ["Punk", "Rock"].map((genre) => ({
+                    itemType: "container",
+                    id: `genre:${genre}`,
+                    title: genre,
+                  })),
+                  index: 1,
+                  total: expectedGenres.length,
+                })
+              );
+            });
+          });
+        });
+
         describe("asking for a single artist", () => {
           const artistWithManyAlbums = anArtist({
-            albums: [
-              anAlbum(),
-              anAlbum(),
-              anAlbum(),
-              anAlbum(),
-              anAlbum(),
-            ],
+            albums: [anAlbum(), anAlbum(), anAlbum(), anAlbum(), anAlbum()],
           });
 
           beforeEach(() => {
