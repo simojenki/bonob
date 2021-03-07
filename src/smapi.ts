@@ -280,8 +280,8 @@ function bindSmapiSoapServiceToExpress(
                       index: paging._index,
                       total,
                     })
-                  );
-              case "artist":
+                    );
+                    case "artist":
                 return await musicLibrary
                   .artist(typeId!)
                   .then((artist) => artist.albums)
