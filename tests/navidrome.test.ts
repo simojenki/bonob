@@ -15,8 +15,10 @@ import {
   albumToAlbumSummary,
   range,
   asArtistAlbumPairs,
+  Track,
+  AlbumSummary
 } from "../src/music_service";
-import { anAlbum, anArtist } from "./builders";
+import { anAlbum, anArtist, aTrack } from "./builders";
 
 jest.mock("../src/random_string");
 
@@ -66,7 +68,7 @@ const artistInfoXml = (
           </artistInfo>
         </subsonic-response>`;
 
-const albumXml = (artist: Artist, album: Album) => `<album id="${album.id}" 
+const albumXml = (artist: Artist, album: AlbumSummary, tracks: Track[] = []) => `<album id="${album.id}" 
             parent="${artist.id}" 
             isDir="true" 
             title="${album.name}" name="${album.name}" album="${album.name}" 
@@ -79,24 +81,43 @@ const albumXml = (artist: Artist, album: Album) => `<album id="${album.id}"
             created="2021-01-07T08:19:55.834207205Z" 
             artistId="${artist.id}" 
             songCount="19" 
-            isVideo="false"></album>`;
+            isVideo="false">${tracks.map(track => songXml(artist, album, track))}</album>`;
+
+const songXml = (artist: Artist, album: AlbumSummary, track: Track) => `<song 
+            id="${track.id}" 
+            parent="${album.id}" 
+            title="${track.name}" 
+            album="${album.name}" 
+            artist="${artist.name}" 
+            isDir="false" 
+            coverArt="71381" 
+            created="2004-11-08T23:36:11" 
+            duration="${track.duration}" 
+            bitRate="128" 
+            size="5624132" 
+            suffix="mp3" 
+            contentType="${track.mimeType}" 
+            isVideo="false" 
+            path="ACDC/High voltage/ACDC - The Jack.mp3" 
+            albumId="${album.id}" 
+            artistId="${artist.name}" 
+            type="music"/>`;
 
 const albumListXml = (
   albums: [Artist, Album][]
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                     <albumList>
                       ${albums.map(([artist, album]) =>
-                        albumXml(artist, album)
-                      )}
+  albumXml(artist, album)
+)}
                     </albumList>
                   </subsonic-response>`;
 
 const artistXml = (
   artist: Artist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-        <artist id="${artist.id}" name="${artist.name}" albumCount="${
-  artist.albums.length
-}" artistImageUrl="....">
+        <artist id="${artist.id}" name="${artist.name}" albumCount="${artist.albums.length
+  }" artistImageUrl="....">
           ${artist.albums.map((album) => albumXml(artist, album))}
         </artist>
         </subsonic-response>`;
@@ -106,11 +127,15 @@ const genresXml = (
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                           <genres>
                                             ${genres.map(
-                                              (it) =>
-                                                `<genre songCount="1475" albumCount="86">${it}</genre>`
-                                            )}
+  (it) =>
+    `<genre songCount="1475" albumCount="86">${it}</genre>`
+)}
                                           </genres>
                                           </subsonic-response>`;
+
+const getAlbumXml = (artist: Artist, album: Album) => `<subsonic-response status="ok" version="1.8.0">
+                                                        ${albumXml(artist, album, album.tracks)}
+                                                      </subsonic-response>`
 
 const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
 
@@ -184,7 +209,7 @@ describe("Navidrome", () => {
         .mockImplementationOnce(() => Promise.resolve(ok(genresXml(genres))));
     });
 
-    it.only("should return them alphabetically sorted", async () => {
+    it("should return them alphabetically sorted", async () => {
       const result = await navidrome
         .generateToken({ username, password })
         .then((it) => it as AuthSuccess)
@@ -504,7 +529,7 @@ describe("Navidrome", () => {
             .then((it) => it.albums(paging));
 
           expect(result).toEqual({
-            results: albums.map(albumToAlbumSummary),
+            results: albums,
             total: 6,
           });
 
@@ -592,6 +617,48 @@ describe("Navidrome", () => {
               ...authParams,
             },
           });
+        });
+      });
+    });
+  });
+
+  describe("getting an album", () => {
+    describe("when it exists", () => {
+      const album = anAlbum({ tracks: [ 
+        aTrack(),
+        aTrack(),
+        aTrack(),
+        aTrack(),
+      ] });
+
+      const artist = anArtist({ albums: [album] })
+
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getAlbumXml(artist, album)
+              )
+            )
+          );
+      });
+
+      it("should return the album", async () => {
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.album(album.id));
+
+        expect(result).toEqual(album);
+
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+          params: {
+            id: album.id,
+            ...authParams,
+          },
         });
       });
     });

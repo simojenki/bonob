@@ -53,18 +53,17 @@ export type album = {
   _coverArt: string;
 };
 
-export type artist = {
+export type artistSummary = {
   _id: string;
   _name: string;
   _albumCount: string;
   _artistImageUrl: string | undefined;
-  album: album[];
-};
+}
 
 export type GetArtistsResponse = SubsonicResponse & {
   artists: {
     index: {
-      artist: artist[];
+      artist: artistSummary[];
       _name: string;
     }[];
   };
@@ -108,13 +107,42 @@ export type ArtistInfo = {
   image: Images;
 };
 
-export type GetArtistInfoResponse = {
+export type GetArtistInfoResponse = SubsonicResponse & {
   artistInfo: artistInfo;
 };
 
-export type GetArtistResponse = {
-  artist: artist;
+export type GetArtistResponse = SubsonicResponse & {
+  artist: artistSummary & {
+    album: album[];
+  };
 };
+
+export type song = {
+  "_id": string,
+  "_parent": string,
+  "_title": string,
+  "_album": string,
+  "_artist": string,
+  "_coverArt": string,
+  "_created": "2004-11-08T23:36:11",
+  "_duration": string,
+  "_bitRate": "128",
+  "_suffix": "mp3",
+  "_contentType": string,
+  "_albumId": string,
+  "_artistId": string,
+  "_type": "music"
+}
+
+export type GetAlbumResponse = {
+  album: {
+    _id: string,
+    _name: string,
+    _genre: string,
+    _year: string,
+    song: song[]
+  }
+}
 
 export function isError(
   subsonicResponse: SubsonicResponse
@@ -211,7 +239,7 @@ export class Navidrome implements MusicService {
   getArtist = (
     credentials: Credentials,
     id: string
-  ): Promise<IdName & { albums: Album[] }> =>
+  ): Promise<IdName & { albums: AlbumSummary[] }> =>
     this.get<GetArtistResponse>(credentials, "/rest/getArtist", {
       id,
     })
@@ -301,9 +329,21 @@ export class Navidrome implements MusicService {
             total: Math.min(MAX_ALBUM_LIST, total),
           }));
       },
-      album: (_: string): Promise<Album> => {
-        return Promise.reject("not implemented");
-      },
+      album: (id: string): Promise<Album> => navidrome
+        .get<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
+        .then(it => it.album)
+        .then(album => ({
+          id: album._id,
+          name: album._name,
+          year: album._year,
+          genre: album._genre,
+          tracks: album.song.map(track => ({
+            id: track._id,
+            name: track._title,
+            mimeType: track._contentType,
+            duration: track._duration,
+          }))
+        })),
       genres: () =>
         navidrome
           .get<GenGenresResponse>(credentials, "/rest/getGenres")
