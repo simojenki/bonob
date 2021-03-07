@@ -35,7 +35,7 @@ export type Images = {
 };
 
 export type Artist = ArtistSummary & {
-  albums: Album[];
+  albums: AlbumSummary[];
 };
 
 export type AlbumSummary = {
@@ -45,7 +45,16 @@ export type AlbumSummary = {
   genre: string | undefined;
 };
 
-export type Album = AlbumSummary & {};
+export type Album = AlbumSummary & {
+  tracks: Track[]
+};
+
+export type Track = {
+  id: string;
+  name: string;
+  mimeType: string;
+  duration: string;
+};
 
 export type Paging = {
   _index: number;
