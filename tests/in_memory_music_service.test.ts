@@ -6,7 +6,7 @@ import {
   albumToAlbumSummary,
 } from "../src/music_service";
 import { v4 as uuid } from "uuid";
-import { anArtist, anAlbum } from "./builders";
+import { anArtist, anAlbum, aTrack } from "./builders";
 
 describe("InMemoryMusicService", () => {
   const service = new InMemoryMusicService();
@@ -176,6 +176,34 @@ describe("InMemoryMusicService", () => {
       });
     });
 
+    describe("tracks", () => {
+      const artist1Album1 = anAlbum();
+      const artist1Album2 = anAlbum();
+      const artist1 = anArtist({ albums: [artist1Album1, artist1Album2] });
+
+      const track1 = aTrack({ album: artist1Album1, artist: artist1 });
+      const track2 = aTrack({ album: artist1Album1, artist: artist1 });
+      const track3 = aTrack({ album: artist1Album2, artist: artist1 });
+      const track4 = aTrack({ album: artist1Album2, artist: artist1 });
+
+      beforeEach(() => {
+        service.hasArtists(artist1);
+        service.hasTracks(track1, track2, track3, track4);
+      });
+
+      describe("fetching tracks for an album", () => {
+        it("should return only tracks on that album", async () => {
+          expect(await musicLibrary.tracks(artist1Album1.id)).toEqual([track1, track2])
+        });
+      });
+
+      describe("fetching tracks for an album that doesnt exist", () => {
+        it("should return empty array", async () => {
+          expect(await musicLibrary.tracks("non existant album id")).toEqual([])
+        });
+      });
+    });
+
     describe("albums", () => {
       const artist1_album1 = anAlbum({ genre: "Pop" });
       const artist1_album2 = anAlbum({ genre: "Rock" });
@@ -332,8 +360,20 @@ describe("InMemoryMusicService", () => {
     });
 
     describe("genres", () => {
-      const artist1 = anArtist({ albums: [anAlbum({ genre: "Pop" }),     anAlbum({ genre: "Rock" }), anAlbum({ genre: "Pop" })] });
-      const artist2 = anArtist({ albums: [anAlbum({ genre: "Hip-Hop" }), anAlbum({ genre: "Rap" }), anAlbum({ genre: "Pop" })] });
+      const artist1 = anArtist({
+        albums: [
+          anAlbum({ genre: "Pop" }),
+          anAlbum({ genre: "Rock" }),
+          anAlbum({ genre: "Pop" }),
+        ],
+      });
+      const artist2 = anArtist({
+        albums: [
+          anAlbum({ genre: "Hip-Hop" }),
+          anAlbum({ genre: "Rap" }),
+          anAlbum({ genre: "Pop" }),
+        ],
+      });
 
       beforeEach(() => {
         service.hasArtists(artist1, artist2);
@@ -341,13 +381,11 @@ describe("InMemoryMusicService", () => {
 
       describe("fetching all in one page", () => {
         it("should provide an array of artists", async () => {
-          expect(
-            await musicLibrary.genres()
-          ).toEqual([
+          expect(await musicLibrary.genres()).toEqual([
             "Hip-Hop",
             "Pop",
             "Rap",
-            "Rock"
+            "Rock",
           ]);
         });
       });
