@@ -14,6 +14,7 @@ import {
   someCredentials,
   anArtist,
   anAlbum,
+  aTrack,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -470,7 +471,7 @@ describe("api", () => {
                     id: `album:${it.id}`,
                     title: it.name,
                   })),
-                  index: 0,
+                  index: 2,
                   total: artistWithManyAlbums.albums.length,
                 })
               );
@@ -628,6 +629,107 @@ describe("api", () => {
                   total: 6,
                 })
               );
+            });
+          });
+        });
+
+        describe("asking for tracks", () => {
+          describe("for an album", () => {
+            const album = anAlbum();
+            const artist = anArtist({
+              albums: [album],
+            });
+
+            const track1 = aTrack({ artist, album, number: "1" });
+            const track2 = aTrack({ artist, album, number: "2" });
+            const track3 = aTrack({ artist, album, number: "3" });
+            const track4 = aTrack({ artist, album, number: "4" });
+            const track5 = aTrack({ artist, album, number: "5" });
+
+            beforeEach(() => {
+              musicService.hasArtists(artist);
+              musicService.hasTracks(track1, track2, track3, track4, track5);
+            });
+
+            describe("asking for all albums", () => {
+              it("should return them all", async () => {
+                const result = await ws.getMetadataAsync({
+                  id: `album:${album.id}`,
+                  index: 0,
+                  count: 100,
+                });
+                expect(result[0]).toEqual(
+                  getMetadataResult({
+                    mediaCollection: [
+                      track1,
+                      track2,
+                      track3,
+                      track4,
+                      track5,
+                    ].map((track) => ({
+                      itemType: "track",
+                      id: `track:${track.id}`,
+                      mimeType: track.mimeType,
+                      title: track.name,
+
+                      trackMetadata: {
+                        album: track.album.name,
+                        albumId: track.album.id,
+                        albumArtist: track.artist.name,
+                        albumArtistId: track.artist.id,
+                        // albumArtURI
+                        artist: track.artist.name,
+                        artistId: track.artist.id,
+                        duration: track.duration,
+                        genre: track.album.genre,
+                        // genreId
+                        trackNumber: track.number,
+                      },
+                    })),
+                    index: 0,
+                    total: 5,
+                  })
+                );
+              });
+            });
+
+            describe("asking for a single page of tracks", () => {
+              it("should return only that page", async () => {
+                const result = await ws.getMetadataAsync({
+                  id: `album:${album.id}`,
+                  index: 2,
+                  count: 2,
+                });
+                expect(result[0]).toEqual(
+                  getMetadataResult({
+                    mediaCollection: [
+                      track3,
+                      track4,
+                    ].map((track) => ({
+                      itemType: "track",
+                      id: `track:${track.id}`,
+                      mimeType: track.mimeType,
+                      title: track.name,
+
+                      trackMetadata: {
+                        album: track.album.name,
+                        albumId: track.album.id,
+                        albumArtist: track.artist.name,
+                        albumArtistId: track.artist.id,
+                        // albumArtURI
+                        artist: track.artist.name,
+                        artistId: track.artist.id,
+                        duration: track.duration,
+                        genre: track.album.genre,
+                        // genreId
+                        trackNumber: track.number,
+                      },
+                    })),
+                    index: 2,
+                    total: 5,
+                  })
+                );
+              });
             });
           });
         });

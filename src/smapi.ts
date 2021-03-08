@@ -11,6 +11,7 @@ import {
   MusicLibrary,
   MusicService,
   slice2,
+  Track,
 } from "./music_service";
 
 export const LOGIN_ROUTE = "/login";
@@ -168,7 +169,7 @@ const genre = (genre: string) => ({
   itemType: "container",
   id: `genre:${genre}`,
   title: genre,
-})
+});
 
 const album = (album: AlbumSummary) => ({
   itemType: "album",
@@ -180,6 +181,27 @@ const album = (album: AlbumSummary) => ({
   //   },
   //   $value: `${webAddress}/album/${album.id}/art`
   // }
+});
+
+const track = (track: Track) => ({
+  itemType: "track",
+  id: `track:${track.id}`,
+  mimeType: track.mimeType,
+  title: track.name,
+
+  trackMetadata: {
+    album: track.album.name,
+    albumId: track.album.id,
+    albumArtist: track.artist.name,
+    albumArtistId: track.artist.id,
+    // albumArtURI
+    artist: track.artist.name,
+    artistId: track.artist.id,
+    duration: track.duration,
+    genre: track.album.genre,
+    // genreId
+    trackNumber: track.number,
+  },
 });
 
 type SoapyHeaders = {
@@ -280,8 +302,8 @@ function bindSmapiSoapServiceToExpress(
                       index: paging._index,
                       total,
                     })
-                    );
-                    case "artist":
+                  );
+              case "artist":
                 return await musicLibrary
                   .artist(typeId!)
                   .then((artist) => artist.albums)
@@ -289,7 +311,18 @@ function bindSmapiSoapServiceToExpress(
                   .then(([page, total]) =>
                     getMetadataResult({
                       mediaCollection: page.map(album),
-                      index: 0,
+                      index: paging._index,
+                      total,
+                    })
+                  );
+              case "album":
+                return await musicLibrary
+                  .tracks(typeId!)
+                  .then(slice2(paging))
+                  .then(([page, total]) =>
+                    getMetadataResult({
+                      mediaCollection: page.map(track),
+                      index: paging._index,
                       total,
                     })
                   );

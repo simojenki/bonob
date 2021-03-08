@@ -83,6 +83,9 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
   };
 }
 
+export const SAMPLE_GENRES = ["Metal", "Pop", "Rock", "Hip-Hop"]
+export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)]
+
 export function aTrack(fields: Partial<Track> = {}): Track {
   const id = uuid();
   return {
@@ -90,19 +93,21 @@ export function aTrack(fields: Partial<Track> = {}): Track {
     name: `Track ${id}`,
     mimeType: `audio/mp3-${id}`,
     duration: `${randomInt(500)}`,
+    number: `${randomInt(100)}`,
+    genre: randomGenre(),
+    artist: anArtist(),
+    album: anAlbum(),
     ...fields
   }
 }
 
 export function anAlbum(fields: Partial<Album> = {}): Album {
-  const genres = ["Metal", "Pop", "Rock", "Hip-Hop"];
   const id = uuid();
   return {
     id,
     name: `Album ${id}`,
-    genre: genres[randomInt(genres.length)],
+    genre: randomGenre(),
     year: `19${randomInt(99)}`,
-    tracks: [aTrack(), aTrack(), aTrack()],
     ...fields,
   };
 }

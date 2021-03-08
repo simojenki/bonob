@@ -18,6 +18,7 @@ import {
   artistToArtistSummary,
   albumToAlbumSummary,
   Album,
+  Track,
 } from "../src/music_service";
 
 type P<T> = (t: T) => boolean;
@@ -29,6 +30,7 @@ const albumWithGenre = (genre: string): P<[Artist, Album]> => ([_, album]) =>
 export class InMemoryMusicService implements MusicService {
   users: Record<string, string> = {};
   artists: Artist[] = [];
+  tracks: Track[] = [];
 
   generateToken({
     username,
@@ -101,6 +103,7 @@ export class InMemoryMusicService implements MusicService {
             A.sort(ordString)
           )
         ),
+      tracks: (albumId: string) => Promise.resolve(this.tracks.filter(it => it.album.id === albumId))
     });
   }
 
@@ -119,9 +122,15 @@ export class InMemoryMusicService implements MusicService {
     return this;
   }
 
+  hasTracks(...newTracks: Track[]) {
+    this.tracks = [...this.tracks, ...newTracks];
+    return this;
+  }
+
   clear() {
     this.users = {};
     this.artists = [];
+    this.tracks = [];
     return this;
   }
 }

@@ -34,6 +34,12 @@ export type Images = {
   large: string | undefined;
 };
 
+export const NO_IMAGES: Images = {
+  small: undefined,
+  medium: undefined,
+  large: undefined
+}
+
 export type Artist = ArtistSummary & {
   albums: AlbumSummary[];
 };
@@ -46,7 +52,6 @@ export type AlbumSummary = {
 };
 
 export type Album = AlbumSummary & {
-  tracks: Track[]
 };
 
 export type Track = {
@@ -54,6 +59,10 @@ export type Track = {
   name: string;
   mimeType: string;
   duration: string;
+  number: string | undefined;
+  genre: string | undefined;
+  album: AlbumSummary;
+  artist: ArtistSummary
 };
 
 export type Paging = {
@@ -114,5 +123,6 @@ export interface MusicLibrary {
   artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
   album(id: string): Promise<Album>;
+  tracks(albumId: string): Promise<Track[]>;
   genres(): Promise<string[]>;
 }

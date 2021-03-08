@@ -16,6 +16,7 @@ import {
   MusicLibrary,
   Images,
   AlbumSummary,
+  NO_IMAGES,
 } from "./music_service";
 import X2JS from "x2js";
 
@@ -58,7 +59,7 @@ export type artistSummary = {
   _name: string;
   _albumCount: string;
   _artistImageUrl: string | undefined;
-}
+};
 
 export type GetArtistsResponse = SubsonicResponse & {
   artists: {
@@ -118,31 +119,33 @@ export type GetArtistResponse = SubsonicResponse & {
 };
 
 export type song = {
-  "_id": string,
-  "_parent": string,
-  "_title": string,
-  "_album": string,
-  "_artist": string,
-  "_coverArt": string,
-  "_created": "2004-11-08T23:36:11",
-  "_duration": string,
-  "_bitRate": "128",
-  "_suffix": "mp3",
-  "_contentType": string,
-  "_albumId": string,
-  "_artistId": string,
-  "_type": "music"
-}
+  _id: string;
+  _parent: string;
+  _title: string;
+  _album: string;
+  _artist: string;
+  _track: string;
+  _genre: string;
+  _coverArt: string;
+  _created: "2004-11-08T23:36:11";
+  _duration: string;
+  _bitRate: "128";
+  _suffix: "mp3";
+  _contentType: string;
+  _albumId: string;
+  _artistId: string;
+  _type: "music";
+};
 
 export type GetAlbumResponse = {
   album: {
-    _id: string,
-    _name: string,
-    _genre: string,
-    _year: string,
-    song: song[]
-  }
-}
+    _id: string;
+    _name: string;
+    _genre: string;
+    _year: string;
+    song: song[];
+  };
+};
 
 export function isError(
   subsonicResponse: SubsonicResponse
@@ -329,29 +332,57 @@ export class Navidrome implements MusicService {
             total: Math.min(MAX_ALBUM_LIST, total),
           }));
       },
-      album: (id: string): Promise<Album> => navidrome
-        .get<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
-        .then(it => it.album)
-        .then(album => ({
-          id: album._id,
-          name: album._name,
-          year: album._year,
-          genre: album._genre,
-          tracks: album.song.map(track => ({
-            id: track._id,
-            name: track._title,
-            mimeType: track._contentType,
-            duration: track._duration,
-          }))
-        })),
+      album: (id: string): Promise<Album> =>
+        navidrome
+          .get<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
+          .then((it) => it.album)
+          .then((album) => ({
+            id: album._id,
+            name: album._name,
+            year: album._year,
+            genre: album._genre,
+            // tracks: album.song.map(track => ({
+            //   id: track._id,
+            //   name: track._title,
+            //   mimeType: track._contentType,
+            //   duration: track._duration,
+            // }))
+          })),
       genres: () =>
         navidrome
           .get<GenGenresResponse>(credentials, "/rest/getGenres")
-          .then((it) => pipe(
-            it.genres.genre,
-            A.map(it => it.__text),
-            A.sort(ordString)
-          )),
+          .then((it) =>
+            pipe(
+              it.genres.genre,
+              A.map((it) => it.__text),
+              A.sort(ordString)
+            )
+          ),
+      tracks: (albumId: string) =>
+        navidrome
+          .get<GetAlbumResponse>(credentials, "/rest/getAlbum", { id: albumId })
+          .then((it) => it.album)
+          .then((album) =>
+            album.song.map((song) => ({
+              id: song._id,
+              name: song._title,
+              mimeType: song._contentType,
+              duration: song._duration,
+              number: song._track,
+              genre: song._genre,
+              album: {
+                id: album._id,
+                name: album._name,
+                year: album._year,
+                genre: album._genre,
+              },
+              artist: {
+                id: song._artistId,
+                name: song._artist,
+                image: NO_IMAGES,
+              },
+            }))
+          ),
     };
 
     return Promise.resolve(musicLibrary);
