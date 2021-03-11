@@ -20,7 +20,7 @@ import {
 } from "./music_service";
 import X2JS from "x2js";
 
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
 
@@ -51,7 +51,7 @@ export type album = {
   _name: string;
   _genre: string | undefined;
   _year: string | undefined;
-  _coverArt: string;
+  _coverArt: string | undefined;
 };
 
 export type artistSummary = {
@@ -124,11 +124,11 @@ export type song = {
   _title: string;
   _album: string;
   _artist: string;
-  _track: string;
+  _track: string | undefined;
   _genre: string;
   _coverArt: string;
   _created: "2004-11-08T23:36:11";
-  _duration: string;
+  _duration: string | undefined;
   _bitRate: "128";
   _suffix: "mp3";
   _contentType: string;
@@ -138,13 +138,13 @@ export type song = {
 };
 
 export type GetAlbumResponse = {
-  album: {
-    _id: string;
-    _name: string;
-    _genre: string;
-    _year: string;
+  album: album & {
     song: song[];
   };
+};
+
+export type GetSongResponse = {
+  song: song;
 };
 
 export function isError(
@@ -169,6 +169,28 @@ export type getAlbumListParams = {
 
 const MAX_ALBUM_LIST = 500;
 
+const asTrack = (album: Album, song: song) => ({
+  id: song._id,
+  name: song._title,
+  mimeType: song._contentType,
+  duration: parseInt(song._duration || "0"),
+  number: parseInt(song._track || "0"),
+  genre: song._genre,
+  album,
+  artist: {
+    id: song._artistId,
+    name: song._artist,
+    image: NO_IMAGES,
+  },
+});
+
+const asAlbum = (album: album) => ({
+  id: album._id,
+  name: album._name,
+  year: album._year,
+  genre: album._genre,
+});
+
 export class Navidrome implements MusicService {
   url: string;
   encryption: Encryption;
@@ -178,11 +200,12 @@ export class Navidrome implements MusicService {
     this.encryption = encryption;
   }
 
-  get = async <T>(
+  get = async (
     { username, password }: Credentials,
     path: string,
-    q: {} = {}
-  ): Promise<T> =>
+    q: {} = {},
+    config: AxiosRequestConfig | undefined = {}
+  ) =>
     axios
       .get(`${this.url}${path}`, {
         params: {
@@ -192,7 +215,23 @@ export class Navidrome implements MusicService {
           v: "1.16.1",
           c: "bonob",
         },
+        headers: {
+          "User-Agent": "bonob",
+        },
+        ...config,
       })
+      .then((response) => {
+        if (response.status != 200 && response.status != 206)
+          throw `Navidrome failed with a ${response.status}`;
+        else return response;
+      });
+
+  getJSON = async <T>(
+    { username, password }: Credentials,
+    path: string,
+    q: {} = {}
+  ): Promise<T> =>
+    this.get({ username, password }, path, q)
       .then((response) => new X2JS().xml2js(response.data) as SubconicEnvelope)
       .then((json) => json["subsonic-response"])
       .then((json) => {
@@ -201,7 +240,7 @@ export class Navidrome implements MusicService {
       });
 
   generateToken = async (credentials: Credentials) =>
-    this.get(credentials, "/rest/ping.view")
+    this.getJSON(credentials, "/rest/ping.view")
       .then(() => ({
         authToken: Buffer.from(
           JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
@@ -219,7 +258,7 @@ export class Navidrome implements MusicService {
     );
 
   getArtists = (credentials: Credentials): Promise<IdName[]> =>
-    this.get<GetArtistsResponse>(credentials, "/rest/getArtists")
+    this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => it.artists.index.flatMap((it) => it.artist || []))
       .then((artists) =>
         artists.map((artist) => ({
@@ -229,7 +268,7 @@ export class Navidrome implements MusicService {
       );
 
   getArtistInfo = (credentials: Credentials, id: string): Promise<ArtistInfo> =>
-    this.get<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
+    this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
       id,
     }).then((it) => ({
       image: {
@@ -239,11 +278,21 @@ export class Navidrome implements MusicService {
       },
     }));
 
+  getAlbum = (credentials: Credentials, id: string): Promise<Album> =>
+    this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
+      .then((it) => it.album)
+      .then((album) => ({
+        id: album._id,
+        name: album._name,
+        year: album._year,
+        genre: album._genre,
+      }));
+
   getArtist = (
     credentials: Credentials,
     id: string
   ): Promise<IdName & { albums: AlbumSummary[] }> =>
-    this.get<GetArtistResponse>(credentials, "/rest/getArtist", {
+    this.getJSON<GetArtistResponse>(credentials, "/rest/getArtist", {
       id,
     })
       .then((it) => it.artist)
@@ -312,7 +361,7 @@ export class Navidrome implements MusicService {
         );
 
         return navidrome
-          .get<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
+          .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
             ...p,
             size: MAX_ALBUM_LIST,
             offset: 0,
@@ -333,24 +382,10 @@ export class Navidrome implements MusicService {
           }));
       },
       album: (id: string): Promise<Album> =>
-        navidrome
-          .get<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
-          .then((it) => it.album)
-          .then((album) => ({
-            id: album._id,
-            name: album._name,
-            year: album._year,
-            genre: album._genre,
-            // tracks: album.song.map(track => ({
-            //   id: track._id,
-            //   name: track._title,
-            //   mimeType: track._contentType,
-            //   duration: track._duration,
-            // }))
-          })),
+        navidrome.getAlbum(credentials, id),
       genres: () =>
         navidrome
-          .get<GenGenresResponse>(credentials, "/rest/getGenres")
+          .getJSON<GenGenresResponse>(credentials, "/rest/getGenres")
           .then((it) =>
             pipe(
               it.genres.genre,
@@ -360,29 +395,61 @@ export class Navidrome implements MusicService {
           ),
       tracks: (albumId: string) =>
         navidrome
-          .get<GetAlbumResponse>(credentials, "/rest/getAlbum", { id: albumId })
+          .getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", {
+            id: albumId,
+          })
           .then((it) => it.album)
           .then((album) =>
-            album.song.map((song) => ({
-              id: song._id,
-              name: song._title,
-              mimeType: song._contentType,
-              duration: song._duration,
-              number: song._track,
-              genre: song._genre,
-              album: {
-                id: album._id,
-                name: album._name,
-                year: album._year,
-                genre: album._genre,
-              },
-              artist: {
-                id: song._artistId,
-                name: song._artist,
-                image: NO_IMAGES,
-              },
-            }))
+            album.song.map((song) => asTrack(asAlbum(album), song))
           ),
+      track: (trackId: string) =>
+        navidrome
+          .getJSON<GetSongResponse>(credentials, "/rest/getSong", {
+            id: trackId,
+          })
+          .then((it) => it.song)
+          .then((song) =>
+            navidrome
+              .getAlbum(credentials, song._albumId)
+              .then((album) => asTrack(album, song))
+          ),
+      stream: async ({
+        trackId,
+        range,
+      }: {
+        trackId: string;
+        range: string | undefined;
+      }) =>
+        navidrome
+          .get(
+            credentials,
+            `/rest/stream`,
+            { id: trackId },
+            {
+              headers: pipe(
+                range,
+                O.fromNullable,
+                O.map((range) => ({
+                  "User-Agent": "bonob",
+                  Range: range,
+                })),
+                O.getOrElse(() => ({
+                  "User-Agent": "bonob",
+                }))
+              ),
+              responseType: "arraybuffer",
+            }
+          )
+          .then((res) => ({
+            status: res.status,
+            headers: {
+              "content-type": res.headers["content-type"],
+              "content-length": res.headers["content-length"],
+              "content-range": res.headers["content-range"],
+              "accept-ranges": res.headers["accept-ranges"],
+            },
+            data: Buffer.from(res.data, "binary"),
+          })),
     };
 
     return Promise.resolve(musicLibrary);

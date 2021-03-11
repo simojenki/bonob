@@ -2,11 +2,17 @@ import crypto from "crypto";
 import request from "supertest";
 import { Client, createClientAsync } from "soap";
 import X2JS from "x2js";
+import { v4 as uuid } from "uuid";
 
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import makeServer from "../src/server";
 import { bonobService, SONOS_DISABLED } from "../src/sonos";
-import { STRINGS_ROUTE, LOGIN_ROUTE, getMetadataResult } from "../src/smapi";
+import {
+  STRINGS_ROUTE,
+  LOGIN_ROUTE,
+  getMetadataResult,
+  getMetadataResult2,
+} from "../src/smapi";
 
 import {
   aService,
@@ -276,7 +282,7 @@ describe("api", () => {
       );
 
       describe("when no credentials header provided", () => {
-        it("should return a fault of LoginUnauthorized", async () => {
+        it("should return a fault of LoginUnsupported", async () => {
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
@@ -295,7 +301,7 @@ describe("api", () => {
       });
 
       describe("when invalid credentials are provided", () => {
-        it("should return a fault of LoginInvalid", async () => {
+        it("should return a fault of LoginUnauthorized", async () => {
           const username = "userThatGetsDeleted";
           const password = "password1";
           musicService.hasUser({ username, password });
@@ -640,11 +646,11 @@ describe("api", () => {
               albums: [album],
             });
 
-            const track1 = aTrack({ artist, album, number: "1" });
-            const track2 = aTrack({ artist, album, number: "2" });
-            const track3 = aTrack({ artist, album, number: "3" });
-            const track4 = aTrack({ artist, album, number: "4" });
-            const track5 = aTrack({ artist, album, number: "5" });
+            const track1 = aTrack({ artist, album, number: 1 });
+            const track2 = aTrack({ artist, album, number: 2 });
+            const track3 = aTrack({ artist, album, number: 3 });
+            const track4 = aTrack({ artist, album, number: 4 });
+            const track5 = aTrack({ artist, album, number: 5 });
 
             beforeEach(() => {
               musicService.hasArtists(artist);
@@ -659,33 +665,29 @@ describe("api", () => {
                   count: 100,
                 });
                 expect(result[0]).toEqual(
-                  getMetadataResult({
-                    mediaCollection: [
-                      track1,
-                      track2,
-                      track3,
-                      track4,
-                      track5,
-                    ].map((track) => ({
-                      itemType: "track",
-                      id: `track:${track.id}`,
-                      mimeType: track.mimeType,
-                      title: track.name,
+                  getMetadataResult2({
+                    mediaMetadata: [track1, track2, track3, track4, track5].map(
+                      (track) => ({
+                        itemType: "track",
+                        id: `track:${track.id}`,
+                        mimeType: track.mimeType,
+                        title: track.name,
 
-                      trackMetadata: {
-                        album: track.album.name,
-                        albumId: track.album.id,
-                        albumArtist: track.artist.name,
-                        albumArtistId: track.artist.id,
-                        // albumArtURI
-                        artist: track.artist.name,
-                        artistId: track.artist.id,
-                        duration: track.duration,
-                        genre: track.album.genre,
-                        // genreId
-                        trackNumber: track.number,
-                      },
-                    })),
+                        trackMetadata: {
+                          album: track.album.name,
+                          albumId: track.album.id,
+                          albumArtist: track.artist.name,
+                          albumArtistId: track.artist.id,
+                          // albumArtURI
+                          artist: track.artist.name,
+                          artistId: track.artist.id,
+                          duration: track.duration,
+                          genre: track.album.genre,
+                          // genreId
+                          trackNumber: track.number,
+                        },
+                      })
+                    ),
                     index: 0,
                     total: 5,
                   })
@@ -701,11 +703,8 @@ describe("api", () => {
                   count: 2,
                 });
                 expect(result[0]).toEqual(
-                  getMetadataResult({
-                    mediaCollection: [
-                      track3,
-                      track4,
-                    ].map((track) => ({
+                  getMetadataResult2({
+                    mediaMetadata: [track3, track4].map((track) => ({
                       itemType: "track",
                       id: `track:${track.id}`,
                       mimeType: track.mimeType,
@@ -730,6 +729,218 @@ describe("api", () => {
                   })
                 );
               });
+            });
+          });
+        });
+      });
+    });
+
+    describe("getMediaURI", () => {
+      const server = makeServer(
+        SONOS_DISABLED,
+        service,
+        rootUrl,
+        musicService,
+        linkCodes
+      );
+
+      describe("when no credentials header provided", () => {
+        it("should return a fault of LoginUnsupported", async () => {
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+
+          await ws
+            .getMediaURIAsync({ id: "track:123" })
+            .then(() => fail("shouldnt get here"))
+            .catch((e: any) => {
+              expect(e.root.Envelope.Body.Fault).toEqual({
+                faultcode: "Client.LoginUnsupported",
+                faultstring: "Missing credentials...",
+              });
+            });
+        });
+      });
+
+      describe("when invalid credentials are provided", () => {
+        it("should return a fault of LoginUnauthorized", async () => {
+          const username = "userThatGetsDeleted";
+          const password = "password1";
+          musicService.hasUser({ username, password });
+          const token = (await musicService.generateToken({
+            username,
+            password,
+          })) as AuthSuccess;
+          musicService.hasNoUsers();
+
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+
+          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          await ws
+            .getMediaURIAsync({ id: "track:123" })
+            .then(() => fail("shouldnt get here"))
+            .catch((e: any) => {
+              expect(e.root.Envelope.Body.Fault).toEqual({
+                faultcode: "Client.LoginUnauthorized",
+                faultstring: "Credentials not found...",
+              });
+            });
+        });
+      });
+
+      describe("when valid credentials are provided", () => {
+        const username = "validUser";
+        const password = "validPassword";
+        let token: AuthSuccess;
+        let ws: Client;
+
+        beforeEach(async () => {
+          musicService.hasUser({ username, password });
+          token = (await musicService.generateToken({
+            username,
+            password,
+          })) as AuthSuccess;
+          ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+        });
+
+        describe("asking for a URI to stream a track", () => {
+          it("should return it with auth header", async () => {
+            const trackId = uuid();
+
+            const root = await ws.getMediaURIAsync({
+              id: `track:${trackId}`,
+            });
+            expect(root[0]).toEqual({
+              getMediaURIResult: `${rootUrl}/stream/track/${trackId}`,
+              httpHeaders: {
+                header: "bonob-token",
+                value: token.authToken,
+              },
+            });
+          });
+        });
+      });
+    });
+
+    describe("getMediaMetadata", () => {
+      const server = makeServer(
+        SONOS_DISABLED,
+        service,
+        rootUrl,
+        musicService,
+        linkCodes
+      );
+
+      describe("when no credentials header provided", () => {
+        it("should return a fault of LoginUnsupported", async () => {
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+
+          await ws
+            .getMediaMetadataAsync({ id: "track:123" })
+            .then(() => fail("shouldnt get here"))
+            .catch((e: any) => {
+              expect(e.root.Envelope.Body.Fault).toEqual({
+                faultcode: "Client.LoginUnsupported",
+                faultstring: "Missing credentials...",
+              });
+            });
+        });
+      });
+
+      describe("when invalid credentials are provided", () => {
+        it("should return a fault of LoginUnauthorized", async () => {
+          const username = "userThatGetsDeleted";
+          const password = "password1";
+          musicService.hasUser({ username, password });
+          const token = (await musicService.generateToken({
+            username,
+            password,
+          })) as AuthSuccess;
+          musicService.hasNoUsers();
+
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+
+          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          await ws
+            .getMediaMetadataAsync({ id: "track:123" })
+            .then(() => fail("shouldnt get here"))
+            .catch((e: any) => {
+              expect(e.root.Envelope.Body.Fault).toEqual({
+                faultcode: "Client.LoginUnauthorized",
+                faultstring: "Credentials not found...",
+              });
+            });
+        });
+      });
+
+      describe("when valid credentials are provided", () => {
+        const username = "validUser";
+        const password = "validPassword";
+        let token: AuthSuccess;
+        let ws: Client;
+
+        const album = anAlbum();
+        const artist = anArtist({
+          albums: [album],
+        });
+        const track = aTrack();
+
+        beforeEach(async () => {
+          musicService.hasUser({ username, password });
+          token = (await musicService.generateToken({
+            username,
+            password,
+          })) as AuthSuccess;
+          ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+
+          musicService.hasArtists(artist);
+          musicService.hasTracks(track);
+        });
+
+        describe("asking for media metadata for a tack", () => {
+          it("should return it with auth header", async () => {
+            const root = await ws.getMediaMetadataAsync({
+              id: `track:${track.id}`,
+            });
+            expect(root[0]).toEqual({
+              getMediaMetadataResult: {
+                itemType: "track",
+                id: `track:${track.id}`,
+                mimeType: track.mimeType,
+                title: track.name,
+
+                trackMetadata: {
+                  album: track.album.name,
+                  albumId: track.album.id,
+                  albumArtist: track.artist.name,
+                  albumArtistId: track.artist.id,
+                  // albumArtURI
+                  artist: track.artist.name,
+                  artistId: track.artist.id,
+                  duration: track.duration,
+                  genre: track.album.genre,
+                  // genreId
+                  trackNumber: track.number,
+                },
+              },
             });
           });
         });

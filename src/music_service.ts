@@ -37,8 +37,8 @@ export type Images = {
 export const NO_IMAGES: Images = {
   small: undefined,
   medium: undefined,
-  large: undefined
-}
+  large: undefined,
+};
 
 export type Artist = ArtistSummary & {
   albums: AlbumSummary[];
@@ -51,18 +51,17 @@ export type AlbumSummary = {
   genre: string | undefined;
 };
 
-export type Album = AlbumSummary & {
-};
+export type Album = AlbumSummary & {};
 
 export type Track = {
   id: string;
   name: string;
   mimeType: string;
-  duration: string;
-  number: string | undefined;
+  duration: number;
+  number: number | undefined;
   genre: string | undefined;
   album: AlbumSummary;
-  artist: ArtistSummary
+  artist: ArtistSummary;
 };
 
 export type Paging = {
@@ -106,6 +105,14 @@ export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
   genre: it.genre,
 });
 
+export type StreamingHeader = "content-type" | "content-length" | "content-range" | "accept-ranges";
+
+export type Stream = {
+  status: number;
+  headers: Record<StreamingHeader, string>;
+  data: Buffer;
+};
+
 export const range = (size: number) => [...Array(size).keys()];
 
 export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
@@ -124,5 +131,13 @@ export interface MusicLibrary {
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
   album(id: string): Promise<Album>;
   tracks(albumId: string): Promise<Track[]>;
+  track(trackId: string): Promise<Track>;
   genres(): Promise<string[]>;
+  stream({
+    trackId,
+    range,
+  }: {
+    trackId: string;
+    range: string | undefined;
+  }): Promise<Stream>;
 }

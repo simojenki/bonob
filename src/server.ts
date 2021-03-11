@@ -113,6 +113,23 @@ function server(
     res.send("");
   });
 
+  app.get("/stream/track/:id", async (req, res) => {
+    const id = req.params["id"]!;
+    const token = req.headers["bonob-token"] as string;
+    return musicService
+      .login(token)
+      .then((it) =>
+        it.stream({ trackId: id, range: req.headers["range"] || undefined })
+      )
+      .then((stream) => {
+        res.status(stream.status);
+        Object.entries(stream.headers).forEach(([header, value]) =>
+          res.setHeader(header, value)
+        );
+        res.send(stream.data);
+      });
+  });
+
   // app.get("/album/:albumId/art", (req, res) => {
   //   console.log(`Trying to load image for ${req.params["albumId"]}, token ${JSON.stringify(req.cookies)}`)
   //   const authToken = req.headers["X-AuthToken"]! as string;
