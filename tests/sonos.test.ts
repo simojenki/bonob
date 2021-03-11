@@ -235,7 +235,7 @@ describe("sonos", () => {
 
   describe("when is disabled", () => {
     it("should return a disabled client", async () => {
-      const disabled = sonos("disabled");
+      const disabled = sonos(false);
 
       expect(disabled).toEqual(SONOS_DISABLED);
       expect(await disabled.devices()).toEqual([]);
@@ -271,7 +271,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        const actualDevices = await sonos(undefined).devices();
+        const actualDevices = await sonos(true, undefined).devices();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
         expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
@@ -292,7 +292,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        const actualDevices = await sonos("").devices();
+        const actualDevices = await sonos(true, "").devices();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
         expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
@@ -315,7 +315,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeFromDevice.mockResolvedValue(true);
 
-        const actualDevices = await sonos(seedHost).devices();
+        const actualDevices = await sonos(true, seedHost).devices();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
         expect(sonosManager.InitializeFromDevice).toHaveBeenCalledWith(
@@ -338,7 +338,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        const actualDevices = await sonos(undefined).devices();
+        const actualDevices = await sonos(true, undefined).devices();
 
         expect(actualDevices).toEqual([
           {
@@ -369,7 +369,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(false);
 
-        expect(await sonos("").devices()).toEqual([]);
+        expect(await sonos(true, "").devices()).toEqual([]);
       });
     });
   });

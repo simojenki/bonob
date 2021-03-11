@@ -8,6 +8,10 @@ const PORT = +(process.env["BONOB_PORT"] || 4534);
 const WEB_ADDRESS =
   process.env["BONOB_WEB_ADDRESS"] || `http://localhost:${PORT}`;
 
+const SONOS_DEVICE_DISCOVERY =
+  (process.env["BONOB_SONOS_DEVICE_DISCOVERY"] || "true") == "true";
+const SONOS_SEED_HOST = process.env["BONOB_SONOS_SEED_HOST"];
+
 const bonob = bonobService(
   process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
   Number(process.env["BONOS_SONOS_SERVICE_ID"] || "246"),
@@ -15,10 +19,13 @@ const bonob = bonobService(
   "AppLink"
 );
 const app = server(
-  sonos(process.env["BONOB_SONOS_SEED_HOST"]),
+  sonos(SONOS_DEVICE_DISCOVERY, SONOS_SEED_HOST),
   bonob,
   WEB_ADDRESS,
-  new Navidrome(process.env["BONOB_NAVIDROME_URL"] || "http://localhost:4533", encryption(process.env["BONOB_SECRET"] || "bonob"))
+  new Navidrome(
+    process.env["BONOB_NAVIDROME_URL"] || "http://localhost:4533",
+    encryption(process.env["BONOB_SECRET"] || "bonob")
+  )
 );
 
 app.listen(PORT, () => {
