@@ -4,8 +4,8 @@ import { parse } from "node-html-parser";
 import { MusicService } from "@svrooij/sonos/lib/services";
 import { head } from "underscore";
 import logger from "./logger";
-import STRINGS from './strings';
-import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from './smapi';
+import STRINGS from "./strings";
+import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
 
 export type Device = {
   name: string;
@@ -22,7 +22,7 @@ export type Service = {
   strings: { uri?: string; version?: string };
   presentation: { uri?: string; version?: string };
   pollInterval?: number;
-  authType: 'Anonymous' | 'AppLink' | 'DeviceLink' | 'UserId';
+  authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId";
 };
 
 const stripTailingSlash = (url: string) =>
@@ -32,7 +32,7 @@ export const bonobService = (
   name: string,
   sid: number,
   bonobRoot: string,
-  authType: 'Anonymous' | 'AppLink' | 'DeviceLink' | 'UserId' = 'AppLink'
+  authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId" = "AppLink"
 ): Service => ({
   name,
   sid,
@@ -150,9 +150,9 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
       const anyDevice = await sonosDevices().then((devices) => head(devices));
 
       if (!anyDevice) {
-        logger.warn("Failed to find a device to register with...")
-        return false
-      };
+        logger.warn("Failed to find a device to register with...");
+        return false;
+      }
 
       const customd = `http://${anyDevice.Host}:${anyDevice.Port}/customsd`;
 
@@ -164,9 +164,11 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
       );
 
       if (!csrfToken) {
-        logger.warn(`Failed to find csrfToken at GET -> ${customd}, cannot register service`)
-        return false
-      };
+        logger.warn(
+          `Failed to find csrfToken at GET -> ${customd}, cannot register service`
+        );
+        return false;
+      }
 
       return axios
         .post(customd, new URLSearchParams(asCustomdForm(csrfToken, service)), {
@@ -179,14 +181,10 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
   };
 }
 
-export default function sonos(
+const sonos = (
+  discoveryEnabled: boolean = true,
   sonosSeedHost: string | undefined = undefined
-): Sonos {
-  switch (sonosSeedHost) {
-    case "disabled":
-      logger.info("Sonos device discovery disabled");
-      return SONOS_DISABLED;
-    default:
-      return autoDiscoverySonos(sonosSeedHost);
-  }
-}
+): Sonos =>
+  discoveryEnabled ? autoDiscoverySonos(sonosSeedHost) : SONOS_DISABLED;
+
+export default sonos;
