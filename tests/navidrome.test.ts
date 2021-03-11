@@ -1,4 +1,5 @@
 import { Md5 } from "ts-md5/dist/md5";
+import { v4 as uuid } from "uuid";
 
 import { isDodgyImage, Navidrome, t } from "../src/navidrome";
 import encryption from "../src/encryption";
@@ -18,7 +19,7 @@ import {
   Track,
   AlbumSummary,
   artistToArtistSummary,
-  NO_IMAGES
+  NO_IMAGES,
 } from "../src/music_service";
 import { anAlbum, anArtist, aTrack } from "./builders";
 
@@ -70,7 +71,11 @@ const artistInfoXml = (
           </artistInfo>
         </subsonic-response>`;
 
-const albumXml = (artist: Artist, album: AlbumSummary, tracks: Track[] = []) => `<album id="${album.id}" 
+const albumXml = (
+  artist: Artist,
+  album: AlbumSummary,
+  tracks: Track[] = []
+) => `<album id="${album.id}" 
             parent="${artist.id}" 
             isDir="true" 
             title="${album.name}" name="${album.name}" album="${album.name}" 
@@ -83,7 +88,7 @@ const albumXml = (artist: Artist, album: AlbumSummary, tracks: Track[] = []) => 
             created="2021-01-07T08:19:55.834207205Z" 
             artistId="${artist.id}" 
             songCount="19" 
-            isVideo="false">${tracks.map(track => songXml(track))}</album>`;
+            isVideo="false">${tracks.map((track) => songXml(track))}</album>`;
 
 const songXml = (track: Track) => `<song 
             id="${track.id}" 
@@ -112,16 +117,17 @@ const albumListXml = (
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                     <albumList>
                       ${albums.map(([artist, album]) =>
-  albumXml(artist, album)
-)}
+                        albumXml(artist, album)
+                      )}
                     </albumList>
                   </subsonic-response>`;
 
 const artistXml = (
   artist: Artist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-        <artist id="${artist.id}" name="${artist.name}" albumCount="${artist.albums.length
-  }" artistImageUrl="....">
+        <artist id="${artist.id}" name="${artist.name}" albumCount="${
+  artist.albums.length
+}" artistImageUrl="....">
           ${artist.albums.map((album) => albumXml(artist, album))}
         </artist>
         </subsonic-response>`;
@@ -131,15 +137,31 @@ const genresXml = (
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                           <genres>
                                             ${genres.map(
-  (it) =>
-    `<genre songCount="1475" albumCount="86">${it}</genre>`
-)}
+                                              (it) =>
+                                                `<genre songCount="1475" albumCount="86">${it}</genre>`
+                                            )}
                                           </genres>
                                           </subsonic-response>`;
 
-const getAlbumXml = (artist: Artist, album: Album, tracks: Track[]) => `<subsonic-response status="ok" version="1.8.0">
-                                                        ${albumXml(artist, album, tracks)}
-                                                      </subsonic-response>`
+const getAlbumXml = (
+  artist: Artist,
+  album: Album,
+  tracks: Track[]
+) => `<subsonic-response status="ok" version="1.8.0">
+                                                        ${albumXml(
+                                                          artist,
+                                                          album,
+                                                          tracks
+                                                        )}
+                                                      </subsonic-response>`;
+
+const getSongXml = (
+  track: Track
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                                                                    ${songXml(
+                                                                      track
+                                                                    )}
+                                                                    </subsonic-response>`;
 
 const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
 
@@ -169,6 +191,9 @@ describe("Navidrome", () => {
     v: "1.16.1",
     c: "bonob",
   };
+  const headers = {
+    "User-Agent": "bonob",
+  };
 
   describe("generateToken", () => {
     describe("when the credentials are valid", () => {
@@ -186,6 +211,7 @@ describe("Navidrome", () => {
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
           params: authParams,
+          headers,
         });
       });
     });
@@ -226,6 +252,7 @@ describe("Navidrome", () => {
         params: {
           ...authParams,
         },
+        headers,
       });
     });
   });
@@ -268,6 +295,7 @@ describe("Navidrome", () => {
             id: artist.id,
             ...authParams,
           },
+          headers,
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
@@ -275,6 +303,7 @@ describe("Navidrome", () => {
             id: artist.id,
             ...authParams,
           },
+          headers,
         });
       });
     });
@@ -377,30 +406,35 @@ describe("Navidrome", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
             params: authParams,
+            headers,
           });
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
             params: {
               id: artist1.id,
               ...authParams,
             },
+            headers,
           });
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
             params: {
               id: artist2.id,
               ...authParams,
             },
+            headers,
           });
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
             params: {
               id: artist3.id,
               ...authParams,
             },
+            headers,
           });
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
             params: {
               id: artist4.id,
               ...authParams,
             },
+            headers,
           });
         });
       });
@@ -435,18 +469,21 @@ describe("Navidrome", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
             params: authParams,
+            headers,
           });
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
             params: {
               id: artist2.id,
               ...authParams,
             },
+            headers,
           });
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
             params: {
               id: artist3.id,
               ...authParams,
             },
+            headers,
           });
         });
       });
@@ -498,6 +535,7 @@ describe("Navidrome", () => {
               offset: 0,
               ...authParams,
             },
+            headers,
           });
         });
       });
@@ -544,6 +582,7 @@ describe("Navidrome", () => {
               offset: 0,
               ...authParams,
             },
+            headers,
           });
         });
       });
@@ -569,6 +608,7 @@ describe("Navidrome", () => {
               offset: 0,
               ...authParams,
             },
+            headers,
           });
         });
       });
@@ -620,6 +660,7 @@ describe("Navidrome", () => {
               offset: 0,
               ...authParams,
             },
+            headers,
           });
         });
       });
@@ -630,24 +671,20 @@ describe("Navidrome", () => {
     describe("when it exists", () => {
       const album = anAlbum();
 
-      const artist = anArtist({ albums: [album] })
+      const artist = anArtist({ albums: [album] });
 
-      const tracks = [ 
+      const tracks = [
         aTrack({ artist, album }),
         aTrack({ artist, album }),
         aTrack({ artist, album }),
         aTrack({ artist, album }),
-      ]
+      ];
 
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(
-                getAlbumXml(artist, album, tracks)
-              )
-            )
+            Promise.resolve(ok(getAlbumXml(artist, album, tracks)))
           );
       });
 
@@ -665,6 +702,7 @@ describe("Navidrome", () => {
             id: album.id,
             ...authParams,
           },
+          headers,
         });
       });
     });
@@ -675,47 +713,221 @@ describe("Navidrome", () => {
       describe("when it exists", () => {
         const album = anAlbum({ id: "album1", name: "Burnin" });
         const albumSummary = albumToAlbumSummary(album);
-  
-        const artist = anArtist({ id: "artist1", name: "Bob Marley", albums: [album] })
+
+        const artist = anArtist({
+          id: "artist1",
+          name: "Bob Marley",
+          albums: [album],
+        });
         const artistSummary = {
           ...artistToArtistSummary(artist),
-          image: NO_IMAGES
+          image: NO_IMAGES,
         };
-  
-        const tracks = [ 
+
+        const tracks = [
           aTrack({ artist: artistSummary, album: albumSummary }),
           aTrack({ artist: artistSummary, album: albumSummary }),
           aTrack({ artist: artistSummary, album: albumSummary }),
           aTrack({ artist: artistSummary, album: albumSummary }),
-        ]
-  
+        ];
+
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getAlbumXml(artist, album, tracks)
-                )
-              )
+              Promise.resolve(ok(getAlbumXml(artist, album, tracks)))
             );
         });
-  
+
         it("should return the album", async () => {
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.tracks(album.id));
-  
+
           expect(result).toEqual(tracks);
-  
+
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
             params: {
               id: album.id,
               ...authParams,
             },
+            headers,
           });
+        });
+      });
+    });
+
+    describe("a single track", () => {
+      const album = anAlbum({ id: "album1", name: "Burnin" });
+      const albumSummary = albumToAlbumSummary(album);
+
+      const artist = anArtist({
+        id: "artist1",
+        name: "Bob Marley",
+        albums: [album],
+      });
+      const artistSummary = {
+        ...artistToArtistSummary(artist),
+        image: NO_IMAGES,
+      };
+
+      const track = aTrack({ artist: artistSummary, album: albumSummary });
+
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist, album, [])))
+          );
+      });
+
+      it("should return the track", async () => {
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.track(track.id));
+
+        expect(result).toEqual(track);
+
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
+          params: {
+            id: track.id,
+            ...authParams,
+          },
+          headers,
+        });
+
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+          params: {
+            id: album.id,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+  });
+
+  describe("streaming a track", () => {
+    const trackId = uuid();
+
+    describe("with no range specified", () => {
+      describe("navidrome returns a 200", () => {
+        it("should return the content", async () => {
+          const streamResponse = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mpeg",
+              "content-length": "1667",
+              "content-range": "-200",
+              "accept-ranges": "bytes",
+              "some-other-header": "some-value"
+            },
+            data: Buffer.from("the track", "ascii"),
+          };
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.stream({ trackId, range: undefined }));
+
+          expect(result.headers).toEqual({
+            "content-type": "audio/mpeg",
+            "content-length": "1667",
+            "content-range": "-200",
+            "accept-ranges": "bytes"
+          });
+          expect(result.data.toString()).toEqual("the track");
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+            params: {
+              id: trackId,
+              ...authParams,
+            },
+            headers: {
+              "User-Agent": "bonob",
+            },
+            responseType: "arraybuffer",
+          });
+        });
+      });
+
+      describe("navidrome returns something other than a 200", () => {
+        it("should return the content", async () => {
+          const trackId = "track123";
+
+          const streamResponse = {
+            status: 400,
+          };
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+          const musicLibrary = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken));
+
+          return expect(
+            musicLibrary.stream({ trackId, range: undefined })
+          ).rejects.toEqual(`Navidrome failed with a 400`);
+        });
+      });
+    });
+
+    describe("with range specified", () => {
+      it("should send the range to navidrome", async () => {
+        const range = "1000-2000";
+        const streamResponse = {
+          status: 200,
+          headers: {
+            "content-type": "audio/flac",
+            "content-length": "66",
+            "content-range": "100-200",
+            "accept-ranges": "none",
+            "some-other-header": "some-value"
+          },
+          data: Buffer.from("the track", "ascii"),
+        };
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.stream({ trackId, range }));
+
+        expect(result.headers).toEqual({
+          "content-type": "audio/flac",
+          "content-length": "66",
+          "content-range": "100-200",
+          "accept-ranges": "none"
+        });
+        expect(result.data.toString()).toEqual("the track");
+
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+          params: {
+            id: trackId,
+            ...authParams,
+          },
+          headers: {
+            "User-Agent": "bonob",
+            Range: range,
+          },
+          responseType: "arraybuffer",
         });
       });
     });

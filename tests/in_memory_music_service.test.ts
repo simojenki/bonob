@@ -148,33 +148,6 @@ describe("InMemoryMusicService", () => {
       });
     });
 
-    describe("album", () => {
-      describe("when it exists", () => {
-        const albumToLookFor = anAlbum({ id: "albumToLookFor" });
-        const artist1 = anArtist({ albums: [anAlbum(), anAlbum(), anAlbum()] });
-        const artist2 = anArtist({
-          albums: [anAlbum(), albumToLookFor, anAlbum()],
-        });
-
-        beforeEach(() => {
-          service.hasArtists(artist1, artist2);
-        });
-
-        it("should provide an artist", async () => {
-          expect(await musicLibrary.album(albumToLookFor.id)).toEqual(
-            albumToLookFor
-          );
-        });
-      });
-
-      describe("when it doesnt exist", () => {
-        it("should blow up", async () => {
-          return expect(musicLibrary.album("-1")).rejects.toEqual(
-            "No album with id '-1'"
-          );
-        });
-      });
-    });
 
     describe("tracks", () => {
       const artist1Album1 = anAlbum();
@@ -193,13 +166,26 @@ describe("InMemoryMusicService", () => {
 
       describe("fetching tracks for an album", () => {
         it("should return only tracks on that album", async () => {
-          expect(await musicLibrary.tracks(artist1Album1.id)).toEqual([track1, track2])
+          expect(await musicLibrary.tracks(artist1Album1.id)).toEqual([
+            track1,
+            track2,
+          ]);
         });
       });
 
       describe("fetching tracks for an album that doesnt exist", () => {
         it("should return empty array", async () => {
-          expect(await musicLibrary.tracks("non existant album id")).toEqual([])
+          expect(await musicLibrary.tracks("non existant album id")).toEqual(
+            []
+          );
+        });
+      });
+
+      describe("fetching a single track", () => {
+        describe("when it exists", () => {
+          it("should return the track", async () => {
+            expect(await musicLibrary.track(track3.id)).toEqual(track3);
+          });
         });
       });
     });
@@ -235,125 +221,145 @@ describe("InMemoryMusicService", () => {
         service.hasArtists(artist1, artist2, artist3, artistWithNoAlbums);
       });
 
-      describe("with no filtering", () => {
-        describe("fetching all on one page", () => {
-          it("should return all the albums for all the artists", async () => {
-            expect(
-              await musicLibrary.albums({ _index: 0, _count: 100 })
-            ).toEqual({
-              results: [
-                albumToAlbumSummary(artist1_album1),
-                albumToAlbumSummary(artist1_album2),
-                albumToAlbumSummary(artist1_album3),
-                albumToAlbumSummary(artist1_album4),
-                albumToAlbumSummary(artist1_album5),
-
-                albumToAlbumSummary(artist2_album1),
-
-                albumToAlbumSummary(artist3_album1),
-                albumToAlbumSummary(artist3_album2),
-              ],
-              total: totalAlbumCount,
+      describe("fetching multiple albums", () => {
+        describe("with no filtering", () => {
+          describe("fetching all on one page", () => {
+            it("should return all the albums for all the artists", async () => {
+              expect(
+                await musicLibrary.albums({ _index: 0, _count: 100 })
+              ).toEqual({
+                results: [
+                  albumToAlbumSummary(artist1_album1),
+                  albumToAlbumSummary(artist1_album2),
+                  albumToAlbumSummary(artist1_album3),
+                  albumToAlbumSummary(artist1_album4),
+                  albumToAlbumSummary(artist1_album5),
+  
+                  albumToAlbumSummary(artist2_album1),
+  
+                  albumToAlbumSummary(artist3_album1),
+                  albumToAlbumSummary(artist3_album2),
+                ],
+                total: totalAlbumCount,
+              });
+            });
+          });
+  
+          describe("fetching a page", () => {
+            it("should return only that page", async () => {
+              expect(await musicLibrary.albums({ _index: 4, _count: 3 })).toEqual(
+                {
+                  results: [
+                    albumToAlbumSummary(artist1_album5),
+                    albumToAlbumSummary(artist2_album1),
+                    albumToAlbumSummary(artist3_album1),
+                  ],
+                  total: totalAlbumCount,
+                }
+              );
+            });
+          });
+  
+          describe("fetching the last page", () => {
+            it("should return only that page", async () => {
+              expect(
+                await musicLibrary.albums({ _index: 6, _count: 100 })
+              ).toEqual({
+                results: [
+                  albumToAlbumSummary(artist3_album1),
+                  albumToAlbumSummary(artist3_album2),
+                ],
+                total: totalAlbumCount,
+              });
             });
           });
         });
-
-        describe("fetching a page", () => {
-          it("should return only that page", async () => {
-            expect(await musicLibrary.albums({ _index: 4, _count: 3 })).toEqual(
-              {
+  
+        describe("filtering by genre", () => {
+          describe("fetching all on one page", () => {
+            it("should return all the albums of that genre for all the artists", async () => {
+              expect(
+                await musicLibrary.albums({
+                  genre: "Pop",
+                  _index: 0,
+                  _count: 100,
+                })
+              ).toEqual({
                 results: [
+                  albumToAlbumSummary(artist1_album1),
+                  albumToAlbumSummary(artist1_album4),
                   albumToAlbumSummary(artist1_album5),
-                  albumToAlbumSummary(artist2_album1),
-                  albumToAlbumSummary(artist3_album1),
+                  albumToAlbumSummary(artist3_album2),
                 ],
-                total: totalAlbumCount,
-              }
-            );
+                total: 4,
+              });
+            });
           });
-        });
-
-        describe("fetching the last page", () => {
-          it("should return only that page", async () => {
+  
+          describe("when the genre has more albums than a single page", () => {
+            describe("can fetch a single page", () => {
+              it("should return only the albums for that page", async () => {
+                expect(
+                  await musicLibrary.albums({
+                    genre: "Pop",
+                    _index: 1,
+                    _count: 2,
+                  })
+                ).toEqual({
+                  results: [
+                    albumToAlbumSummary(artist1_album4),
+                    albumToAlbumSummary(artist1_album5),
+                  ],
+                  total: 4,
+                });
+              });
+            });
+  
+            describe("can fetch the last page", () => {
+              it("should return only the albums for the last page", async () => {
+                expect(
+                  await musicLibrary.albums({
+                    genre: "Pop",
+                    _index: 3,
+                    _count: 100,
+                  })
+                ).toEqual({
+                  results: [albumToAlbumSummary(artist3_album2)],
+                  total: 4,
+                });
+              });
+            });
+          });
+  
+          it("should return empty list if there are no albums for the genre", async () => {
             expect(
-              await musicLibrary.albums({ _index: 6, _count: 100 })
+              await musicLibrary.albums({
+                genre: "genre with no albums",
+                _index: 0,
+                _count: 100,
+              })
             ).toEqual({
-              results: [
-                albumToAlbumSummary(artist3_album1),
-                albumToAlbumSummary(artist3_album2),
-              ],
-              total: totalAlbumCount,
+              results: [],
+              total: 0,
             });
           });
         });
       });
 
-      describe("filtering by genre", () => {
-        describe("fetching all on one page", () => {
-          it("should return all the albums of that genre for all the artists", async () => {
-            expect(
-              await musicLibrary.albums({
-                genre: "Pop",
-                _index: 0,
-                _count: 100,
-              })
-            ).toEqual({
-              results: [
-                albumToAlbumSummary(artist1_album1),
-                albumToAlbumSummary(artist1_album4),
-                albumToAlbumSummary(artist1_album5),
-                albumToAlbumSummary(artist3_album2),
-              ],
-              total: 4,
-            });
+      describe("fetching a single album", () => {
+        describe("when it exists", () => {
+          it("should provide an album", async () => {
+            expect(await musicLibrary.album(artist1_album5.id)).toEqual(
+              artist1_album5
+            );
           });
         });
-
-        describe("when the genre has more albums than a single page", () => {
-          describe("can fetch a single page", () => {
-            it("should return only the albums for that page", async () => {
-              expect(
-                await musicLibrary.albums({
-                  genre: "Pop",
-                  _index: 1,
-                  _count: 2,
-                })
-              ).toEqual({
-                results: [
-                  albumToAlbumSummary(artist1_album4),
-                  albumToAlbumSummary(artist1_album5),
-                ],
-                total: 4,
-              });
-            });
-          });
-
-          describe("can fetch the last page", () => {
-            it("should return only the albums for the last page", async () => {
-              expect(
-                await musicLibrary.albums({
-                  genre: "Pop",
-                  _index: 3,
-                  _count: 100,
-                })
-              ).toEqual({
-                results: [albumToAlbumSummary(artist3_album2)],
-                total: 4,
-              });
-            });
-          });
-        });
-
-        it("should return empty list if there are no albums for the genre", async () => {
-          expect(
-            await musicLibrary.albums({
-              genre: "genre with no albums",
-              _index: 0,
-              _count: 100,
-            })
-          ).toEqual({
-            results: [],
-            total: 0,
+  
+        describe("when it doesnt exist", () => {
+          it("should blow up", async () => {
+            return expect(musicLibrary.album("-1")).rejects.toEqual(
+              "No album with id '-1'"
+            );
           });
         });
       });

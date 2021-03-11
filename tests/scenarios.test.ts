@@ -41,7 +41,7 @@ class LoggedInSonosDriver {
     let next = path.shift();
     while (next) {
       if (next != "root") {
-        const childIds = this.currentMetadata!.getMetadataResult.mediaCollection.map(
+        const childIds = this.currentMetadata!.getMetadataResult.mediaCollection!.map(
           (it) => it.id
         );
         if (!childIds.includes(next)) {
@@ -56,7 +56,7 @@ class LoggedInSonosDriver {
 
   expectTitles(titles: string[]) {
     expect(
-      this.currentMetadata!.getMetadataResult.mediaCollection.map(
+      this.currentMetadata!.getMetadataResult.mediaCollection!.map(
         (it) => it.title
       )
     ).toEqual(titles);

@@ -64,7 +64,8 @@ export type GetMetadataResponse = {
     count: number;
     index: number;
     total: number;
-    mediaCollection: MediaCollection[];
+    mediaCollection: any[] | undefined;
+    mediaMetadata: any[] | undefined;
   };
 };
 
@@ -83,6 +84,27 @@ export function getMetadataResult({
       index,
       total,
       mediaCollection: mediaCollection || [],
+      mediaMetadata: undefined,
+    },
+  };
+}
+
+export function getMetadataResult2({
+  mediaMetadata,
+  index,
+  total,
+}: {
+  mediaMetadata: any[] | undefined;
+  index: number;
+  total: number;
+}): GetMetadataResponse {
+  return {
+    getMetadataResult: {
+      count: mediaMetadata?.length || 0,
+      index,
+      total,
+      mediaCollection: undefined,
+      mediaMetadata: mediaMetadata || [],
     },
   };
 }
@@ -225,6 +247,71 @@ function bindSmapiSoapServiceToExpress(
           getAppLink: () => sonosSoap.getAppLink(),
           getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>
             sonosSoap.getDeviceAuthToken({ linkCode }),
+          getMediaURI: async (
+            { id }: { id: string },
+            _,
+            headers?: SoapyHeaders
+          ) => {
+            if (!headers?.credentials) {
+              throw {
+                Fault: {
+                  faultcode: "Client.LoginUnsupported",
+                  faultstring: "Missing credentials...",
+                },
+              };
+            }
+            await musicService
+              .login(headers.credentials.loginToken.token)
+              .catch((_) => {
+                throw {
+                  Fault: {
+                    faultcode: "Client.LoginUnauthorized",
+                    faultstring: "Credentials not found...",
+                  },
+                };
+              });
+
+            const [type, typeId] = id.split(":");
+            return {
+              getMediaURIResult: `${webAddress}/stream/${type}/${typeId}`,
+              httpHeaders: [
+                {
+                  header: "bonob-token",
+                  value: headers?.credentials?.loginToken.token,
+                },
+              ],
+            };
+          },
+          getMediaMetadata: async (
+            { id }: { id: string },
+            _,
+            headers?: SoapyHeaders
+          ) => {
+            if (!headers?.credentials) {
+              throw {
+                Fault: {
+                  faultcode: "Client.LoginUnsupported",
+                  faultstring: "Missing credentials...",
+                },
+              };
+            }
+            const login = await musicService
+              .login(headers.credentials.loginToken.token)
+              .catch((_) => {
+                throw {
+                  Fault: {
+                    faultcode: "Client.LoginUnauthorized",
+                    faultstring: "Credentials not found...",
+                  },
+                };
+              });
+
+            const typeId = id.split(":")[1];
+            const musicLibrary = login as MusicLibrary;
+            return musicLibrary
+              .track(typeId!)
+              .then((it) => ({ getMediaMetadataResult: track(it) }));
+          },
           getMetadata: async (
             {
               id,
@@ -320,8 +407,8 @@ function bindSmapiSoapServiceToExpress(
                   .tracks(typeId!)
                   .then(slice2(paging))
                   .then(([page, total]) =>
-                    getMetadataResult({
-                      mediaCollection: page.map(track),
+                    getMetadataResult2({
+                      mediaMetadata: page.map(track),
                       index: paging._index,
                       total,
                     })
