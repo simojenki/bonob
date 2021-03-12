@@ -7,6 +7,7 @@ import {
   SOAP_PATH,
   STRINGS_ROUTE,
   PRESENTATION_MAP_ROUTE,
+  SONOS_RECOMMENDED_IMAGE_SIZES,
   LOGIN_ROUTE,
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
@@ -101,19 +102,29 @@ function server(
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
 <stringtables xmlns="http://sonos.com/sonosapi">
     <stringtable rev="1" xml:lang="en-US">
-        <string stringId="AppLinkMessage">Linking sonos with bonob</string>
-        <string stringId="string2">string2</string>
+        <string stringId="AppLinkMessage">Linking sonos with ${bonobService.name}</string>
     </stringtable>
     <stringtable rev="1" xml:lang="fr-FR">
-        <string stringId="AppLinkMessage">Linking sonos with bonob fr</string>
-        <string stringId="string2">string2 fr</string>
+        <string stringId="AppLinkMessage">Lier les sonos à la ${bonobService.name}</string>
     </stringtable>    
 </stringtables>
 `);
   });
 
   app.get(PRESENTATION_MAP_ROUTE, (_, res) => {
-    res.send("");
+    res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
+    <Presentation>
+      <PresentationMap type="ArtWorkSizeMap">
+        <Match>
+          <imageSizeMap>
+            ${SONOS_RECOMMENDED_IMAGE_SIZES.map(
+              (size) =>
+                `<sizeEntry size="${size}" substitution="/art/size/${size}"/>`
+            )}
+          </imageSizeMap>
+        </Match>
+      </PresentationMap>
+    </Presentation>`);
   });
 
   app.get("/stream/track/:id", async (req, res) => {
@@ -138,7 +149,7 @@ function server(
     }
   });
 
-  app.get("/album/:albumId/art", (req, res) => {
+  app.get("/album/:albumId/art/size/:size", (req, res) => {
     const authToken = accessTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
@@ -147,7 +158,12 @@ function server(
     } else {
       return musicService
         .login(authToken)
-        .then((it) => it.coverArt(req.params["albumId"]!, 200))
+        .then((it) =>
+          it.coverArt(
+            req.params["albumId"]!,
+            Number.parseInt(req.params["size"]!)
+          )
+        )
         .then((coverArt) => {
           res.status(200);
           res.setHeader("content-type", coverArt.contentType);

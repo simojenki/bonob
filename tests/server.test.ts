@@ -299,7 +299,6 @@ describe("server", () => {
           expect(res.header["content-type"]).toEqual(
             stream.headers["content-type"]
           );
-          // expect(res.header["content-length"]).toEqual(stream.headers["content-length"]);
           expect(res.header["accept-ranges"]).toEqual(
             stream.headers["accept-ranges"]
           );
@@ -396,7 +395,7 @@ describe("server", () => {
     });
   });
 
-  describe("/album/:albumId/art", () => {
+  describe("/album/:albumId/art/size", () => {
     const musicService = {
       login: jest.fn(),
     };
@@ -425,7 +424,7 @@ describe("server", () => {
 
     describe("when there is no access-token", () => {
       it("should return a 401", async () => {
-        const res = await request(server).get(`/album/123/art`);
+        const res = await request(server).get(`/album/123/art/size/180`);
 
         expect(res.status).toEqual(401);
       });
@@ -436,7 +435,7 @@ describe("server", () => {
         now = now.add(1, "day");
 
         const res = await request(server).get(
-          `/album/123/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+          `/album/123/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
         );
 
         expect(res.status).toEqual(401);
@@ -457,7 +456,7 @@ describe("server", () => {
 
           const res = await request(server)
             .get(
-              `/album/${albumId}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+              `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
             )
             .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -465,7 +464,7 @@ describe("server", () => {
           expect(res.header["content-type"]).toEqual(coverArt.contentType);
 
           expect(musicService.login).toHaveBeenCalledWith(authToken);
-          expect(musicLibrary.coverArt).toHaveBeenCalledWith(albumId, 200);
+          expect(musicLibrary.coverArt).toHaveBeenCalledWith(albumId, 180);
         });
       });
     });

@@ -4,8 +4,10 @@ import { parse } from "node-html-parser";
 import { MusicService } from "@svrooij/sonos/lib/services";
 import { head } from "underscore";
 import logger from "./logger";
-import STRINGS from "./strings";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
+
+export const STRINGS_VERSION = "2";
+export const PRESENTATION_MAP_VERSION = "7";
 
 export type Device = {
   name: string;
@@ -40,11 +42,11 @@ export const bonobService = (
   secureUri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
   strings: {
     uri: `${stripTailingSlash(bonobRoot)}${STRINGS_ROUTE}`,
-    version: STRINGS.version,
+    version: STRINGS_VERSION,
   },
   presentation: {
     uri: `${stripTailingSlash(bonobRoot)}${PRESENTATION_MAP_ROUTE}`,
-    version: "1",
+    version: PRESENTATION_MAP_VERSION,
   },
   pollInterval: 1200,
   authType,

@@ -1,8 +1,10 @@
 import crypto from "crypto";
 import request from "supertest";
 import { Client, createClientAsync } from "soap";
-import X2JS from "x2js";
 import { v4 as uuid } from "uuid";
+
+import { DOMParserImpl } from "xmldom-ts";
+import * as xpath from "xpath-ts";
 
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import makeServer, { BONOB_ACCESS_TOKEN_HEADER } from "../src/server";
@@ -12,6 +14,8 @@ import {
   LOGIN_ROUTE,
   getMetadataResult,
   getMetadataResult2,
+  PRESENTATION_MAP_ROUTE,
+  SONOS_RECOMMENDED_IMAGE_SIZES,
 } from "../src/smapi";
 
 import {
@@ -27,27 +31,62 @@ import supersoap from "./supersoap";
 import { AuthSuccess } from "../src/music_service";
 import { AccessTokens } from "../src/access_tokens";
 
-describe("service config", () => {
-  describe("strings.xml", () => {
-    const server = makeServer(
-      SONOS_DISABLED,
-      aService(),
-      "http://localhost:1234",
-      new InMemoryMusicService()
-    );
+const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
+describe("service config", () => {
+  const server = makeServer(
+    SONOS_DISABLED,
+    aService({ name: "music land" }),
+    "http://localhost:1234",
+    new InMemoryMusicService()
+  );
+
+  describe(STRINGS_ROUTE, () => {
     it("should return xml for the strings", async () => {
       const res = await request(server).get(STRINGS_ROUTE).send();
 
       expect(res.status).toEqual(200);
 
-      const strings: any = new X2JS({
-        arrayAccessFormPaths: ["stringtables", "stringtables.stringtable"],
-      }).xml2js(res.text);
-
-      expect(strings.stringtables.stringtable[0].string[0]._stringId).toEqual(
-        "AppLinkMessage"
+      // removing the sonos xml ns as makes xpath queries with xpath-ts painful
+      const xml = parseXML(
+        res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
       );
+
+      const sonosString = (id: string, lang: string) =>
+        xpath.select(
+          `string(/stringtables/stringtable[@xml:lang="${lang}"]/string[@stringId="${id}"])`,
+          xml
+        );
+
+      expect(sonosString("AppLinkMessage", "en-US")).toEqual(
+        "Linking sonos with music land"
+      );
+      expect(sonosString("AppLinkMessage", "fr-FR")).toEqual(
+        "Lier les sonos à la music land"
+      );
+    });
+  });
+
+  describe(PRESENTATION_MAP_ROUTE, () => {
+    it("should have an ArtWorkSizeMap for all sizes recommended by sonos", async () => {
+      const res = await request(server).get(PRESENTATION_MAP_ROUTE).send();
+
+      expect(res.status).toEqual(200);
+
+      // removing the sonos xml ns as makes xpath queries with xpath-ts painful
+      const xml = parseXML(
+        res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
+      );
+
+      const imageSizeMap = (size: string) =>
+        xpath.select(
+          `string(/Presentation/PresentationMap[@type="ArtWorkSizeMap"]/Match/imageSizeMap/sizeEntry[@size="${size}"]/@substitution)`,
+          xml
+        );
+
+      SONOS_RECOMMENDED_IMAGE_SIZES.forEach((size) => {
+        expect(imageSizeMap(size)).toEqual(`/art/size/${size}`);
+      });
     });
   });
 });
@@ -467,7 +506,11 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
-                    albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
+                    albumArtURI: `${rootUrl}/album/${
+                      it.id
+                    }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
+                      token.authToken
+                    )}`,
                   })),
                   index: 0,
                   total: artistWithManyAlbums.albums.length,
@@ -492,7 +535,11 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
-                    albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
+                    albumArtURI: `${rootUrl}/album/${
+                      it.id
+                    }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
+                      token.authToken
+                    )}`,
                   })),
                   index: 2,
                   total: artistWithManyAlbums.albums.length,
@@ -622,7 +669,11 @@ describe("api", () => {
                       itemType: "album",
                       id: `album:${it.id}`,
                       title: it.name,
-                      albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
+                      albumArtURI: `${rootUrl}/album/${
+                        it.id
+                      }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
+                        token.authToken
+                      )}`,
                     })),
                   index: 0,
                   total: 6,
@@ -648,7 +699,11 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
-                    albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
+                    albumArtURI: `${rootUrl}/album/${
+                      it.id
+                    }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
+                      token.authToken
+                    )}`,
                   })),
                   index: 2,
                   total: 6,
