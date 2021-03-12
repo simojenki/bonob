@@ -18,8 +18,18 @@ const bonob = bonobService(
   WEB_ADDRESS,
   "AppLink"
 );
+
+const sonosSystem = sonos(SONOS_DEVICE_DISCOVERY, SONOS_SEED_HOST);
+if(process.env["BONOB_SONOS_AUTO_REGISTER"] == "true") {
+  sonosSystem.register(bonob).then(success => {
+    if(success) {
+      logger.info(`Successfully registered ${bonob.name}(SID:${bonob.sid}) with sonos`)
+    }
+  })
+}
+
 const app = server(
-  sonos(SONOS_DEVICE_DISCOVERY, SONOS_SEED_HOST),
+  sonosSystem,
   bonob,
   WEB_ADDRESS,
   new Navidrome(

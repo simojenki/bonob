@@ -19,7 +19,7 @@ export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
 function server(
   sonos: Sonos,
-  bonobService: Service,
+  service: Service,
   webAddress: string | "http://localhost:4534",
   musicService: MusicService,
   linkCodes: LinkCodes = new InMemoryLinkCodes(),
@@ -40,12 +40,12 @@ function server(
     Promise.all([sonos.devices(), sonos.services()]).then(
       ([devices, services]) => {
         const registeredBonobService = services.find(
-          (it) => it.sid == bonobService.sid
+          (it) => it.sid == service.sid
         );
         res.render("index", {
           devices,
           services,
-          bonobService,
+          bonobService: service,
           registeredBonobService,
         });
       }
@@ -53,7 +53,7 @@ function server(
   });
 
   app.post("/register", (_, res) => {
-    sonos.register(bonobService).then((success) => {
+    sonos.register(service).then((success) => {
       if (success) {
         res.render("success", {
           message: `Successfully registered`,
@@ -68,7 +68,7 @@ function server(
 
   app.get(LOGIN_ROUTE, (req, res) => {
     res.render("login", {
-      bonobService,
+      bonobService: service,
       linkCode: req.query.linkCode,
       loginRoute: LOGIN_ROUTE,
     });
@@ -102,10 +102,10 @@ function server(
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
 <stringtables xmlns="http://sonos.com/sonosapi">
     <stringtable rev="1" xml:lang="en-US">
-        <string stringId="AppLinkMessage">Linking sonos with ${bonobService.name}</string>
+        <string stringId="AppLinkMessage">Linking sonos with ${service.name}</string>
     </stringtable>
     <stringtable rev="1" xml:lang="fr-FR">
-        <string stringId="AppLinkMessage">Lier les sonos à la ${bonobService.name}</string>
+        <string stringId="AppLinkMessage">Lier les sonos à la ${service.name}</string>
     </stringtable>    
 </stringtables>
 `);

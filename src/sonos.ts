@@ -156,6 +156,8 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
         return false;
       }
 
+      logger.info(`Registering ${service.name}(SID:${service.sid}) with sonos device ${anyDevice.Name} @ ${anyDevice.Host}`)
+
       const customd = `http://${anyDevice.Host}:${anyDevice.Port}/customsd`;
 
       const csrfToken = await axios.get(customd).then((response) =>

@@ -45,3 +45,4 @@ BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or omm
 BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BONOB_SONOS_SERVICE_ID | 246 | service id for sonos
 BONOB_NAVIDROME_URL | http://localhost:4533 | URL for navidrome
+BONOB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
