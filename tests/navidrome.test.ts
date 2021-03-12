@@ -825,7 +825,7 @@ describe("Navidrome", () => {
               "content-length": "1667",
               "content-range": "-200",
               "accept-ranges": "bytes",
-              "some-other-header": "some-value"
+              "some-other-header": "some-value",
             },
             data: Buffer.from("the track", "ascii"),
           };
@@ -844,7 +844,7 @@ describe("Navidrome", () => {
             "content-type": "audio/mpeg",
             "content-length": "1667",
             "content-range": "-200",
-            "accept-ranges": "bytes"
+            "accept-ranges": "bytes",
           });
           expect(result.data.toString()).toEqual("the track");
 
@@ -895,7 +895,7 @@ describe("Navidrome", () => {
             "content-length": "66",
             "content-range": "100-200",
             "accept-ranges": "none",
-            "some-other-header": "some-value"
+            "some-other-header": "some-value",
           },
           data: Buffer.from("the track", "ascii"),
         };
@@ -914,7 +914,7 @@ describe("Navidrome", () => {
           "content-type": "audio/flac",
           "content-length": "66",
           "content-range": "100-200",
-          "accept-ranges": "none"
+          "accept-ranges": "none",
         });
         expect(result.data.toString()).toEqual("the track");
 
@@ -928,6 +928,86 @@ describe("Navidrome", () => {
             Range: range,
           },
           responseType: "arraybuffer",
+        });
+      });
+    });
+  });
+
+  describe("fetching cover art", () => {
+    describe("fetching album art", () => {
+      describe("when no size is specified", async () => {
+        it("should fetch the image", async () => {
+          const streamResponse = {
+            status: 200,
+            headers: {
+              "content-type": "image/jpeg",
+            },
+            data: Buffer.from("the image", "ascii"),
+          };
+          const coverArtId = "someCoverArt";
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.coverArt(coverArtId));
+
+          expect(result).toEqual({
+            contentType: streamResponse.headers["content-type"],
+            data: streamResponse.data,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
+            params: {
+              id: coverArtId,
+              ...authParams,
+            },
+            headers,
+            responseType: "arraybuffer",
+          });
+        });
+      });
+
+      describe("when size is specified", async () => {
+        it("should fetch the image", async () => {
+          const streamResponse = {
+            status: 200,
+            headers: {
+              "content-type": "image/jpeg",
+            },
+            data: Buffer.from("the image", "ascii"),
+          };
+          const coverArtId = "someCoverArt";
+          const size = 1879;
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.coverArt(coverArtId, size));
+
+          expect(result).toEqual({
+            contentType: streamResponse.headers["content-type"],
+            data: streamResponse.data,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
+            params: {
+              id: coverArtId,
+              size,
+              ...authParams,
+            },
+            headers,
+            responseType: "arraybuffer",
+          });
         });
       });
     });

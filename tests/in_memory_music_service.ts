@@ -113,7 +113,8 @@ export class InMemoryMusicService implements MusicService {
       stream: (_: {
         trackId: string;
         range: string | undefined;
-      }) => Promise.reject("unsupported operation")
+      }) => Promise.reject("unsupported operation"),
+      coverArt: (id: string, size?: number) => Promise.reject(`Cannot retrieve coverArt for ${id}, size ${size}`)
     });
   }
 

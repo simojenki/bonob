@@ -450,6 +450,21 @@ export class Navidrome implements MusicService {
             },
             data: Buffer.from(res.data, "binary"),
           })),
+      coverArt: async (id: string, size?: number) =>
+        navidrome
+          .get(
+            credentials,
+            "/rest/getCoverArt",
+            { id, size },
+            {
+              headers: { "User-Agent": "bonob" },
+              responseType: "arraybuffer",
+            }
+          )
+          .then((res) => ({
+            contentType: res.headers["content-type"],
+            data: Buffer.from(res.data, "binary"),
+          })),
     };
 
     return Promise.resolve(musicLibrary);

@@ -1,11 +1,14 @@
 import { v4 as uuid } from "uuid";
+import dayjs from "dayjs";
 import request from "supertest";
 import { MusicService } from "../src/music_service";
-import makeServer from "../src/server";
+import makeServer, { BONOB_ACCESS_TOKEN_HEADER } from "../src/server";
 import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
 import { aDevice, aService } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
+import { ExpiringAccessTokens } from "../src/access_tokens";
+import { InMemoryLinkCodes } from "../src/link_codes";
 
 describe("server", () => {
   beforeEach(() => {
@@ -195,15 +198,45 @@ describe("server", () => {
     const musicLibrary = {
       stream: jest.fn(),
     };
+    let now = dayjs();
+    const accessTokens = new ExpiringAccessTokens({ now: () => now });
+
     const server = makeServer(
       (jest.fn() as unknown) as Sonos,
       aService(),
       "http://localhost:1234",
-      (musicService as unknown) as MusicService
+      (musicService as unknown) as MusicService,
+      new InMemoryLinkCodes(),
+      accessTokens
     );
 
     const authToken = uuid();
     const trackId = uuid();
+    let accessToken: string;
+
+    beforeEach(() => {
+      accessToken = accessTokens.mint(authToken);
+    });
+
+    describe("when there is no access-token", () => {
+      it("should return a 401", async () => {
+        const res = await request(server).get(`/stream/track/${trackId}`);
+
+        expect(res.status).toEqual(401);
+      });
+    });
+
+    describe("when the access-token has expired", () => {
+      it("should return a 401", async () => {
+        now = now.add(1, "day");
+
+        const res = await request(server)
+          .get(`/stream/track/${trackId}`)
+          .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+        expect(res.status).toEqual(401);
+      });
+    });
 
     describe("when sonos does not ask for a range", () => {
       describe("when the music service returns a 200", () => {
@@ -224,9 +257,7 @@ describe("server", () => {
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
-            .set("bonob-token", authToken);
-
-          console.log("testing finished watiting");
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
           expect(res.status).toEqual(stream.status);
           expect(res.header["content-type"]).toEqual(
@@ -262,9 +293,7 @@ describe("server", () => {
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
-            .set("bonob-token", authToken);
-
-          console.log("testing finished watiting");
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
           expect(res.status).toEqual(stream.status);
           expect(res.header["content-type"]).toEqual(
@@ -303,10 +332,8 @@ describe("server", () => {
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
-            .set("bonob-token", authToken)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
             .set("Range", "3000-4000");
-
-          console.log("testing finished watiting");
 
           expect(res.status).toEqual(stream.status);
           expect(res.header["content-type"]).toEqual(
@@ -345,10 +372,8 @@ describe("server", () => {
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
-            .set("bonob-token", authToken)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
             .set("Range", "4000-5000");
-
-          console.log("testing finished watiting");
 
           expect(res.status).toEqual(stream.status);
           expect(res.header["content-type"]).toEqual(
@@ -366,6 +391,81 @@ describe("server", () => {
             trackId,
             range: "4000-5000",
           });
+        });
+      });
+    });
+  });
+
+  describe("/album/:albumId/art", () => {
+    const musicService = {
+      login: jest.fn(),
+    };
+    const musicLibrary = {
+      coverArt: jest.fn(),
+    };
+    let now = dayjs();
+    const accessTokens = new ExpiringAccessTokens({ now: () => now });
+
+    const server = makeServer(
+      (jest.fn() as unknown) as Sonos,
+      aService(),
+      "http://localhost:1234",
+      (musicService as unknown) as MusicService,
+      new InMemoryLinkCodes(),
+      accessTokens
+    );
+
+    const authToken = uuid();
+    const albumId = uuid();
+    let accessToken: string;
+
+    beforeEach(() => {
+      accessToken = accessTokens.mint(authToken);
+    });
+
+    describe("when there is no access-token", () => {
+      it("should return a 401", async () => {
+        const res = await request(server).get(`/album/123/art`);
+
+        expect(res.status).toEqual(401);
+      });
+    });
+
+    describe("when the access-token has expired", () => {
+      it("should return a 401", async () => {
+        now = now.add(1, "day");
+
+        const res = await request(server).get(
+          `/album/123/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+        );
+
+        expect(res.status).toEqual(401);
+      });
+    });
+
+    describe("when there is a valid access token", () => {
+      describe("when the image exists in the music service", () => {
+        it("should return the image and a 200", async () => {
+          const coverArt = {
+            status: 200,
+            contentType: "image/jpeg",
+            data: Buffer.from("some image", "ascii"),
+          };
+
+          musicService.login.mockResolvedValue(musicLibrary);
+          musicLibrary.coverArt.mockResolvedValue(coverArt);
+
+          const res = await request(server)
+            .get(
+              `/album/${albumId}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+            )
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+          expect(res.status).toEqual(coverArt.status);
+          expect(res.header["content-type"]).toEqual(coverArt.contentType);
+
+          expect(musicService.login).toHaveBeenCalledWith(authToken);
+          expect(musicLibrary.coverArt).toHaveBeenCalledWith(albumId, 200);
         });
       });
     });

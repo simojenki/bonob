@@ -11,15 +11,18 @@ import {
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
-// import logger from "./logger";
 import bindSmapiSoapServiceToExpress from "./smapi";
+import { AccessTokens, ExpiringAccessTokens } from "./access_tokens";
+
+export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
 function server(
   sonos: Sonos,
   bonobService: Service,
   webAddress: string | "http://localhost:4534",
   musicService: MusicService,
-  linkCodes: LinkCodes = new InMemoryLinkCodes()
+  linkCodes: LinkCodes = new InMemoryLinkCodes(),
+  accessTokens: AccessTokens = new ExpiringAccessTokens()
 ): Express {
   const app = express();
 
@@ -115,47 +118,51 @@ function server(
 
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
-    const token = req.headers["bonob-token"] as string;
-    return musicService
-      .login(token)
-      .then((it) =>
-        it.stream({ trackId: id, range: req.headers["range"] || undefined })
-      )
-      .then((stream) => {
-        res.status(stream.status);
-        Object.entries(stream.headers).forEach(([header, value]) =>
-          res.setHeader(header, value)
-        );
-        res.send(stream.data);
-      });
+    const accessToken = req.headers[BONOB_ACCESS_TOKEN_HEADER] as string;
+    const authToken = accessTokens.authTokenFor(accessToken);
+    if (!authToken) {
+      return res.status(401).send();
+    } else {
+      return musicService
+        .login(authToken)
+        .then((it) =>
+          it.stream({ trackId: id, range: req.headers["range"] || undefined })
+        )
+        .then((stream) => {
+          res.status(stream.status);
+          Object.entries(stream.headers).forEach(([header, value]) =>
+            res.setHeader(header, value)
+          );
+          res.send(stream.data);
+        });
+    }
   });
 
-  // app.get("/album/:albumId/art", (req, res) => {
-  //   console.log(`Trying to load image for ${req.params["albumId"]}, token ${JSON.stringify(req.cookies)}`)
-  //   const authToken = req.headers["X-AuthToken"]! as string;
-  //   const albumId = req.params["albumId"]!;
-  //   musicService
-  //     .login(authToken)
-  //     // .then((it) => it.artist(artistId))
-  //     // .then(artist => artist.image.small)
-  //     .then((url) => {
-  //       if (url) {
-  //         console.log(`${albumId} sending 307 -> ${url}`)
-  //         // res.setHeader("Location", url);
-  //         res.status(307).send();
-  //       } else {
-  //         console.log(`${albumId} sending 404`)
-  //         res.status(404).send();
-  //       }
-  //     });
-  // });
+  app.get("/album/:albumId/art", (req, res) => {
+    const authToken = accessTokens.authTokenFor(
+      req.query[BONOB_ACCESS_TOKEN_HEADER] as string
+    );
+    if (!authToken) {
+      return res.status(401).send();
+    } else {
+      return musicService
+        .login(authToken)
+        .then((it) => it.coverArt(req.params["albumId"]!, 200))
+        .then((coverArt) => {
+          res.status(200);
+          res.setHeader("content-type", coverArt.contentType);
+          res.send(coverArt.data);
+        });
+    }
+  });
 
   bindSmapiSoapServiceToExpress(
     app,
     SOAP_PATH,
     webAddress,
     linkCodes,
-    musicService
+    musicService,
+    accessTokens
   );
 
   return app;

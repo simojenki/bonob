@@ -13,6 +13,8 @@ import {
   slice2,
   Track,
 } from "./music_service";
+import { AccessTokens } from "./access_tokens";
+import { BONOB_ACCESS_TOKEN_HEADER } from "./server";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -193,16 +195,15 @@ const genre = (genre: string) => ({
   title: genre,
 });
 
-const album = (album: AlbumSummary) => ({
+const album = (
+  webAddress: string,
+  accessToken: string,
+  album: AlbumSummary
+) => ({
   itemType: "album",
   id: `album:${album.id}`,
   title: album.name,
-  // albumArtURI: {
-  //   attributes: {
-  //     requiresAuthentication: "true"
-  //   },
-  //   $value: `${webAddress}/album/${album.id}/art`
-  // }
+  albumArtURI: `${webAddress}/album/${album.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
 });
 
 const track = (track: Track) => ({
@@ -235,7 +236,8 @@ function bindSmapiSoapServiceToExpress(
   soapPath: string,
   webAddress: string,
   linkCodes: LinkCodes,
-  musicService: MusicService
+  musicService: MusicService,
+  accessTokens: AccessTokens
 ) {
   const sonosSoap = new SonosSoap(webAddress, linkCodes);
   const soapyService = listen(
@@ -276,8 +278,10 @@ function bindSmapiSoapServiceToExpress(
               getMediaURIResult: `${webAddress}/stream/${type}/${typeId}`,
               httpHeaders: [
                 {
-                  header: "bonob-token",
-                  value: headers?.credentials?.loginToken.token,
+                  header: BONOB_ACCESS_TOKEN_HEADER,
+                  value: accessTokens.mint(
+                    headers?.credentials?.loginToken.token
+                  ),
                 },
               ],
             };
@@ -330,16 +334,15 @@ function bindSmapiSoapServiceToExpress(
                 },
               };
             }
-            const login = await musicService
-              .login(headers.credentials.loginToken.token)
-              .catch((_) => {
-                throw {
-                  Fault: {
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
-                  },
-                };
-              });
+            const authToken = headers.credentials.loginToken.token;
+            const login = await musicService.login(authToken).catch((_) => {
+              throw {
+                Fault: {
+                  faultcode: "Client.LoginUnauthorized",
+                  faultstring: "Credentials not found...",
+                },
+              };
+            });
 
             const musicLibrary = login as MusicLibrary;
 
@@ -372,13 +375,16 @@ function bindSmapiSoapServiceToExpress(
                   })
                 );
               case "albums":
-                return await musicLibrary.albums(paging).then((result) =>
-                  getMetadataResult({
-                    mediaCollection: result.results.map(album),
+                return await musicLibrary.albums(paging).then((result) => {
+                  const accessToken = accessTokens.mint(authToken);
+                  return getMetadataResult({
+                    mediaCollection: result.results.map((it) =>
+                      album(webAddress, accessToken, it)
+                    ),
                     index: paging._index,
                     total: result.total,
-                  })
-                );
+                  });
+                });
               case "genres":
                 return await musicLibrary
                   .genres()
@@ -395,13 +401,16 @@ function bindSmapiSoapServiceToExpress(
                   .artist(typeId!)
                   .then((artist) => artist.albums)
                   .then(slice2(paging))
-                  .then(([page, total]) =>
-                    getMetadataResult({
-                      mediaCollection: page.map(album),
+                  .then(([page, total]) => {
+                    const accessToken = accessTokens.mint(authToken);
+                    return getMetadataResult({
+                      mediaCollection: page.map((it) =>
+                        album(webAddress, accessToken, it)
+                      ),
                       index: paging._index,
                       total,
-                    })
-                  );
+                    });
+                  });
               case "album":
                 return await musicLibrary
                   .tracks(typeId!)
