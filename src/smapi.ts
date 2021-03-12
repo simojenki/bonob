@@ -20,6 +20,21 @@ export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
 export const STRINGS_ROUTE = "/sonos/strings.xml";
 export const PRESENTATION_MAP_ROUTE = "/sonos/presentationMap.xml";
+export const SONOS_RECOMMENDED_IMAGE_SIZES = [
+  "60",
+  "80",
+  "120",
+  "180",
+  "192",
+  "200",
+  "230",
+  "300",
+  "600",
+  "640",
+  "750",
+  "1242",
+  "1500",
+];
 
 const WSDL_FILE = path.resolve(
   __dirname,
@@ -203,7 +218,7 @@ const album = (
   itemType: "album",
   id: `album:${album.id}`,
   title: album.name,
-  albumArtURI: `${webAddress}/album/${album.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
+  albumArtURI: `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
 });
 
 const track = (track: Track) => ({
