@@ -5,7 +5,7 @@ import X2JS from "x2js";
 import { v4 as uuid } from "uuid";
 
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
-import makeServer from "../src/server";
+import makeServer, { BONOB_ACCESS_TOKEN_HEADER } from "../src/server";
 import { bonobService, SONOS_DISABLED } from "../src/sonos";
 import {
   STRINGS_ROUTE,
@@ -25,6 +25,7 @@ import {
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
 import { AuthSuccess } from "../src/music_service";
+import { AccessTokens } from "../src/access_tokens";
 
 describe("service config", () => {
   describe("strings.xml", () => {
@@ -84,11 +85,21 @@ describe("getMetadataResult", () => {
   });
 });
 
+class Base64AccessTokens implements AccessTokens {
+  mint(authToken: string) {
+    return Buffer.from(authToken).toString("base64");
+  }
+  authTokenFor(value: string) {
+    return Buffer.from(value, "base64").toString("ascii");
+  }
+}
+
 describe("api", () => {
   const rootUrl = "http://localhost:1234";
   const service = bonobService("test-api", 133, rootUrl, "AppLink");
   const musicService = new InMemoryMusicService();
   const linkCodes = new InMemoryLinkCodes();
+  const accessTokens = new Base64AccessTokens();
 
   beforeEach(() => {
     musicService.clear();
@@ -101,7 +112,8 @@ describe("api", () => {
       service,
       rootUrl,
       musicService,
-      linkCodes
+      linkCodes,
+      accessTokens
     );
 
     describe(LOGIN_ROUTE, () => {
@@ -174,7 +186,8 @@ describe("api", () => {
         service,
         rootUrl,
         musicService,
-        (mockLinkCodes as unknown) as LinkCodes
+        (mockLinkCodes as unknown) as LinkCodes,
+        accessTokens
       );
 
       it("should do something", async () => {
@@ -211,7 +224,8 @@ describe("api", () => {
         service,
         rootUrl,
         musicService,
-        linkCodes
+        linkCodes,
+        accessTokens
       );
 
       describe("when there is a linkCode association", () => {
@@ -278,7 +292,8 @@ describe("api", () => {
         service,
         rootUrl,
         musicService,
-        linkCodes
+        linkCodes,
+        accessTokens
       );
 
       describe("when no credentials header provided", () => {
@@ -452,6 +467,7 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
+                    albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
                   })),
                   index: 0,
                   total: artistWithManyAlbums.albums.length,
@@ -476,6 +492,7 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
+                    albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
                   })),
                   index: 2,
                   total: artistWithManyAlbums.albums.length,
@@ -605,6 +622,7 @@ describe("api", () => {
                       itemType: "album",
                       id: `album:${it.id}`,
                       title: it.name,
+                      albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
                     })),
                   index: 0,
                   total: 6,
@@ -630,6 +648,7 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
+                    albumArtURI: `${rootUrl}/album/${it.id}/art?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(token.authToken)}`,
                   })),
                   index: 2,
                   total: 6,
@@ -736,12 +755,17 @@ describe("api", () => {
     });
 
     describe("getMediaURI", () => {
+      const accessTokenMint = jest.fn();
+
       const server = makeServer(
         SONOS_DISABLED,
         service,
         rootUrl,
         musicService,
-        linkCodes
+        linkCodes,
+        ({
+          mint: accessTokenMint,
+        } as unknown) as AccessTokens
       );
 
       describe("when no credentials header provided", () => {
@@ -797,6 +821,7 @@ describe("api", () => {
         const password = "validPassword";
         let token: AuthSuccess;
         let ws: Client;
+        const accessToken = "temporaryAccessToken";
 
         beforeEach(async () => {
           musicService.hasUser({ username, password });
@@ -809,6 +834,8 @@ describe("api", () => {
             httpClient: supersoap(server, rootUrl),
           });
           ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+
+          accessTokenMint.mockReturnValue(accessToken);
         });
 
         describe("asking for a URI to stream a track", () => {
@@ -821,8 +848,8 @@ describe("api", () => {
             expect(root[0]).toEqual({
               getMediaURIResult: `${rootUrl}/stream/track/${trackId}`,
               httpHeaders: {
-                header: "bonob-token",
-                value: token.authToken,
+                header: BONOB_ACCESS_TOKEN_HEADER,
+                value: accessToken,
               },
             });
           });
@@ -836,7 +863,8 @@ describe("api", () => {
         service,
         rootUrl,
         musicService,
-        linkCodes
+        linkCodes,
+        accessTokens
       );
 
       describe("when no credentials header provided", () => {

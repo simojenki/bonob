@@ -113,6 +113,11 @@ export type Stream = {
   data: Buffer;
 };
 
+export type CoverArt = {
+  contentType: string;
+  data: Buffer;
+}
+
 export const range = (size: number) => [...Array(size).keys()];
 
 export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
@@ -140,4 +145,5 @@ export interface MusicLibrary {
     trackId: string;
     range: string | undefined;
   }): Promise<Stream>;
+  coverArt(id: string, size?: number): Promise<CoverArt>;
 }
