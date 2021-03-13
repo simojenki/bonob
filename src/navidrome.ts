@@ -24,6 +24,7 @@ import sharp from "sharp";
 import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
+import { fold } from "fp-ts/lib/Option";
 
 export const BROWSER_HEADERS = {
   accept:
@@ -117,10 +118,12 @@ export type artistInfo = {
   smallImageUrl: string | undefined;
   mediumImageUrl: string | undefined;
   largeImageUrl: string | undefined;
+  similarArtist: artistSummary[]
 };
 
 export type ArtistInfo = {
   image: Images;
+  similarArtist: {id:string, name:string}[]
 };
 
 export type GetArtistInfoResponse = SubsonicResponse & {
@@ -255,6 +258,7 @@ export class Navidrome implements MusicService {
               "subsonic-response.albumList.album",
               "subsonic-response.album.song",
               "subsonic-response.genres.genre",
+              "subsonic-response.artistInfo.similarArtist"
             ],
           }).xml2js(response.data) as SubconicEnvelope
       )
@@ -301,6 +305,7 @@ export class Navidrome implements MusicService {
         medium: validate(it.artistInfo.mediumImageUrl),
         large: validate(it.artistInfo.largeImageUrl),
       },
+      similarArtist: (it.artistInfo.similarArtist || []).map(artist => ({id: artist._id, name: artist._name}))
     }));
 
   getAlbum = (credentials: Credentials, id: string): Promise<Album> =>
@@ -341,6 +346,7 @@ export class Navidrome implements MusicService {
       name: artist.name,
       image: artistInfo.image,
       albums: artist.albums,
+      similarArtists: artistInfo.similarArtist
     }));
 
   getCoverArt = (credentials: Credentials, id: string, size?: number) =>
@@ -372,16 +378,15 @@ export class Navidrome implements MusicService {
       albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
         navidrome
           .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
-            ...pipe(
-              O.fromNullable(q.genre),
-              O.map<string, getAlbumListParams>((genre) => ({
+            ...fold(
+              () => ({
+                type: "alphabeticalByArtist",
+              }),
+              (genre) => ({
                 type: "byGenre",
                 genre,
-              })),
-              O.getOrElse<getAlbumListParams>(() => ({
-                type: "alphabeticalByArtist",
-              }))
-            ),
+              })
+            )(O.fromNullable(q.genre)),
             size: MAX_ALBUM_LIST,
             offset: 0,
           })
