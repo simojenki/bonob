@@ -68,15 +68,16 @@ const ok = (data: string) => ({
 });
 
 const artistInfoXml = (
-  images: Images
+  artist: Artist,
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
           <artistInfo>
               <biography></biography>
               <musicBrainzId></musicBrainzId>
               <lastFmUrl></lastFmUrl>
-              <smallImageUrl>${images.small || ""}</smallImageUrl>
-              <mediumImageUrl>${images.medium || ""}</mediumImageUrl>
-              <largeImageUrl>${images.large || ""}</largeImageUrl>
+              <smallImageUrl>${artist.image.small || ""}</smallImageUrl>
+              <mediumImageUrl>${artist.image.medium || ""}</mediumImageUrl>
+              <largeImageUrl>${artist.image.large || ""}</largeImageUrl>
+              ${artist.similarArtists.map(it => `<similarArtist id="${it.id}" name="${it.name}" albumCount="3"></similarArtist>`)}
           </artistInfo>
         </subsonic-response>`;
 
@@ -296,205 +297,412 @@ describe("Navidrome", () => {
   });
 
   describe("getting an artist", () => {
-    describe("when the artist exists and has dodgy looking artist image uris", () => {
-      const album1: Album = anAlbum();
+    describe("when the artist exists", () => {
+      describe("and has many similar artists", () => {
+        const album1: Album = anAlbum();
 
-      const album2: Album = anAlbum();
+        const album2: Album = anAlbum();
 
-      const artist: Artist = anArtist({
-        albums: [album1, album2],
-        image: {
-          small: `http://localhost:80/${DODGY_IMAGE_NAME}`,
-          medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
-          large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
-        },
-      });
-
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(artistXml(artist))))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(artistInfoXml(artist.image)))
-          );
-      });
-
-      it("should return remove the dodgy looking image uris and return undefined", async () => {
-        const result: Artist = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.artist(artist.id));
-
-        expect(result).toEqual({
-          id: artist.id,
-          name: artist.name,
+        const artist: Artist = anArtist({
+          albums: [album1, album2],
           image: {
-            small: undefined,
-            medium: undefined,
-            large: undefined,
+            small: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
-          albums: artist.albums,
+          similarArtists: [{ id: "similar1.id", name: "similar1" }, { id: "similar2.id", name: "similar2" }],
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-          params: {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistXml(artist)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistInfoXml(artist)))
+            );
+        });
+
+        it("should return the similar artists", async () => {
+          const result: Artist = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artist(artist.id));
+
+          expect(result).toEqual({
             id: artist.id,
-            ...authParams,
+            name: artist.name,
+            image: {
+              small: undefined,
+              medium: undefined,
+              large: undefined,
+            },
+            albums: artist.albums,
+            similarArtists: artist.similarArtists
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+        });
+      });
+
+      describe("and has one similar artists", () => {
+        const album1: Album = anAlbum();
+
+        const album2: Album = anAlbum();
+
+        const artist: Artist = anArtist({
+          albums: [album1, album2],
+          image: {
+            small: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
-          headers,
+          similarArtists: [{ id: "similar1.id", name: "similar1" }],
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-          params: {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistXml(artist)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistInfoXml(artist)))
+            );
+        });
+
+        it("should return the similar artists", async () => {
+          const result: Artist = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artist(artist.id));
+
+          expect(result).toEqual({
             id: artist.id,
-            ...authParams,
+            name: artist.name,
+            image: {
+              small: undefined,
+              medium: undefined,
+              large: undefined,
+            },
+            albums: artist.albums,
+            similarArtists: artist.similarArtists
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+        });
+      });      
+
+      describe("and has no similar artists", () => {
+        const album1: Album = anAlbum();
+
+        const album2: Album = anAlbum();
+
+        const artist: Artist = anArtist({
+          albums: [album1, album2],
+          image: {
+            small: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
-          headers,
-        });
-      });
-    });
-
-    describe("when the artist exists and has multiple albums", () => {
-      const album1: Album = anAlbum();
-
-      const album2: Album = anAlbum();
-
-      const artist: Artist = anArtist({
-        albums: [album1, album2],
-      });
-
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(artistXml(artist))))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(artistInfoXml(artist.image)))
-          );
-      });
-
-      it("should return it", async () => {
-        const result: Artist = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.artist(artist.id));
-
-        expect(result).toEqual({
-          id: artist.id,
-          name: artist.name,
-          image: artist.image,
-          albums: artist.albums,
+          similarArtists: [],
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-          params: {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistXml(artist)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistInfoXml(artist)))
+            );
+        });
+
+        it("should return the similar artists", async () => {
+          const result: Artist = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artist(artist.id));
+
+          expect(result).toEqual({
             id: artist.id,
-            ...authParams,
+            name: artist.name,
+            image: {
+              small: undefined,
+              medium: undefined,
+              large: undefined,
+            },
+            albums: artist.albums,
+            similarArtists: artist.similarArtists
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+        });
+      });  
+
+      describe("and has dodgy looking artist image uris", () => {
+        const album1: Album = anAlbum();
+
+        const album2: Album = anAlbum();
+
+        const artist: Artist = anArtist({
+          albums: [album1, album2],
+          image: {
+            small: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
+            large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
-          headers,
+          similarArtists: [],
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-          params: {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistXml(artist)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistInfoXml(artist)))
+            );
+        });
+
+        it("should return remove the dodgy looking image uris and return undefined", async () => {
+          const result: Artist = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artist(artist.id));
+
+          expect(result).toEqual({
             id: artist.id,
-            ...authParams,
-          },
-          headers,
+            name: artist.name,
+            image: {
+              small: undefined,
+              medium: undefined,
+              large: undefined,
+            },
+            albums: artist.albums,
+            similarArtists: []
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
         });
       });
-    });
 
-    describe("when the artist exists and has only 1 album", () => {
-      const album: Album = anAlbum();
+      describe("and has multiple albums", () => {
+        const album1: Album = anAlbum();
 
-      const artist: Artist = anArtist({
-        albums: [album],
-      });
+        const album2: Album = anAlbum();
 
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(artistXml(artist))))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(artistInfoXml(artist.image)))
-          );
-      });
-
-      it("should return it", async () => {
-        const result: Artist = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.artist(artist.id));
-
-        expect(result).toEqual({
-          id: artist.id,
-          name: artist.name,
-          image: artist.image,
-          albums: artist.albums,
+        const artist: Artist = anArtist({
+          albums: [album1, album2],
+          similarArtists: []
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-          params: {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistXml(artist)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistInfoXml(artist)))
+            );
+        });
+
+        it("should return it", async () => {
+          const result: Artist = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artist(artist.id));
+
+          expect(result).toEqual({
             id: artist.id,
-            ...authParams,
-          },
-          headers,
+            name: artist.name,
+            image: artist.image,
+            albums: artist.albums,
+            similarArtists: []
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+        });
+      });
+
+      describe("and has only 1 album", () => {
+        const album: Album = anAlbum();
+
+        const artist: Artist = anArtist({
+          albums: [album],
+          similarArtists: []
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-          params: {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistXml(artist)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistInfoXml(artist)))
+            );
+        });
+
+        it("should return it", async () => {
+          const result: Artist = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artist(artist.id));
+
+          expect(result).toEqual({
             id: artist.id,
-            ...authParams,
-          },
-          headers,
+            name: artist.name,
+            image: artist.image,
+            albums: artist.albums,
+            similarArtists: []
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
         });
       });
-    });
 
-    describe("when the artist exists and has no albums", () => {
-      const artist: Artist = anArtist({
-        albums: [],
-      });
-
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(artistXml(artist))))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(artistInfoXml(artist.image)))
-          );
-      });
-
-      it("should return it", async () => {
-        const result: Artist = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.artist(artist.id));
-
-        expect(result).toEqual({
-          id: artist.id,
-          name: artist.name,
-          image: artist.image,
+      describe("and has no albums", () => {
+        const artist: Artist = anArtist({
           albums: [],
+          similarArtists: []
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-          params: {
-            id: artist.id,
-            ...authParams,
-          },
-          headers,
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistXml(artist)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(artistInfoXml(artist)))
+            );
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-          params: {
+        it("should return it", async () => {
+          const result: Artist = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artist(artist.id));
+
+          expect(result).toEqual({
             id: artist.id,
-            ...authParams,
-          },
-          headers,
+            name: artist.name,
+            image: artist.image,
+            albums: [],
+            similarArtists: []
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+            params: {
+              id: artist.id,
+              ...authParams,
+            },
+            headers,
+          });
         });
       });
     });
@@ -1388,7 +1596,7 @@ describe("Navidrome", () => {
               data: Buffer.from("the image", "ascii"),
             };
 
-            const artist = anArtist({ id: artistId });
+            const artist = anArtist({ id: artistId, image: images });
 
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -1396,7 +1604,7 @@ describe("Navidrome", () => {
                 Promise.resolve(ok(artistXml(artist)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(artistInfoXml(images)))
+                Promise.resolve(ok(artistInfoXml(artist)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -1454,6 +1662,7 @@ describe("Navidrome", () => {
               const artist = anArtist({
                 id: artistId,
                 albums: [album1, album2],
+                image: images
               });
 
               mockGET
@@ -1462,7 +1671,7 @@ describe("Navidrome", () => {
                   Promise.resolve(ok(artistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(images)))
+                  Promise.resolve(ok(artistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -1528,7 +1737,7 @@ describe("Navidrome", () => {
                 data: Buffer.from("the image", "ascii"),
               };
 
-              const artist = anArtist({ id: artistId, albums: [] });
+              const artist = anArtist({ id: artistId, albums: [], image: images });
 
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -1536,7 +1745,7 @@ describe("Navidrome", () => {
                   Promise.resolve(ok(artistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(images)))
+                  Promise.resolve(ok(artistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -1595,7 +1804,7 @@ describe("Navidrome", () => {
               data: originalImage,
             };
 
-            const artist = anArtist({ id: artistId });
+            const artist = anArtist({ id: artistId, image: images });
 
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -1603,13 +1812,15 @@ describe("Navidrome", () => {
                 Promise.resolve(ok(artistXml(artist)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(artistInfoXml(images)))
+                Promise.resolve(ok(artistInfoXml(artist)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
             const resize = jest.fn();
-            (sharp as unknown as jest.Mock).mockReturnValue({ resize });
-            resize.mockReturnValue({ toBuffer: () => Promise.resolve(resizedImage) })
+            ((sharp as unknown) as jest.Mock).mockReturnValue({ resize });
+            resize.mockReturnValue({
+              toBuffer: () => Promise.resolve(resizedImage),
+            });
 
             const result = await navidrome
               .generateToken({ username, password })
@@ -1668,6 +1879,7 @@ describe("Navidrome", () => {
               const artist = anArtist({
                 id: artistId,
                 albums: [album1, album2],
+                image: images
               });
 
               mockGET
@@ -1676,7 +1888,7 @@ describe("Navidrome", () => {
                   Promise.resolve(ok(artistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(images)))
+                  Promise.resolve(ok(artistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -1743,7 +1955,7 @@ describe("Navidrome", () => {
                 data: Buffer.from("the image", "ascii"),
               };
 
-              const artist = anArtist({ id: artistId, albums: [] });
+              const artist = anArtist({ id: artistId, albums: [], image: images });
 
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -1751,7 +1963,7 @@ describe("Navidrome", () => {
                   Promise.resolve(ok(artistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(images)))
+                  Promise.resolve(ok(artistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -1810,6 +2022,7 @@ describe("Navidrome", () => {
               const artist = anArtist({
                 id: artistId,
                 albums: [album1, album2],
+                image: images
               });
 
               mockGET
@@ -1818,7 +2031,7 @@ describe("Navidrome", () => {
                   Promise.resolve(ok(artistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(images)))
+                  Promise.resolve(ok(artistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -1885,7 +2098,7 @@ describe("Navidrome", () => {
                 data: Buffer.from("the image", "ascii"),
               };
 
-              const artist = anArtist({ id: artistId, albums: [] });
+              const artist = anArtist({ id: artistId, albums: [], image: images });
 
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -1893,7 +2106,7 @@ describe("Navidrome", () => {
                   Promise.resolve(ok(artistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(images)))
+                  Promise.resolve(ok(artistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 

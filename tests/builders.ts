@@ -79,6 +79,10 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
       medium: `/artist/art/${id}/small`,
       large: `/artist/art/${id}/large`,
     },
+    similarArtists: [
+      { id: uuid(), name: "Similar artist1"},
+      { id: uuid(), name: "Similar artist2"},
+    ],
     ...fields,
   };
 }
@@ -134,6 +138,7 @@ export const BLONDIE: Artist = {
     medium: undefined,
     large: undefined,
   },
+  similarArtists: []
 };
 
 export const BOB_MARLEY: Artist = {
@@ -149,6 +154,7 @@ export const BOB_MARLEY: Artist = {
     medium: "http://localhost/BOB_MARLEY/med",
     large: "http://localhost/BOB_MARLEY/lge",
   },
+  similarArtists: []
 };
 
 export const MADONNA: Artist = {
@@ -160,6 +166,7 @@ export const MADONNA: Artist = {
     medium: undefined,
     large: "http://localhost/MADONNA/lge",
   },
+  similarArtists: []
 };
 
 export const METALLICA: Artist = {
@@ -184,6 +191,7 @@ export const METALLICA: Artist = {
     medium: "http://localhost/METALLICA/med",
     large: "http://localhost/METALLICA/lge",
   },
+  similarArtists: []
 };
 
 export const ALL_ARTISTS = [BOB_MARLEY, BLONDIE, MADONNA, METALLICA];

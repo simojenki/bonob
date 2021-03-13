@@ -42,6 +42,7 @@ export const NO_IMAGES: Images = {
 export type Artist = ArtistSummary & {
   image: Images
   albums: AlbumSummary[];
+  similarArtists: ArtistSummary[]
 };
 
 export type AlbumSummary = {
