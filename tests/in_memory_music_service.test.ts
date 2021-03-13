@@ -56,7 +56,6 @@ describe("InMemoryMusicService", () => {
       expect(artistToArtistSummary(artist)).toEqual({
         id: artist.id,
         name: artist.name,
-        image: artist.image,
       });
     });
   });

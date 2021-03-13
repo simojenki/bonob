@@ -19,10 +19,21 @@ import {
   NO_IMAGES,
 } from "./music_service";
 import X2JS from "x2js";
+import sharp from "sharp";
 
 import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
+
+export const BROWSER_HEADERS = {
+  accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-GB,en;q=0.5",
+  "upgrade-insecure-requests": "1",
+  "user-agent":
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",
+};
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -35,8 +46,12 @@ export const t_and_s = (password: string) => {
   };
 };
 
-export const isDodgyImage = (url: string) =>
-  url.endsWith("2a96cbd8b46e442fc41c2b86b821562f.png");
+export const DODGY_IMAGE_NAME = "2a96cbd8b46e442fc41c2b86b821562f.png";
+
+export const isDodgyImage = (url: string) => url.endsWith(DODGY_IMAGE_NAME);
+
+export const validate = (url: string | undefined) =>
+  url && !isDodgyImage(url) ? url : undefined;
 
 export type SubconicEnvelope = {
   "subsonic-response": SubsonicResponse;
@@ -282,9 +297,9 @@ export class Navidrome implements MusicService {
       id,
     }).then((it) => ({
       image: {
-        small: it.artistInfo.smallImageUrl,
-        medium: it.artistInfo.mediumImageUrl,
-        large: it.artistInfo.largeImageUrl,
+        small: validate(it.artistInfo.smallImageUrl),
+        medium: validate(it.artistInfo.mediumImageUrl),
+        large: validate(it.artistInfo.largeImageUrl),
       },
     }));
 
@@ -309,13 +324,35 @@ export class Navidrome implements MusicService {
       .then((it) => ({
         id: it._id,
         name: it._name,
-        albums: it.album.map((album) => ({
+        albums: (it.album || []).map((album) => ({
           id: album._id,
           name: album._name,
           year: album._year,
           genre: album._genre,
         })),
       }));
+
+  getArtistWithInfo = (credentials: Credentials, id: string) =>
+    Promise.all([
+      this.getArtist(credentials, id),
+      this.getArtistInfo(credentials, id),
+    ]).then(([artist, artistInfo]) => ({
+      id: artist.id,
+      name: artist.name,
+      image: artistInfo.image,
+      albums: artist.albums,
+    }));
+
+  getCoverArt = (credentials: Credentials, id: string, size?: number) =>
+    this.get(
+      credentials,
+      "/rest/getCoverArt",
+      { id, size },
+      {
+        headers: { "User-Agent": "bonob" },
+        responseType: "arraybuffer",
+      }
+    );
 
   async login(token: string) {
     const navidrome = this;
@@ -326,36 +363,12 @@ export class Navidrome implements MusicService {
         navidrome
           .getArtists(credentials)
           .then(slice2(q))
-          .then(([page, total]) =>
-            Promise.all(
-              page.map((idName: IdName) =>
-                navidrome
-                  .getArtistInfo(credentials, idName.id)
-                  .then((artistInfo) => ({
-                    total,
-                    result: {
-                      id: idName.id,
-                      name: idName.name,
-                      image: artistInfo.image,
-                    },
-                  }))
-              )
-            )
-          )
-          .then((resultWithInfo) => ({
-            total: resultWithInfo[0]?.total || 0,
-            results: resultWithInfo.map((it) => it.result),
+          .then(([page, total]) => ({
+            total,
+            results: page.map((it) => ({ id: it.id, name: it.name })),
           })),
       artist: async (id: string): Promise<Artist> =>
-        Promise.all([
-          navidrome.getArtist(credentials, id),
-          navidrome.getArtistInfo(credentials, id),
-        ]).then(([artist, artistInfo]) => ({
-          id: artist.id,
-          name: artist.name,
-          image: artistInfo.image,
-          albums: artist.albums,
-        })),
+        navidrome.getArtistWithInfo(credentials, id),
       albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
         navidrome
           .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
@@ -372,7 +385,7 @@ export class Navidrome implements MusicService {
             size: MAX_ALBUM_LIST,
             offset: 0,
           })
-          .then((response) => response.albumList.album)
+          .then((response) => response.albumList.album || [])
           .then((albumList) =>
             albumList.map((album) => ({
               id: album._id,
@@ -405,7 +418,7 @@ export class Navidrome implements MusicService {
           })
           .then((it) => it.album)
           .then((album) =>
-            album.song.map((song) => asTrack(asAlbum(album), song))
+            (album.song || []).map((song) => asTrack(asAlbum(album), song))
           ),
       track: (trackId: string) =>
         navidrome
@@ -455,21 +468,54 @@ export class Navidrome implements MusicService {
             },
             data: Buffer.from(res.data, "binary"),
           })),
-      coverArt: async (id: string, size?: number) =>
-        navidrome
-          .get(
-            credentials,
-            "/rest/getCoverArt",
-            { id, size },
-            {
-              headers: { "User-Agent": "bonob" },
-              responseType: "arraybuffer",
-            }
-          )
-          .then((res) => ({
+      coverArt: async (id: string, type: "album" | "artist", size?: number) => {
+        if (type == "album") {
+          return navidrome.getCoverArt(credentials, id, size).then((res) => ({
             contentType: res.headers["content-type"],
             data: Buffer.from(res.data, "binary"),
-          })),
+          }));
+        } else {
+          return navidrome.getArtistWithInfo(credentials, id).then((artist) => {
+            if (artist.image.large) {
+              console.log(`fetching from ${artist.image.large}`);
+              return axios
+                .get(artist.image.large!, {
+                  headers: BROWSER_HEADERS,
+                  responseType: "arraybuffer",
+                })
+                .then((res) => {
+                  const image = Buffer.from(res.data, "binary");
+                  if (size) {
+                    return sharp(image)
+                      .resize(size)
+                      .toBuffer()
+                      .then((resized) => ({
+                        contentType: res.headers["content-type"],
+                        data: resized,
+                      }));
+                  } else {
+                    return {
+                      contentType: res.headers["content-type"],
+                      data: image,
+                    };
+                  }
+                });
+            } else if (artist.albums.length > 0) {
+              console.log(
+                `gettin cover art for artist album id = ${artist.albums[0]!.id}`
+              );
+              return navidrome
+                .getCoverArt(credentials, artist.albums[0]!.id, size)
+                .then((res) => ({
+                  contentType: res.headers["content-type"],
+                  data: Buffer.from(res.data, "binary"),
+                }));
+            } else {
+              return undefined;
+            }
+          });
+        }
+      },
     };
 
     return Promise.resolve(musicLibrary);

@@ -8,6 +8,7 @@ import logger from "./logger";
 import { LinkCodes } from "./link_codes";
 import {
   AlbumSummary,
+  ArtistSummary,
   MusicLibrary,
   MusicService,
   slice2,
@@ -210,7 +211,19 @@ const genre = (genre: string) => ({
   title: genre,
 });
 
-export const defaultAlbumArtURI = (webAddress: string, accessToken: string, album: AlbumSummary) => `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+export const defaultAlbumArtURI = (
+  webAddress: string,
+  accessToken: string,
+  album: AlbumSummary
+) =>
+  `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`;
+  
+export const defaultArtistArtURI = (
+  webAddress: string,
+  accessToken: string,
+  artist: ArtistSummary
+) =>
+  `${webAddress}/artist/${artist.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`;
 
 const album = (
   webAddress: string,
@@ -223,7 +236,11 @@ const album = (
   albumArtURI: defaultAlbumArtURI(webAddress, accessToken, album),
 });
 
-export const track = (webAddress: string, accessToken: string, track: Track) => ({
+export const track = (
+  webAddress: string,
+  accessToken: string,
+  track: Track
+) => ({
   itemType: "track",
   id: `track:${track.id}`,
   mimeType: track.mimeType,
@@ -382,19 +399,20 @@ function bindSmapiSoapServiceToExpress(
                   total: 3,
                 });
               case "artists":
-                return await musicLibrary.artists(paging).then((result) =>
-                  getMetadataResult({
+                return await musicLibrary.artists(paging).then((result) => {
+                  const accessToken = accessTokens.mint(authToken);
+                  return getMetadataResult({
                     mediaCollection: result.results.map((it) => ({
                       itemType: "artist",
                       id: `artist:${it.id}`,
                       artistId: it.id,
                       title: it.name,
-                      albumArtURI: it.image.small,
+                      albumArtURI: defaultArtistArtURI(webAddress, accessToken, it),
                     })),
                     index: paging._index,
                     total: result.total,
-                  })
-                );
+                  });
+                });
               case "albums":
                 return await musicLibrary.albums(paging).then((result) => {
                   const accessToken = accessTokens.mint(authToken);
