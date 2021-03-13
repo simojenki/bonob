@@ -210,6 +210,8 @@ const genre = (genre: string) => ({
   title: genre,
 });
 
+export const defaultAlbumArtURI = (webAddress: string, accessToken: string, album: AlbumSummary) => `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+
 const album = (
   webAddress: string,
   accessToken: string,
@@ -218,7 +220,7 @@ const album = (
   itemType: "album",
   id: `album:${album.id}`,
   title: album.name,
-  albumArtURI: `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
+  albumArtURI: defaultAlbumArtURI(webAddress, accessToken, album),
 });
 
 export const track = (webAddress: string, accessToken: string, track: Track) => ({
@@ -232,7 +234,7 @@ export const track = (webAddress: string, accessToken: string, track: Track) => 
     albumId: track.album.id,
     albumArtist: track.artist.name,
     albumArtistId: track.artist.id,
-    albumArtURI: `${webAddress}/album/${track.album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
+    albumArtURI: defaultAlbumArtURI(webAddress, accessToken, track.album),
     artist: track.artist.name,
     artistId: track.artist.id,
     duration: track.duration,

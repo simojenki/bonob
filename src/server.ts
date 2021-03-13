@@ -141,9 +141,9 @@ function server(
         )
         .then((stream) => {
           res.status(stream.status);
-          Object.entries(stream.headers).forEach(([header, value]) =>
-            res.setHeader(header, value)
-          );
+          Object.entries(stream.headers)
+            .filter(([_, v]) => v !== undefined)
+            .forEach(([header, value]) => res.setHeader(header, value));
           res.send(stream.data);
         });
     }
