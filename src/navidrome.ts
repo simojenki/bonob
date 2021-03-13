@@ -232,7 +232,17 @@ export class Navidrome implements MusicService {
     q: {} = {}
   ): Promise<T> =>
     this.get({ username, password }, path, q)
-      .then((response) => new X2JS().xml2js(response.data) as SubconicEnvelope)
+      .then(
+        (response) =>
+          new X2JS({
+            arrayAccessFormPaths: [
+              "subsonic-response.artist.album",
+              "subsonic-response.albumList.album",
+              "subsonic-response.album.song",
+              "subsonic-response.genres.genre"
+            ],
+          }).xml2js(response.data) as SubconicEnvelope
+      )
       .then((json) => json["subsonic-response"])
       .then((json) => {
         if (isError(json)) throw json.error._message;
@@ -296,16 +306,19 @@ export class Navidrome implements MusicService {
       id,
     })
       .then((it) => it.artist)
-      .then((it) => ({
-        id: it._id,
-        name: it._name,
-        albums: it.album.map((album) => ({
-          id: album._id,
-          name: album._name,
-          year: album._year,
-          genre: album._genre,
-        })),
-      }));
+      .then((it) => {
+        console.log(`artist is ${JSON.stringify(it)}`);
+        return {
+          id: it._id,
+          name: it._name,
+          albums: it.album.map((album) => ({
+            id: album._id,
+            name: album._name,
+            year: album._year,
+            genre: album._genre,
+          })),
+        };
+      });
 
   async login(token: string) {
     const navidrome = this;
