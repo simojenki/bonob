@@ -239,6 +239,59 @@ describe("server", () => {
     });
 
     describe("when sonos does not ask for a range", () => {
+      describe("when the music service does not return a content-range, content-length or accept-ranges", () => {
+        it("should return a 200 with the data, without adding the undefined headers", async () => {
+          const stream = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mp3",
+            },
+            data: Buffer.from("some track", "ascii"),
+          };
+
+          musicService.login.mockResolvedValue(musicLibrary);
+          musicLibrary.stream.mockResolvedValue(stream);
+
+          const res = await request(server)
+            .get(`/stream/track/${trackId}`)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+          expect(res.status).toEqual(stream.status);
+          expect(res.headers["content-type"]).toEqual("audio/mp3")
+          expect(res.headers["content-length"]).toEqual(`${stream.data.length}`)
+          expect(Object.keys(res.headers)).not.toContain("content-range")
+          expect(Object.keys(res.headers)).not.toContain("accept-ranges")
+        });
+      });
+
+      describe("when the music service returns undefined values for content-range, content-length or accept-ranges", () => {
+        it("should return a 200 with the data, without adding the undefined headers", async () => {
+          const stream = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mp3",
+              "content-length": undefined,
+              "accept-ranges": undefined,
+              "content-range": undefined,
+            },
+            data: Buffer.from("some track", "ascii"),
+          };
+
+          musicService.login.mockResolvedValue(musicLibrary);
+          musicLibrary.stream.mockResolvedValue(stream);
+
+          const res = await request(server)
+            .get(`/stream/track/${trackId}`)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+            expect(res.status).toEqual(stream.status);
+            expect(res.headers["content-type"]).toEqual("audio/mp3")
+            expect(res.headers["content-length"]).toEqual(`${stream.data.length}`)
+            expect(Object.keys(res.headers)).not.toContain("content-range")
+            expect(Object.keys(res.headers)).not.toContain("accept-ranges")
+          });
+      });
+
       describe("when the music service returns a 200", () => {
         it("should return a 200 with the data", async () => {
           const stream = {

@@ -815,6 +815,67 @@ describe("Navidrome", () => {
   describe("streaming a track", () => {
     const trackId = uuid();
 
+    describe("when navidrome doesnt return a content-range, accept-ranges or content-length", () => {
+      it("should return undefined values", async () => {
+        const streamResponse = {
+          status: 200,
+          headers: {
+            "content-type": "audio/mpeg",
+          },
+          data: Buffer.from("the track", "ascii"),
+        };
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.stream({ trackId, range: undefined }));
+
+        expect(result.headers).toEqual({
+          "content-type": "audio/mpeg",
+          "content-length": undefined,
+          "content-range": undefined,
+          "accept-ranges": undefined,
+        });
+      });
+    });
+
+    describe("when navidrome returns a undefined for content-range, accept-ranges or content-length", () => {
+      it("should return undefined values", async () => {
+        const streamResponse = {
+          status: 200,
+          headers: {
+            "content-type": "audio/mpeg",
+            "content-length": undefined,
+            "content-range": undefined,
+            "accept-ranges": undefined,
+          },
+          data: Buffer.from("the track", "ascii"),
+        };
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.stream({ trackId, range: undefined }));
+
+        expect(result.headers).toEqual({
+          "content-type": "audio/mpeg",
+          "content-length": undefined,
+          "content-range": undefined,
+          "accept-ranges": undefined,
+        });
+      });
+    });
+
     describe("with no range specified", () => {
       describe("navidrome returns a 200", () => {
         it("should return the content", async () => {
@@ -935,7 +996,7 @@ describe("Navidrome", () => {
 
   describe("fetching cover art", () => {
     describe("fetching album art", () => {
-      describe("when no size is specified", async () => {
+      describe("when no size is specified", () => {
         it("should fetch the image", async () => {
           const streamResponse = {
             status: 200,
@@ -972,7 +1033,7 @@ describe("Navidrome", () => {
         });
       });
 
-      describe("when size is specified", async () => {
+      describe("when size is specified", () => {
         it("should fetch the image", async () => {
           const streamResponse = {
             status: 200,

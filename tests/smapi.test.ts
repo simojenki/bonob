@@ -18,6 +18,7 @@ import {
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
   track,
+  defaultAlbumArtURI,
 } from "../src/smapi";
 
 import {
@@ -163,6 +164,17 @@ describe("track", () => {
   });
 });
 
+describe("defaultAlbumArtURI", () => {
+  it("should create the correct URI", () => {
+    const webAddress = "http://localhost:1234";
+    const accessToken = uuid();
+    const album = anAlbum();
+
+    expect(defaultAlbumArtURI(webAddress, accessToken, album)).toEqual(
+      `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+    );
+  });
+});
 class Base64AccessTokens implements AccessTokens {
   mint(authToken: string) {
     return Buffer.from(authToken).toString("base64");
@@ -427,6 +439,7 @@ describe("api", () => {
         const password = "validPassword";
         let token: AuthSuccess;
         let ws: Client;
+        let accessToken: string;
 
         beforeEach(async () => {
           musicService.hasUser({ username, password });
@@ -434,6 +447,9 @@ describe("api", () => {
             username,
             password,
           })) as AuthSuccess;
+
+          accessToken = accessTokens.mint(token.authToken);
+
           ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
@@ -545,11 +561,7 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
-                    albumArtURI: `${rootUrl}/album/${
-                      it.id
-                    }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
-                      token.authToken
-                    )}`,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                   })),
                   index: 0,
                   total: artistWithManyAlbums.albums.length,
@@ -574,11 +586,7 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
-                    albumArtURI: `${rootUrl}/album/${
-                      it.id
-                    }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
-                      token.authToken
-                    )}`,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                   })),
                   index: 2,
                   total: artistWithManyAlbums.albums.length,
@@ -683,11 +691,7 @@ describe("api", () => {
                       itemType: "album",
                       id: `album:${it.id}`,
                       title: it.name,
-                      albumArtURI: `${rootUrl}/album/${
-                        it.id
-                      }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
-                        token.authToken
-                      )}`,
+                      albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     })),
                   index: 0,
                   total: 6,
@@ -713,11 +717,7 @@ describe("api", () => {
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
-                    albumArtURI: `${rootUrl}/album/${
-                      it.id
-                    }/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessTokens.mint(
-                      token.authToken
-                    )}`,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                   })),
                   index: 2,
                   total: 6,
@@ -779,7 +779,9 @@ describe("api", () => {
                 });
                 expect(result[0]).toEqual(
                   getMetadataResult2({
-                    mediaMetadata: [track3, track4].map(it => track(rootUrl, accessTokens.mint(token.authToken), it)),
+                    mediaMetadata: [track3, track4].map((it) =>
+                      track(rootUrl, accessTokens.mint(token.authToken), it)
+                    ),
                     index: 2,
                     total: 5,
                   })
@@ -986,7 +988,11 @@ describe("api", () => {
               id: `track:${someTrack.id}`,
             });
             expect(root[0]).toEqual({
-              getMediaMetadataResult: track(rootUrl, accessTokens.mint(token.authToken), someTrack),
+              getMediaMetadataResult: track(
+                rootUrl,
+                accessTokens.mint(token.authToken),
+                someTrack
+              ),
             });
           });
         });
