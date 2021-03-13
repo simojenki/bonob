@@ -221,7 +221,7 @@ const album = (
   albumArtURI: `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
 });
 
-const track = (track: Track) => ({
+export const track = (webAddress: string, accessToken: string, track: Track) => ({
   itemType: "track",
   id: `track:${track.id}`,
   mimeType: track.mimeType,
@@ -232,7 +232,7 @@ const track = (track: Track) => ({
     albumId: track.album.id,
     albumArtist: track.artist.name,
     albumArtistId: track.artist.id,
-    // albumArtURI
+    albumArtURI: `${webAddress}/album/${track.album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
     artist: track.artist.name,
     artistId: track.artist.id,
     duration: track.duration,
@@ -314,6 +314,7 @@ function bindSmapiSoapServiceToExpress(
                 },
               };
             }
+            const authToken = headers.credentials.loginToken.token;
             const login = await musicService
               .login(headers.credentials.loginToken.token)
               .catch((_) => {
@@ -327,9 +328,12 @@ function bindSmapiSoapServiceToExpress(
 
             const typeId = id.split(":")[1];
             const musicLibrary = login as MusicLibrary;
-            return musicLibrary
-              .track(typeId!)
-              .then((it) => ({ getMediaMetadataResult: track(it) }));
+            return musicLibrary.track(typeId!).then((it) => {
+              const accessToken = accessTokens.mint(authToken);
+              return {
+                getMediaMetadataResult: track(webAddress, accessToken, it),
+              };
+            });
           },
           getMetadata: async (
             {
@@ -430,13 +434,16 @@ function bindSmapiSoapServiceToExpress(
                 return await musicLibrary
                   .tracks(typeId!)
                   .then(slice2(paging))
-                  .then(([page, total]) =>
-                    getMetadataResult2({
-                      mediaMetadata: page.map(track),
+                  .then(([page, total]) => {
+                    const accessToken = accessTokens.mint(authToken);
+                    return getMetadataResult2({
+                      mediaMetadata: page.map((it) =>
+                        track(webAddress, accessToken, it)
+                      ),
                       index: paging._index,
                       total,
-                    })
-                  );
+                    });
+                  });
               default:
                 throw `Unsupported id:${id}`;
             }

@@ -5,6 +5,7 @@ import { v4 as uuid } from "uuid";
 
 import { DOMParserImpl } from "xmldom-ts";
 import * as xpath from "xpath-ts";
+import { randomInt } from "crypto";
 
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import makeServer, { BONOB_ACCESS_TOKEN_HEADER } from "../src/server";
@@ -16,6 +17,7 @@ import {
   getMetadataResult2,
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
+  track,
 } from "../src/smapi";
 
 import {
@@ -120,6 +122,43 @@ describe("getMetadataResult", () => {
       expect(result.getMetadataResult.index).toEqual(22);
       expect(result.getMetadataResult.total).toEqual(3);
       expect(result.getMetadataResult.mediaCollection).toEqual(mediaCollection);
+    });
+  });
+});
+
+describe("track", () => {
+  it("should map into a sonos expected track", () => {
+    const webAddress = "http://localhost:4567";
+    const accessToken = uuid();
+    const someTrack = aTrack({
+      id: uuid(),
+      mimeType: "audio/something",
+      name: "great song",
+      duration: randomInt(1000),
+      number: randomInt(100),
+      album: anAlbum({ name: "great album", id: uuid(), genre: "some genre" }),
+      artist: anArtist({ name: "great artist", id: uuid() }),
+    });
+
+    expect(track(webAddress, accessToken, someTrack)).toEqual({
+      itemType: "track",
+      id: `track:${someTrack.id}`,
+      mimeType: someTrack.mimeType,
+      title: someTrack.name,
+
+      trackMetadata: {
+        album: someTrack.album.name,
+        albumId: someTrack.album.id,
+        albumArtist: someTrack.artist.name,
+        albumArtistId: someTrack.artist.id,
+        albumArtURI: `${webAddress}/album/${someTrack.album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`,
+        artist: someTrack.artist.name,
+        artistId: someTrack.artist.id,
+        duration: someTrack.duration,
+        genre: someTrack.album.genre,
+        // genreId
+        trackNumber: someTrack.number,
+      },
     });
   });
 });
@@ -611,31 +650,6 @@ describe("api", () => {
           });
         });
 
-        // describe("asking for an album by id", () => {
-        //   it("should return it", async () => {
-        //     musicService.hasArtists(BLONDIE, BOB_MARLEY);
-        //     const album = BOB_MARLEY.albums[0]!;
-
-        //     const result = await ws.getMetadataAsync({
-        //       id: `album:${album.id}`,
-        //       index: 0,
-        //       count: 100,
-        //     });
-        //     expect(result).toEqual(
-        //       getMetadataResult({
-        //         mediaCollection: [
-        //           ...BLONDIE.albums,
-        //           ...BOB_MARLEY.albums,
-        //         ].map((it) =>
-        //           ({ itemType: "album", id: `album:${it.id}`, title: it.name })
-        //         ),
-        //         index: 0,
-        //         total: BLONDIE.albums.length + BOB_MARLEY.albums.length,
-        //       })
-        //     );
-        //   });
-        // });
-
         describe("asking for albums", () => {
           const artist1 = anArtist({
             albums: [anAlbum(), anAlbum(), anAlbum()],
@@ -740,27 +754,14 @@ describe("api", () => {
                 });
                 expect(result[0]).toEqual(
                   getMetadataResult2({
-                    mediaMetadata: [track1, track2, track3, track4, track5].map(
-                      (track) => ({
-                        itemType: "track",
-                        id: `track:${track.id}`,
-                        mimeType: track.mimeType,
-                        title: track.name,
-
-                        trackMetadata: {
-                          album: track.album.name,
-                          albumId: track.album.id,
-                          albumArtist: track.artist.name,
-                          albumArtistId: track.artist.id,
-                          // albumArtURI
-                          artist: track.artist.name,
-                          artistId: track.artist.id,
-                          duration: track.duration,
-                          genre: track.album.genre,
-                          // genreId
-                          trackNumber: track.number,
-                        },
-                      })
+                    mediaMetadata: [
+                      track1,
+                      track2,
+                      track3,
+                      track4,
+                      track5,
+                    ].map((it) =>
+                      track(rootUrl, accessTokens.mint(token.authToken), it)
                     ),
                     index: 0,
                     total: 5,
@@ -778,26 +779,7 @@ describe("api", () => {
                 });
                 expect(result[0]).toEqual(
                   getMetadataResult2({
-                    mediaMetadata: [track3, track4].map((track) => ({
-                      itemType: "track",
-                      id: `track:${track.id}`,
-                      mimeType: track.mimeType,
-                      title: track.name,
-
-                      trackMetadata: {
-                        album: track.album.name,
-                        albumId: track.album.id,
-                        albumArtist: track.artist.name,
-                        albumArtistId: track.artist.id,
-                        // albumArtURI
-                        artist: track.artist.name,
-                        artistId: track.artist.id,
-                        duration: track.duration,
-                        genre: track.album.genre,
-                        // genreId
-                        trackNumber: track.number,
-                      },
-                    })),
+                    mediaMetadata: [track3, track4].map(it => track(rootUrl, accessTokens.mint(token.authToken), it)),
                     index: 2,
                     total: 5,
                   })
@@ -980,7 +962,7 @@ describe("api", () => {
         const artist = anArtist({
           albums: [album],
         });
-        const track = aTrack();
+        const someTrack = aTrack();
 
         beforeEach(async () => {
           musicService.hasUser({ username, password });
@@ -995,35 +977,16 @@ describe("api", () => {
           ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
 
           musicService.hasArtists(artist);
-          musicService.hasTracks(track);
+          musicService.hasTracks(someTrack);
         });
 
-        describe("asking for media metadata for a tack", () => {
+        describe("asking for media metadata for a track", () => {
           it("should return it with auth header", async () => {
             const root = await ws.getMediaMetadataAsync({
-              id: `track:${track.id}`,
+              id: `track:${someTrack.id}`,
             });
             expect(root[0]).toEqual({
-              getMediaMetadataResult: {
-                itemType: "track",
-                id: `track:${track.id}`,
-                mimeType: track.mimeType,
-                title: track.name,
-
-                trackMetadata: {
-                  album: track.album.name,
-                  albumId: track.album.id,
-                  albumArtist: track.artist.name,
-                  albumArtistId: track.artist.id,
-                  // albumArtURI
-                  artist: track.artist.name,
-                  artistId: track.artist.id,
-                  duration: track.duration,
-                  genre: track.album.genre,
-                  // genreId
-                  trackNumber: track.number,
-                },
-              },
+              getMediaMetadataResult: track(rootUrl, accessTokens.mint(token.authToken), someTrack),
             });
           });
         });
