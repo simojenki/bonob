@@ -25,7 +25,6 @@ export type AuthFailure = {
 export type ArtistSummary = {
   id: string;
   name: string;
-  image: Images;
 };
 
 export type Images = {
@@ -41,6 +40,7 @@ export const NO_IMAGES: Images = {
 };
 
 export type Artist = ArtistSummary & {
+  image: Images
   albums: AlbumSummary[];
 };
 
@@ -95,7 +95,6 @@ export type AlbumQuery = Paging & {
 export const artistToArtistSummary = (it: Artist): ArtistSummary => ({
   id: it.id,
   name: it.name,
-  image: it.image,
 });
 
 export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
@@ -145,5 +144,5 @@ export interface MusicLibrary {
     trackId: string;
     range: string | undefined;
   }): Promise<Stream>;
-  coverArt(id: string, size?: number): Promise<CoverArt>;
+  coverArt(id: string, type: "album" | "artist", size?: number): Promise<CoverArt | undefined>;
 }

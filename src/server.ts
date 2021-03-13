@@ -149,25 +149,35 @@ function server(
     }
   });
 
-  app.get("/album/:albumId/art/size/:size", (req, res) => {
+  app.get("/:type/:id/art/size/:size", (req, res) => {
     const authToken = accessTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
+    const type = req.params["type"]!;
+    const id = req.params["id"]!;
+    const size = Number.parseInt(req.params["size"]!);
     if (!authToken) {
       return res.status(401).send();
+    } else if(type != "artist" && type != "album") {
+      return res.status(400).send();
     } else {
       return musicService
         .login(authToken)
         .then((it) =>
           it.coverArt(
-            req.params["albumId"]!,
-            Number.parseInt(req.params["size"]!)
+            id,
+            type,
+            size
           )
         )
         .then((coverArt) => {
-          res.status(200);
-          res.setHeader("content-type", coverArt.contentType);
-          res.send(coverArt.data);
+          if(coverArt) {
+            res.status(200);
+            res.setHeader("content-type", coverArt.contentType);
+            res.send(coverArt.data);
+          } else {
+            res.status(404).send();
+          }
         });
     }
   });

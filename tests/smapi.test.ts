@@ -19,6 +19,7 @@ import {
   SONOS_RECOMMENDED_IMAGE_SIZES,
   track,
   defaultAlbumArtURI,
+  defaultArtistArtURI,
 } from "../src/smapi";
 
 import {
@@ -175,6 +176,19 @@ describe("defaultAlbumArtURI", () => {
     );
   });
 });
+
+describe("defaultArtistArtURI", () => {
+  it("should create the correct URI", () => {
+    const webAddress = "http://localhost:1234";
+    const accessToken = uuid();
+    const artist = anArtist();
+
+    expect(defaultArtistArtURI(webAddress, accessToken, artist)).toEqual(
+      `${webAddress}/artist/${artist.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+    );
+  });
+});
+
 class Base64AccessTokens implements AccessTokens {
   mint(authToken: string) {
     return Buffer.from(authToken).toString("base64");
@@ -623,7 +637,7 @@ describe("api", () => {
                     id: `artist:${it.id}`,
                     artistId: it.id,
                     title: it.name,
-                    albumArtURI: it.image.small,
+                    albumArtURI: defaultArtistArtURI(rootUrl, accessToken, it),
                   })),
                   index: 0,
                   total: artists.length,
@@ -647,7 +661,7 @@ describe("api", () => {
                       id: `artist:${it.id}`,
                       artistId: it.id,
                       title: it.name,
-                      albumArtURI: it.image.small,
+                      albumArtURI: defaultArtistArtURI(rootUrl, accessToken, it),
                     })
                   ),
                   index: 1,
