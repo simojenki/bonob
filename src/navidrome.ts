@@ -239,7 +239,7 @@ export class Navidrome implements MusicService {
               "subsonic-response.artist.album",
               "subsonic-response.albumList.album",
               "subsonic-response.album.song",
-              "subsonic-response.genres.genre"
+              "subsonic-response.genres.genre",
             ],
           }).xml2js(response.data) as SubconicEnvelope
       )
@@ -306,19 +306,16 @@ export class Navidrome implements MusicService {
       id,
     })
       .then((it) => it.artist)
-      .then((it) => {
-        console.log(`artist is ${JSON.stringify(it)}`);
-        return {
-          id: it._id,
-          name: it._name,
-          albums: it.album.map((album) => ({
-            id: album._id,
-            name: album._name,
-            year: album._year,
-            genre: album._genre,
-          })),
-        };
-      });
+      .then((it) => ({
+        id: it._id,
+        name: it._name,
+        albums: it.album.map((album) => ({
+          id: album._id,
+          name: album._name,
+          year: album._year,
+          genre: album._genre,
+        })),
+      }));
 
   async login(token: string) {
     const navidrome = this;
@@ -345,12 +342,10 @@ export class Navidrome implements MusicService {
               )
             )
           )
-          .then((resultWithInfo) => {
-            return {
-              total: resultWithInfo[0]?.total || 0,
-              results: resultWithInfo.map((it) => it.result),
-            };
-          }),
+          .then((resultWithInfo) => ({
+            total: resultWithInfo[0]?.total || 0,
+            results: resultWithInfo.map((it) => it.result),
+          })),
       artist: async (id: string): Promise<Artist> =>
         Promise.all([
           navidrome.getArtist(credentials, id),
@@ -361,21 +356,19 @@ export class Navidrome implements MusicService {
           image: artistInfo.image,
           albums: artist.albums,
         })),
-      albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
-        const p = pipe(
-          O.fromNullable(q.genre),
-          O.map<string, getAlbumListParams>((genre) => ({
-            type: "byGenre",
-            genre,
-          })),
-          O.getOrElse<getAlbumListParams>(() => ({
-            type: "alphabeticalByArtist",
-          }))
-        );
-
-        return navidrome
+      albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
+        navidrome
           .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
-            ...p,
+            ...pipe(
+              O.fromNullable(q.genre),
+              O.map<string, getAlbumListParams>((genre) => ({
+                type: "byGenre",
+                genre,
+              })),
+              O.getOrElse<getAlbumListParams>(() => ({
+                type: "alphabeticalByArtist",
+              }))
+            ),
             size: MAX_ALBUM_LIST,
             offset: 0,
           })
@@ -392,8 +385,7 @@ export class Navidrome implements MusicService {
           .then(([page, total]) => ({
             results: page,
             total: Math.min(MAX_ALBUM_LIST, total),
-          }));
-      },
+          })),
       album: (id: string): Promise<Album> =>
         navidrome.getAlbum(credentials, id),
       genres: () =>
