@@ -2,13 +2,15 @@ FROM node:14.15-alpine as build
 
 WORKDIR /bonob
 
-COPY package.json .
-COPY yarn.lock .
-COPY tsconfig.json .
 COPY src .
+# COPY tests .
+# COPY jest.config.js .
+COPY package.json .
+# COPY register.js .
+COPY tsconfig.json .
+COPY yarn.lock .
 
 RUN yarn install && \
-    yarn test --no-cache && \
     yarn build
 
 
