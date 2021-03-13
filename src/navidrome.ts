@@ -477,7 +477,6 @@ export class Navidrome implements MusicService {
         } else {
           return navidrome.getArtistWithInfo(credentials, id).then((artist) => {
             if (artist.image.large) {
-              console.log(`fetching from ${artist.image.large}`);
               return axios
                 .get(artist.image.large!, {
                   headers: BROWSER_HEADERS,
@@ -501,9 +500,6 @@ export class Navidrome implements MusicService {
                   }
                 });
             } else if (artist.albums.length > 0) {
-              console.log(
-                `gettin cover art for artist album id = ${artist.albums[0]!.id}`
-              );
               return navidrome
                 .getCoverArt(credentials, artist.albums[0]!.id, size)
                 .then((res) => ({

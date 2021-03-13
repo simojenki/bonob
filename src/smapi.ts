@@ -234,6 +234,7 @@ const album = (
   id: `album:${album.id}`,
   title: album.name,
   albumArtURI: defaultAlbumArtURI(webAddress, accessToken, album),
+  canPlay: true
 });
 
 export const track = (

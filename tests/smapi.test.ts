@@ -576,6 +576,7 @@ describe("api", () => {
                     id: `album:${it.id}`,
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true
                   })),
                   index: 0,
                   total: artistWithManyAlbums.albums.length,
@@ -601,6 +602,7 @@ describe("api", () => {
                     id: `album:${it.id}`,
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true
                   })),
                   index: 2,
                   total: artistWithManyAlbums.albums.length,
@@ -706,6 +708,7 @@ describe("api", () => {
                       id: `album:${it.id}`,
                       title: it.name,
                       albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                      canPlay: true
                     })),
                   index: 0,
                   total: 6,
@@ -732,6 +735,7 @@ describe("api", () => {
                     id: `album:${it.id}`,
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true
                   })),
                   index: 2,
                   total: 6,
