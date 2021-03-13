@@ -8,6 +8,7 @@ COPY tsconfig.json .
 COPY src .
 
 RUN yarn install && \
+    yarn test --no-cache && \
     yarn build
 
 
@@ -22,6 +23,7 @@ COPY package.json .
 COPY yarn.lock .
 COPY --from=build /bonob/build/* ./
 COPY web web
+COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl /bonob/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
 
 RUN yarn install --prod
 
