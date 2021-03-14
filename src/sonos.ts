@@ -5,9 +5,26 @@ import { MusicService } from "@svrooij/sonos/lib/services";
 import { head } from "underscore";
 import logger from "./logger";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
+import qs from "querystring"
 
 export const STRINGS_VERSION = "2";
 export const PRESENTATION_MAP_VERSION = "7";
+export type Capability =
+  | "search"
+  | "trFavorites"
+  | "alFavorites"
+  | "ucPlaylists"
+  | "extendedMD"
+  | "contextHeaders"
+  | "authorizationHeader";
+
+export const BONOB_CAPABILITIES: Capability[] = [
+  // "search",
+  // "trFavorites",
+  // "alFavorites",
+  // "ucPlaylists",
+  "extendedMD",
+];
 
 export type Device = {
   name: string;
@@ -103,6 +120,7 @@ export const asCustomdForm = (csrfToken: string, service: Service) => ({
   manifestVersion: "0",
   manifestUri: "",
   containerType: "MService",
+  caps: BONOB_CAPABILITIES,
 });
 
 const setupDiscovery = (
@@ -156,7 +174,9 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
         return false;
       }
 
-      logger.info(`Registering ${service.name}(SID:${service.sid}) with sonos device ${anyDevice.Name} @ ${anyDevice.Host}`)
+      logger.info(
+        `Registering ${service.name}(SID:${service.sid}) with sonos device ${anyDevice.Name} @ ${anyDevice.Host}`
+      );
 
       const customd = `http://${anyDevice.Host}:${anyDevice.Port}/customsd`;
 
@@ -175,7 +195,7 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
       }
 
       return axios
-        .post(customd, new URLSearchParams(asCustomdForm(csrfToken, service)), {
+        .post(customd, new URLSearchParams(qs.stringify(asCustomdForm(csrfToken, service))), {
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
           },
