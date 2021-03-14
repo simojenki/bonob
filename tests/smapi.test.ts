@@ -14,10 +14,10 @@ import {
   STRINGS_ROUTE,
   LOGIN_ROUTE,
   getMetadataResult,
-  getMetadataResult2,
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
   track,
+  album,
   defaultAlbumArtURI,
   defaultArtistArtURI,
 } from "../src/smapi";
@@ -96,18 +96,20 @@ describe("service config", () => {
 });
 
 describe("getMetadataResult", () => {
-  describe("when there are a zero mediaCollections", () => {
+  describe("when there are a no mediaCollections & no mediaMetadata", () => {
     it("should have zero count", () => {
       const result = getMetadataResult({
-        mediaCollection: [],
         index: 33,
         total: 99,
       });
 
-      expect(result.getMetadataResult.count).toEqual(0);
-      expect(result.getMetadataResult.index).toEqual(33);
-      expect(result.getMetadataResult.total).toEqual(99);
-      expect(result.getMetadataResult.mediaCollection).toEqual([]);
+      expect(result).toEqual({
+        getMetadataResult: {
+          count: 0,
+          index: 33,
+          total: 99,
+        },
+      });
     });
   });
 
@@ -120,10 +122,57 @@ describe("getMetadataResult", () => {
         total: 3,
       });
 
-      expect(result.getMetadataResult.count).toEqual(2);
-      expect(result.getMetadataResult.index).toEqual(22);
-      expect(result.getMetadataResult.total).toEqual(3);
-      expect(result.getMetadataResult.mediaCollection).toEqual(mediaCollection);
+      expect(result).toEqual({
+        getMetadataResult: {
+          count: 2,
+          index: 22,
+          total: 3,
+          mediaCollection,
+        },
+      });
+    });
+  });
+
+  describe("when there are a number of mediaMetadata", () => {
+    it("should add correct counts", () => {
+      const mediaMetadata = [{}, {}];
+      const result = getMetadataResult({
+        mediaMetadata,
+        index: 22,
+        total: 3,
+      });
+
+      expect(result).toEqual({
+        getMetadataResult: {
+          count: 2,
+          index: 22,
+          total: 3,
+          mediaMetadata,
+        },
+      });
+    });
+  });
+
+  describe("when there are both a number of mediaMetadata & mediaCollections", () => {
+    it("should sum the counts", () => {
+      const mediaCollection = [{}, {}, {}];
+      const mediaMetadata = [{}, {}];
+      const result = getMetadataResult({
+        mediaCollection,
+        mediaMetadata,
+        index: 22,
+        total: 3,
+      });
+
+      expect(result).toEqual({
+        getMetadataResult: {
+          count: 5,
+          index: 22,
+          total: 3,
+          mediaCollection,
+          mediaMetadata,
+        },
+      });
     });
   });
 });
@@ -161,6 +210,22 @@ describe("track", () => {
         // genreId
         trackNumber: someTrack.number,
       },
+    });
+  });
+});
+
+describe("album", () => {
+  it("should map to a sonos album", () => {
+    const webAddress = "http://localhost:9988";
+    const accessToken = uuid();
+    const someAlbum = anAlbum({ id: "id123", name: "What a great album" });
+
+    expect(album(webAddress, accessToken, someAlbum)).toEqual({
+      itemType: "album",
+      id: `album:${someAlbum.id}`,
+      title: someAlbum.name,
+      albumArtURI: defaultAlbumArtURI(webAddress, accessToken, someAlbum),
+      canPlay: true,
     });
   });
 });
@@ -576,7 +641,7 @@ describe("api", () => {
                     id: `album:${it.id}`,
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
-                    canPlay: true
+                    canPlay: true,
                   })),
                   index: 0,
                   total: artistWithManyAlbums.albums.length,
@@ -602,7 +667,7 @@ describe("api", () => {
                     id: `album:${it.id}`,
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
-                    canPlay: true
+                    canPlay: true,
                   })),
                   index: 2,
                   total: artistWithManyAlbums.albums.length,
@@ -663,11 +728,126 @@ describe("api", () => {
                       id: `artist:${it.id}`,
                       artistId: it.id,
                       title: it.name,
-                      albumArtURI: defaultArtistArtURI(rootUrl, accessToken, it),
+                      albumArtURI: defaultArtistArtURI(
+                        rootUrl,
+                        accessToken,
+                        it
+                      ),
                     })
                   ),
                   index: 1,
                   total: artists.length,
+                })
+              );
+            });
+          });
+        });
+
+        describe("asking for relatedArtists", () => {
+          describe("when the artist has many", () => {
+            const relatedArtist1 = anArtist();
+            const relatedArtist2 = anArtist();
+            const relatedArtist3 = anArtist();
+            const relatedArtist4 = anArtist();
+
+            const artist = anArtist({
+              similarArtists: [
+                relatedArtist1,
+                relatedArtist2,
+                relatedArtist3,
+                relatedArtist4,
+              ],
+            });
+
+            beforeEach(() => {
+              musicService.hasArtists(
+                artist,
+                relatedArtist1,
+                relatedArtist2,
+                relatedArtist3,
+                relatedArtist4
+              );
+            });
+
+            describe("when they fit on one page", () => {
+              it("should return them", async () => {
+                const result = await ws.getMetadataAsync({
+                  id: `relatedArtists:${artist.id}`,
+                  index: 0,
+                  count: 100,
+                });
+                expect(result[0]).toEqual(
+                  getMetadataResult({
+                    mediaCollection: [
+                      relatedArtist1,
+                      relatedArtist2,
+                      relatedArtist3,
+                      relatedArtist4,
+                    ].map((it) => ({
+                      itemType: "artist",
+                      id: `artist:${it.id}`,
+                      artistId: it.id,
+                      title: it.name,
+                      albumArtURI: defaultArtistArtURI(
+                        rootUrl,
+                        accessToken,
+                        it
+                      ),
+                    })),
+                    index: 0,
+                    total: 4,
+                  })
+                );
+              });
+            });
+
+            describe("when they dont fit on one page", () => {
+              it("should return them", async () => {
+                const result = await ws.getMetadataAsync({
+                  id: `relatedArtists:${artist.id}`,
+                  index: 1,
+                  count: 2,
+                });
+                expect(result[0]).toEqual(
+                  getMetadataResult({
+                    mediaCollection: [relatedArtist2, relatedArtist3].map(
+                      (it) => ({
+                        itemType: "artist",
+                        id: `artist:${it.id}`,
+                        artistId: it.id,
+                        title: it.name,
+                        albumArtURI: defaultArtistArtURI(
+                          rootUrl,
+                          accessToken,
+                          it
+                        ),
+                      })
+                    ),
+                    index: 1,
+                    total: 4,
+                  })
+                );
+              });
+            });
+          });
+
+          describe("when the artist has none", () => {
+            const artist = anArtist({ similarArtists: [] });
+
+            beforeEach(() => {
+              musicService.hasArtists(artist);
+            });
+
+            it("should return an empty list", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `relatedArtists:${artist.id}`,
+                index: 0,
+                count: 100,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  index: 0,
+                  total: 0,
                 })
               );
             });
@@ -708,7 +888,7 @@ describe("api", () => {
                       id: `album:${it.id}`,
                       title: it.name,
                       albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
-                      canPlay: true
+                      canPlay: true,
                     })),
                   index: 0,
                   total: 6,
@@ -735,7 +915,7 @@ describe("api", () => {
                     id: `album:${it.id}`,
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
-                    canPlay: true
+                    canPlay: true,
                   })),
                   index: 2,
                   total: 6,
@@ -771,7 +951,7 @@ describe("api", () => {
                   count: 100,
                 });
                 expect(result[0]).toEqual(
-                  getMetadataResult2({
+                  getMetadataResult({
                     mediaMetadata: [
                       track1,
                       track2,
@@ -796,7 +976,7 @@ describe("api", () => {
                   count: 2,
                 });
                 expect(result[0]).toEqual(
-                  getMetadataResult2({
+                  getMetadataResult({
                     mediaMetadata: [track3, track4].map((it) =>
                       track(rootUrl, accessTokens.mint(token.authToken), it)
                     ),
@@ -804,6 +984,149 @@ describe("api", () => {
                     total: 5,
                   })
                 );
+              });
+            });
+          });
+        });
+      });
+    });
+
+    describe("getExtendedMetadata", () => {
+      const server = makeServer(
+        SONOS_DISABLED,
+        service,
+        rootUrl,
+        musicService,
+        linkCodes,
+        accessTokens
+      );
+
+      describe("when no credentials header provided", () => {
+        it("should return a fault of LoginUnsupported", async () => {
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+
+          await ws
+            .getExtendedMetadataAsync({ id: "root", index: 0, count: 0 })
+            .then(() => fail("shouldnt get here"))
+            .catch((e: any) => {
+              expect(e.root.Envelope.Body.Fault).toEqual({
+                faultcode: "Client.LoginUnsupported",
+                faultstring: "Missing credentials...",
+              });
+            });
+        });
+      });
+
+      describe("when invalid credentials are provided", () => {
+        it("should return a fault of LoginUnauthorized", async () => {
+          const username = "userThatGetsDeleted";
+          const password = "password1";
+          musicService.hasUser({ username, password });
+          const token = (await musicService.generateToken({
+            username,
+            password,
+          })) as AuthSuccess;
+          musicService.hasNoUsers();
+
+          const ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+
+          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          await ws
+            .getExtendedMetadataAsync({ id: "root", index: 0, count: 0 })
+            .then(() => fail("shouldnt get here"))
+            .catch((e: any) => {
+              expect(e.root.Envelope.Body.Fault).toEqual({
+                faultcode: "Client.LoginUnauthorized",
+                faultstring: "Credentials not found...",
+              });
+            });
+        });
+      });
+
+      describe("when valid credentials are provided", () => {
+        const username = "validUser";
+        const password = "validPassword";
+        let token: AuthSuccess;
+        let ws: Client;
+
+        beforeEach(async () => {
+          musicService.hasUser({ username, password });
+          token = (await musicService.generateToken({
+            username,
+            password,
+          })) as AuthSuccess;
+
+          ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+        });
+
+        describe("asking for an artist", () => {
+          describe("when it has similar artists", () => {
+            const similar1 = anArtist();
+            const similar2 = anArtist();
+
+            const artist = anArtist({
+              similarArtists: [similar1, similar2],
+              albums: [],
+            });
+
+            beforeEach(() => {
+              musicService.hasArtists(artist);
+            });
+
+            it("should return a RELATED_ARTISTS browse option", async () => {
+              const root = await ws.getExtendedMetadataAsync({
+                id: `artist:${artist.id}`,
+                index: 0,
+                count: 100,
+              });
+              expect(root[0]).toEqual({
+                getExtendedMetadataResult: {
+                  count: "0",
+                  index: "0",
+                  total: "0",
+                  relatedBrowse: [
+                    {
+                      id: `relatedArtists:${artist.id}`,
+                      type: "RELATED_ARTISTS",
+                    },
+                  ],
+                },
+              });
+            });
+          });
+
+          describe("when it has no similar artists", () => {
+            const artist = anArtist({
+              similarArtists: [],
+              albums: [],
+            });
+
+            beforeEach(() => {
+              musicService.hasArtists(artist);
+            });
+
+            it("should not return a RELATED_ARTISTS browse option", async () => {
+              const root = await ws.getExtendedMetadataAsync({
+                id: `artist:${artist.id}`,
+                index: 0,
+                count: 100,
+              });
+              expect(root[0]).toEqual({
+                getExtendedMetadataResult: {
+                  count: "0",
+                  index: "0",
+                  total: "0",
+                },
               });
             });
           });

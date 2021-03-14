@@ -1,3 +1,4 @@
+import qs from "querystring"
 import { SonosManager, SonosDevice } from "@svrooij/sonos";
 import {
   MusicServicesService,
@@ -21,6 +22,7 @@ import sonos, {
   Service,
   STRINGS_VERSION,
   PRESENTATION_MAP_VERSION,
+  BONOB_CAPABILITIES,
 } from "../src/sonos";
 
 import { aSonosDevice, aService } from "./builders";
@@ -209,6 +211,7 @@ describe("sonos", () => {
           manifestVersion: "0",
           manifestUri: "",
           containerType: "MService",
+          caps: BONOB_CAPABILITIES
         });
       });
     });
@@ -553,7 +556,7 @@ describe("sonos", () => {
 
         expect(mockPost).toHaveBeenCalledWith(
           `http://${device1.Host}:${device1.Port}/customsd`,
-          new URLSearchParams(asCustomdForm(csrfToken, serviceToAdd)),
+          new URLSearchParams(qs.stringify(asCustomdForm(csrfToken, serviceToAdd))),
           POST_CONFIG
         );
 
