@@ -76,3 +76,21 @@ export class EncryptedAccessTokens implements AccessTokens {
     }
   }
 }
+
+export class AccessTokenPerAuthToken implements AccessTokens {
+  authTokenToAccessToken = new Map<string, string>();
+  accessTokenToAuthToken = new Map<string, string>();
+
+  mint = (authToken: string): string => {
+    if (this.authTokenToAccessToken.has(authToken)) {
+      return this.authTokenToAccessToken.get(authToken)!;
+    } else {
+      const accessToken = uuid();
+      this.authTokenToAccessToken.set(authToken, accessToken);
+      this.accessTokenToAuthToken.set(accessToken, authToken);
+      return accessToken;
+    }
+  };
+
+  authTokenFor = (value: string): string | undefined => this.accessTokenToAuthToken.get(value);
+}

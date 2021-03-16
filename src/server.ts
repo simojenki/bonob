@@ -13,9 +13,7 @@ import {
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
 import bindSmapiSoapServiceToExpress from "./smapi";
-import { AccessTokens, EncryptedAccessTokens } from "./access_tokens";
-import encryption from "./encryption";
-import randomString from "./random_string";
+import { AccessTokens, AccessTokenPerAuthToken } from "./access_tokens";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -25,9 +23,7 @@ function server(
   webAddress: string | "http://localhost:4534",
   musicService: MusicService,
   linkCodes: LinkCodes = new InMemoryLinkCodes(),
-  accessTokens: AccessTokens = new EncryptedAccessTokens(
-    encryption(randomString())
-  )
+  accessTokens: AccessTokens = new AccessTokenPerAuthToken()
 ): Express {
   const app = express();
 
