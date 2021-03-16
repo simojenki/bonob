@@ -2,6 +2,7 @@ import { v4 as uuid } from "uuid";
 import dayjs from "dayjs";
 
 import {
+  AccessTokenPerAuthToken,
   EncryptedAccessTokens,
   ExpiringAccessTokens,
 } from "../src/access_tokens";
@@ -177,4 +178,34 @@ describe("EncryptedAccessTokens", () => {
       expect(accessTokens.authTokenFor("some rubbish")).toBeUndefined();
     });
   });
+});
+
+describe("AccessTokenPerAuthToken", () => {
+  const accessTokens = new AccessTokenPerAuthToken();
+
+  it("should return the same access token for the same auth token", () => {
+    const authToken = "token1";
+    
+    const accessToken1 = accessTokens.mint(authToken);
+    const accessToken2 = accessTokens.mint(authToken);
+
+    expect(accessToken1).not.toEqual(authToken);
+    expect(accessToken1).toEqual(accessToken2);
+  });
+
+  describe("when there is an auth token for the access token", () => {
+    it("should be able to retrieve it", () => {
+      const authToken = uuid();
+      const accessToken = accessTokens.mint(authToken);
+
+      expect(accessTokens.authTokenFor(accessToken)).toEqual(authToken);
+    });
+  });
+
+  describe("when there is no auth token for the access token", () => {
+    it("should return undefined", () => {
+      expect(accessTokens.authTokenFor(uuid())).toBeUndefined();
+    });
+  });
+
 });
