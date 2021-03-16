@@ -13,7 +13,9 @@ import {
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
 import bindSmapiSoapServiceToExpress from "./smapi";
-import { AccessTokens, ExpiringAccessTokens } from "./access_tokens";
+import { AccessTokens, EncryptedAccessTokens } from "./access_tokens";
+import encryption from "./encryption";
+import randomString from "./random_string";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -23,7 +25,9 @@ function server(
   webAddress: string | "http://localhost:4534",
   musicService: MusicService,
   linkCodes: LinkCodes = new InMemoryLinkCodes(),
-  accessTokens: AccessTokens = new ExpiringAccessTokens()
+  accessTokens: AccessTokens = new EncryptedAccessTokens(
+    encryption(randomString())
+  )
 ): Express {
   const app = express();
 
@@ -158,20 +162,14 @@ function server(
     const size = Number.parseInt(req.params["size"]!);
     if (!authToken) {
       return res.status(401).send();
-    } else if(type != "artist" && type != "album") {
+    } else if (type != "artist" && type != "album") {
       return res.status(400).send();
     } else {
       return musicService
         .login(authToken)
-        .then((it) =>
-          it.coverArt(
-            id,
-            type,
-            size
-          )
-        )
+        .then((it) => it.coverArt(id, type, size))
         .then((coverArt) => {
-          if(coverArt) {
+          if (coverArt) {
             res.status(200);
             res.setHeader("content-type", coverArt.contentType);
             res.send(coverArt.data);
