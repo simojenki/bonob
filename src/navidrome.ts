@@ -548,7 +548,7 @@ export class Navidrome implements MusicService {
       },
       scrobble: async (id: string) =>
         navidrome
-          .post(credentials, `/rest/scrobble`, { id })
+          .post(credentials, `/rest/scrobble`, { id, submission: true })
           .then((_) => true)
           .catch(() => false),
     };

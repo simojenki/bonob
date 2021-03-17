@@ -2185,6 +2185,7 @@ describe("Navidrome", () => {
         expect(mockPOST).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: {
             id,
+            submission: true,
             ...authParams,
           },
           headers,
@@ -2216,6 +2217,7 @@ describe("Navidrome", () => {
         expect(mockPOST).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: {
             id,
+            submission: true,
             ...authParams,
           },
           headers,
