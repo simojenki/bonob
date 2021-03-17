@@ -198,6 +198,7 @@ describe("server", () => {
     };
     const musicLibrary = {
       stream: jest.fn(),
+      scrobble: jest.fn()
     };
     let now = dayjs();
     const accessTokens = new ExpiringAccessTokens({ now: () => now });
@@ -239,6 +240,54 @@ describe("server", () => {
       });
     });
 
+    describe("scrobbling", () => {
+      describe("when scrobbling succeeds", () => {
+        it("should scrobble the track", async () => {
+          const stream = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mp3",
+            },
+            data: Buffer.from("some track", "ascii"),
+          };
+  
+          musicService.login.mockResolvedValue(musicLibrary);
+          musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(true);
+  
+          const res = await request(server)
+            .get(`/stream/track/${trackId}`)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+  
+          expect(res.status).toEqual(stream.status);
+          expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+        });
+      });
+
+      describe("when scrobbling succeeds", () => {
+        it("should still return the track", async () => {
+          const stream = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mp3",
+            },
+            data: Buffer.from("some track", "ascii"),
+          };
+  
+          musicService.login.mockResolvedValue(musicLibrary);
+          musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(false);
+  
+          const res = await request(server)
+            .get(`/stream/track/${trackId}`)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+  
+          expect(res.status).toEqual(stream.status);
+          expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+        });
+      });
+    });
+
     describe("when sonos does not ask for a range", () => {
       describe("when the music service does not return a content-range, content-length or accept-ranges", () => {
         it("should return a 200 with the data, without adding the undefined headers", async () => {
@@ -252,6 +301,7 @@ describe("server", () => {
 
           musicService.login.mockResolvedValue(musicLibrary);
           musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(true);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
@@ -280,6 +330,7 @@ describe("server", () => {
 
           musicService.login.mockResolvedValue(musicLibrary);
           musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(true);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
@@ -308,6 +359,7 @@ describe("server", () => {
 
           musicService.login.mockResolvedValue(musicLibrary);
           musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(true);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
@@ -344,6 +396,7 @@ describe("server", () => {
 
           musicService.login.mockResolvedValue(musicLibrary);
           musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(true);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
@@ -382,6 +435,7 @@ describe("server", () => {
 
           musicService.login.mockResolvedValue(musicLibrary);
           musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(true);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
@@ -422,6 +476,7 @@ describe("server", () => {
 
           musicService.login.mockResolvedValue(musicLibrary);
           musicLibrary.stream.mockResolvedValue(stream);
+          musicLibrary.scrobble.mockResolvedValue(true);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)

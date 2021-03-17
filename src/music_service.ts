@@ -146,4 +146,5 @@ export interface MusicLibrary {
     range: string | undefined;
   }): Promise<Stream>;
   coverArt(id: string, type: "album" | "artist", size?: number): Promise<CoverArt | undefined>;
+  scrobble(id: string): Promise<boolean>
 }

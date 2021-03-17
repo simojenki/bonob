@@ -118,12 +118,12 @@ export type artistInfo = {
   smallImageUrl: string | undefined;
   mediumImageUrl: string | undefined;
   largeImageUrl: string | undefined;
-  similarArtist: artistSummary[]
+  similarArtist: artistSummary[];
 };
 
 export type ArtistInfo = {
   image: Images;
-  similarArtist: {id:string, name:string}[]
+  similarArtist: { id: string; name: string }[];
 };
 
 export type GetArtistInfoResponse = SubsonicResponse & {
@@ -244,6 +244,32 @@ export class Navidrome implements MusicService {
         else return response;
       });
 
+  post = async (
+    { username, password }: Credentials,
+    path: string,
+    q: {} = {},
+    config: AxiosRequestConfig | undefined = {}
+  ) =>
+    axios
+      .post(`${this.url}${path}`, {
+        params: {
+          ...q,
+          u: username,
+          ...t_and_s(password),
+          v: "1.16.1",
+          c: "bonob",
+        },
+        headers: {
+          "User-Agent": "bonob",
+        },
+        ...config,
+      })
+      .then((response) => {
+        if (response.status != 200 && response.status != 206)
+          throw `Navidrome failed with a ${response.status}`;
+        else return response;
+      });
+
   getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
@@ -258,7 +284,7 @@ export class Navidrome implements MusicService {
               "subsonic-response.albumList.album",
               "subsonic-response.album.song",
               "subsonic-response.genres.genre",
-              "subsonic-response.artistInfo.similarArtist"
+              "subsonic-response.artistInfo.similarArtist",
             ],
           }).xml2js(response.data) as SubconicEnvelope
       )
@@ -305,7 +331,10 @@ export class Navidrome implements MusicService {
         medium: validate(it.artistInfo.mediumImageUrl),
         large: validate(it.artistInfo.largeImageUrl),
       },
-      similarArtist: (it.artistInfo.similarArtist || []).map(artist => ({id: artist._id, name: artist._name}))
+      similarArtist: (it.artistInfo.similarArtist || []).map((artist) => ({
+        id: artist._id,
+        name: artist._name,
+      })),
     }));
 
   getAlbum = (credentials: Credentials, id: string): Promise<Album> =>
@@ -346,7 +375,7 @@ export class Navidrome implements MusicService {
       name: artist.name,
       image: artistInfo.image,
       albums: artist.albums,
-      similarArtists: artistInfo.similarArtist
+      similarArtists: artistInfo.similarArtist,
     }));
 
   getCoverArt = (credentials: Credentials, id: string, size?: number) =>
@@ -517,6 +546,11 @@ export class Navidrome implements MusicService {
           });
         }
       },
+      scrobble: async (id: string) =>
+        navidrome
+          .post(credentials, `/rest/scrobble`, { id })
+          .then((_) => true)
+          .catch(() => false),
     };
 
     return Promise.resolve(musicLibrary);

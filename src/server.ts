@@ -14,6 +14,7 @@ import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
 import bindSmapiSoapServiceToExpress from "./smapi";
 import { AccessTokens, AccessTokenPerAuthToken } from "./access_tokens";
+import logger from "./logger";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -136,6 +137,14 @@ function server(
     } else {
       return musicService
         .login(authToken)
+        .then((it) =>
+          it.scrobble(id).then((scrobbleSuccess) => {
+            if(!scrobbleSuccess) {
+              logger.warn("Failed to scrobble....")
+            }
+            return it;
+          })
+        )
         .then((it) =>
           it.stream({ trackId: id, range: req.headers["range"] || undefined })
         )
