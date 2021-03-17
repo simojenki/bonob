@@ -139,9 +139,10 @@ function server(
         .login(authToken)
         .then((it) =>
           it.scrobble(id).then((scrobbleSuccess) => {
-            if(!scrobbleSuccess) {
-              logger.warn("Failed to scrobble....")
-            }
+            if(scrobbleSuccess)
+              logger.info(`Scrobbled ${id}`)
+            else
+              logger.warn(`Failed to scrobble ${id}....`)
             return it;
           })
         )
