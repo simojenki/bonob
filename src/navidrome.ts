@@ -244,32 +244,6 @@ export class Navidrome implements MusicService {
         else return response;
       });
 
-  post = async (
-    { username, password }: Credentials,
-    path: string,
-    q: {} = {},
-    config: AxiosRequestConfig | undefined = {}
-  ) =>
-    axios
-      .post(`${this.url}${path}`, {
-        params: {
-          ...q,
-          u: username,
-          ...t_and_s(password),
-          v: "1.16.1",
-          c: "bonob",
-        },
-        headers: {
-          "User-Agent": "bonob",
-        },
-        ...config,
-      })
-      .then((response) => {
-        if (response.status != 200 && response.status != 206)
-          throw `Navidrome failed with a ${response.status}`;
-        else return response;
-      });
-
   getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
@@ -548,7 +522,10 @@ export class Navidrome implements MusicService {
       },
       scrobble: async (id: string) =>
         navidrome
-          .post(credentials, `/rest/scrobble`, { id, submission: true })
+          .get(credentials, `/rest/scrobble`, {
+            id,
+            submission: true,
+          })
           .then((_) => true)
           .catch(() => false),
     };
