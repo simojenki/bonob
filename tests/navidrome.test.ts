@@ -68,7 +68,7 @@ const ok = (data: string) => ({
 });
 
 const artistInfoXml = (
-  artist: Artist,
+  artist: Artist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
           <artistInfo>
               <biography></biography>
@@ -77,7 +77,10 @@ const artistInfoXml = (
               <smallImageUrl>${artist.image.small || ""}</smallImageUrl>
               <mediumImageUrl>${artist.image.medium || ""}</mediumImageUrl>
               <largeImageUrl>${artist.image.large || ""}</largeImageUrl>
-              ${artist.similarArtists.map(it => `<similarArtist id="${it.id}" name="${it.name}" albumCount="3"></similarArtist>`)}
+              ${artist.similarArtists.map(
+                (it) =>
+                  `<similarArtist id="${it.id}" name="${it.name}" albumCount="3"></similarArtist>`
+              )}
           </artistInfo>
         </subsonic-response>`;
 
@@ -173,6 +176,8 @@ const getSongXml = (
                                                                     )}
                                                                     </subsonic-response>`;
 
+const EMPTY = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
+
 const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
 
 describe("Navidrome", () => {
@@ -185,12 +190,14 @@ describe("Navidrome", () => {
 
   const mockedRandomString = (randomString as unknown) as jest.Mock;
   const mockGET = jest.fn();
+  const mockPOST = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetAllMocks();
 
     axios.get = mockGET;
+    axios.post = mockPOST;
 
     mockedRandomString.mockReturnValue(salt);
   });
@@ -310,7 +317,10 @@ describe("Navidrome", () => {
             medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
             large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
-          similarArtists: [{ id: "similar1.id", name: "similar1" }, { id: "similar2.id", name: "similar2" }],
+          similarArtists: [
+            { id: "similar1.id", name: "similar1" },
+            { id: "similar2.id", name: "similar2" },
+          ],
         });
 
         beforeEach(() => {
@@ -340,7 +350,7 @@ describe("Navidrome", () => {
               large: undefined,
             },
             albums: artist.albums,
-            similarArtists: artist.similarArtists
+            similarArtists: artist.similarArtists,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
@@ -403,7 +413,7 @@ describe("Navidrome", () => {
               large: undefined,
             },
             albums: artist.albums,
-            similarArtists: artist.similarArtists
+            similarArtists: artist.similarArtists,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
@@ -422,7 +432,7 @@ describe("Navidrome", () => {
             headers,
           });
         });
-      });      
+      });
 
       describe("and has no similar artists", () => {
         const album1: Album = anAlbum();
@@ -466,7 +476,7 @@ describe("Navidrome", () => {
               large: undefined,
             },
             albums: artist.albums,
-            similarArtists: artist.similarArtists
+            similarArtists: artist.similarArtists,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
@@ -485,7 +495,7 @@ describe("Navidrome", () => {
             headers,
           });
         });
-      });  
+      });
 
       describe("and has dodgy looking artist image uris", () => {
         const album1: Album = anAlbum();
@@ -529,7 +539,7 @@ describe("Navidrome", () => {
               large: undefined,
             },
             albums: artist.albums,
-            similarArtists: []
+            similarArtists: [],
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
@@ -557,7 +567,7 @@ describe("Navidrome", () => {
 
         const artist: Artist = anArtist({
           albums: [album1, album2],
-          similarArtists: []
+          similarArtists: [],
         });
 
         beforeEach(() => {
@@ -583,7 +593,7 @@ describe("Navidrome", () => {
             name: artist.name,
             image: artist.image,
             albums: artist.albums,
-            similarArtists: []
+            similarArtists: [],
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
@@ -609,7 +619,7 @@ describe("Navidrome", () => {
 
         const artist: Artist = anArtist({
           albums: [album],
-          similarArtists: []
+          similarArtists: [],
         });
 
         beforeEach(() => {
@@ -635,7 +645,7 @@ describe("Navidrome", () => {
             name: artist.name,
             image: artist.image,
             albums: artist.albums,
-            similarArtists: []
+            similarArtists: [],
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
@@ -659,7 +669,7 @@ describe("Navidrome", () => {
       describe("and has no albums", () => {
         const artist: Artist = anArtist({
           albums: [],
-          similarArtists: []
+          similarArtists: [],
         });
 
         beforeEach(() => {
@@ -685,7 +695,7 @@ describe("Navidrome", () => {
             name: artist.name,
             image: artist.image,
             albums: [],
-            similarArtists: []
+            similarArtists: [],
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
@@ -1662,7 +1672,7 @@ describe("Navidrome", () => {
               const artist = anArtist({
                 id: artistId,
                 albums: [album1, album2],
-                image: images
+                image: images,
               });
 
               mockGET
@@ -1737,7 +1747,11 @@ describe("Navidrome", () => {
                 data: Buffer.from("the image", "ascii"),
               };
 
-              const artist = anArtist({ id: artistId, albums: [], image: images });
+              const artist = anArtist({
+                id: artistId,
+                albums: [],
+                image: images,
+              });
 
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -1879,7 +1893,7 @@ describe("Navidrome", () => {
               const artist = anArtist({
                 id: artistId,
                 albums: [album1, album2],
-                image: images
+                image: images,
               });
 
               mockGET
@@ -1955,7 +1969,11 @@ describe("Navidrome", () => {
                 data: Buffer.from("the image", "ascii"),
               };
 
-              const artist = anArtist({ id: artistId, albums: [], image: images });
+              const artist = anArtist({
+                id: artistId,
+                albums: [],
+                image: images,
+              });
 
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -2022,7 +2040,7 @@ describe("Navidrome", () => {
               const artist = anArtist({
                 id: artistId,
                 albums: [album1, album2],
-                image: images
+                image: images,
               });
 
               mockGET
@@ -2098,7 +2116,11 @@ describe("Navidrome", () => {
                 data: Buffer.from("the image", "ascii"),
               };
 
-              const artist = anArtist({ id: artistId, albums: [], image: images });
+              const artist = anArtist({
+                id: artistId,
+                albums: [],
+                image: images,
+              });
 
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -2138,6 +2160,65 @@ describe("Navidrome", () => {
               );
             });
           });
+        });
+      });
+    });
+  });
+
+  describe("scrobble", () => {
+    describe("when scrobbling succeeds", () => {
+      it("should return true", async () => {
+        const id = uuid();
+
+        mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
+
+        mockPOST.mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.scrobble(id));
+
+        expect(result).toEqual(true);
+
+        expect(mockPOST).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+          params: {
+            id,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+
+    describe("when scrobbling fails", () => {
+      it("should return false", async () => {
+        const id = uuid();
+
+        mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
+
+        mockPOST.mockImplementationOnce(() =>
+          Promise.resolve({
+            status: 500,
+            data: {},
+          })
+        );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.scrobble(id));
+
+        expect(result).toEqual(false);
+
+        expect(mockPOST).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+          params: {
+            id,
+            ...authParams,
+          },
+          headers,
         });
       });
     });

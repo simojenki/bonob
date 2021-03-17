@@ -42,7 +42,9 @@ export class InMemoryMusicService implements MusicService {
       this.users[username] == password
     ) {
       return Promise.resolve({
-        authToken: Buffer.from(JSON.stringify({ username, password })).toString('base64'),
+        authToken: Buffer.from(JSON.stringify({ username, password })).toString(
+          "base64"
+        ),
         userId: username,
         nickname: username,
       });
@@ -52,7 +54,9 @@ export class InMemoryMusicService implements MusicService {
   }
 
   login(token: string): Promise<MusicLibrary> {
-    const credentials = JSON.parse(Buffer.from(token, "base64").toString("ascii")) as Credentials;
+    const credentials = JSON.parse(
+      Buffer.from(token, "base64").toString("ascii")
+    ) as Credentials;
     if (this.users[credentials.username] != credentials.password)
       return Promise.reject("Invalid auth token");
 
@@ -103,18 +107,24 @@ export class InMemoryMusicService implements MusicService {
             A.sort(ordString)
           )
         ),
-      tracks: (albumId: string) => Promise.resolve(this.tracks.filter(it => it.album.id === albumId)),
-      track: (trackId: string) => pipe(
-        this.tracks.find(it => it.id === trackId),
-        O.fromNullable,
-        O.map(it => Promise.resolve(it)),
-        O.getOrElse(() => Promise.reject(`Failed to find track with id ${trackId}`))
-      ),
-      stream: (_: {
-        trackId: string;
-        range: string | undefined;
-      }) => Promise.reject("unsupported operation"),
-      coverArt: (id: string, _: "album" | "artist", size?: number) => Promise.reject(`Cannot retrieve coverArt for ${id}, size ${size}`)
+      tracks: (albumId: string) =>
+        Promise.resolve(this.tracks.filter((it) => it.album.id === albumId)),
+      track: (trackId: string) =>
+        pipe(
+          this.tracks.find((it) => it.id === trackId),
+          O.fromNullable,
+          O.map((it) => Promise.resolve(it)),
+          O.getOrElse(() =>
+            Promise.reject(`Failed to find track with id ${trackId}`)
+          )
+        ),
+      stream: (_: { trackId: string; range: string | undefined }) =>
+        Promise.reject("unsupported operation"),
+      coverArt: (id: string, _: "album" | "artist", size?: number) =>
+        Promise.reject(`Cannot retrieve coverArt for ${id}, size ${size}`),
+      scrobble: async (_: string) => {
+        return Promise.resolve(true);
+      },
     });
   }
 
