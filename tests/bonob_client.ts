@@ -10,7 +10,7 @@ import { InMemoryMusicService } from "./in_memory_music_service";
 const WEB_ADDRESS = "http://localhost:1234"
 
 const bonob = bonobService("bonob-test", 247, WEB_ADDRESS, 'Anonymous');
-const app = server(sonos("disabled"), bonob, WEB_ADDRESS, new InMemoryMusicService());
+const app = server(sonos(false), bonob, WEB_ADDRESS, new InMemoryMusicService());
 
 getPort().then((port) => {
   logger.debug(`Starting on port ${port}`);
