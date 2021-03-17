@@ -2170,9 +2170,9 @@ describe("Navidrome", () => {
       it("should return true", async () => {
         const id = uuid();
 
-        mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
-
-        mockPOST.mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
         const result = await navidrome
           .generateToken({ username, password })
@@ -2182,7 +2182,7 @@ describe("Navidrome", () => {
 
         expect(result).toEqual(true);
 
-        expect(mockPOST).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: {
             id,
             submission: true,
@@ -2197,14 +2197,14 @@ describe("Navidrome", () => {
       it("should return false", async () => {
         const id = uuid();
 
-        mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
-
-        mockPOST.mockImplementationOnce(() =>
-          Promise.resolve({
-            status: 500,
-            data: {},
-          })
-        );
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve({
+              status: 500,
+              data: {},
+            })
+          );
 
         const result = await navidrome
           .generateToken({ username, password })
@@ -2214,7 +2214,7 @@ describe("Navidrome", () => {
 
         expect(result).toEqual(false);
 
-        expect(mockPOST).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: {
             id,
             submission: true,
