@@ -2,15 +2,17 @@ FROM node:14.15-alpine as build
 
 WORKDIR /bonob
 
-COPY src .
-# COPY tests .
-# COPY jest.config.js .
+COPY src ./src
+COPY web ./web
+COPY tests ./tests
+COPY jest.config.js .
 COPY package.json .
-# COPY register.js .
+COPY register.js .
 COPY tsconfig.json .
 COPY yarn.lock .
 
 RUN yarn install && \
+    yarn test --no-cache && \
     yarn build
 
 
@@ -23,7 +25,7 @@ WORKDIR /bonob
 
 COPY package.json .
 COPY yarn.lock .
-COPY --from=build /bonob/build/* ./
+COPY --from=build /bonob/build/src/* ./
 COPY web web
 COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl /bonob/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
 
