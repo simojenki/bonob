@@ -865,17 +865,24 @@ describe("api", () => {
         });
 
         describe("asking for albums", () => {
+          const pop1 = anAlbum({ genre: POP });
+          const pop2 = anAlbum({ genre: POP });
+          const pop3 = anAlbum({ genre: POP });
+          const pop4 = anAlbum({ genre: POP });
+          const rock1 = anAlbum({ genre: ROCK });
+          const rock2 = anAlbum({ genre: ROCK });
+
           const artist1 = anArtist({
-            albums: [anAlbum(), anAlbum(), anAlbum()],
+            albums: [pop1, rock1, pop2],
           });
           const artist2 = anArtist({
-            albums: [anAlbum(), anAlbum()],
+            albums: [pop3, rock2],
           });
           const artist3 = anArtist({
             albums: [],
           });
           const artist4 = anArtist({
-            albums: [anAlbum()],
+            albums: [pop4],
           });
 
           beforeEach(() => {
@@ -933,6 +940,54 @@ describe("api", () => {
               );
             });
           });
+
+          describe("asking for all albums for a genre", () => {
+            it("should return albums for the genre", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `genre:${POP.id}`,
+                index: 0,
+                count: 100,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: [pop1, pop2, pop3, pop4]
+                    .map((it) => ({
+                      itemType: "album",
+                      id: `album:${it.id}`,
+                      title: it.name,
+                      albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                      canPlay: true,
+                    })),
+                  index: 0,
+                  total: 4,
+                })
+              );
+            });
+          });
+
+          describe("asking for a page of albums for a genre", () => {
+            it("should return albums for the genre", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `genre:${POP.id}`,
+                index: 0,
+                count: 2,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: [pop1, pop2]
+                    .map((it) => ({
+                      itemType: "album",
+                      id: `album:${it.id}`,
+                      title: it.name,
+                      albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                      canPlay: true,
+                    })),
+                  index: 0,
+                  total: 4,
+                })
+              );
+            });
+          })
         });
 
         describe("asking for tracks", () => {
