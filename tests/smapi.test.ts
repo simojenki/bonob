@@ -29,6 +29,9 @@ import {
   anArtist,
   anAlbum,
   aTrack,
+  POP,
+  ROCK,
+  PUNK, TRIP_HOP
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -187,7 +190,11 @@ describe("track", () => {
       name: "great song",
       duration: randomInt(1000),
       number: randomInt(100),
-      album: anAlbum({ name: "great album", id: uuid(), genre: "some genre" }),
+      album: anAlbum({
+        name: "great album",
+        id: uuid(),
+        genre: { id: "genre101", name: "some genre" },
+      }),
       artist: anArtist({ name: "great artist", id: uuid() }),
     });
 
@@ -206,8 +213,8 @@ describe("track", () => {
         artist: someTrack.artist.name,
         artistId: someTrack.artist.id,
         duration: someTrack.duration,
-        genre: someTrack.album.genre,
-        // genreId
+        genre: someTrack.album.genre?.name,
+        genreId: someTrack.album.genre?.id,
         trackNumber: someTrack.number,
       },
     });
@@ -559,17 +566,20 @@ describe("api", () => {
 
         describe("asking for a genres", () => {
           const artist1 = anArtist({
-            albums: [anAlbum({ genre: "Pop" }), anAlbum({ genre: "Rock" })],
+            albums: [
+              anAlbum({ genre: POP }),
+              anAlbum({ genre: ROCK }),
+            ],
           });
           const artist2 = anArtist({
             albums: [
-              anAlbum({ genre: "Trip-Hop" }),
-              anAlbum({ genre: "Punk" }),
-              anAlbum({ genre: "Pop" }),
+              anAlbum({ genre: TRIP_HOP }),
+              anAlbum({ genre: PUNK }),
+              anAlbum({ genre: POP }),
             ],
           });
 
-          const expectedGenres = ["Pop", "Punk", "Rock", "Trip-Hop"];
+          const expectedGenres = [POP, PUNK, ROCK, TRIP_HOP];
 
           beforeEach(() => {
             musicService.hasArtists(artist1, artist2);
@@ -586,8 +596,8 @@ describe("api", () => {
                 getMetadataResult({
                   mediaCollection: expectedGenres.map((genre) => ({
                     itemType: "container",
-                    id: `genre:${genre}`,
-                    title: genre,
+                    id: `genre:${genre.id}`,
+                    title: genre.name,
                   })),
                   index: 0,
                   total: expectedGenres.length,
@@ -605,10 +615,10 @@ describe("api", () => {
               });
               expect(result[0]).toEqual(
                 getMetadataResult({
-                  mediaCollection: ["Punk", "Rock"].map((genre) => ({
+                  mediaCollection: [PUNK, ROCK].map((genre) => ({
                     itemType: "container",
-                    id: `genre:${genre}`,
-                    title: genre,
+                    id: `genre:${genre.id}`,
+                    title: genre.name,
                   })),
                   index: 1,
                   total: expectedGenres.length,

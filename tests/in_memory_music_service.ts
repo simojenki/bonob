@@ -1,8 +1,8 @@
 import { option as O } from "fp-ts";
 import * as A from "fp-ts/Array";
-import { eqString } from "fp-ts/lib/Eq";
+import { fromEquals } from "fp-ts/lib/Eq";
 import { pipe } from "fp-ts/lib/function";
-import { ordString } from "fp-ts/lib/Ord";
+import { ordString, fromCompare } from "fp-ts/lib/Ord";
 
 import {
   MusicService,
@@ -19,13 +19,14 @@ import {
   albumToAlbumSummary,
   Album,
   Track,
+  Genre,
 } from "../src/music_service";
 
 type P<T> = (t: T) => boolean;
 const all: P<any> = (_: any) => true;
 
-const albumWithGenre = (genre: string): P<[Artist, Album]> => ([_, album]) =>
-  album.genre === genre;
+const albumWithGenre = (genreId: string): P<[Artist, Album]> => ([_, album]) =>
+  album.genre?.id === genreId;
 
 export class InMemoryMusicService implements MusicService {
   users: Record<string, string> = {};
@@ -103,8 +104,10 @@ export class InMemoryMusicService implements MusicService {
             A.flatten,
             A.map((it) => O.fromNullable(it.genre)),
             A.compact,
-            A.uniq(eqString),
-            A.sort(ordString)
+            A.uniq(fromEquals((x, y) => x.id === y.id)),
+            A.sort(
+              fromCompare<Genre>((x, y) => ordString.compare(x.id, y.id))
+            )
           )
         ),
       tracks: (albumId: string) =>

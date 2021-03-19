@@ -6,7 +6,7 @@ import {
   albumToAlbumSummary,
 } from "../src/music_service";
 import { v4 as uuid } from "uuid";
-import { anArtist, anAlbum, aTrack } from "./builders";
+import { anArtist, anAlbum, aTrack, POP, ROCK, METAL, HIP_HOP, SKA } from "./builders";
 
 describe("InMemoryMusicService", () => {
   const service = new InMemoryMusicService();
@@ -190,16 +190,16 @@ describe("InMemoryMusicService", () => {
     });
 
     describe("albums", () => {
-      const artist1_album1 = anAlbum({ genre: "Pop" });
-      const artist1_album2 = anAlbum({ genre: "Rock" });
-      const artist1_album3 = anAlbum({ genre: "Metal" });
-      const artist1_album4 = anAlbum({ genre: "Pop" });
-      const artist1_album5 = anAlbum({ genre: "Pop" });
+      const artist1_album1 = anAlbum({ genre: POP });
+      const artist1_album2 = anAlbum({ genre: ROCK });
+      const artist1_album3 = anAlbum({ genre: METAL });
+      const artist1_album4 = anAlbum({ genre: POP });
+      const artist1_album5 = anAlbum({ genre: POP });
 
-      const artist2_album1 = anAlbum({ genre: "Metal" });
+      const artist2_album1 = anAlbum({ genre: METAL });
 
-      const artist3_album1 = anAlbum({ genre: "Hip-Hop" });
-      const artist3_album2 = anAlbum({ genre: "Pop" });
+      const artist3_album1 = anAlbum({ genre: HIP_HOP });
+      const artist3_album2 = anAlbum({ genre: POP });
 
       const totalAlbumCount = 8;
 
@@ -279,7 +279,7 @@ describe("InMemoryMusicService", () => {
             it("should return all the albums of that genre for all the artists", async () => {
               expect(
                 await musicLibrary.albums({
-                  genre: "Pop",
+                  genre: POP.id,
                   _index: 0,
                   _count: 100,
                 })
@@ -300,7 +300,7 @@ describe("InMemoryMusicService", () => {
               it("should return only the albums for that page", async () => {
                 expect(
                   await musicLibrary.albums({
-                    genre: "Pop",
+                    genre: POP.id,
                     _index: 1,
                     _count: 2,
                   })
@@ -318,7 +318,7 @@ describe("InMemoryMusicService", () => {
               it("should return only the albums for the last page", async () => {
                 expect(
                   await musicLibrary.albums({
-                    genre: "Pop",
+                    genre: POP.id,
                     _index: 3,
                     _count: 100,
                   })
@@ -367,16 +367,16 @@ describe("InMemoryMusicService", () => {
     describe("genres", () => {
       const artist1 = anArtist({
         albums: [
-          anAlbum({ genre: "Pop" }),
-          anAlbum({ genre: "Rock" }),
-          anAlbum({ genre: "Pop" }),
+          anAlbum({ genre: POP }),
+          anAlbum({ genre: ROCK }),
+          anAlbum({ genre: POP }),
         ],
       });
       const artist2 = anArtist({
         albums: [
-          anAlbum({ genre: "Hip-Hop" }),
-          anAlbum({ genre: "Rap" }),
-          anAlbum({ genre: "Pop" }),
+          anAlbum({ genre: HIP_HOP }),
+          anAlbum({ genre: SKA }),
+          anAlbum({ genre: POP }),
         ],
       });
 
@@ -387,10 +387,10 @@ describe("InMemoryMusicService", () => {
       describe("fetching all in one page", () => {
         it("should provide an array of artists", async () => {
           expect(await musicLibrary.genres()).toEqual([
-            "Hip-Hop",
-            "Pop",
-            "Rap",
-            "Rock",
+            HIP_HOP,
+            POP,
+            ROCK,
+            SKA,
           ]);
         });
       });

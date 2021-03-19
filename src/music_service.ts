@@ -49,10 +49,15 @@ export type AlbumSummary = {
   id: string;
   name: string;
   year: string | undefined;
-  genre: string | undefined;
+  genre: Genre | undefined;
 };
 
 export type Album = AlbumSummary & {};
+
+export type Genre = {
+  name: string;
+  id: string;
+}
 
 export type Track = {
   id: string;
@@ -60,7 +65,7 @@ export type Track = {
   mimeType: string;
   duration: number;
   number: number | undefined;
-  genre: string | undefined;
+  genre: Genre | undefined;
   album: AlbumSummary;
   artist: ArtistSummary;
 };
@@ -137,7 +142,7 @@ export interface MusicLibrary {
   album(id: string): Promise<Album>;
   tracks(albumId: string): Promise<Track[]>;
   track(trackId: string): Promise<Track>;
-  genres(): Promise<string[]>;
+  genres(): Promise<Genre[]>;
   stream({
     trackId,
     range,

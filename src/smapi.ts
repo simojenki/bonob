@@ -10,6 +10,7 @@ import {
   Album,
   AlbumSummary,
   ArtistSummary,
+  Genre,
   MusicLibrary,
   MusicService,
   slice2,
@@ -184,10 +185,10 @@ const container = ({
   title,
 });
 
-const genre = (genre: string) => ({
+const genre = (genre: Genre) => ({
   itemType: "container",
-  id: `genre:${genre}`,
-  title: genre,
+  id: `genre:${genre.id}`,
+  title: genre.name,
 });
 
 export const defaultAlbumArtURI = (
@@ -235,8 +236,8 @@ export const track = (
     artist: track.artist.name,
     artistId: track.artist.id,
     duration: track.duration,
-    genre: track.album.genre,
-    // genreId
+    genre: track.album.genre?.name,
+    genreId: track.album.genre?.id,
     trackNumber: track.number,
   },
 });
