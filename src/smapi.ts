@@ -530,7 +530,18 @@ function bindSmapiSoapServiceToExpress(
                       total,
                     });
                   });
-              default:
+                  case "genre":
+                    return await musicLibrary.albums({ ...paging, genre: typeId }).then((result) => {
+                      const accessToken = accessTokens.mint(authToken);
+                      return getMetadataResult({
+                        mediaCollection: result.results.map((it) =>
+                          album(webAddress, accessToken, it)
+                        ),
+                        index: paging._index,
+                        total: result.total,
+                      });
+                    });
+                  default:
                 throw `Unsupported id:${id}`;
             }
           },
