@@ -80,15 +80,26 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
       large: `/artist/art/${id}/large`,
     },
     similarArtists: [
-      { id: uuid(), name: "Similar artist1"},
-      { id: uuid(), name: "Similar artist2"},
+      { id: uuid(), name: "Similar artist1" },
+      { id: uuid(), name: "Similar artist2" },
     ],
     ...fields,
   };
 }
 
-export const SAMPLE_GENRES = ["Metal", "Pop", "Rock", "Hip-Hop"]
-export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)]
+export const HIP_HOP = { id: "genre_hip_hop", name: "Hip-Hop" };
+export const METAL = { id: "genre_metal", name: "Metal" };
+export const NEW_WAVE = { id: "genre_new_wave", name: "New Wave" };
+export const POP = { id: "genre_pop", name: "Pop" };
+export const POP_ROCK = { id: "genre_pop_rock", name: "Pop Rock" };
+export const REGGAE = { id: "genre_reggae", name: "Reggae" };
+export const ROCK = { id: "genre_rock", name: "Rock" };
+export const SKA = { id: "genre_ska", name: "Ska" };
+export const PUNK = { id: "genre_punk", name: "Punk" };
+export const TRIP_HOP = { id: "genre_trip_hop", name: "Trip Hop" };
+
+export const SAMPLE_GENRES = [HIP_HOP, METAL, NEW_WAVE, POP, POP_ROCK, REGGAE, ROCK, SKA];
+export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)];
 
 export function aTrack(fields: Partial<Track> = {}): Track {
   const id = uuid();
@@ -101,8 +112,8 @@ export function aTrack(fields: Partial<Track> = {}): Track {
     genre: randomGenre(),
     artist: anArtist(),
     album: anAlbum(),
-    ...fields
-  }
+    ...fields,
+  };
 }
 
 export function anAlbum(fields: Partial<Album> = {}): Album {
@@ -124,13 +135,13 @@ export const BLONDIE: Artist = {
       id: uuid(),
       name: "Blondie",
       year: "1976",
-      genre: "New Wave",
+      genre: NEW_WAVE,
     },
     {
       id: uuid(),
       name: "Parallel Lines",
       year: "1978",
-      genre: "Pop Rock",
+      genre: POP_ROCK,
     },
   ],
   image: {
@@ -138,23 +149,23 @@ export const BLONDIE: Artist = {
     medium: undefined,
     large: undefined,
   },
-  similarArtists: []
+  similarArtists: [],
 };
 
 export const BOB_MARLEY: Artist = {
   id: uuid(),
   name: "Bob Marley",
   albums: [
-    { id: uuid(), name: "Burin'", year: "1973", genre: "Reggae", },
-    { id: uuid(), name: "Exodus", year: "1977", genre: "Reggae", },
-    { id: uuid(), name: "Kaya", year: "1978", genre: "Ska", },
+    { id: uuid(), name: "Burin'", year: "1973", genre: REGGAE },
+    { id: uuid(), name: "Exodus", year: "1977", genre: REGGAE },
+    { id: uuid(), name: "Kaya", year: "1978", genre: SKA },
   ],
   image: {
     small: "http://localhost/BOB_MARLEY/sml",
     medium: "http://localhost/BOB_MARLEY/med",
     large: "http://localhost/BOB_MARLEY/lge",
   },
-  similarArtists: []
+  similarArtists: [],
 };
 
 export const MADONNA: Artist = {
@@ -166,7 +177,7 @@ export const MADONNA: Artist = {
     medium: undefined,
     large: "http://localhost/MADONNA/lge",
   },
-  similarArtists: []
+  similarArtists: [],
 };
 
 export const METALLICA: Artist = {
@@ -177,13 +188,13 @@ export const METALLICA: Artist = {
       id: uuid(),
       name: "Ride the Lightening",
       year: "1984",
-      genre: "Heavy Metal",
+      genre: METAL,
     },
     {
       id: uuid(),
       name: "Master of Puppets",
       year: "1986",
-      genre: "Heavy Metal",
+      genre: METAL,
     },
   ],
   image: {
@@ -191,7 +202,7 @@ export const METALLICA: Artist = {
     medium: "http://localhost/METALLICA/med",
     large: "http://localhost/METALLICA/lge",
   },
-  similarArtists: []
+  similarArtists: [],
 };
 
 export const ALL_ARTISTS = [BOB_MARLEY, BLONDIE, MADONNA, METALLICA];

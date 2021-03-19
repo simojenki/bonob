@@ -17,6 +17,7 @@ import {
   Images,
   AlbumSummary,
   NO_IMAGES,
+  Genre,
 } from "./music_service";
 import X2JS from "x2js";
 import sharp from "sharp";
@@ -193,7 +194,7 @@ const asTrack = (album: Album, song: song) => ({
   mimeType: song._contentType,
   duration: parseInt(song._duration || "0"),
   number: parseInt(song._track || "0"),
-  genre: song._genre,
+  genre: maybeAsGenre(song._genre),
   album,
   artist: {
     id: song._artistId,
@@ -206,8 +207,17 @@ const asAlbum = (album: album) => ({
   id: album._id,
   name: album._name,
   year: album._year,
-  genre: album._genre,
+  genre: maybeAsGenre(album._genre),
 });
+
+export const asGenre = (genreName: string) => ({ id: genreName, name: genreName });
+
+const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
+  pipe(
+    O.fromNullable(genreName),
+    O.map(asGenre),
+    O.getOrElseW(() => undefined)
+  );
 
 export class Navidrome implements MusicService {
   url: string;
@@ -318,7 +328,7 @@ export class Navidrome implements MusicService {
         id: album._id,
         name: album._name,
         year: album._year,
-        genre: album._genre,
+        genre: maybeAsGenre(album._genre),
       }));
 
   getArtist = (
@@ -336,7 +346,7 @@ export class Navidrome implements MusicService {
           id: album._id,
           name: album._name,
           year: album._year,
-          genre: album._genre,
+          genre: maybeAsGenre(album._genre),
         })),
       }));
 
@@ -399,7 +409,7 @@ export class Navidrome implements MusicService {
               id: album._id,
               name: album._name,
               year: album._year,
-              genre: album._genre,
+              genre: maybeAsGenre(album._genre),
             }))
           )
           .then(slice2(q))
@@ -416,7 +426,8 @@ export class Navidrome implements MusicService {
             pipe(
               it.genres.genre,
               A.map((it) => it.__text),
-              A.sort(ordString)
+              A.sort(ordString),
+              A.map((it) => ({ id: it, name: it }))
             )
           ),
       tracks: (albumId: string) =>

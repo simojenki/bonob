@@ -7,6 +7,7 @@ import {
   t,
   BROWSER_HEADERS,
   DODGY_IMAGE_NAME,
+  asGenre
 } from "../src/navidrome";
 import encryption from "../src/encryption";
 
@@ -93,7 +94,7 @@ const albumXml = (
             isDir="true" 
             title="${album.name}" name="${album.name}" album="${album.name}" 
             artist="${artist.name}" 
-            genre="${album.genre}" 
+            genre="${album.genre?.name}" 
             coverArt="foo" 
             duration="123" 
             playCount="4" 
@@ -110,7 +111,7 @@ const songXml = (track: Track) => `<song
             album="${track.album.name}" 
             artist="${track.artist.name}" 
             track="${track.number}"
-            genre="${track.genre}"
+            genre="${track.genre?.name}"
             isDir="false" 
             coverArt="71381" 
             created="2004-11-08T23:36:11" 
@@ -251,7 +252,8 @@ describe("Navidrome", () => {
 
   describe("getting genres", () => {
     describe("when there is only 1", () => {
-      const genres = ["HipHop"];
+      const genres = ["genre1"];
+
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -265,7 +267,7 @@ describe("Navidrome", () => {
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.genres());
 
-        expect(result).toEqual(genres.sort());
+        expect(result).toEqual(genres.map(asGenre));
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
           params: {
@@ -277,7 +279,7 @@ describe("Navidrome", () => {
     });
 
     describe("when there are many", () => {
-      const genres = ["HipHop", "Rap", "TripHop", "Pop", "Rock"];
+      const genres = ["g1", "g2", "g3", "g3"]
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -291,7 +293,7 @@ describe("Navidrome", () => {
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.genres());
 
-        expect(result).toEqual(genres.sort());
+        expect(result).toEqual(genres.map(asGenre));
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
           params: {
@@ -306,9 +308,9 @@ describe("Navidrome", () => {
   describe("getting an artist", () => {
     describe("when the artist exists", () => {
       describe("and has many similar artists", () => {
-        const album1: Album = anAlbum();
+        const album1: Album = anAlbum({ genre: asGenre("Pop") });
 
-        const album2: Album = anAlbum();
+        const album2: Album = anAlbum({ genre: asGenre("Pop") });
 
         const artist: Artist = anArtist({
           albums: [album1, album2],
@@ -372,9 +374,9 @@ describe("Navidrome", () => {
       });
 
       describe("and has one similar artists", () => {
-        const album1: Album = anAlbum();
+        const album1: Album = anAlbum({ genre: asGenre("G1") });
 
-        const album2: Album = anAlbum();
+        const album2: Album = anAlbum({ genre: asGenre("G2") });
 
         const artist: Artist = anArtist({
           albums: [album1, album2],
@@ -435,9 +437,9 @@ describe("Navidrome", () => {
       });
 
       describe("and has no similar artists", () => {
-        const album1: Album = anAlbum();
+        const album1: Album = anAlbum({ genre: asGenre("Jock") });
 
-        const album2: Album = anAlbum();
+        const album2: Album = anAlbum({ genre: asGenre("Mock") });
 
         const artist: Artist = anArtist({
           albums: [album1, album2],
@@ -498,9 +500,9 @@ describe("Navidrome", () => {
       });
 
       describe("and has dodgy looking artist image uris", () => {
-        const album1: Album = anAlbum();
+        const album1: Album = anAlbum({ genre: asGenre("Pop") });
 
-        const album2: Album = anAlbum();
+        const album2: Album = anAlbum({ genre: asGenre("Flop") });
 
         const artist: Artist = anArtist({
           albums: [album1, album2],
@@ -561,9 +563,9 @@ describe("Navidrome", () => {
       });
 
       describe("and has multiple albums", () => {
-        const album1: Album = anAlbum();
+        const album1: Album = anAlbum({ genre: asGenre("Pop") });
 
-        const album2: Album = anAlbum();
+        const album2: Album = anAlbum({ genre: asGenre("Flop") });
 
         const artist: Artist = anArtist({
           albums: [album1, album2],
@@ -615,7 +617,7 @@ describe("Navidrome", () => {
       });
 
       describe("and has only 1 album", () => {
-        const album: Album = anAlbum();
+        const album: Album = anAlbum({ genre: asGenre("Pop") });
 
         const artist: Artist = anArtist({
           albums: [album],
@@ -842,9 +844,9 @@ describe("Navidrome", () => {
 
   describe("getting albums", () => {
     describe("filtering", () => {
-      const album1 = anAlbum({ genre: "Pop" });
-      const album2 = anAlbum({ genre: "Rock" });
-      const album3 = anAlbum({ genre: "Pop" });
+      const album1 = anAlbum({ genre: asGenre("Pop") });
+      const album2 = anAlbum({ genre: asGenre("Rock") });
+      const album3 = anAlbum({ genre: asGenre("Pop") });
 
       const artist = anArtist({ albums: [album1, album2, album3] });
 
@@ -894,7 +896,7 @@ describe("Navidrome", () => {
     describe("when the artist has only 1 album", () => {
       const artist1 = anArtist({
         name: "one hit wonder",
-        albums: [anAlbum()],
+        albums: [anAlbum({ genre: asGenre("Pop") })],
       });
       const artists = [artist1];
       const albums = artists.flatMap((artist) => artist.albums);
@@ -974,13 +976,17 @@ describe("Navidrome", () => {
     });
 
     describe("when there are less than 500 albums", () => {
+      const genre1 = asGenre("genre1");
+      const genre2 = asGenre("genre2");
+      const genre3 = asGenre("genre3");
+
       const artist1 = anArtist({
         name: "abba",
-        albums: [anAlbum(), anAlbum(), anAlbum()],
+        albums: [anAlbum({ genre: genre1 }), anAlbum({ genre: genre2 }), anAlbum({ genre: genre3 })],
       });
       const artist2 = anArtist({
         name: "babba",
-        albums: [anAlbum(), anAlbum(), anAlbum()],
+        albums: [anAlbum({ genre: genre1 }), anAlbum({ genre: genre2 }), anAlbum({ genre: genre3 })],
       });
       const artists = [artist1, artist2];
       const albums = artists.flatMap((artist) => artist.albums);
@@ -1048,7 +1054,7 @@ describe("Navidrome", () => {
 
     describe("when there are more than 500 albums", () => {
       const first500Albums = range(500).map((i) =>
-        anAlbum({ name: `album ${i}` })
+        anAlbum({ name: `album ${i}`, genre: asGenre(`genre ${i}`) })
       );
       const artist = anArtist({
         name: "> 500 albums",
@@ -1101,15 +1107,17 @@ describe("Navidrome", () => {
 
   describe("getting an album", () => {
     describe("when it exists", () => {
-      const album = anAlbum();
+      const genre = asGenre("Pop");
+
+      const album = anAlbum({ genre });
 
       const artist = anArtist({ albums: [album] });
 
       const tracks = [
-        aTrack({ artist, album }),
-        aTrack({ artist, album }),
-        aTrack({ artist, album }),
-        aTrack({ artist, album }),
+        aTrack({ artist, album, genre }),
+        aTrack({ artist, album, genre }),
+        aTrack({ artist, album, genre }),
+        aTrack({ artist, album, genre }),
       ];
 
       beforeEach(() => {
@@ -1143,7 +1151,10 @@ describe("Navidrome", () => {
   describe("getting tracks", () => {
     describe("for an album", () => {
       describe("when the album has multiple tracks", () => {
-        const album = anAlbum({ id: "album1", name: "Burnin" });
+        const hipHop = asGenre("Hip-Hop")
+        const tripHop = asGenre("Trip-Hop")
+
+        const album = anAlbum({ id: "album1", name: "Burnin", genre: hipHop });
         const albumSummary = albumToAlbumSummary(album);
 
         const artist = anArtist({
@@ -1157,10 +1168,10 @@ describe("Navidrome", () => {
         };
 
         const tracks = [
-          aTrack({ artist: artistSummary, album: albumSummary }),
-          aTrack({ artist: artistSummary, album: albumSummary }),
-          aTrack({ artist: artistSummary, album: albumSummary }),
-          aTrack({ artist: artistSummary, album: albumSummary }),
+          aTrack({ artist: artistSummary, album: albumSummary, genre: hipHop }),
+          aTrack({ artist: artistSummary, album: albumSummary, genre: hipHop }),
+          aTrack({ artist: artistSummary, album: albumSummary, genre: tripHop }),
+          aTrack({ artist: artistSummary, album: albumSummary, genre: tripHop }),
         ];
 
         beforeEach(() => {
@@ -1191,7 +1202,9 @@ describe("Navidrome", () => {
       });
 
       describe("when the album has only 1 track", () => {
-        const album = anAlbum({ id: "album1", name: "Burnin" });
+        const flipFlop = asGenre("Flip-Flop")
+
+        const album = anAlbum({ id: "album1", name: "Burnin", genre: flipFlop });
         const albumSummary = albumToAlbumSummary(album);
 
         const artist = anArtist({
@@ -1204,7 +1217,7 @@ describe("Navidrome", () => {
           image: NO_IMAGES,
         };
 
-        const tracks = [aTrack({ artist: artistSummary, album: albumSummary })];
+        const tracks = [aTrack({ artist: artistSummary, album: albumSummary, genre: flipFlop })];
 
         beforeEach(() => {
           mockGET
@@ -1252,14 +1265,14 @@ describe("Navidrome", () => {
             );
         });
 
-        it("should return the album", async () => {
+        it("should empty array", async () => {
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.tracks(album.id));
 
-          expect(result).toEqual(tracks);
+          expect(result).toEqual([]);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
             params: {
@@ -1273,7 +1286,9 @@ describe("Navidrome", () => {
     });
 
     describe("a single track", () => {
-      const album = anAlbum({ id: "album1", name: "Burnin" });
+      const pop = asGenre("Pop")
+
+      const album = anAlbum({ id: "album1", name: "Burnin", genre: pop });
       const albumSummary = albumToAlbumSummary(album);
 
       const artist = anArtist({
@@ -1286,7 +1301,7 @@ describe("Navidrome", () => {
         image: NO_IMAGES,
       };
 
-      const track = aTrack({ artist: artistSummary, album: albumSummary });
+      const track = aTrack({ artist: artistSummary, album: albumSummary, genre: pop });
 
       beforeEach(() => {
         mockGET
