@@ -3,6 +3,7 @@ import * as A from "fp-ts/Array";
 import { fromEquals } from "fp-ts/lib/Eq";
 import { pipe } from "fp-ts/lib/function";
 import { ordString, fromCompare } from "fp-ts/lib/Ord";
+import { shuffle } from "underscore";
 
 import {
   MusicService,
@@ -17,16 +18,9 @@ import {
   asResult,
   artistToArtistSummary,
   albumToAlbumSummary,
-  Album,
   Track,
   Genre,
 } from "../src/music_service";
-
-type P<T> = (t: T) => boolean;
-const all: P<any> = (_: any) => true;
-
-const albumWithGenre = (genreId: string): P<[Artist, Album]> => ([_, album]) =>
-  album.genre?.id === genreId;
 
 export class InMemoryMusicService implements MusicService {
   users: Record<string, string> = {};
@@ -75,17 +69,25 @@ export class InMemoryMusicService implements MusicService {
         ),
       albums: (q: AlbumQuery) =>
         Promise.resolve(
-          this.artists
-            .flatMap((artist) => artist.albums.map((album) => [artist, album]))
-            .filter(
-              pipe(
-                O.fromNullable(q.genre),
-                O.map(albumWithGenre),
-                O.getOrElse(() => all)
-              )
-            )
+          this.artists.flatMap((artist) =>
+            artist.albums.map((album) => ({ artist, album }))
+          )
         )
-          .then((matches) => matches.map(([_, album]) => album as Album))
+          .then((artist2Album) => {
+            switch (q.type) {
+              case "alphabeticalByArtist":
+                return artist2Album;
+              case "byGenre":
+                return artist2Album.filter(
+                  (it) => it.album.genre?.id === q.genre
+                );
+              case "random":
+                return shuffle(artist2Album);
+              default:
+                return [];
+            }
+          })
+          .then((matches) => matches.map((it) => it.album))
           .then((it) => it.map(albumToAlbumSummary))
           .then(slice2(q))
           .then(asResult),

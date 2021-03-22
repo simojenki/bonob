@@ -21,11 +21,11 @@ import {
 } from "./music_service";
 import X2JS from "x2js";
 import sharp from "sharp";
+import { pick } from "underscore";
 
 import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
-import { fold } from "fp-ts/lib/Option";
 
 export const BROWSER_HEADERS = {
   accept:
@@ -391,17 +391,9 @@ export class Navidrome implements MusicService {
       albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
         navidrome
           .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
-            ...fold(
-              () => ({
-                type: "alphabeticalByArtist",
-              }),
-              (genre) => ({
-                type: "byGenre",
-                genre,
-              })
-            )(O.fromNullable(q.genre)),
-            size: MAX_ALBUM_LIST,
-            offset: 0,
+            ...pick(q, 'type', 'genre'),
+            size: Math.min(MAX_ALBUM_LIST, q._count),
+            offset: q._index,
           })
           .then((response) => response.albumList.album || [])
           .then((albumList) =>

@@ -449,9 +449,10 @@ function bindSmapiSoapServiceToExpress(
                     container({ id: "artists", title: "Artists" }),
                     container({ id: "albums", title: "Albums" }),
                     container({ id: "genres", title: "Genres" }),
+                    container({ id: "randomAlbums", title: "Random" }),
                   ],
                   index: 0,
-                  total: 3,
+                  total: 4,
                 });
               case "artists":
                 return await musicLibrary.artists(paging).then((result) => {
@@ -465,16 +466,31 @@ function bindSmapiSoapServiceToExpress(
                   });
                 });
               case "albums":
-                return await musicLibrary.albums(paging).then((result) => {
-                  const accessToken = accessTokens.mint(authToken);
-                  return getMetadataResult({
-                    mediaCollection: result.results.map((it) =>
-                      album(webAddress, accessToken, it)
-                    ),
-                    index: paging._index,
-                    total: result.total,
+                return await musicLibrary
+                  .albums({ type: "alphabeticalByArtist", ...paging })
+                  .then((result) => {
+                    const accessToken = accessTokens.mint(authToken);
+                    return getMetadataResult({
+                      mediaCollection: result.results.map((it) =>
+                        album(webAddress, accessToken, it)
+                      ),
+                      index: paging._index,
+                      total: result.total,
+                    });
                   });
-                });
+              case "randomAlbums":
+                return await musicLibrary
+                  .albums({ type: "random", ...paging })
+                  .then((result) => {
+                    const accessToken = accessTokens.mint(authToken);
+                    return getMetadataResult({
+                      mediaCollection: result.results.map((it) =>
+                        album(webAddress, accessToken, it)
+                      ),
+                      index: paging._index,
+                      total: result.total,
+                    });
+                  });
               case "genres":
                 return await musicLibrary
                   .genres()
@@ -530,18 +546,20 @@ function bindSmapiSoapServiceToExpress(
                       total,
                     });
                   });
-                  case "genre":
-                    return await musicLibrary.albums({ ...paging, genre: typeId }).then((result) => {
-                      const accessToken = accessTokens.mint(authToken);
-                      return getMetadataResult({
-                        mediaCollection: result.results.map((it) =>
-                          album(webAddress, accessToken, it)
-                        ),
-                        index: paging._index,
-                        total: result.total,
-                      });
+              case "genre":
+                return await musicLibrary
+                  .albums({ type: "byGenre", genre: typeId, ...paging })
+                  .then((result) => {
+                    const accessToken = accessTokens.mint(authToken);
+                    return getMetadataResult({
+                      mediaCollection: result.results.map((it) =>
+                        album(webAddress, accessToken, it)
+                      ),
+                      index: paging._index,
+                      total: result.total,
                     });
-                  default:
+                  });
+              default:
                 throw `Unsupported id:${id}`;
             }
           },

@@ -30,6 +30,7 @@ import {
   AlbumSummary,
   artistToArtistSummary,
   NO_IMAGES,
+  AlbumQuery,
 } from "../src/music_service";
 import { anAlbum, anArtist, aTrack } from "./builders";
 
@@ -867,7 +868,7 @@ describe("Navidrome", () => {
         });
 
         it("should pass the filter to navidrome", async () => {
-          const q = { _index: 0, _count: 500, genre: "Pop" };
+          const q: AlbumQuery = { _index: 0, _count: 500, genre: "Pop", type: 'byGenre' };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
@@ -910,12 +911,12 @@ describe("Navidrome", () => {
       });
 
       it("should return the album", async () => {
-        const paging = { _index: 0, _count: 500 };
+        const q: AlbumQuery = { _index: 0, _count: 500, type: 'alphabeticalByArtist' };
         const result = await navidrome
           .generateToken({ username, password })
           .then((it) => it as AuthSuccess)
           .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.albums(paging));
+          .then((it) => it.albums(q));
 
         expect(result).toEqual({
           results: albums,
@@ -951,12 +952,12 @@ describe("Navidrome", () => {
       });
 
       it("should return the album", async () => {
-        const paging = { _index: 0, _count: 500 };
+        const q: AlbumQuery = { _index: 0, _count: 500, type: 'alphabeticalByArtist' };
         const result = await navidrome
           .generateToken({ username, password })
           .then((it) => it as AuthSuccess)
           .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.albums(paging));
+          .then((it) => it.albums(q));
 
         expect(result).toEqual({
           results: albums,
@@ -1001,12 +1002,12 @@ describe("Navidrome", () => {
 
       describe("querying for all of them", () => {
         it("should return all of them with corrent paging information", async () => {
-          const paging = { _index: 0, _count: 500 };
+          const q : AlbumQuery= { _index: 0, _count: 500, type: 'alphabeticalByArtist' };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.albums(paging));
+            .then((it) => it.albums(q));
 
           expect(result).toEqual({
             results: albums,
@@ -1027,12 +1028,12 @@ describe("Navidrome", () => {
 
       describe("querying for a page of them", () => {
         it("should return the page with the corrent paging information", async () => {
-          const paging = { _index: 2, _count: 2 };
+          const q : AlbumQuery = { _index: 2, _count: 2, type: 'alphabeticalByArtist' };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.albums(paging));
+            .then((it) => it.albums(q));
 
           expect(result).toEqual({
             results: [albums[2], albums[3]],
@@ -1042,8 +1043,8 @@ describe("Navidrome", () => {
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
             params: {
               type: "alphabeticalByArtist",
-              size: 500,
-              offset: 0,
+              size: 2,
+              offset: 2,
               ...authParams,
             },
             headers,
@@ -1079,12 +1080,12 @@ describe("Navidrome", () => {
 
       describe("querying for all of them", () => {
         it("will return only the first 500 with the correct paging information", async () => {
-          const paging = { _index: 0, _count: 1000 };
+          const q: AlbumQuery = { _index: 0, _count: 1000, type: 'alphabeticalByArtist' };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.albums(paging));
+            .then((it) => it.albums(q));
 
           expect(result).toEqual({
             results: first500Albums.map(albumToAlbumSummary),

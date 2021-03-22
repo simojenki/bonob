@@ -6,7 +6,16 @@ import {
   albumToAlbumSummary,
 } from "../src/music_service";
 import { v4 as uuid } from "uuid";
-import { anArtist, anAlbum, aTrack, POP, ROCK, METAL, HIP_HOP, SKA } from "./builders";
+import {
+  anArtist,
+  anAlbum,
+  aTrack,
+  POP,
+  ROCK,
+  METAL,
+  HIP_HOP,
+  SKA,
+} from "./builders";
 
 describe("InMemoryMusicService", () => {
   const service = new InMemoryMusicService();
@@ -147,7 +156,6 @@ describe("InMemoryMusicService", () => {
       });
     });
 
-
     describe("tracks", () => {
       const artist1Album1 = anAlbum();
       const artist1Album2 = anAlbum();
@@ -201,8 +209,6 @@ describe("InMemoryMusicService", () => {
       const artist3_album1 = anAlbum({ genre: HIP_HOP });
       const artist3_album2 = anAlbum({ genre: POP });
 
-      const totalAlbumCount = 8;
-
       const artist1 = anArtist({
         albums: [
           artist1_album1,
@@ -216,8 +222,44 @@ describe("InMemoryMusicService", () => {
       const artist3 = anArtist({ albums: [artist3_album1, artist3_album2] });
       const artistWithNoAlbums = anArtist({ albums: [] });
 
+      const allAlbums = [artist1, artist2, artist3, artistWithNoAlbums].flatMap(
+        (it) => it.albums
+      );
+      const totalAlbumCount = allAlbums.length;
+
       beforeEach(() => {
         service.hasArtists(artist1, artist2, artist3, artistWithNoAlbums);
+      });
+
+      describe("fetching random albums", () => {
+        describe("with no paging", () => {
+          it("should return all albums for all the artists in a random order", async () => {
+            const albums = await musicLibrary.albums({
+              _index: 0,
+              _count: 100,
+              type: "random",
+            });
+
+            expect(albums.total).toEqual(totalAlbumCount);
+            expect(albums.results.map((it) => it.id).sort()).toEqual(
+              allAlbums.map((it) => it.id).sort()
+            );
+          });
+        });
+
+        describe("with no paging", () => {
+          it("should return only a page of results", async () => {
+            const albums = await musicLibrary.albums({
+              _index: 2,
+              _count: 3,
+              type: "random",
+            });
+
+            expect(albums.total).toEqual(totalAlbumCount);
+            expect(albums.results.length).toEqual(3)
+            // cannot really assert the results and they will change every time
+          });
+        });
       });
 
       describe("fetching multiple albums", () => {
@@ -225,7 +267,11 @@ describe("InMemoryMusicService", () => {
           describe("fetching all on one page", () => {
             it("should return all the albums for all the artists", async () => {
               expect(
-                await musicLibrary.albums({ _index: 0, _count: 100 })
+                await musicLibrary.albums({
+                  _index: 0,
+                  _count: 100,
+                  type: "alphabeticalByArtist",
+                })
               ).toEqual({
                 results: [
                   albumToAlbumSummary(artist1_album1),
@@ -233,9 +279,9 @@ describe("InMemoryMusicService", () => {
                   albumToAlbumSummary(artist1_album3),
                   albumToAlbumSummary(artist1_album4),
                   albumToAlbumSummary(artist1_album5),
-  
+
                   albumToAlbumSummary(artist2_album1),
-  
+
                   albumToAlbumSummary(artist3_album1),
                   albumToAlbumSummary(artist3_album2),
                 ],
@@ -243,26 +289,34 @@ describe("InMemoryMusicService", () => {
               });
             });
           });
-  
+
           describe("fetching a page", () => {
             it("should return only that page", async () => {
-              expect(await musicLibrary.albums({ _index: 4, _count: 3 })).toEqual(
-                {
-                  results: [
-                    albumToAlbumSummary(artist1_album5),
-                    albumToAlbumSummary(artist2_album1),
-                    albumToAlbumSummary(artist3_album1),
-                  ],
-                  total: totalAlbumCount,
-                }
-              );
+              expect(
+                await musicLibrary.albums({
+                  _index: 4,
+                  _count: 3,
+                  type: "alphabeticalByArtist",
+                })
+              ).toEqual({
+                results: [
+                  albumToAlbumSummary(artist1_album5),
+                  albumToAlbumSummary(artist2_album1),
+                  albumToAlbumSummary(artist3_album1),
+                ],
+                total: totalAlbumCount,
+              });
             });
           });
-  
+
           describe("fetching the last page", () => {
             it("should return only that page", async () => {
               expect(
-                await musicLibrary.albums({ _index: 6, _count: 100 })
+                await musicLibrary.albums({
+                  _index: 6,
+                  _count: 100,
+                  type: "alphabeticalByArtist",
+                })
               ).toEqual({
                 results: [
                   albumToAlbumSummary(artist3_album1),
@@ -273,12 +327,13 @@ describe("InMemoryMusicService", () => {
             });
           });
         });
-  
+
         describe("filtering by genre", () => {
           describe("fetching all on one page", () => {
             it("should return all the albums of that genre for all the artists", async () => {
               expect(
                 await musicLibrary.albums({
+                  type: "byGenre",
                   genre: POP.id,
                   _index: 0,
                   _count: 100,
@@ -294,12 +349,13 @@ describe("InMemoryMusicService", () => {
               });
             });
           });
-  
+
           describe("when the genre has more albums than a single page", () => {
             describe("can fetch a single page", () => {
               it("should return only the albums for that page", async () => {
                 expect(
                   await musicLibrary.albums({
+                    type: "byGenre",
                     genre: POP.id,
                     _index: 1,
                     _count: 2,
@@ -313,11 +369,12 @@ describe("InMemoryMusicService", () => {
                 });
               });
             });
-  
+
             describe("can fetch the last page", () => {
               it("should return only the albums for the last page", async () => {
                 expect(
                   await musicLibrary.albums({
+                    type: "byGenre",
                     genre: POP.id,
                     _index: 3,
                     _count: 100,
@@ -329,10 +386,11 @@ describe("InMemoryMusicService", () => {
               });
             });
           });
-  
+
           it("should return empty list if there are no albums for the genre", async () => {
             expect(
               await musicLibrary.albums({
+                type: "byGenre",
                 genre: "genre with no albums",
                 _index: 0,
                 _count: 100,
@@ -353,7 +411,7 @@ describe("InMemoryMusicService", () => {
             );
           });
         });
-  
+
         describe("when it doesnt exist", () => {
           it("should blow up", async () => {
             return expect(musicLibrary.album("-1")).rejects.toEqual(

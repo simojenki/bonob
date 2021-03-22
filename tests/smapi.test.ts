@@ -556,9 +556,10 @@ describe("api", () => {
                   { itemType: "container", id: "artists", title: "Artists" },
                   { itemType: "container", id: "albums", title: "Albums" },
                   { itemType: "container", id: "genres", title: "Genres" },
+                  { itemType: "container", id: "randomAlbums", title: "Random" },
                 ],
                 index: 0,
-                total: 3,
+                total: 4,
               })
             );
           });
@@ -887,6 +888,19 @@ describe("api", () => {
 
           beforeEach(() => {
             musicService.hasArtists(artist1, artist2, artist3, artist4);
+          });
+
+          describe("asking for random albums", () => {
+            it("should return some", async () => {
+              const result = await ws.getMetadataAsync({
+                id: "randomAlbums",
+                index: 0,
+                count: 100,
+              });
+              expect(result[0].getMetadataResult.index).toEqual(0);
+              expect(result[0].getMetadataResult.count).toEqual(6);
+              expect(result[0].getMetadataResult.total).toEqual(6);
+            });
           });
 
           describe("asking for all albums", () => {

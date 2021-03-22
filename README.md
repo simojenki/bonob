@@ -6,6 +6,14 @@ In theory as Navidrome implements the subsonic API, it *may* work with other sub
 
 ![Build](https://github.com/simojenki/bonob/workflows/Build/badge.svg)
 
+## Features
+- Integrates with Navidrome
+- Browse by Artist, Albums, Genres, Random
+- Artist Art
+- Album Art
+- View Related Artists via Artist -> '...' -> Menu -> Related Arists
+- Track scrobbling
+
 ## Running
 
 bonob is ditributed via docker and can be run in a number of ways
