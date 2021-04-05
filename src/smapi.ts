@@ -8,6 +8,7 @@ import logger from "./logger";
 import { LinkCodes } from "./link_codes";
 import {
   Album,
+  AlbumQuery,
   AlbumSummary,
   ArtistSummary,
   Genre,
@@ -442,6 +443,19 @@ function bindSmapiSoapServiceToExpress(
             const [type, typeId] = id.split(":");
             const paging = { _index: index, _count: count };
             logger.debug(`Fetching metadata type=${type}, typeId=${typeId}`);
+
+            const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
+              musicLibrary.albums(q).then((result) => {
+                const accessToken = accessTokens.mint(authToken);
+                return getMetadataResult({
+                  mediaCollection: result.results.map((it) =>
+                    album(webAddress, accessToken, it)
+                  ),
+                  index: paging._index,
+                  total: result.total,
+                });
+              });
+
             switch (type) {
               case "root":
                 return getMetadataResult({
@@ -450,9 +464,14 @@ function bindSmapiSoapServiceToExpress(
                     container({ id: "albums", title: "Albums" }),
                     container({ id: "genres", title: "Genres" }),
                     container({ id: "randomAlbums", title: "Random" }),
+                    container({ id: "recentlyAdded", title: "Recently Added" }),
+                    container({
+                      id: "recentlyPlayed",
+                      title: "Recently Played",
+                    }),
                   ],
                   index: 0,
-                  total: 4,
+                  total: 6,
                 });
               case "artists":
                 return await musicLibrary.artists(paging).then((result) => {
@@ -465,32 +484,33 @@ function bindSmapiSoapServiceToExpress(
                     total: result.total,
                   });
                 });
-              case "albums":
-                return await musicLibrary
-                  .albums({ type: "alphabeticalByArtist", ...paging })
-                  .then((result) => {
-                    const accessToken = accessTokens.mint(authToken);
-                    return getMetadataResult({
-                      mediaCollection: result.results.map((it) =>
-                        album(webAddress, accessToken, it)
-                      ),
-                      index: paging._index,
-                      total: result.total,
-                    });
-                  });
+              case "albums": {
+                return await albums({
+                  type: "alphabeticalByArtist",
+                  ...paging,
+                });
+              }
               case "randomAlbums":
-                return await musicLibrary
-                  .albums({ type: "random", ...paging })
-                  .then((result) => {
-                    const accessToken = accessTokens.mint(authToken);
-                    return getMetadataResult({
-                      mediaCollection: result.results.map((it) =>
-                        album(webAddress, accessToken, it)
-                      ),
-                      index: paging._index,
-                      total: result.total,
-                    });
-                  });
+                return await albums({
+                  type: "random",
+                  ...paging,
+                });
+              case "genre":
+                return await albums({
+                  type: "byGenre",
+                  genre: typeId,
+                  ...paging,
+                });
+              case "recentlyAdded":
+                return await albums({
+                  type: "newest",
+                  ...paging,
+                });
+              case "recentlyPlayed":
+                return await albums({
+                  type: "frequent",
+                  ...paging,
+                });
               case "genres":
                 return await musicLibrary
                   .genres()
@@ -544,19 +564,6 @@ function bindSmapiSoapServiceToExpress(
                       ),
                       index: paging._index,
                       total,
-                    });
-                  });
-              case "genre":
-                return await musicLibrary
-                  .albums({ type: "byGenre", genre: typeId, ...paging })
-                  .then((result) => {
-                    const accessToken = accessTokens.mint(authToken);
-                    return getMetadataResult({
-                      mediaCollection: result.results.map((it) =>
-                        album(webAddress, accessToken, it)
-                      ),
-                      index: paging._index,
-                      total: result.total,
                     });
                   });
               default:

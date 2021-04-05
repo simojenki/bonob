@@ -557,9 +557,11 @@ describe("api", () => {
                   { itemType: "container", id: "albums", title: "Albums" },
                   { itemType: "container", id: "genres", title: "Genres" },
                   { itemType: "container", id: "randomAlbums", title: "Random" },
+                  { itemType: "container", id: "recentlyAdded", title: "Recently Added" },
+                  { itemType: "container", id: "recentlyPlayed", title: "Recently Played" },
                 ],
                 index: 0,
-                total: 4,
+                total: 6,
               })
             );
           });
