@@ -7,7 +7,7 @@ import { DOMParserImpl } from "xmldom-ts";
 import * as xpath from "xpath-ts";
 import { randomInt } from "crypto";
 
-import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
+import { LinkCodes } from "../src/link_codes";
 import makeServer, { BONOB_ACCESS_TOKEN_HEADER } from "../src/server";
 import { bonobService, SONOS_DISABLED } from "../src/sonos";
 import {
@@ -25,17 +25,18 @@ import {
 import {
   aService,
   getAppLinkMessage,
-  someCredentials,
   anArtist,
   anAlbum,
   aTrack,
+  someCredentials,
   POP,
   ROCK,
-  PUNK, TRIP_HOP
+  TRIP_HOP,
+  PUNK,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
-import { AuthSuccess } from "../src/music_service";
+import { artistToArtistSummary, MusicService } from "../src/music_service";
 import { AccessTokens } from "../src/access_tokens";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
@@ -261,45 +262,62 @@ describe("defaultArtistArtURI", () => {
   });
 });
 
-class Base64AccessTokens implements AccessTokens {
-  mint(authToken: string) {
-    return Buffer.from(authToken).toString("base64");
-  }
-  authTokenFor(value: string) {
-    return Buffer.from(value, "base64").toString("ascii");
-  }
-}
-
 describe("api", () => {
   const rootUrl = "http://localhost:1234";
   const service = bonobService("test-api", 133, rootUrl, "AppLink");
-  const musicService = new InMemoryMusicService();
-  const linkCodes = new InMemoryLinkCodes();
-  const accessTokens = new Base64AccessTokens();
+  const musicService = {
+    generateToken: jest.fn(),
+    login: jest.fn(),
+  };
+  const linkCodes = {
+    mint: jest.fn(),
+    has: jest.fn(),
+    associate: jest.fn(),
+    associationFor: jest.fn(),
+  };
+  const musicLibrary = {
+    artists: jest.fn(),
+    artist: jest.fn(),
+    genres: jest.fn(),
+    albums: jest.fn(),
+    tracks: jest.fn(),
+    track: jest.fn(),
+  };
+  const accessTokens = {
+    mint: jest.fn(),
+    authTokenFor: jest.fn(),
+  };
+
+  const server = makeServer(
+    SONOS_DISABLED,
+    service,
+    rootUrl,
+    (musicService as unknown) as MusicService,
+    (linkCodes as unknown) as LinkCodes,
+    (accessTokens as unknown) as AccessTokens
+  );
 
   beforeEach(() => {
-    musicService.clear();
-    linkCodes.clear();
+    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe("pages", () => {
-    const server = makeServer(
-      SONOS_DISABLED,
-      service,
-      rootUrl,
-      musicService,
-      linkCodes,
-      accessTokens
-    );
-
     describe(LOGIN_ROUTE, () => {
       describe("when the credentials are valid", () => {
         it("should return 200 ok and have associated linkCode with user", async () => {
           const username = "jane";
           const password = "password100";
-          const linkCode = linkCodes.mint();
+          const linkCode = `linkCode-${uuid()}`;
+          const authToken = {
+            authToken: `authtoken-${uuid()}`,
+            userId: `${username}-uid`,
+            nickname: `${username}-nickname`,
+          };
 
-          musicService.hasUser({ username, password });
+          linkCodes.has.mockReturnValue(true);
+          musicService.generateToken.mockResolvedValue(authToken);
+          linkCodes.associate.mockReturnValue(true);
 
           const res = await request(server)
             .post(LOGIN_ROUTE)
@@ -309,8 +327,12 @@ describe("api", () => {
 
           expect(res.text).toContain("Login successful");
 
-          const association = linkCodes.associationFor(linkCode);
-          expect(association.nickname).toEqual(username);
+          expect(musicService.generateToken).toHaveBeenCalledWith({
+            username,
+            password,
+          });
+          expect(linkCodes.has).toHaveBeenCalledWith(linkCode);
+          expect(linkCodes.associate).toHaveBeenCalledWith(linkCode, authToken);
         });
       });
 
@@ -318,9 +340,11 @@ describe("api", () => {
         it("should return 403 with message", async () => {
           const username = "userDoesntExist";
           const password = "password";
-          const linkCode = linkCodes.mint();
+          const linkCode = uuid();
+          const message = `Invalid user:${username}`;
 
-          musicService.hasNoUsers();
+          linkCodes.has.mockReturnValue(true);
+          musicService.generateToken.mockResolvedValue({ message });
 
           const res = await request(server)
             .post(LOGIN_ROUTE)
@@ -328,7 +352,7 @@ describe("api", () => {
             .send({ username, password, linkCode })
             .expect(403);
 
-          expect(res.text).toContain(`Login failed! Invalid user:${username}`);
+          expect(res.text).toContain(`Login failed! ${message}`);
         });
       });
 
@@ -338,7 +362,7 @@ describe("api", () => {
           const password = "password100";
           const linkCode = "someLinkCodeThatDoesntExist";
 
-          musicService.hasUser({ username, password });
+          linkCodes.has.mockReturnValue(false);
 
           const res = await request(server)
             .post(LOGIN_ROUTE)
@@ -354,18 +378,6 @@ describe("api", () => {
 
   describe("soap api", () => {
     describe("getAppLink", () => {
-      const mockLinkCodes = {
-        mint: jest.fn(),
-      };
-      const server = makeServer(
-        SONOS_DISABLED,
-        service,
-        rootUrl,
-        musicService,
-        (mockLinkCodes as unknown) as LinkCodes,
-        accessTokens
-      );
-
       it("should do something", async () => {
         const ws = await createClientAsync(`${service.uri}?wsdl`, {
           endpoint: service.uri,
@@ -374,7 +386,7 @@ describe("api", () => {
 
         const linkCode = "theLinkCode8899";
 
-        mockLinkCodes.mint.mockReturnValue(linkCode);
+        linkCodes.mint.mockReturnValue(linkCode);
 
         const result = await ws.getAppLinkAsync(getAppLinkMessage());
 
@@ -394,25 +406,15 @@ describe("api", () => {
     });
 
     describe("getDeviceAuthToken", () => {
-      const linkCodes = new InMemoryLinkCodes();
-      const server = makeServer(
-        SONOS_DISABLED,
-        service,
-        rootUrl,
-        musicService,
-        linkCodes,
-        accessTokens
-      );
-
       describe("when there is a linkCode association", () => {
         it("should return a device auth token", async () => {
-          const linkCode = linkCodes.mint();
+          const linkCode = uuid();
           const association = {
-            authToken: "at",
+            authToken: "authToken",
             userId: "uid",
-            nickname: "nn",
+            nickname: "nick",
           };
-          linkCodes.associate(linkCode, association);
+          linkCodes.associationFor.mockReturnValue(association);
 
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
@@ -434,12 +436,14 @@ describe("api", () => {
               },
             },
           });
+          expect(linkCodes.associationFor).toHaveBeenCalledWith(linkCode);
         });
       });
 
       describe("when there is no linkCode association", () => {
         it("should return a device auth token", async () => {
           const linkCode = "invalidLinkCode";
+          linkCodes.associationFor.mockReturnValue(undefined);
 
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
@@ -463,15 +467,6 @@ describe("api", () => {
     });
 
     describe("getMetadata", () => {
-      const server = makeServer(
-        SONOS_DISABLED,
-        service,
-        rootUrl,
-        musicService,
-        linkCodes,
-        accessTokens
-      );
-
       describe("when no credentials header provided", () => {
         it("should return a fault of LoginUnsupported", async () => {
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -493,21 +488,14 @@ describe("api", () => {
 
       describe("when invalid credentials are provided", () => {
         it("should return a fault of LoginUnauthorized", async () => {
-          const username = "userThatGetsDeleted";
-          const password = "password1";
-          musicService.hasUser({ username, password });
-          const token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
-          musicService.hasNoUsers();
+          musicService.login.mockRejectedValue("fail!");
 
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
 
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          ws.addSoapHeader({ credentials: someCredentials("someAuthToken") });
           await ws
             .getMetadataAsync({ id: "root", index: 0, count: 0 })
             .then(() => fail("shouldnt get here"))
@@ -521,26 +509,19 @@ describe("api", () => {
       });
 
       describe("when valid credentials are provided", () => {
-        const username = "validUser";
-        const password = "validPassword";
-        let token: AuthSuccess;
+        const authToken = `authToken-${uuid()}`;
+        const accessToken = `accessToken-${uuid()}`;
         let ws: Client;
-        let accessToken: string;
 
         beforeEach(async () => {
-          musicService.hasUser({ username, password });
-          token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
-
-          accessToken = accessTokens.mint(token.authToken);
+          musicService.login.mockResolvedValue(musicLibrary);
+          accessTokens.mint.mockReturnValue(accessToken);
 
           ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          ws.addSoapHeader({ credentials: someCredentials(authToken) });
         });
 
         describe("asking for the root container", () => {
@@ -556,9 +537,21 @@ describe("api", () => {
                   { itemType: "container", id: "artists", title: "Artists" },
                   { itemType: "container", id: "albums", title: "Albums" },
                   { itemType: "container", id: "genres", title: "Genres" },
-                  { itemType: "container", id: "randomAlbums", title: "Random" },
-                  { itemType: "container", id: "recentlyAdded", title: "Recently Added" },
-                  { itemType: "container", id: "recentlyPlayed", title: "Recently Played" },
+                  {
+                    itemType: "container",
+                    id: "randomAlbums",
+                    title: "Random",
+                  },
+                  {
+                    itemType: "container",
+                    id: "recentlyAdded",
+                    title: "Recently Added",
+                  },
+                  {
+                    itemType: "container",
+                    id: "recentlyPlayed",
+                    title: "Recently Played",
+                  },
                 ],
                 index: 0,
                 total: 6,
@@ -568,24 +561,10 @@ describe("api", () => {
         });
 
         describe("asking for a genres", () => {
-          const artist1 = anArtist({
-            albums: [
-              anAlbum({ genre: POP }),
-              anAlbum({ genre: ROCK }),
-            ],
-          });
-          const artist2 = anArtist({
-            albums: [
-              anAlbum({ genre: TRIP_HOP }),
-              anAlbum({ genre: PUNK }),
-              anAlbum({ genre: POP }),
-            ],
-          });
-
           const expectedGenres = [POP, PUNK, ROCK, TRIP_HOP];
 
           beforeEach(() => {
-            musicService.hasArtists(artist1, artist2);
+            musicLibrary.genres.mockResolvedValue(expectedGenres);
           });
 
           describe("asking for all genres", () => {
@@ -637,7 +616,7 @@ describe("api", () => {
           });
 
           beforeEach(() => {
-            musicService.hasArtists(artistWithManyAlbums);
+            musicLibrary.artist.mockResolvedValue(artistWithManyAlbums);
           });
 
           describe("asking for all albums", () => {
@@ -647,6 +626,7 @@ describe("api", () => {
                 index: 0,
                 count: 100,
               });
+
               expect(result[0]).toEqual(
                 getMetadataResult({
                   mediaCollection: artistWithManyAlbums.albums.map((it) => ({
@@ -660,6 +640,10 @@ describe("api", () => {
                   total: artistWithManyAlbums.albums.length,
                 })
               );
+              expect(musicLibrary.artist).toHaveBeenCalledWith(
+                artistWithManyAlbums.id
+              );
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
             });
           });
 
@@ -670,6 +654,7 @@ describe("api", () => {
                 index: 2,
                 count: 2,
               });
+
               expect(result[0]).toEqual(
                 getMetadataResult({
                   mediaCollection: [
@@ -686,33 +671,42 @@ describe("api", () => {
                   total: artistWithManyAlbums.albums.length,
                 })
               );
+              expect(musicLibrary.artist).toHaveBeenCalledWith(
+                artistWithManyAlbums.id
+              );
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
             });
           });
         });
 
         describe("asking for artists", () => {
-          const artists = [
+          const artistSummaries = [
             anArtist(),
             anArtist(),
             anArtist(),
             anArtist(),
             anArtist(),
-          ];
-
-          beforeEach(() => {
-            musicService.hasArtists(...artists);
-          });
+          ].map(artistToArtistSummary);
 
           describe("asking for all artists", () => {
             it("should return them all", async () => {
+              const index = 0;
+              const count = 100;
+
+              musicLibrary.artists.mockResolvedValue({
+                results: artistSummaries,
+                total: artistSummaries.length,
+              });
+
               const result = await ws.getMetadataAsync({
                 id: "artists",
-                index: 0,
-                count: 100,
+                index,
+                count,
               });
+
               expect(result[0]).toEqual(
                 getMetadataResult({
-                  mediaCollection: artists.map((it) => ({
+                  mediaCollection: artistSummaries.map((it) => ({
                     itemType: "artist",
                     id: `artist:${it.id}`,
                     artistId: it.id,
@@ -720,38 +714,56 @@ describe("api", () => {
                     albumArtURI: defaultArtistArtURI(rootUrl, accessToken, it),
                   })),
                   index: 0,
-                  total: artists.length,
+                  total: artistSummaries.length,
                 })
               );
+              expect(musicLibrary.artists).toHaveBeenCalledWith({
+                _index: index,
+                _count: count,
+              });
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
             });
           });
 
           describe("asking for a page of artists", () => {
+            const index = 1;
+            const count = 3;
+
             it("should return it", async () => {
+              const someArtists = [
+                artistSummaries[1]!,
+                artistSummaries[2]!,
+                artistSummaries[3]!,
+              ];
+              musicLibrary.artists.mockResolvedValue({
+                results: someArtists,
+                total: artistSummaries.length,
+              });
+
               const result = await ws.getMetadataAsync({
                 id: "artists",
-                index: 1,
-                count: 3,
+                index,
+                count,
               });
+
               expect(result[0]).toEqual(
                 getMetadataResult({
-                  mediaCollection: [artists[1]!, artists[2]!, artists[3]!].map(
-                    (it) => ({
-                      itemType: "artist",
-                      id: `artist:${it.id}`,
-                      artistId: it.id,
-                      title: it.name,
-                      albumArtURI: defaultArtistArtURI(
-                        rootUrl,
-                        accessToken,
-                        it
-                      ),
-                    })
-                  ),
+                  mediaCollection: someArtists.map((it) => ({
+                    itemType: "artist",
+                    id: `artist:${it.id}`,
+                    artistId: it.id,
+                    title: it.name,
+                    albumArtURI: defaultArtistArtURI(rootUrl, accessToken, it),
+                  })),
                   index: 1,
-                  total: artists.length,
+                  total: artistSummaries.length,
                 })
               );
+              expect(musicLibrary.artists).toHaveBeenCalledWith({
+                _index: index,
+                _count: count,
+              });
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
             });
           });
         });
@@ -773,13 +785,7 @@ describe("api", () => {
             });
 
             beforeEach(() => {
-              musicService.hasArtists(
-                artist,
-                relatedArtist1,
-                relatedArtist2,
-                relatedArtist3,
-                relatedArtist4
-              );
+              musicLibrary.artist.mockResolvedValue(artist);
             });
 
             describe("when they fit on one page", () => {
@@ -811,6 +817,8 @@ describe("api", () => {
                     total: 4,
                   })
                 );
+                expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
               });
             });
 
@@ -840,6 +848,8 @@ describe("api", () => {
                     total: 4,
                   })
                 );
+                expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
               });
             });
           });
@@ -848,7 +858,7 @@ describe("api", () => {
             const artist = anArtist({ similarArtists: [] });
 
             beforeEach(() => {
-              musicService.hasArtists(artist);
+              musicLibrary.artist.mockResolvedValue(artist);
             });
 
             it("should return an empty list", async () => {
@@ -863,6 +873,8 @@ describe("api", () => {
                   total: 0,
                 })
               );
+              expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
             });
           });
         });
@@ -875,75 +887,115 @@ describe("api", () => {
           const rock1 = anAlbum({ genre: ROCK });
           const rock2 = anAlbum({ genre: ROCK });
 
-          const artist1 = anArtist({
-            albums: [pop1, rock1, pop2],
-          });
-          const artist2 = anArtist({
-            albums: [pop3, rock2],
-          });
-          const artist3 = anArtist({
-            albums: [],
-          });
-          const artist4 = anArtist({
-            albums: [pop4],
-          });
-
-          beforeEach(() => {
-            musicService.hasArtists(artist1, artist2, artist3, artist4);
-          });
+          const allAlbums = [pop1, pop2, pop3, pop4, rock1, rock2];
+          const popAlbums = [pop1, pop2, pop3, pop4];
 
           describe("asking for random albums", () => {
+            const randomAlbums = [pop2, rock1, pop1];
+
+            beforeEach(() => {
+              musicLibrary.albums.mockResolvedValue({
+                results: randomAlbums,
+                total: allAlbums.length,
+              });
+            });
+
             it("should return some", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
               const result = await ws.getMetadataAsync({
                 id: "randomAlbums",
-                index: 0,
-                count: 100,
+                ...paging,
               });
-              expect(result[0].getMetadataResult.index).toEqual(0);
-              expect(result[0].getMetadataResult.count).toEqual(6);
-              expect(result[0].getMetadataResult.total).toEqual(6);
-            });
-          });
 
-          describe("asking for all albums", () => {
-            it("should return them all", async () => {
-              const result = await ws.getMetadataAsync({
-                id: "albums",
-                index: 0,
-                count: 100,
-              });
               expect(result[0]).toEqual(
                 getMetadataResult({
-                  mediaCollection: [artist1, artist2, artist3, artist4]
-                    .flatMap((it) => it.albums)
-                    .map((it) => ({
-                      itemType: "album",
-                      id: `album:${it.id}`,
-                      title: it.name,
-                      albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
-                      canPlay: true,
-                    })),
+                  mediaCollection: randomAlbums.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
                   index: 0,
                   total: 6,
                 })
               );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "random",
+                _index: paging.index,
+                _count: paging.count,
+              });
+            });
+          });
+
+          describe("asking for all albums", () => {
+            beforeEach(() => {
+              musicLibrary.albums.mockResolvedValue({
+                results: allAlbums,
+                total: allAlbums.length,
+              });
+            });
+
+            it("should return them all", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: "albums",
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: allAlbums.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
+                  index: 0,
+                  total: 6,
+                })
+              );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "alphabeticalByArtist",
+                _index: paging.index,
+                _count: paging.count,
+              });
             });
           });
 
           describe("asking for a page of albums", () => {
+            const pageOfAlbums = [pop3, pop4, rock1];
+
             it("should return only that page", async () => {
-              const result = await ws.getMetadataAsync({
-                id: "albums",
+              const paging = {
                 index: 2,
                 count: 3,
+              };
+
+              musicLibrary.albums.mockResolvedValue({
+                results: pageOfAlbums,
+                total: allAlbums.length,
               });
+
+              const result = await ws.getMetadataAsync({
+                id: "albums",
+                ...paging,
+              });
+
               expect(result[0]).toEqual(
                 getMetadataResult({
-                  mediaCollection: [
-                    artist1.albums[2]!,
-                    artist2.albums[0]!,
-                    artist2.albums[1]!,
-                  ].map((it) => ({
+                  mediaCollection: pageOfAlbums.map((it) => ({
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,
@@ -954,56 +1006,96 @@ describe("api", () => {
                   total: 6,
                 })
               );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "alphabeticalByArtist",
+                _index: paging.index,
+                _count: paging.count,
+              });
             });
           });
 
           describe("asking for all albums for a genre", () => {
             it("should return albums for the genre", async () => {
-              const result = await ws.getMetadataAsync({
-                id: `genre:${POP.id}`,
+              const paging = {
                 index: 0,
                 count: 100,
+              };
+
+              musicLibrary.albums.mockResolvedValue({
+                results: popAlbums,
+                total: popAlbums.length,
               });
+
+              const result = await ws.getMetadataAsync({
+                id: `genre:${POP.id}`,
+                ...paging,
+              });
+
               expect(result[0]).toEqual(
                 getMetadataResult({
-                  mediaCollection: [pop1, pop2, pop3, pop4]
-                    .map((it) => ({
-                      itemType: "album",
-                      id: `album:${it.id}`,
-                      title: it.name,
-                      albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
-                      canPlay: true,
-                    })),
+                  mediaCollection: [pop1, pop2, pop3, pop4].map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
                   index: 0,
                   total: 4,
                 })
               );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "byGenre",
+                genre: POP.id,
+                _index: paging.index,
+                _count: paging.count,
+              });
             });
           });
 
           describe("asking for a page of albums for a genre", () => {
+            const pageOfPop = [pop1, pop2];
+
             it("should return albums for the genre", async () => {
-              const result = await ws.getMetadataAsync({
-                id: `genre:${POP.id}`,
+              const paging = {
                 index: 0,
                 count: 2,
+              };
+
+              musicLibrary.albums.mockResolvedValue({
+                results: pageOfPop,
+                total: popAlbums.length,
               });
+
+              const result = await ws.getMetadataAsync({
+                id: `genre:${POP.id}`,
+                ...paging,
+              });
+
               expect(result[0]).toEqual(
                 getMetadataResult({
-                  mediaCollection: [pop1, pop2]
-                    .map((it) => ({
-                      itemType: "album",
-                      id: `album:${it.id}`,
-                      title: it.name,
-                      albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
-                      canPlay: true,
-                    })),
+                  mediaCollection: pageOfPop.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
                   index: 0,
                   total: 4,
                 })
               );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "byGenre",
+                genre: POP.id,
+                _index: paging.index,
+                _count: paging.count,
+              });
             });
-          })
+          });
         });
 
         describe("asking for tracks", () => {
@@ -1019,52 +1111,61 @@ describe("api", () => {
             const track4 = aTrack({ artist, album, number: 4 });
             const track5 = aTrack({ artist, album, number: 5 });
 
+            const tracks = [track1, track2, track3, track4, track5];
+
             beforeEach(() => {
-              musicService.hasArtists(artist);
-              musicService.hasTracks(track1, track2, track3, track4, track5);
+              musicLibrary.tracks.mockResolvedValue(tracks);
             });
 
-            describe("asking for all albums", () => {
+            describe("asking for all for an album", () => {
               it("should return them all", async () => {
-                const result = await ws.getMetadataAsync({
-                  id: `album:${album.id}`,
+                const paging = {
                   index: 0,
                   count: 100,
+                };
+
+                const result = await ws.getMetadataAsync({
+                  id: `album:${album.id}`,
+                  ...paging,
                 });
+
                 expect(result[0]).toEqual(
                   getMetadataResult({
-                    mediaMetadata: [
-                      track1,
-                      track2,
-                      track3,
-                      track4,
-                      track5,
-                    ].map((it) =>
-                      track(rootUrl, accessTokens.mint(token.authToken), it)
+                    mediaMetadata: tracks.map((it) =>
+                      track(rootUrl, accessToken, it)
                     ),
                     index: 0,
-                    total: 5,
+                    total: tracks.length,
                   })
                 );
+                expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
               });
             });
 
             describe("asking for a single page of tracks", () => {
+              const pageOfTracks = [track3, track4];
+
               it("should return only that page", async () => {
-                const result = await ws.getMetadataAsync({
-                  id: `album:${album.id}`,
+                const paging = {
                   index: 2,
                   count: 2,
+                };
+
+                const result = await ws.getMetadataAsync({
+                  id: `album:${album.id}`,
+                  ...paging,
                 });
+
                 expect(result[0]).toEqual(
                   getMetadataResult({
-                    mediaMetadata: [track3, track4].map((it) =>
-                      track(rootUrl, accessTokens.mint(token.authToken), it)
+                    mediaMetadata: pageOfTracks.map((it) =>
+                      track(rootUrl, accessToken, it)
                     ),
-                    index: 2,
-                    total: 5,
+                    index: paging.index,
+                    total: tracks.length,
                   })
                 );
+                expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
               });
             });
           });
@@ -1073,15 +1174,6 @@ describe("api", () => {
     });
 
     describe("getExtendedMetadata", () => {
-      const server = makeServer(
-        SONOS_DISABLED,
-        service,
-        rootUrl,
-        musicService,
-        linkCodes,
-        accessTokens
-      );
-
       describe("when no credentials header provided", () => {
         it("should return a fault of LoginUnsupported", async () => {
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -1103,21 +1195,14 @@ describe("api", () => {
 
       describe("when invalid credentials are provided", () => {
         it("should return a fault of LoginUnauthorized", async () => {
-          const username = "userThatGetsDeleted";
-          const password = "password1";
-          musicService.hasUser({ username, password });
-          const token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
-          musicService.hasNoUsers();
+          musicService.login.mockRejectedValue("booom!")
 
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
 
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          ws.addSoapHeader({ credentials: someCredentials("someAuthToken") });
           await ws
             .getExtendedMetadataAsync({ id: "root", index: 0, count: 0 })
             .then(() => fail("shouldnt get here"))
@@ -1131,26 +1216,83 @@ describe("api", () => {
       });
 
       describe("when valid credentials are provided", () => {
-        const username = "validUser";
-        const password = "validPassword";
-        let token: AuthSuccess;
         let ws: Client;
+        const authToken = `authToken-${uuid()}`
+        const accessToken = `accessToken-${uuid()}`;
 
         beforeEach(async () => {
-          musicService.hasUser({ username, password });
-          token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
+          musicService.login.mockResolvedValue(musicLibrary);
+          accessTokens.mint.mockReturnValue(accessToken);
 
           ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          ws.addSoapHeader({ credentials: someCredentials(authToken) });
         });
 
         describe("asking for an artist", () => {
+          describe("when it has some albums", () => {
+            const album1 = anAlbum();
+            const album2 = anAlbum();
+            const album3 = anAlbum();
+
+            const artist = anArtist({
+              similarArtists: [],
+              albums: [album1, album2, album3],
+            });
+
+            beforeEach(() => {
+              musicLibrary.artist.mockResolvedValue(artist)
+            });
+
+            describe("when all albums fit on a page", () => {
+              it("should return the albums", async () => {
+                const paging = {
+                  index: 0,
+                  count: 100,
+                };
+  
+                const root = await ws.getExtendedMetadataAsync({
+                  id: `artist:${artist.id}`,
+                  ...paging
+                });
+  
+                expect(root[0]).toEqual({
+                  getExtendedMetadataResult: {
+                    count: "3",
+                    index: "0",
+                    total: "3",
+                    mediaCollection: artist.albums.map(it => album(rootUrl, accessToken, it))
+                  },
+                });
+              });
+            });
+
+            describe("getting a page of albums", () => {
+              it("should return only that page", async () => {
+                const paging = {
+                  index: 1,
+                  count: 2,
+                };
+  
+                const root = await ws.getExtendedMetadataAsync({
+                  id: `artist:${artist.id}`,
+                  ...paging
+                });
+  
+                expect(root[0]).toEqual({
+                  getExtendedMetadataResult: {
+                    count: "2",
+                    index: "1",
+                    total: "3",
+                    mediaCollection: [album2, album3].map(it => album(rootUrl, accessToken, it))
+                  },
+                });
+              });
+            });            
+          });
+
           describe("when it has similar artists", () => {
             const similar1 = anArtist();
             const similar2 = anArtist();
@@ -1161,17 +1303,23 @@ describe("api", () => {
             });
 
             beforeEach(() => {
-              musicService.hasArtists(artist);
+              musicLibrary.artist.mockResolvedValue(artist)
             });
 
             it("should return a RELATED_ARTISTS browse option", async () => {
-              const root = await ws.getExtendedMetadataAsync({
-                id: `artist:${artist.id}`,
+              const paging = {
                 index: 0,
                 count: 100,
+              };
+
+              const root = await ws.getExtendedMetadataAsync({
+                id: `artist:${artist.id}`,
+                ...paging
               });
+
               expect(root[0]).toEqual({
                 getExtendedMetadataResult: {
+                  // artist has no albums
                   count: "0",
                   index: "0",
                   total: "0",
@@ -1193,7 +1341,7 @@ describe("api", () => {
             });
 
             beforeEach(() => {
-              musicService.hasArtists(artist);
+              musicLibrary.artist.mockResolvedValue(artist)
             });
 
             it("should not return a RELATED_ARTISTS browse option", async () => {
@@ -1204,6 +1352,7 @@ describe("api", () => {
               });
               expect(root[0]).toEqual({
                 getExtendedMetadataResult: {
+                  // artist has no albums
                   count: "0",
                   index: "0",
                   total: "0",
@@ -1216,19 +1365,6 @@ describe("api", () => {
     });
 
     describe("getMediaURI", () => {
-      const accessTokenMint = jest.fn();
-
-      const server = makeServer(
-        SONOS_DISABLED,
-        service,
-        rootUrl,
-        musicService,
-        linkCodes,
-        ({
-          mint: accessTokenMint,
-        } as unknown) as AccessTokens
-      );
-
       describe("when no credentials header provided", () => {
         it("should return a fault of LoginUnsupported", async () => {
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -1250,21 +1386,14 @@ describe("api", () => {
 
       describe("when invalid credentials are provided", () => {
         it("should return a fault of LoginUnauthorized", async () => {
-          const username = "userThatGetsDeleted";
-          const password = "password1";
-          musicService.hasUser({ username, password });
-          const token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
-          musicService.hasNoUsers();
+          musicService.login.mockRejectedValue("Credentials not found")
 
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
 
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          ws.addSoapHeader({ credentials: someCredentials("invalid token") });
           await ws
             .getMediaURIAsync({ id: "track:123" })
             .then(() => fail("shouldnt get here"))
@@ -1278,25 +1407,19 @@ describe("api", () => {
       });
 
       describe("when valid credentials are provided", () => {
-        const username = "validUser";
-        const password = "validPassword";
-        let token: AuthSuccess;
+        const authToken = `authToken-${uuid()}`
         let ws: Client;
-        const accessToken = "temporaryAccessToken";
+        const accessToken = `temporaryAccessToken-${uuid()}`;
 
         beforeEach(async () => {
-          musicService.hasUser({ username, password });
-          token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
+          musicService.login.mockResolvedValue(musicLibrary)
+          accessTokens.mint.mockReturnValue(accessToken);
+
           ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
-
-          accessTokenMint.mockReturnValue(accessToken);
+          ws.addSoapHeader({ credentials: someCredentials(authToken) });
         });
 
         describe("asking for a URI to stream a track", () => {
@@ -1306,6 +1429,7 @@ describe("api", () => {
             const root = await ws.getMediaURIAsync({
               id: `track:${trackId}`,
             });
+
             expect(root[0]).toEqual({
               getMediaURIResult: `${rootUrl}/stream/track/${trackId}`,
               httpHeaders: {
@@ -1313,21 +1437,15 @@ describe("api", () => {
                 value: accessToken,
               },
             });
+
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
           });
         });
       });
     });
 
     describe("getMediaMetadata", () => {
-      const server = makeServer(
-        SONOS_DISABLED,
-        service,
-        rootUrl,
-        musicService,
-        linkCodes,
-        accessTokens
-      );
-
       describe("when no credentials header provided", () => {
         it("should return a fault of LoginUnsupported", async () => {
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -1349,21 +1467,14 @@ describe("api", () => {
 
       describe("when invalid credentials are provided", () => {
         it("should return a fault of LoginUnauthorized", async () => {
-          const username = "userThatGetsDeleted";
-          const password = "password1";
-          musicService.hasUser({ username, password });
-          const token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
-          musicService.hasNoUsers();
+          musicService.login.mockRejectedValue("Credentials not found!!");
 
           const ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
 
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
+          ws.addSoapHeader({ credentials: someCredentials("some invalid token") });
           await ws
             .getMediaMetadataAsync({ id: "track:123" })
             .then(() => fail("shouldnt get here"))
@@ -1377,31 +1488,22 @@ describe("api", () => {
       });
 
       describe("when valid credentials are provided", () => {
-        const username = "validUser";
-        const password = "validPassword";
-        let token: AuthSuccess;
+        const authToken = `authToken-${uuid()}`;
+        const accessToken = `accessToken-${uuid()}`;
         let ws: Client;
 
-        const album = anAlbum();
-        const artist = anArtist({
-          albums: [album],
-        });
         const someTrack = aTrack();
 
         beforeEach(async () => {
-          musicService.hasUser({ username, password });
-          token = (await musicService.generateToken({
-            username,
-            password,
-          })) as AuthSuccess;
+          musicService.login.mockResolvedValue(musicLibrary);
+          accessTokens.mint.mockReturnValue(accessToken);
+          musicLibrary.track.mockResolvedValue(someTrack);
+
           ws = await createClientAsync(`${service.uri}?wsdl`, {
             endpoint: service.uri,
             httpClient: supersoap(server, rootUrl),
           });
-          ws.addSoapHeader({ credentials: someCredentials(token.authToken) });
-
-          musicService.hasArtists(artist);
-          musicService.hasTracks(someTrack);
+          ws.addSoapHeader({ credentials: someCredentials(authToken) });
         });
 
         describe("asking for media metadata for a track", () => {
@@ -1409,13 +1511,17 @@ describe("api", () => {
             const root = await ws.getMediaMetadataAsync({
               id: `track:${someTrack.id}`,
             });
+
             expect(root[0]).toEqual({
               getMediaMetadataResult: track(
                 rootUrl,
-                accessTokens.mint(token.authToken),
+                accessToken,
                 someTrack
               ),
             });
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.track).toHaveBeenCalledWith(someTrack.id);
           });
         });
       });
