@@ -933,6 +933,92 @@ describe("api", () => {
             });
           });
 
+          describe("asking for recently played albums", () => {
+            const recentlyPlayed = [rock2, rock1, pop2];
+
+            beforeEach(() => {
+              musicLibrary.albums.mockResolvedValue({
+                results: recentlyPlayed,
+                total: allAlbums.length,
+              });
+            });
+
+            it("should return some", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: "recentlyPlayed",
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: recentlyPlayed.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
+                  index: 0,
+                  total: 6,
+                })
+              );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "frequent",
+                _index: paging.index,
+                _count: paging.count,
+              });
+            });
+          });      
+          
+          describe("asking for recently added albums", () => {
+            const recentlyAdded = [pop4, pop3, pop2];
+
+            beforeEach(() => {
+              musicLibrary.albums.mockResolvedValue({
+                results: recentlyAdded,
+                total: allAlbums.length,
+              });
+            });
+
+            it("should return some", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: "recentlyAdded",
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: recentlyAdded.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
+                  index: 0,
+                  total: 6,
+                })
+              );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "newest",
+                _index: paging.index,
+                _count: paging.count,
+              });
+            });
+          });             
+
           describe("asking for all albums", () => {
             beforeEach(() => {
               musicLibrary.albums.mockResolvedValue({
