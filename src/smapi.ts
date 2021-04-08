@@ -12,7 +12,6 @@ import {
   AlbumSummary,
   ArtistSummary,
   Genre,
-  MusicLibrary,
   MusicService,
   slice2,
   Track,
@@ -255,6 +254,42 @@ export const artist = (
   albumArtURI: defaultArtistArtURI(webAddress, accessToken, artist),
 });
 
+const auth = async (
+  musicService: MusicService,
+  accessTokens: AccessTokens,
+  id: string,
+  headers?: SoapyHeaders
+) => {
+  if (!headers?.credentials) {
+    throw {
+      Fault: {
+        faultcode: "Client.LoginUnsupported",
+        faultstring: "Missing credentials...",
+      },
+    };
+  }
+  const authToken = headers.credentials.loginToken.token;
+  const accessToken = accessTokens.mint(authToken);
+  const [type, typeId] = id.split(":");
+  return musicService
+    .login(authToken)
+    .then((musicLibrary) => ({
+      musicLibrary,
+      authToken,
+      accessToken,
+      type,
+      typeId,
+    }))
+    .catch((_) => {
+      throw {
+        Fault: {
+          faultcode: "Client.LoginUnauthorized",
+          faultstring: "Credentials not found...",
+        },
+      };
+    });
+};
+
 type SoapyHeaders = {
   credentials?: Credentials;
 };
@@ -281,73 +316,29 @@ function bindSmapiSoapServiceToExpress(
             { id }: { id: string },
             _,
             headers?: SoapyHeaders
-          ) => {
-            if (!headers?.credentials) {
-              throw {
-                Fault: {
-                  faultcode: "Client.LoginUnsupported",
-                  faultstring: "Missing credentials...",
-                },
-              };
-            }
-            await musicService
-              .login(headers.credentials.loginToken.token)
-              .catch((_) => {
-                throw {
-                  Fault: {
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
+          ) =>
+            auth(musicService, accessTokens, id, headers).then(
+              ({ accessToken, type, typeId }) => ({
+                getMediaURIResult: `${webAddress}/stream/${type}/${typeId}`,
+                httpHeaders: [
+                  {
+                    header: BONOB_ACCESS_TOKEN_HEADER,
+                    value: accessToken,
                   },
-                };
-              });
-
-            const [type, typeId] = id.split(":");
-            return {
-              getMediaURIResult: `${webAddress}/stream/${type}/${typeId}`,
-              httpHeaders: [
-                {
-                  header: BONOB_ACCESS_TOKEN_HEADER,
-                  value: accessTokens.mint(
-                    headers?.credentials?.loginToken.token
-                  ),
-                },
-              ],
-            };
-          },
+                ],
+              })
+            ),
           getMediaMetadata: async (
             { id }: { id: string },
             _,
             headers?: SoapyHeaders
-          ) => {
-            if (!headers?.credentials) {
-              throw {
-                Fault: {
-                  faultcode: "Client.LoginUnsupported",
-                  faultstring: "Missing credentials...",
-                },
-              };
-            }
-            const authToken = headers.credentials.loginToken.token;
-            const login = await musicService
-              .login(headers.credentials.loginToken.token)
-              .catch((_) => {
-                throw {
-                  Fault: {
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
-                  },
-                };
-              });
-
-            const typeId = id.split(":")[1];
-            const musicLibrary = login as MusicLibrary;
-            return musicLibrary.track(typeId!).then((it) => {
-              const accessToken = accessTokens.mint(authToken);
-              return {
-                getMediaMetadataResult: track(webAddress, accessToken, it),
-              };
-            });
-          },
+          ) =>
+            auth(musicService, accessTokens, id, headers).then(
+              async ({ musicLibrary, accessToken, typeId }) =>
+                musicLibrary.track(typeId!).then((it) => ({
+                  getMediaMetadataResult: track(webAddress, accessToken, it),
+                }))
+            ),
           getExtendedMetadata: async (
             {
               id,
@@ -357,59 +348,41 @@ function bindSmapiSoapServiceToExpress(
             { id: string; index: number; count: number; recursive: boolean },
             _,
             headers?: SoapyHeaders
-          ) => {
-            if (!headers?.credentials) {
-              throw {
-                Fault: {
-                  faultcode: "Client.LoginUnsupported",
-                  faultstring: "Missing credentials...",
-                },
-              };
-            }
-            const authToken = headers.credentials.loginToken.token;
-            const login = await musicService.login(authToken).catch((_) => {
-              throw {
-                Fault: {
-                  faultcode: "Client.LoginUnauthorized",
-                  faultstring: "Credentials not found...",
-                },
-              };
-            });
-
-            const musicLibrary = login as MusicLibrary;
-
-            const [type, typeId] = id.split(":");
-            const paging = { _index: index, _count: count };
-            switch (type) {
-              case "artist":
-                return await musicLibrary.artist(typeId!).then((artist) => {
-                  const [page, total] = slice2<Album>(paging)(artist.albums);
-                  const accessToken = accessTokens.mint(authToken);
-
-                  return {
-                    getExtendedMetadataResult: {
-                      count: page.length,
-                      index: paging._index,
-                      total,
-                      mediaCollection: page.map((it) =>
-                        album(webAddress, accessToken, it)
-                      ),
-                      relatedBrowse:
-                        artist.similarArtists.length > 0
-                          ? [
-                              {
-                                id: `relatedArtists:${artist.id}`,
-                                type: "RELATED_ARTISTS",
-                              },
-                            ]
-                          : [],
-                    },
-                  };
-                });
-              default:
-                throw `Unsupported id:${id}`;
-            }
-          },
+          ) =>
+            auth(musicService, accessTokens, id, headers).then(
+              async ({ musicLibrary, accessToken, type, typeId }) => {
+                const paging = { _index: index, _count: count };
+                switch (type) {
+                  case "artist":
+                    return musicLibrary.artist(typeId!).then((artist) => {
+                      const [page, total] = slice2<Album>(paging)(
+                        artist.albums
+                      );
+                      return {
+                        getExtendedMetadataResult: {
+                          count: page.length,
+                          index: paging._index,
+                          total,
+                          mediaCollection: page.map((it) =>
+                            album(webAddress, accessToken, it)
+                          ),
+                          relatedBrowse:
+                            artist.similarArtists.length > 0
+                              ? [
+                                  {
+                                    id: `relatedArtists:${artist.id}`,
+                                    type: "RELATED_ARTISTS",
+                                  },
+                                ]
+                              : [],
+                        },
+                      };
+                    });
+                  default:
+                    throw `Unsupported id:${id}`;
+                }
+              }
+            ),
           getMetadata: async (
             {
               id,
@@ -419,157 +392,139 @@ function bindSmapiSoapServiceToExpress(
             { id: string; index: number; count: number; recursive: boolean },
             _,
             headers?: SoapyHeaders
-          ) => {
-            if (!headers?.credentials) {
-              throw {
-                Fault: {
-                  faultcode: "Client.LoginUnsupported",
-                  faultstring: "Missing credentials...",
-                },
-              };
-            }
-            const authToken = headers.credentials.loginToken.token;
-            const login = await musicService.login(authToken).catch((_) => {
-              throw {
-                Fault: {
-                  faultcode: "Client.LoginUnauthorized",
-                  faultstring: "Credentials not found...",
-                },
-              };
-            });
+          ) =>
+            auth(musicService, accessTokens, id, headers).then(
+              ({ musicLibrary, accessToken, type, typeId }) => {
+                const paging = { _index: index, _count: count };
+                logger.debug(
+                  `Fetching metadata type=${type}, typeId=${typeId}`
+                );
 
-            const musicLibrary = login as MusicLibrary;
-
-            const [type, typeId] = id.split(":");
-            const paging = { _index: index, _count: count };
-            logger.debug(`Fetching metadata type=${type}, typeId=${typeId}`);
-
-            const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
-              musicLibrary.albums(q).then((result) => {
-                const accessToken = accessTokens.mint(authToken);
-                return getMetadataResult({
-                  mediaCollection: result.results.map((it) =>
-                    album(webAddress, accessToken, it)
-                  ),
-                  index: paging._index,
-                  total: result.total,
-                });
-              });
-
-            switch (type) {
-              case "root":
-                return getMetadataResult({
-                  mediaCollection: [
-                    container({ id: "artists", title: "Artists" }),
-                    container({ id: "albums", title: "Albums" }),
-                    container({ id: "genres", title: "Genres" }),
-                    container({ id: "randomAlbums", title: "Random" }),
-                    container({ id: "recentlyAdded", title: "Recently Added" }),
-                    container({
-                      id: "recentlyPlayed",
-                      title: "Recently Played",
-                    }),
-                  ],
-                  index: 0,
-                  total: 6,
-                });
-              case "artists":
-                return await musicLibrary.artists(paging).then((result) => {
-                  const accessToken = accessTokens.mint(authToken);
-                  return getMetadataResult({
-                    mediaCollection: result.results.map((it) =>
-                      artist(webAddress, accessToken, it)
-                    ),
-                    index: paging._index,
-                    total: result.total,
-                  });
-                });
-              case "albums": {
-                return await albums({
-                  type: "alphabeticalByArtist",
-                  ...paging,
-                });
-              }
-              case "randomAlbums":
-                return await albums({
-                  type: "random",
-                  ...paging,
-                });
-              case "genre":
-                return await albums({
-                  type: "byGenre",
-                  genre: typeId,
-                  ...paging,
-                });
-              case "recentlyAdded":
-                return await albums({
-                  type: "newest",
-                  ...paging,
-                });
-              case "recentlyPlayed":
-                return await albums({
-                  type: "frequent",
-                  ...paging,
-                });
-              case "genres":
-                return await musicLibrary
-                  .genres()
-                  .then(slice2(paging))
-                  .then(([page, total]) =>
-                    getMetadataResult({
-                      mediaCollection: page.map(genre),
-                      index: paging._index,
-                      total,
-                    })
-                  );
-              case "artist":
-                return await musicLibrary
-                  .artist(typeId!)
-                  .then((artist) => artist.albums)
-                  .then(slice2(paging))
-                  .then(([page, total]) => {
-                    const accessToken = accessTokens.mint(authToken);
+                const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
+                  musicLibrary.albums(q).then((result) => {
                     return getMetadataResult({
-                      mediaCollection: page.map((it) =>
+                      mediaCollection: result.results.map((it) =>
                         album(webAddress, accessToken, it)
                       ),
                       index: paging._index,
-                      total,
+                      total: result.total,
                     });
                   });
-              case "relatedArtists":
-                return await musicLibrary
-                  .artist(typeId!)
-                  .then((artist) => artist.similarArtists)
-                  .then(slice2(paging))
-                  .then(([page, total]) => {
-                    const accessToken = accessTokens.mint(authToken);
+
+                switch (type) {
+                  case "root":
                     return getMetadataResult({
-                      mediaCollection: page.map((it) =>
-                        artist(webAddress, accessToken, it)
-                      ),
-                      index: paging._index,
-                      total,
+                      mediaCollection: [
+                        container({ id: "artists", title: "Artists" }),
+                        container({ id: "albums", title: "Albums" }),
+                        container({ id: "genres", title: "Genres" }),
+                        container({ id: "randomAlbums", title: "Random" }),
+                        container({
+                          id: "recentlyAdded",
+                          title: "Recently Added",
+                        }),
+                        container({
+                          id: "recentlyPlayed",
+                          title: "Recently Played",
+                        }),
+                      ],
+                      index: 0,
+                      total: 6,
                     });
-                  });
-              case "album":
-                return await musicLibrary
-                  .tracks(typeId!)
-                  .then(slice2(paging))
-                  .then(([page, total]) => {
-                    const accessToken = accessTokens.mint(authToken);
-                    return getMetadataResult({
-                      mediaMetadata: page.map((it) =>
-                        track(webAddress, accessToken, it)
-                      ),
-                      index: paging._index,
-                      total,
+                  case "artists":
+                    return musicLibrary.artists(paging).then((result) => {
+                      return getMetadataResult({
+                        mediaCollection: result.results.map((it) =>
+                          artist(webAddress, accessToken, it)
+                        ),
+                        index: paging._index,
+                        total: result.total,
+                      });
                     });
-                  });
-              default:
-                throw `Unsupported id:${id}`;
-            }
-          },
+                  case "albums": {
+                    return albums({
+                      type: "alphabeticalByArtist",
+                      ...paging,
+                    });
+                  }
+                  case "randomAlbums":
+                    return albums({
+                      type: "random",
+                      ...paging,
+                    });
+                  case "genre":
+                    return albums({
+                      type: "byGenre",
+                      genre: typeId,
+                      ...paging,
+                    });
+                  case "recentlyAdded":
+                    return albums({
+                      type: "newest",
+                      ...paging,
+                    });
+                  case "recentlyPlayed":
+                    return albums({
+                      type: "frequent",
+                      ...paging,
+                    });
+                  case "genres":
+                    return musicLibrary
+                      .genres()
+                      .then(slice2(paging))
+                      .then(([page, total]) =>
+                        getMetadataResult({
+                          mediaCollection: page.map(genre),
+                          index: paging._index,
+                          total,
+                        })
+                      );
+                  case "artist":
+                    return musicLibrary
+                      .artist(typeId!)
+                      .then((artist) => artist.albums)
+                      .then(slice2(paging))
+                      .then(([page, total]) => {
+                        return getMetadataResult({
+                          mediaCollection: page.map((it) =>
+                            album(webAddress, accessToken, it)
+                          ),
+                          index: paging._index,
+                          total,
+                        });
+                      });
+                  case "relatedArtists":
+                    return musicLibrary
+                      .artist(typeId!)
+                      .then((artist) => artist.similarArtists)
+                      .then(slice2(paging))
+                      .then(([page, total]) => {
+                        return getMetadataResult({
+                          mediaCollection: page.map((it) =>
+                            artist(webAddress, accessToken, it)
+                          ),
+                          index: paging._index,
+                          total,
+                        });
+                      });
+                  case "album":
+                    return musicLibrary
+                      .tracks(typeId!)
+                      .then(slice2(paging))
+                      .then(([page, total]) => {
+                        return getMetadataResult({
+                          mediaMetadata: page.map((it) =>
+                            track(webAddress, accessToken, it)
+                          ),
+                          index: paging._index,
+                          total,
+                        });
+                      });
+                  default:
+                    throw `Unsupported id:${id}`;
+                }
+              }
+            ),
         },
       },
     },
