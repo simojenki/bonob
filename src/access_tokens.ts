@@ -1,5 +1,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import { v4 as uuid } from "uuid";
+import crypto from "crypto";
+
 import { Encryption } from "./encryption";
 import logger from "./logger";
 
@@ -93,4 +95,26 @@ export class AccessTokenPerAuthToken implements AccessTokens {
   };
 
   authTokenFor = (value: string): string | undefined => this.accessTokenToAuthToken.get(value);
+}
+
+export const sha256 = (salt: string) => (authToken: string) => crypto
+  .createHash("sha256")
+  .update(`${authToken}${salt}`)
+  .digest("hex")
+
+export class InMemoryAccessTokens implements AccessTokens {
+  tokens = new Map<string, string>();
+  minter;
+
+  constructor(minter: (authToken: string) => string) {
+    this.minter = minter
+  }
+
+  mint = (authToken: string): string => {
+    const accessToken = this.minter(authToken);
+    this.tokens.set(accessToken, authToken);
+    return accessToken;
+  }
+
+  authTokenFor = (value: string): string | undefined => this.tokens.get(value);
 }

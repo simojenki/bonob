@@ -3,6 +3,8 @@ import server from "./server";
 import logger from "./logger";
 import { Navidrome } from "./navidrome";
 import encryption from "./encryption";
+import { InMemoryAccessTokens, sha256 } from "./access_tokens";
+import { InMemoryLinkCodes } from "./link_codes";
 
 const PORT = +(process.env["BONOB_PORT"] || 4534);
 const WEB_ADDRESS =
@@ -18,6 +20,7 @@ const bonob = bonobService(
   WEB_ADDRESS,
   "AppLink"
 );
+const secret = process.env["BONOB_SECRET"] || "bonob";
 
 const sonosSystem = sonos(SONOS_DEVICE_DISCOVERY, SONOS_SEED_HOST);
 if(process.env["BONOB_SONOS_AUTO_REGISTER"] == "true") {
@@ -34,8 +37,10 @@ const app = server(
   WEB_ADDRESS,
   new Navidrome(
     process.env["BONOB_NAVIDROME_URL"] || "http://localhost:4533",
-    encryption(process.env["BONOB_SECRET"] || "bonob")
-  )
+    encryption(secret)
+  ),
+  new InMemoryLinkCodes(),
+  new InMemoryAccessTokens(sha256(secret))
 );
 
 app.listen(PORT, () => {
