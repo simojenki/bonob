@@ -1,14 +1,14 @@
 # bonob
 
-A sonos SMAPI implementation to allow registering sources of music with sonos.  Currently only a single integration allowing Navidrome to be registered with sonos.
+A sonos SMAPI implementation to allow registering sources of music with sonos.  
 
-In theory as Navidrome implements the subsonic API, it *may* work with other subsonic api clones.
+Currently only a single integration allowing Navidrome to be registered with sonos. In theory as Navidrome implements the subsonic API, it *may* work with other subsonic api clones.
 
 ![Build](https://github.com/simojenki/bonob/workflows/Build/badge.svg)
 
 ## Features
 - Integrates with Navidrome
-- Browse by Artist, Albums, Genres, Random
+- Browse by Artist, Albums, Genres, Random Albums, Starred Albums, Recently Added Albums, Recently Played Albums, Most Played Albums
 - Artist Art
 - Album Art
 - View Related Artists via Artist -> '...' -> Menu -> Related Arists
