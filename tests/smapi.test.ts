@@ -544,6 +544,11 @@ describe("api", () => {
                   },
                   {
                     itemType: "container",
+                    id: "starredAlbums",
+                    title: "Starred",
+                  },
+                  {
+                    itemType: "container",
                     id: "recentlyAdded",
                     title: "Recently Added",
                   },
@@ -559,7 +564,7 @@ describe("api", () => {
                   },
                 ],
                 index: 0,
-                total: 7,
+                total: 8,
               })
             );
           });
@@ -937,6 +942,49 @@ describe("api", () => {
               });
             });
           });
+
+          describe("asking for starred albums", () => {
+            const albums = [rock2, rock1, pop2];
+
+            beforeEach(() => {
+              musicLibrary.albums.mockResolvedValue({
+                results: albums,
+                total: allAlbums.length,
+              });
+            });
+
+            it("should return some", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: "starredAlbums",
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: albums.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
+                  index: 0,
+                  total: 6,
+                })
+              );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "starred",
+                _index: paging.index,
+                _count: paging.count,
+              });
+            });
+          }); 
 
           describe("asking for recently played albums", () => {
             const recentlyPlayed = [rock2, rock1, pop2];
