@@ -552,9 +552,14 @@ describe("api", () => {
                     id: "recentlyPlayed",
                     title: "Recently Played",
                   },
+                  {
+                    itemType: "container",
+                    id: "mostPlayed",
+                    title: "Most Played",
+                  },
                 ],
                 index: 0,
-                total: 6,
+                total: 7,
               })
             );
           });
@@ -957,6 +962,49 @@ describe("api", () => {
               expect(result[0]).toEqual(
                 getMetadataResult({
                   mediaCollection: recentlyPlayed.map((it) => ({
+                    itemType: "album",
+                    id: `album:${it.id}`,
+                    title: it.name,
+                    albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
+                    canPlay: true,
+                  })),
+                  index: 0,
+                  total: 6,
+                })
+              );
+
+              expect(musicLibrary.albums).toHaveBeenCalledWith({
+                type: "recent",
+                _index: paging.index,
+                _count: paging.count,
+              });
+            });
+          });               
+
+          describe("asking for most played albums", () => {
+            const mostPlayed = [rock2, rock1, pop2];
+
+            beforeEach(() => {
+              musicLibrary.albums.mockResolvedValue({
+                results: mostPlayed,
+                total: allAlbums.length,
+              });
+            });
+
+            it("should return some", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: "mostPlayed",
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: mostPlayed.map((it) => ({
                     itemType: "album",
                     id: `album:${it.id}`,
                     title: it.name,

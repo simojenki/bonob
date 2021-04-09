@@ -427,9 +427,13 @@ function bindSmapiSoapServiceToExpress(
                           id: "recentlyPlayed",
                           title: "Recently Played",
                         }),
+                        container({
+                          id: "mostPlayed",
+                          title: "Most Played",
+                        }),
                       ],
                       index: 0,
-                      total: 6,
+                      total: 7,
                     });
                   case "artists":
                     return musicLibrary.artists(paging).then((result) => {
@@ -464,6 +468,11 @@ function bindSmapiSoapServiceToExpress(
                       ...paging,
                     });
                   case "recentlyPlayed":
+                    return albums({
+                      type: "recent",
+                      ...paging,
+                    });
+                  case "mostPlayed":
                     return albums({
                       type: "frequent",
                       ...paging,
