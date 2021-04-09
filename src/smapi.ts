@@ -419,6 +419,7 @@ function bindSmapiSoapServiceToExpress(
                         container({ id: "albums", title: "Albums" }),
                         container({ id: "genres", title: "Genres" }),
                         container({ id: "randomAlbums", title: "Random" }),
+                        container({ id: "starredAlbums", title: "Starred" }),
                         container({
                           id: "recentlyAdded",
                           title: "Recently Added",
@@ -433,7 +434,7 @@ function bindSmapiSoapServiceToExpress(
                         }),
                       ],
                       index: 0,
-                      total: 7,
+                      total: 8,
                     });
                   case "artists":
                     return musicLibrary.artists(paging).then((result) => {
@@ -451,15 +452,20 @@ function bindSmapiSoapServiceToExpress(
                       ...paging,
                     });
                   }
+                  case "genre":
+                    return albums({
+                      type: "byGenre",
+                      genre: typeId,
+                      ...paging,
+                    });
                   case "randomAlbums":
                     return albums({
                       type: "random",
                       ...paging,
                     });
-                  case "genre":
+                  case "starredAlbums":
                     return albums({
-                      type: "byGenre",
-                      genre: typeId,
+                      type: "starred",
                       ...paging,
                     });
                   case "recentlyAdded":
