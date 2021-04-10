@@ -7,27 +7,37 @@ Currently only a single integration allowing Navidrome to be registered with son
 ![Build](https://github.com/simojenki/bonob/workflows/Build/badge.svg)
 
 ## Features
+
 - Integrates with Navidrome
 - Browse by Artist, Albums, Genres, Random Albums, Starred Albums, Recently Added Albums, Recently Played Albums, Most Played Albums
 - Artist Art
 - Album Art
 - View Related Artists via Artist -> '...' -> Menu -> Related Arists
 - Track scrobbling
+- Auto discovery of sonos devices
+- Discovery of sonos devices using seed IP address
+- Auto register bonob service with sonos system
+- Multiple registrations within a single household.
+- Transcoding performed by Navidrome with specific player for bonob/sonos
 
 ## Running
 
 bonob is ditributed via docker and can be run in a number of ways
 
 ### Full sonos device auto-discovery by using docker --network host
-```
+
+```bash
 docker run \
     -p 4534 \
     --network host \
     simojenki/bonob
 ```
 
+Now open http://localhost:4534 in your browser, you should see sonos devices, and service configuration.  By pressing 'Re-register' bonob will register itself in your sonos system, and should then show up in the "Services" list.
+
 ### Full sonos device auto-discovery and auto-registration on custom port by using a sonos seed device, without requiring docker host networking
-```
+
+```bash
 docker run \
     -e BONOB_PORT=3000 \
     -e BONOB_SONOS_AUTO_REGISTER=true \
@@ -35,6 +45,8 @@ docker run \
     -p 3000 \
     simojenki/bonob
 ```
+
+Bonob will now auto-register itself with sonos on startup, updating the registration if the configuration has changed.  Bonob should show up in the "Services" list.
 
 ## Configuration
 
@@ -50,3 +62,14 @@ BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BONOB_SONOS_SERVICE_ID | 246 | service id for sonos
 BONOB_NAVIDROME_URL | http://localhost:4533 | URL for navidrome
 
+## Initialising service within sonos app
+
+- Open sonos app on your device
+- Settings -> Services & Voice -> + Add a Service
+- Select your Music Service, default name is 'bonob', can be override with configuration BONOB_SONOS_SERVICE_NAME
+- Press 'Add to Sonos' -> 'Linking sonos with bonob' -> Authorize
+- Your device should open and brower and you should now see a login screen, enter your navidrome credentials
+- You should get 'Login successful!'
+- Go back into the sonos app and complete the process
+- You should now be able to play music from navidrome
+- Within navidrome a new player will be created, 'bonob (username)', so you can configure transcoding specifically for sonos
