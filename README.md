@@ -73,3 +73,9 @@ BONOB_NAVIDROME_URL | http://localhost:4533 | URL for navidrome
 - Go back into the sonos app and complete the process
 - You should now be able to play music from navidrome
 - Within navidrome a new player will be created, 'bonob (username)', so you can configure transcoding specifically for sonos
+
+## TODO
+
+- Search
+- Artist Radio
+- Playlist support
