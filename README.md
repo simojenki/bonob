@@ -46,7 +46,7 @@ docker run \
     simojenki/bonob
 ```
 
-Bonob will now auto-register itself with sonos on startup, updating the registration if the configuration has changed.  Bonob should show up in the "Services" list.
+Bonob will now auto-register itself with sonos on startup, updating the registration if the configuration has changed.  Bonob should show up in the "Services" list on http://localhost:3000
 
 ## Configuration
 
