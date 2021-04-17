@@ -553,7 +553,7 @@ describe("server", () => {
 
     describe("when there is a valid access token", () => {
       describe("some invalid art type", () => {
-        it("should return the image and a 200", async () => {
+        it("should return a 400", async () => {
           const res = await request(server)
             .get(
               `/foo/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
@@ -605,7 +605,23 @@ describe("server", () => {
   
             expect(res.status).toEqual(404);
           });
-        });        
+        });   
+        
+        describe("when there is an error", () => {
+          it("should return a 500", async () => {
+            musicService.login.mockResolvedValue(musicLibrary);
+  
+            musicLibrary.coverArt.mockRejectedValue("Boom")
+  
+            const res = await request(server)
+              .get(
+                `/artist/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+              )
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+  
+            expect(res.status).toEqual(500);
+          });
+        });         
       });
   
       describe("album art", () => {
@@ -646,6 +662,21 @@ describe("server", () => {
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
   
             expect(res.status).toEqual(404);
+          });
+        });
+
+        describe("when there is an error", () => {
+          it("should return a 500", async () => {
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.coverArt.mockRejectedValue("Boooooom")
+  
+            const res = await request(server)
+              .get(
+                `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+              )
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+  
+            expect(res.status).toEqual(500);
           });
         });
       });

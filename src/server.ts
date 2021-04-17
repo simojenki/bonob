@@ -139,10 +139,9 @@ function server(
         .login(authToken)
         .then((it) =>
           it.scrobble(id).then((scrobbleSuccess) => {
-            if(scrobbleSuccess)
-              logger.info(`Scrobbled ${id}`)
-            else
-              logger.warn(`Failed to scrobble ${id}....`)
+            if (scrobbleSuccess) logger.info(`Scrobbled ${id}`);
+            else logger.warn(`Failed to scrobble ${id}....`);
+            
             return it;
           })
         )
@@ -182,6 +181,13 @@ function server(
           } else {
             res.status(404).send();
           }
+        })
+        .catch((e: Error) => {
+          logger.error(
+            `Failed fetching image ${type}/${id}/size/${size}: ${e.message}`,
+            e
+          );
+          res.status(500).send();
         });
     }
   });
