@@ -115,10 +115,10 @@ export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
 
 export type StreamingHeader = "content-type" | "content-length" | "content-range" | "accept-ranges";
 
-export type Stream = {
+export type TrackStream = {
   status: number;
   headers: Record<StreamingHeader, string>;
-  data: Buffer;
+  stream: any;
 };
 
 export type CoverArt = {
@@ -152,7 +152,7 @@ export interface MusicLibrary {
   }: {
     trackId: string;
     range: string | undefined;
-  }): Promise<Stream>;
+  }): Promise<TrackStream>;
   coverArt(id: string, type: "album" | "artist", size?: number): Promise<CoverArt | undefined>;
   scrobble(id: string): Promise<boolean>
 }

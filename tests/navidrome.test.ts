@@ -8,6 +8,7 @@ import {
   BROWSER_HEADERS,
   DODGY_IMAGE_NAME,
   asGenre,
+  appendMimeTypeToClientFor
 } from "../src/navidrome";
 import encryption from "../src/encryption";
 
@@ -29,7 +30,6 @@ import {
   Track,
   AlbumSummary,
   artistToArtistSummary,
-  NO_IMAGES,
   AlbumQuery,
 } from "../src/music_service";
 import { anAlbum, anArtist, aTrack } from "./builders";
@@ -60,6 +60,31 @@ describe("isDodgyImage", () => {
           "http://something/2a96cbd8b46e442fc41c2b86b821562f.png?withsomequerystring=true"
         )
       ).toEqual(false);
+    });
+  });
+});
+
+describe("appendMimeTypeToUserAgentFor", () => {
+  describe("when empty array", () => {
+    it("should return bonob", () => {
+      expect(appendMimeTypeToClientFor([])(aTrack())).toEqual("bonob");
+    });
+  });
+
+  describe("when contains some mimeTypes", () => {
+    const streamUserAgent = appendMimeTypeToClientFor(["audio/flac", "audio/ogg"])
+
+    describe("and the track mimeType is in the array", () => {
+      it("should return bonob+mimeType", () => {
+        expect(streamUserAgent(aTrack({ mimeType: "audio/flac"}))).toEqual("bonob+audio/flac")
+        expect(streamUserAgent(aTrack({ mimeType: "audio/ogg"}))).toEqual("bonob+audio/ogg")
+      });
+    });
+
+    describe("and the track mimeType is not in the array", () => {
+      it("should return bonob", () => {
+        expect(streamUserAgent(aTrack({ mimeType: "audio/mp3"}))).toEqual("bonob")
+      });
     });
   });
 });
@@ -188,7 +213,8 @@ describe("Navidrome", () => {
   const password = "pass1";
   const salt = "saltysalty";
 
-  const navidrome = new Navidrome(url, encryption("secret"));
+  const streamClientApplication = jest.fn();
+  const navidrome = new Navidrome(url, encryption("secret"), streamClientApplication);
 
   const mockedRandomString = (randomString as unknown) as jest.Mock;
   const mockGET = jest.fn();
@@ -1312,10 +1338,7 @@ describe("Navidrome", () => {
           name: "Bob Marley",
           albums: [album],
         });
-        const artistSummary = {
-          ...artistToArtistSummary(artist),
-          image: NO_IMAGES,
-        };
+        const artistSummary = artistToArtistSummary(artist);
 
         const tracks = [
           aTrack({ artist: artistSummary, album: albumSummary, genre: hipHop }),
@@ -1374,10 +1397,7 @@ describe("Navidrome", () => {
           name: "Bob Marley",
           albums: [album],
         });
-        const artistSummary = {
-          ...artistToArtistSummary(artist),
-          image: NO_IMAGES,
-        };
+        const artistSummary = artistToArtistSummary(artist);
 
         const tracks = [
           aTrack({
@@ -1464,10 +1484,7 @@ describe("Navidrome", () => {
         name: "Bob Marley",
         albums: [album],
       });
-      const artistSummary = {
-        ...artistToArtistSummary(artist),
-        image: NO_IMAGES,
-      };
+      const artistSummary = artistToArtistSummary(artist);
 
       const track = aTrack({
         artist: artistSummary,
@@ -1514,85 +1531,47 @@ describe("Navidrome", () => {
 
   describe("streaming a track", () => {
     const trackId = uuid();
+    const genre = { id: "foo", name: "foo" };
 
-    describe("when navidrome doesnt return a content-range, accept-ranges or content-length", () => {
-      it("should return undefined values", async () => {
-        const streamResponse = {
-          status: 200,
-          headers: {
-            "content-type": "audio/mpeg",
-          },
-          data: Buffer.from("the track", "ascii"),
-        };
-
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.stream({ trackId, range: undefined }));
-
-        expect(result.headers).toEqual({
-          "content-type": "audio/mpeg",
-          "content-length": undefined,
-          "content-range": undefined,
-          "accept-ranges": undefined,
-        });
-      });
+    const album = anAlbum({ genre });
+    const artist = anArtist({
+      albums: [album],
+      image: { large: "foo", medium: undefined, small: undefined },
+    });
+    const track = aTrack({
+      id: trackId,
+      album: albumToAlbumSummary(album),
+      artist: artistToArtistSummary(artist),
+      genre,
     });
 
-    describe("when navidrome returns a undefined for content-range, accept-ranges or content-length", () => {
-      it("should return undefined values", async () => {
-        const streamResponse = {
-          status: 200,
-          headers: {
-            "content-type": "audio/mpeg",
-            "content-length": undefined,
-            "content-range": undefined,
-            "accept-ranges": undefined,
-          },
-          data: Buffer.from("the track", "ascii"),
-        };
-
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.stream({ trackId, range: undefined }));
-
-        expect(result.headers).toEqual({
-          "content-type": "audio/mpeg",
-          "content-length": undefined,
-          "content-range": undefined,
-          "accept-ranges": undefined,
-        });
+    describe("content-range, accept-ranges or content-length", () => {
+      beforeEach(() => {
+        streamClientApplication.mockReturnValue("bonob");
       });
-    });
 
-    describe("with no range specified", () => {
-      describe("navidrome returns a 200", () => {
-        it("should return the content", async () => {
+      describe("when navidrome doesnt return a content-range, accept-ranges or content-length", () => {
+        it("should return undefined values", async () => {
+          const stream = {
+            pipe: jest.fn()
+          };
+
           const streamResponse = {
             status: 200,
             headers: {
               "content-type": "audio/mpeg",
-              "content-length": "1667",
-              "content-range": "-200",
-              "accept-ranges": "bytes",
-              "some-other-header": "some-value",
             },
-            data: Buffer.from("the track", "ascii"),
+            data: stream,
           };
 
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongXml(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumXml(artist, album, [])))
+            )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
           const result = await navidrome
@@ -1603,11 +1582,183 @@ describe("Navidrome", () => {
 
           expect(result.headers).toEqual({
             "content-type": "audio/mpeg",
-            "content-length": "1667",
-            "content-range": "-200",
-            "accept-ranges": "bytes",
+            "content-length": undefined,
+            "content-range": undefined,
+            "accept-ranges": undefined,
           });
-          expect(result.data.toString()).toEqual("the track");
+        });
+      });
+
+      describe("when navidrome returns a undefined for content-range, accept-ranges or content-length", () => {
+        it("should return undefined values", async () => {
+          const stream = {
+            pipe: jest.fn()
+          };
+
+          const streamResponse = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mpeg",
+              "content-length": undefined,
+              "content-range": undefined,
+              "accept-ranges": undefined,
+            },
+            data: stream,
+          };
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongXml(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumXml(artist, album, [])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.stream({ trackId, range: undefined }));
+
+          expect(result.headers).toEqual({
+            "content-type": "audio/mpeg",
+            "content-length": undefined,
+            "content-range": undefined,
+            "accept-ranges": undefined,
+          });
+        });
+      });
+
+      describe("with no range specified", () => {
+        describe("navidrome returns a 200", () => {
+          it("should return the content", async () => {
+            const stream = {
+              pipe: jest.fn()
+            };
+
+            const streamResponse = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mpeg",
+                "content-length": "1667",
+                "content-range": "-200",
+                "accept-ranges": "bytes",
+                "some-other-header": "some-value",
+              },
+              data: stream,
+            };
+
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getSongXml(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumXml(artist, album, [])))
+              )
+              .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.stream({ trackId, range: undefined }));
+
+            expect(result.headers).toEqual({
+              "content-type": "audio/mpeg",
+              "content-length": "1667",
+              "content-range": "-200",
+              "accept-ranges": "bytes",
+            });
+            expect(result.stream).toEqual(stream);
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+              params: {
+                id: trackId,
+                ...authParams,
+              },
+              headers: {
+                "User-Agent": "bonob",
+              },
+              responseType: "stream",
+            });
+          });
+        });
+
+        describe("navidrome returns something other than a 200", () => {
+          it("should return the content", async () => {
+            const trackId = "track123";
+
+            const streamResponse = {
+              status: 400,
+            };
+
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getSongXml(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumXml(artist, album, [])))
+              )
+              .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+            const musicLibrary = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken));
+
+            return expect(
+              musicLibrary.stream({ trackId, range: undefined })
+            ).rejects.toEqual(`Navidrome failed with a 400`);
+          });
+        });
+      });
+
+      describe("with range specified", () => {
+        it("should send the range to navidrome", async () => {
+          const stream = {
+            pipe: jest.fn()
+          };
+
+          const range = "1000-2000";
+          const streamResponse = {
+            status: 200,
+            headers: {
+              "content-type": "audio/flac",
+              "content-length": "66",
+              "content-range": "100-200",
+              "accept-ranges": "none",
+              "some-other-header": "some-value",
+            },
+            data: stream,
+          };
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongXml(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumXml(artist, album, [])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.stream({ trackId, range }));
+
+          expect(result.headers).toEqual({
+            "content-type": "audio/flac",
+            "content-length": "66",
+            "content-range": "100-200",
+            "accept-ranges": "none",
+          });
+          expect(result.stream).toEqual(stream);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
             params: {
@@ -1616,79 +1767,98 @@ describe("Navidrome", () => {
             },
             headers: {
               "User-Agent": "bonob",
+              Range: range,
             },
-            responseType: "arraybuffer",
+            responseType: "stream",
           });
-        });
-      });
-
-      describe("navidrome returns something other than a 200", () => {
-        it("should return the content", async () => {
-          const trackId = "track123";
-
-          const streamResponse = {
-            status: 400,
-          };
-
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-          const musicLibrary = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.authToken));
-
-          return expect(
-            musicLibrary.stream({ trackId, range: undefined })
-          ).rejects.toEqual(`Navidrome failed with a 400`);
         });
       });
     });
 
-    describe("with range specified", () => {
-      it("should send the range to navidrome", async () => {
-        const range = "1000-2000";
-        const streamResponse = {
-          status: 200,
-          headers: {
-            "content-type": "audio/flac",
-            "content-length": "66",
-            "content-range": "100-200",
-            "accept-ranges": "none",
-            "some-other-header": "some-value",
-          },
-          data: Buffer.from("the track", "ascii"),
-        };
-
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.stream({ trackId, range }));
-
-        expect(result.headers).toEqual({
-          "content-type": "audio/flac",
-          "content-length": "66",
-          "content-range": "100-200",
-          "accept-ranges": "none",
+    describe("when navidrome has a custom StreamClientApplication registered", () => {
+      describe("when no range specified", () => {
+        it("should user the custom StreamUserAgent when calling navidrome", async () => {
+          const clientApplication = `bonob-${uuid()}`;
+          streamClientApplication.mockReturnValue(clientApplication);
+  
+          const streamResponse = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mpeg",
+            },
+            data: Buffer.from("the track", "ascii"),
+          };
+  
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumXml(artist, album, [track])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+  
+          await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.stream({ trackId, range: undefined }));
+  
+          expect(streamClientApplication).toHaveBeenCalledWith(track);
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+            params: {
+              id: trackId,
+              ...authParams,
+              c: clientApplication
+            },
+            headers: {
+              "User-Agent": "bonob",
+            },
+            responseType: "stream",
+          });
         });
-        expect(result.data.toString()).toEqual("the track");
-
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-          params: {
-            id: trackId,
-            ...authParams,
-          },
-          headers: {
-            "User-Agent": "bonob",
-            Range: range,
-          },
-          responseType: "arraybuffer",
+      });
+     
+      describe("when range specified", () => {
+        it("should user the custom StreamUserAgent when calling navidrome", async () => {
+          const range = "1000-2000";
+          const clientApplication = `bonob-${uuid()}`;
+          streamClientApplication.mockReturnValue(clientApplication);
+  
+          const streamResponse = {
+            status: 200,
+            headers: {
+              "content-type": "audio/mpeg",
+            },
+            data: Buffer.from("the track", "ascii"),
+          };
+  
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumXml(artist, album, [track])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+  
+          await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.stream({ trackId, range }));
+  
+          expect(streamClientApplication).toHaveBeenCalledWith(track);
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+            params: {
+              id: trackId,
+              ...authParams,
+              c: clientApplication
+            },
+            headers: {
+              "User-Agent": "bonob",
+              Range: range,
+            },
+            responseType: "stream",
+          });
         });
       });
     });
