@@ -141,19 +141,19 @@ function server(
           it.scrobble(id).then((scrobbleSuccess) => {
             if (scrobbleSuccess) logger.info(`Scrobbled ${id}`);
             else logger.warn(`Failed to scrobble ${id}....`);
-            
             return it;
           })
         )
         .then((it) =>
           it.stream({ trackId: id, range: req.headers["range"] || undefined })
         )
-        .then((stream) => {
-          res.status(stream.status);
-          Object.entries(stream.headers)
+        .then((trackStream) => {
+          res.status(trackStream.status);
+          Object.entries(trackStream.headers)
             .filter(([_, v]) => v !== undefined)
             .forEach(([header, value]) => res.setHeader(header, value));
-          res.send(stream.data);
+
+          trackStream.stream.pipe(res);
         });
     }
   });

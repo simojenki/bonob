@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
-import { Album, Artist, Track } from "../src/music_service";
+import { Album, Artist, Track, albumToAlbumSummary, artistToArtistSummary } from "../src/music_service";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -110,8 +110,8 @@ export function aTrack(fields: Partial<Track> = {}): Track {
     duration: randomInt(500),
     number: randomInt(100),
     genre: randomGenre(),
-    artist: anArtist(),
-    album: anAlbum(),
+    artist: artistToArtistSummary(anArtist()),
+    album: albumToAlbumSummary(anAlbum()),
     ...fields,
   };
 }

@@ -16,8 +16,8 @@ import {
   MusicLibrary,
   Images,
   AlbumSummary,
-  NO_IMAGES,
   Genre,
+  Track,
 } from "./music_service";
 import X2JS from "x2js";
 import sharp from "sharp";
@@ -199,7 +199,6 @@ const asTrack = (album: Album, song: song) => ({
   artist: {
     id: song._artistId,
     name: song._artist,
-    image: NO_IMAGES,
   },
 });
 
@@ -210,7 +209,10 @@ const asAlbum = (album: album) => ({
   genre: maybeAsGenre(album._genre),
 });
 
-export const asGenre = (genreName: string) => ({ id: genreName, name: genreName });
+export const asGenre = (genreName: string) => ({
+  id: genreName,
+  name: genreName,
+});
 
 const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
   pipe(
@@ -219,13 +221,32 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
     O.getOrElseW(() => undefined)
   );
 
+export type StreamClientApplication = (track: Track) => string;
+
+export const DEFAULT_CLIENT_APPLICATION = "bonob";
+export const USER_AGENT = "bonob";
+
+export const DEFAULT: StreamClientApplication = (_: Track) =>
+  DEFAULT_CLIENT_APPLICATION;
+
+export function appendMimeTypeToClientFor(mimeTypes: string[]) {
+  return (track: Track) =>
+    mimeTypes.includes(track.mimeType) ? `bonob+${track.mimeType}` : "bonob";
+}
+
 export class Navidrome implements MusicService {
   url: string;
   encryption: Encryption;
+  streamClientApplication: StreamClientApplication;
 
-  constructor(url: string, encryption: Encryption) {
+  constructor(
+    url: string,
+    encryption: Encryption,
+    streamClientApplication: StreamClientApplication = DEFAULT
+  ) {
     this.url = url;
     this.encryption = encryption;
+    this.streamClientApplication = streamClientApplication;
   }
 
   get = async (
@@ -237,14 +258,14 @@ export class Navidrome implements MusicService {
     axios
       .get(`${this.url}${path}`, {
         params: {
-          ...q,
           u: username,
-          ...t_and_s(password),
           v: "1.16.1",
-          c: "bonob",
+          c: DEFAULT_CLIENT_APPLICATION,
+          ...t_and_s(password),
+          ...q,
         },
         headers: {
-          "User-Agent": "bonob",
+          "User-Agent": USER_AGENT,
         },
         ...config,
       })
@@ -373,6 +394,17 @@ export class Navidrome implements MusicService {
       }
     );
 
+  getTrack = (credentials: Credentials, id: string) =>
+    this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
+      id,
+    })
+      .then((it) => it.song)
+      .then((song) =>
+        this.getAlbum(credentials, song._albumId).then((album) =>
+          asTrack(album, song)
+        )
+      );
+
   async login(token: string) {
     const navidrome = this;
     const credentials: Credentials = this.parseToken(token);
@@ -391,7 +423,7 @@ export class Navidrome implements MusicService {
       albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
         navidrome
           .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
-            ...pick(q, 'type', 'genre'),
+            ...pick(q, "type", "genre"),
             size: Math.min(MAX_ALBUM_LIST, q._count),
             offset: q._index,
           })
@@ -431,17 +463,7 @@ export class Navidrome implements MusicService {
           .then((album) =>
             (album.song || []).map((song) => asTrack(asAlbum(album), song))
           ),
-      track: (trackId: string) =>
-        navidrome
-          .getJSON<GetSongResponse>(credentials, "/rest/getSong", {
-            id: trackId,
-          })
-          .then((it) => it.song)
-          .then((song) =>
-            navidrome
-              .getAlbum(credentials, song._albumId)
-              .then((album) => asTrack(album, song))
-          ),
+      track: (trackId: string) => navidrome.getTrack(credentials, trackId),
       stream: async ({
         trackId,
         range,
@@ -449,36 +471,38 @@ export class Navidrome implements MusicService {
         trackId: string;
         range: string | undefined;
       }) =>
-        navidrome
-          .get(
-            credentials,
-            `/rest/stream`,
-            { id: trackId },
-            {
-              headers: pipe(
-                range,
-                O.fromNullable,
-                O.map((range) => ({
-                  "User-Agent": "bonob",
-                  Range: range,
-                })),
-                O.getOrElse(() => ({
-                  "User-Agent": "bonob",
-                }))
-              ),
-              responseType: "arraybuffer",
-            }
-          )
-          .then((res) => ({
-            status: res.status,
-            headers: {
-              "content-type": res.headers["content-type"],
-              "content-length": res.headers["content-length"],
-              "content-range": res.headers["content-range"],
-              "accept-ranges": res.headers["accept-ranges"],
-            },
-            data: Buffer.from(res.data, "binary"),
-          })),
+        navidrome.getTrack(credentials, trackId).then((track) =>
+          navidrome
+            .get(
+              credentials,
+              `/rest/stream`,
+              { id: trackId, c: this.streamClientApplication(track) },
+              {
+                headers: pipe(
+                  range,
+                  O.fromNullable,
+                  O.map((range) => ({
+                    "User-Agent": USER_AGENT,
+                    Range: range,
+                  })),
+                  O.getOrElse(() => ({
+                    "User-Agent": USER_AGENT,
+                  }))
+                ),
+                responseType: "stream",
+              }
+            )
+            .then((res) => ({
+              status: res.status,
+              headers: {
+                "content-type": res.headers["content-type"],
+                "content-length": res.headers["content-length"],
+                "content-range": res.headers["content-range"],
+                "accept-ranges": res.headers["accept-ranges"],
+              },
+              stream: res.data,
+            }))
+        ),
       coverArt: async (id: string, type: "album" | "artist", size?: number) => {
         if (type == "album") {
           return navidrome.getCoverArt(credentials, id, size).then((res) => ({
