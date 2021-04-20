@@ -62,7 +62,7 @@ BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or omm
 BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BONOB_SONOS_SERVICE_ID | 246 | service id for sonos
 BONOB_NAVIDROME_URL | http://localhost:4533 | URL for navidrome
-BONOB_STREAM_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
+BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom navidrome clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
 
 ## Initialising service within sonos app
 

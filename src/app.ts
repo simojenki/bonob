@@ -33,7 +33,7 @@ if (process.env["BONOB_SONOS_AUTO_REGISTER"] == "true") {
   });
 }
 
-const customClientsFor = process.env["BONOB_STREAM_CUSTOM_CLIENTS"] || "none";
+const customClientsFor = process.env["BONOB_NAVIDROME_CUSTOM_CLIENTS"] || "none";
 const streamUserAgent =
 customClientsFor == "none" ? DEFAULT : appendMimeTypeToClientFor(customClientsFor.split(","));
 
