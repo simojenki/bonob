@@ -166,6 +166,14 @@ export type GetSongResponse = {
   song: song;
 };
 
+export type Search3Response = SubsonicResponse & {
+  searchResult3: {
+    artist: artistSummary[];
+    album: album[];
+    song: song[];
+  };
+};
+
 export function isError(
   subsonicResponse: SubsonicResponse
 ): subsonicResponse is SubsonicError {
@@ -270,9 +278,9 @@ export class Navidrome implements MusicService {
         ...config,
       })
       .then((response) => {
-        if (response.status != 200 && response.status != 206)
-          throw `Navidrome failed with a ${response.status}`;
-        else return response;
+        if (response.status != 200 && response.status != 206) {
+          throw `Navidrome failed with a ${response.status || "no!"} status`;
+        } else return response;
       });
 
   getJSON = async <T>(
@@ -290,6 +298,9 @@ export class Navidrome implements MusicService {
               "subsonic-response.album.song",
               "subsonic-response.genres.genre",
               "subsonic-response.artistInfo.similarArtist",
+              "subsonic-response.searchResult3.artist",
+              "subsonic-response.searchResult3.album",
+              "subsonic-response.searchResult3.song",
             ],
           }).xml2js(response.data) as SubconicEnvelope
       )
@@ -405,6 +416,26 @@ export class Navidrome implements MusicService {
         )
       );
 
+  toAlbumSummary = (albumList: album[]): AlbumSummary[] =>
+    albumList.map((album) => ({
+      id: album._id,
+      name: album._name,
+      year: album._year,
+      genre: maybeAsGenre(album._genre),
+    }));
+
+  search3 = (credentials: Credentials, q: any) =>
+    this.getJSON<Search3Response>(credentials, "/rest/search3", {
+      artistCount: 0,
+      albumCount: 0,
+      songCount: 0,
+      ...q,
+    }).then((it) => ({
+      artists: it.searchResult3.artist || [],
+      albums: it.searchResult3.album || [],
+      songs: it.searchResult3.song || [],
+    }));
+
   async login(token: string) {
     const navidrome = this;
     const credentials: Credentials = this.parseToken(token);
@@ -428,14 +459,7 @@ export class Navidrome implements MusicService {
             offset: q._index,
           })
           .then((response) => response.albumList.album || [])
-          .then((albumList) =>
-            albumList.map((album) => ({
-              id: album._id,
-              name: album._name,
-              year: album._year,
-              genre: maybeAsGenre(album._genre),
-            }))
-          )
+          .then(navidrome.toAlbumSummary)
           .then(slice2(q))
           .then(([page, total]) => ({
             results: page,
@@ -555,6 +579,27 @@ export class Navidrome implements MusicService {
           })
           .then((_) => true)
           .catch(() => false),
+      searchArtists: async (query: string) =>
+        navidrome
+          .search3(credentials, { query, artistCount: 20 })
+          .then(({ artists }) =>
+            artists.map((artist) => ({
+              id: artist._id,
+              name: artist._name,
+            }))
+          ),
+      searchAlbums: async (query: string) =>
+        navidrome
+          .search3(credentials, { query, albumCount: 20 })
+          .then(({ albums }) => navidrome.toAlbumSummary(albums)),
+      searchTracks: async (query: string) =>
+        navidrome
+          .search3(credentials, { query, songCount: 20 })
+          .then(({ songs }) =>
+            Promise.all(
+              songs.map((it) => navidrome.getTrack(credentials, it._id))
+            )
+          ),
     };
 
     return Promise.resolve(musicLibrary);

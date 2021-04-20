@@ -1,13 +1,10 @@
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 import { v4 as uuid } from "uuid";
 import crypto from "crypto";
 
 import { Encryption } from "./encryption";
 import logger from "./logger";
-
-export interface Clock {
-  now(): Dayjs;
-}
+import { Clock, SystemClock } from "./clock";
 
 type AccessToken = {
   value: string;
@@ -24,7 +21,7 @@ export class ExpiringAccessTokens implements AccessTokens {
   tokens = new Map<string, AccessToken>();
   clock: Clock;
 
-  constructor(clock: Clock = { now: () => dayjs() }) {
+  constructor(clock: Clock = SystemClock) {
     this.clock = clock;
   }
 

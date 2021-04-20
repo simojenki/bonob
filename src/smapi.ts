@@ -18,6 +18,7 @@ import {
 } from "./music_service";
 import { AccessTokens } from "./access_tokens";
 import { BONOB_ACCESS_TOKEN_HEADER } from "./server";
+import { Clock } from "./clock";
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -107,6 +108,26 @@ export function getMetadataResult(
   };
 }
 
+export type SearchResponse = {
+  searchResult: getMetadataResult;
+};
+
+export function searchResult(
+  result: Partial<getMetadataResult>
+): SearchResponse {
+  const count =
+    (result?.mediaCollection?.length || 0) +
+    (result?.mediaMetadata?.length || 0);
+  return {
+    searchResult: {
+      count,
+      index: 0,
+      total: count,
+      ...result,
+    },
+  };
+}
+
 class SonosSoap {
   linkCodes: LinkCodes;
   webAddress: string;
@@ -168,7 +189,7 @@ class SonosSoap {
 }
 
 export type Container = {
-  itemType: "container";
+  itemType: "container" | "search";
   id: string;
   title: string;
 };
@@ -181,6 +202,12 @@ const container = ({
   title: string;
 }): Container => ({
   itemType: "container",
+  id,
+  title,
+});
+
+const search = ({ id, title }: { id: string; title: string }): Container => ({
+  itemType: "search",
   id,
   title,
 });
@@ -235,10 +262,10 @@ export const track = (
     albumArtURI: defaultAlbumArtURI(webAddress, accessToken, track.album),
     artist: track.artist.name,
     artistId: track.artist.id,
-    duration: track.duration,
+    duration: `${track.duration}`,
     genre: track.album.genre?.name,
     genreId: track.album.genre?.id,
-    trackNumber: track.number,
+    trackNumber: `${track.number}`,
   },
 });
 
@@ -300,7 +327,8 @@ function bindSmapiSoapServiceToExpress(
   webAddress: string,
   linkCodes: LinkCodes,
   musicService: MusicService,
-  accessTokens: AccessTokens
+  accessTokens: AccessTokens,
+  clock: Clock
 ) {
   const sonosSoap = new SonosSoap(webAddress, linkCodes);
   const soapyService = listen(
@@ -312,6 +340,13 @@ function bindSmapiSoapServiceToExpress(
           getAppLink: () => sonosSoap.getAppLink(),
           getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>
             sonosSoap.getDeviceAuthToken({ linkCode }),
+          getLastUpdate: () => ({
+            getLastUpdateResult: {
+              favorites: clock.now().unix(),
+              catalog: clock.now().unix(),
+              pollInterval: 120,
+            },
+          }),
           getMediaURI: async (
             { id }: { id: string },
             _,
@@ -338,6 +373,46 @@ function bindSmapiSoapServiceToExpress(
                 musicLibrary.track(typeId!).then((it) => ({
                   getMediaMetadataResult: track(webAddress, accessToken, it),
                 }))
+            ),
+          search: async (
+            { id, term }: { id: string; term: string },
+            _,
+            headers?: SoapyHeaders
+          ) =>
+            auth(musicService, accessTokens, id, headers).then(
+              async ({ musicLibrary, accessToken }) => {
+                switch (id) {
+                  case "albums":
+                    return musicLibrary.searchAlbums(term).then((it) =>
+                      searchResult({
+                        count: it.length,
+                        mediaCollection: it.map((albumSummary) =>
+                          album(webAddress, accessToken, albumSummary)
+                        ),
+                      })
+                    );
+                  case "artists":
+                    return musicLibrary.searchArtists(term).then((it) =>
+                      searchResult({
+                        count: it.length,
+                        mediaCollection: it.map((artistSummary) =>
+                          artist(webAddress, accessToken, artistSummary)
+                        ),
+                      })
+                    );
+                  case "tracks":
+                    return musicLibrary.searchTracks(term).then((it) =>
+                      searchResult({
+                        count: it.length,
+                        mediaCollection: it.map((aTrack) =>
+                          track(webAddress, accessToken, aTrack)
+                        ),
+                      })
+                    );
+                  default:
+                    throw `Unsupported search by:${id}`;
+                }
+              }
             ),
           getExtendedMetadata: async (
             {
@@ -435,6 +510,16 @@ function bindSmapiSoapServiceToExpress(
                       ],
                       index: 0,
                       total: 8,
+                    });
+                  case "search":
+                    return getMetadataResult({
+                      mediaCollection: [
+                        search({ id: "artists", title: "Artists" }),
+                        search({ id: "albums", title: "Albums" }),
+                        search({ id: "tracks", title: "Tracks" }),
+                      ],
+                      index: 0,
+                      total: 3,
                     });
                   case "artists":
                     return musicLibrary.artists(paging).then((result) => {

@@ -7,8 +7,8 @@ import logger from "./logger";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
 import qs from "querystring"
 
-export const STRINGS_VERSION = "2";
-export const PRESENTATION_MAP_VERSION = "7";
+export const PRESENTATION_AND_STRINGS_VERSION = "12";
+
 export type Capability =
   | "search"
   | "trFavorites"
@@ -19,7 +19,7 @@ export type Capability =
   | "authorizationHeader";
 
 export const BONOB_CAPABILITIES: Capability[] = [
-  // "search",
+  "search",
   // "trFavorites",
   // "alFavorites",
   // "ucPlaylists",
@@ -59,11 +59,11 @@ export const bonobService = (
   secureUri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
   strings: {
     uri: `${stripTailingSlash(bonobRoot)}${STRINGS_ROUTE}`,
-    version: STRINGS_VERSION,
+    version: PRESENTATION_AND_STRINGS_VERSION,
   },
   presentation: {
     uri: `${stripTailingSlash(bonobRoot)}${PRESENTATION_MAP_ROUTE}`,
-    version: PRESENTATION_MAP_VERSION,
+    version: PRESENTATION_AND_STRINGS_VERSION,
   },
   pollInterval: 1200,
   authType,
