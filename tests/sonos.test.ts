@@ -20,8 +20,7 @@ import sonos, {
   asCustomdForm,
   bonobService,
   Service,
-  STRINGS_VERSION,
-  PRESENTATION_MAP_VERSION,
+  PRESENTATION_AND_STRINGS_VERSION,
   BONOB_CAPABILITIES,
 } from "../src/sonos";
 
@@ -119,11 +118,11 @@ describe("sonos", () => {
           secureUri: `http://bonob.example.com/ws/sonos`,
           strings: {
             uri: `http://bonob.example.com/sonos/strings.xml`,
-            version: STRINGS_VERSION,
+            version: PRESENTATION_AND_STRINGS_VERSION,
           },
           presentation: {
             uri: `http://bonob.example.com/sonos/presentationMap.xml`,
-            version: PRESENTATION_MAP_VERSION,
+            version: PRESENTATION_AND_STRINGS_VERSION,
           },
           pollInterval: 1200,
           authType: "AppLink",
@@ -142,11 +141,11 @@ describe("sonos", () => {
           secureUri: `http://bonob.example.com/ws/sonos`,
           strings: {
             uri: `http://bonob.example.com/sonos/strings.xml`,
-            version: STRINGS_VERSION,
+            version: PRESENTATION_AND_STRINGS_VERSION,
           },
           presentation: {
             uri: `http://bonob.example.com/sonos/presentationMap.xml`,
-            version: PRESENTATION_MAP_VERSION,
+            version: PRESENTATION_AND_STRINGS_VERSION,
           },
           pollInterval: 1200,
           authType: "AppLink",
@@ -165,11 +164,11 @@ describe("sonos", () => {
           secureUri: `http://bonob.example.com/ws/sonos`,
           strings: {
             uri: `http://bonob.example.com/sonos/strings.xml`,
-            version: STRINGS_VERSION,
+            version: PRESENTATION_AND_STRINGS_VERSION,
           },
           presentation: {
             uri: `http://bonob.example.com/sonos/presentationMap.xml`,
-            version: PRESENTATION_MAP_VERSION,
+            version: PRESENTATION_AND_STRINGS_VERSION,
           },
           pollInterval: 1200,
           authType: "DeviceLink",

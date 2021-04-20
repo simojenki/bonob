@@ -8,7 +8,7 @@ import {
   BROWSER_HEADERS,
   DODGY_IMAGE_NAME,
   asGenre,
-  appendMimeTypeToClientFor
+  appendMimeTypeToClientFor,
 } from "../src/navidrome";
 import encryption from "../src/encryption";
 
@@ -72,18 +72,27 @@ describe("appendMimeTypeToUserAgentFor", () => {
   });
 
   describe("when contains some mimeTypes", () => {
-    const streamUserAgent = appendMimeTypeToClientFor(["audio/flac", "audio/ogg"])
+    const streamUserAgent = appendMimeTypeToClientFor([
+      "audio/flac",
+      "audio/ogg",
+    ]);
 
     describe("and the track mimeType is in the array", () => {
       it("should return bonob+mimeType", () => {
-        expect(streamUserAgent(aTrack({ mimeType: "audio/flac"}))).toEqual("bonob+audio/flac")
-        expect(streamUserAgent(aTrack({ mimeType: "audio/ogg"}))).toEqual("bonob+audio/ogg")
+        expect(streamUserAgent(aTrack({ mimeType: "audio/flac" }))).toEqual(
+          "bonob+audio/flac"
+        );
+        expect(streamUserAgent(aTrack({ mimeType: "audio/ogg" }))).toEqual(
+          "bonob+audio/ogg"
+        );
       });
     });
 
     describe("and the track mimeType is not in the array", () => {
       it("should return bonob", () => {
-        expect(streamUserAgent(aTrack({ mimeType: "audio/mp3"}))).toEqual("bonob")
+        expect(streamUserAgent(aTrack({ mimeType: "audio/mp3" }))).toEqual(
+          "bonob"
+        );
       });
     });
   });
@@ -94,7 +103,7 @@ const ok = (data: string) => ({
   data,
 });
 
-const artistInfoXml = (
+const getArtistInfoXml = (
   artist: Artist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
           <artistInfo>
@@ -162,14 +171,18 @@ const albumListXml = (
                     </albumList>
                   </subsonic-response>`;
 
-const artistXml = (
+const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${
+  artist.name
+}" albumCount="${artist.albums.length}" artistImageUrl="....">
+                                        ${artist.albums.map((album) =>
+                                          albumXml(artist, album)
+                                        )}
+                                      </artist>`;
+
+const getArtistXml = (
   artist: Artist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-        <artist id="${artist.id}" name="${artist.name}" albumCount="${
-  artist.albums.length
-}" artistImageUrl="....">
-          ${artist.albums.map((album) => albumXml(artist, album))}
-        </artist>
+          ${artistXml(artist)}
         </subsonic-response>`;
 
 const genresXml = (
@@ -203,6 +216,32 @@ const getSongXml = (
                                                                     )}
                                                                     </subsonic-response>`;
 
+export type ArtistWithAlbum = {
+  artist: Artist;
+  album: Album;
+};
+
+const searchResult3 = ({
+  artists,
+  albums,
+  tracks,
+}: Partial<{
+  artists: Artist[];
+  albums: ArtistWithAlbum[];
+  tracks: Track[];
+}>) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.41.1 (43bb0758)">
+<searchResult3>
+  ${(artists || []).map((it) =>
+    artistXml({
+      ...it,
+      albums: [],
+    })
+  )}
+  ${(albums || []).map((it) => albumXml(it.artist, it.album, []))}
+  ${(tracks || []).map((it) => songXml(it))}
+</searchResult3>
+</subsonic-response>`;
+
 const EMPTY = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
 
 const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
@@ -214,7 +253,11 @@ describe("Navidrome", () => {
   const salt = "saltysalty";
 
   const streamClientApplication = jest.fn();
-  const navidrome = new Navidrome(url, encryption("secret"), streamClientApplication);
+  const navidrome = new Navidrome(
+    url,
+    encryption("secret"),
+    streamClientApplication
+  );
 
   const mockedRandomString = (randomString as unknown) as jest.Mock;
   const mockGET = jest.fn();
@@ -356,10 +399,10 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistXml(artist)))
+              Promise.resolve(ok(getArtistXml(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoXml(artist)))
             );
         });
 
@@ -419,10 +462,10 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistXml(artist)))
+              Promise.resolve(ok(getArtistXml(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoXml(artist)))
             );
         });
 
@@ -482,10 +525,10 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistXml(artist)))
+              Promise.resolve(ok(getArtistXml(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoXml(artist)))
             );
         });
 
@@ -545,10 +588,10 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistXml(artist)))
+              Promise.resolve(ok(getArtistXml(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoXml(artist)))
             );
         });
 
@@ -603,10 +646,10 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistXml(artist)))
+              Promise.resolve(ok(getArtistXml(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoXml(artist)))
             );
         });
 
@@ -655,10 +698,10 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistXml(artist)))
+              Promise.resolve(ok(getArtistXml(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoXml(artist)))
             );
         });
 
@@ -705,10 +748,10 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistXml(artist)))
+              Promise.resolve(ok(getArtistXml(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(artistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoXml(artist)))
             );
         });
 
@@ -1553,7 +1596,7 @@ describe("Navidrome", () => {
       describe("when navidrome doesnt return a content-range, accept-ranges or content-length", () => {
         it("should return undefined values", async () => {
           const stream = {
-            pipe: jest.fn()
+            pipe: jest.fn(),
           };
 
           const streamResponse = {
@@ -1592,7 +1635,7 @@ describe("Navidrome", () => {
       describe("when navidrome returns a undefined for content-range, accept-ranges or content-length", () => {
         it("should return undefined values", async () => {
           const stream = {
-            pipe: jest.fn()
+            pipe: jest.fn(),
           };
 
           const streamResponse = {
@@ -1635,7 +1678,7 @@ describe("Navidrome", () => {
         describe("navidrome returns a 200", () => {
           it("should return the content", async () => {
             const stream = {
-              pipe: jest.fn()
+              pipe: jest.fn(),
             };
 
             const streamResponse = {
@@ -1712,7 +1755,7 @@ describe("Navidrome", () => {
 
             return expect(
               musicLibrary.stream({ trackId, range: undefined })
-            ).rejects.toEqual(`Navidrome failed with a 400`);
+            ).rejects.toEqual(`Navidrome failed with a 400 status`);
           });
         });
       });
@@ -1720,7 +1763,7 @@ describe("Navidrome", () => {
       describe("with range specified", () => {
         it("should send the range to navidrome", async () => {
           const stream = {
-            pipe: jest.fn()
+            pipe: jest.fn(),
           };
 
           const range = "1000-2000";
@@ -1780,7 +1823,7 @@ describe("Navidrome", () => {
         it("should user the custom StreamUserAgent when calling navidrome", async () => {
           const clientApplication = `bonob-${uuid()}`;
           streamClientApplication.mockReturnValue(clientApplication);
-  
+
           const streamResponse = {
             status: 200,
             headers: {
@@ -1788,27 +1831,29 @@ describe("Navidrome", () => {
             },
             data: Buffer.from("the track", "ascii"),
           };
-  
+
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongXml(track)))
+            )
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getAlbumXml(artist, album, [track])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
-  
+
           await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.stream({ trackId, range: undefined }));
-  
+
           expect(streamClientApplication).toHaveBeenCalledWith(track);
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
             params: {
               id: trackId,
               ...authParams,
-              c: clientApplication
+              c: clientApplication,
             },
             headers: {
               "User-Agent": "bonob",
@@ -1817,13 +1862,13 @@ describe("Navidrome", () => {
           });
         });
       });
-     
+
       describe("when range specified", () => {
         it("should user the custom StreamUserAgent when calling navidrome", async () => {
           const range = "1000-2000";
           const clientApplication = `bonob-${uuid()}`;
           streamClientApplication.mockReturnValue(clientApplication);
-  
+
           const streamResponse = {
             status: 200,
             headers: {
@@ -1831,27 +1876,29 @@ describe("Navidrome", () => {
             },
             data: Buffer.from("the track", "ascii"),
           };
-  
+
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongXml(track)))
+            )
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getAlbumXml(artist, album, [track])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
-  
+
           await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.stream({ trackId, range }));
-  
+
           expect(streamClientApplication).toHaveBeenCalledWith(track);
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
             params: {
               id: trackId,
               ...authParams,
-              c: clientApplication
+              c: clientApplication,
             },
             headers: {
               "User-Agent": "bonob",
@@ -1968,10 +2015,10 @@ describe("Navidrome", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(artistXml(artist)))
+                Promise.resolve(ok(getArtistXml(artist)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(artistInfoXml(artist)))
+                Promise.resolve(ok(getArtistInfoXml(artist)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2035,10 +2082,10 @@ describe("Navidrome", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistXml(artist)))
+                  Promise.resolve(ok(getArtistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2113,10 +2160,10 @@ describe("Navidrome", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistXml(artist)))
+                  Promise.resolve(ok(getArtistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2180,10 +2227,10 @@ describe("Navidrome", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(artistXml(artist)))
+                Promise.resolve(ok(getArtistXml(artist)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(artistInfoXml(artist)))
+                Promise.resolve(ok(getArtistInfoXml(artist)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2256,10 +2303,10 @@ describe("Navidrome", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistXml(artist)))
+                  Promise.resolve(ok(getArtistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2335,10 +2382,10 @@ describe("Navidrome", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistXml(artist)))
+                  Promise.resolve(ok(getArtistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2403,10 +2450,10 @@ describe("Navidrome", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistXml(artist)))
+                  Promise.resolve(ok(getArtistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2482,10 +2529,10 @@ describe("Navidrome", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistXml(artist)))
+                  Promise.resolve(ok(getArtistXml(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(artistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoXml(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2575,6 +2622,371 @@ describe("Navidrome", () => {
           params: {
             id,
             submission: true,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+  });
+
+  describe("searchArtists", () => {
+    describe("when there is 1 search results", () => {
+      it("should return true", async () => {
+        const artist1 = anArtist({ name: "foo woo" });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(searchResult3({ artists: [artist1] })))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchArtists("foo"));
+
+        expect(result).toEqual([artistToArtistSummary(artist1)]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "foo",
+            artistCount: 20,
+            albumCount: 0,
+            songCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+
+    describe("when there are many search results", () => {
+      it("should return true", async () => {
+        const artist1 = anArtist({ name: "foo woo" });
+        const artist2 = anArtist({ name: "foo choo" });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(searchResult3({ artists: [artist1, artist2] })))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchArtists("foo"));
+
+        expect(result).toEqual([
+          artistToArtistSummary(artist1),
+          artistToArtistSummary(artist2),
+        ]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "foo",
+            artistCount: 20,
+            albumCount: 0,
+            songCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+
+    describe("when there are no search results", () => {
+      it("should return []", async () => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(searchResult3({ artists: [] })))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchArtists("foo"));
+
+        expect(result).toEqual([]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "foo",
+            artistCount: 20,
+            albumCount: 0,
+            songCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+  });
+
+  describe("searchAlbums", () => {
+    describe("when there is 1 search results", () => {
+      it("should return true", async () => {
+        const artist = anArtist({ name: "#1" });
+        const album = anAlbum({
+          name: "foo woo",
+          genre: { id: "pop", name: "pop" },
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(searchResult3({ albums: [{ artist, album }] })))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchAlbums("foo"));
+
+        expect(result).toEqual([albumToAlbumSummary(album)]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "foo",
+            albumCount: 20,
+            artistCount: 0,
+            songCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+
+    describe("when there are many search results", () => {
+      it("should return true", async () => {
+        const artist1 = anArtist({ name: "artist1" });
+        const album1 = anAlbum({
+          name: "album1",
+          genre: { id: "pop", name: "pop" },
+        });
+
+        const artist2 = anArtist({ name: "artist2" });
+        const album2 = anAlbum({
+          name: "album2",
+          genre: { id: "pop", name: "pop" },
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                searchResult3({
+                  albums: [
+                    { artist: artist1, album: album1 },
+                    { artist: artist2, album: album2 },
+                  ],
+                })
+              )
+            )
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchAlbums("moo"));
+
+        expect(result).toEqual([
+          albumToAlbumSummary(album1),
+          albumToAlbumSummary(album2),
+        ]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "moo",
+            albumCount: 20,
+            artistCount: 0,
+            songCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+
+    describe("when there are no search results", () => {
+      it("should return []", async () => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(searchResult3({ albums: [] })))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchAlbums("foo"));
+
+        expect(result).toEqual([]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "foo",
+            albumCount: 20,
+            artistCount: 0,
+            songCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+  });
+
+  describe("searchSongs", () => {
+    describe("when there is 1 search results", () => {
+      it("should return true", async () => {
+        const pop = asGenre("Pop");
+
+        const album = anAlbum({ id: "album1", name: "Burnin", genre: pop });
+        const artist = anArtist({
+          id: "artist1",
+          name: "Bob Marley",
+          albums: [album],
+        });
+        const track = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album),
+          genre: pop,
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(searchResult3({ tracks: [track] })))
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist, album, [])))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchTracks("foo"));
+
+        expect(result).toEqual([track]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "foo",
+            songCount: 20,
+            artistCount: 0,
+            albumCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+
+    describe("when there are many search results", () => {
+      it("should return true", async () => {
+        const pop = asGenre("Pop");
+
+        const album1 = anAlbum({ id: "album1", name: "Burnin", genre: pop });
+        const artist1 = anArtist({
+          id: "artist1",
+          name: "Bob Marley",
+          albums: [album1],
+        });
+        const track1 = aTrack({
+          id: "track1",
+          artist: artistToArtistSummary(artist1),
+          album: albumToAlbumSummary(album1),
+          genre: pop,
+        });
+
+        const album2 = anAlbum({ id: "album2", name: "Bobbin", genre: pop });
+        const artist2 = anArtist({
+          id: "artist2",
+          name: "Jane Marley",
+          albums: [album2],
+        });
+        const track2 = aTrack({
+          id: "track2",
+          artist: artistToArtistSummary(artist2),
+          album: albumToAlbumSummary(album2),
+          genre: pop,
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                searchResult3({
+                  tracks: [track1, track2],
+                })
+              )
+            )
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track1))))
+          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track2))))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist2, album2, [])))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchTracks("moo"));
+
+        expect(result).toEqual([track1, track2]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "moo",
+            songCount: 20,
+            artistCount: 0,
+            albumCount: 0,
+            ...authParams,
+          },
+          headers,
+        });
+      });
+    });
+
+    describe("when there are no search results", () => {
+      it("should return []", async () => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(searchResult3({ tracks: [] })))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.searchTracks("foo"));
+
+        expect(result).toEqual([]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+          params: {
+            query: "foo",
+            songCount: 20,
+            artistCount: 0,
+            albumCount: 0,
             ...authParams,
           },
           headers,

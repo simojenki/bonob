@@ -15,6 +15,7 @@ import { MusicService, isSuccess } from "./music_service";
 import bindSmapiSoapServiceToExpress from "./smapi";
 import { AccessTokens, AccessTokenPerAuthToken } from "./access_tokens";
 import logger from "./logger";
+import { Clock, SystemClock } from "./clock";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -24,7 +25,8 @@ function server(
   webAddress: string | "http://localhost:4534",
   musicService: MusicService,
   linkCodes: LinkCodes = new InMemoryLinkCodes(),
-  accessTokens: AccessTokens = new AccessTokenPerAuthToken()
+  accessTokens: AccessTokens = new AccessTokenPerAuthToken(),
+  clock: Clock = SystemClock 
 ): Express {
   const app = express();
 
@@ -125,6 +127,15 @@ function server(
           </imageSizeMap>
         </Match>
       </PresentationMap>
+      <PresentationMap type="Search">
+        <Match>
+          <SearchCategories>
+              <Category id="artists"/>
+              <Category id="albums"/>
+              <Category id="tracks"/>
+          </SearchCategories>
+        </Match>
+      </PresentationMap>      
     </Presentation>`);
   });
 
@@ -198,7 +209,8 @@ function server(
     webAddress,
     linkCodes,
     musicService,
-    accessTokens
+    accessTokens,
+    clock
   );
 
   return app;

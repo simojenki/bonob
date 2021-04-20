@@ -18,7 +18,8 @@ Currently only a single integration allowing Navidrome to be registered with son
 - Discovery of sonos devices using seed IP address
 - Auto register bonob service with sonos system
 - Multiple registrations within a single household.
-- Transcoding performed by Navidrome with specific player for bonob/sonos
+- Transcoding performed by Navidrome with specific player for bonob/sonos, customisable by mimeType
+- Ability to search by Album, Artist, Track
 
 ## Running
 
@@ -77,6 +78,5 @@ BONOB_STREAM_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom 
 
 ## TODO
 
-- Search
 - Artist Radio
 - Playlist support
