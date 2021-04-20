@@ -76,6 +76,10 @@ BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for cust
 - You should now be able to play music from navidrome
 - Within navidrome a new player will be created, 'bonob (username)', so you can configure transcoding specifically for sonos
 
+## Implementing a different music source other than navidrome
+- Implement the MusicService/MusicLibrary interface
+- Startup bonob with your new implementation.
+
 ## TODO
 
 - Artist Radio
