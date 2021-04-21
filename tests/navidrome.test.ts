@@ -1374,26 +1374,24 @@ describe("Navidrome", () => {
         const tripHop = asGenre("Trip-Hop");
 
         const album = anAlbum({ id: "album1", name: "Burnin", genre: hipHop });
-        const albumSummary = albumToAlbumSummary(album);
 
         const artist = anArtist({
           id: "artist1",
           name: "Bob Marley",
           albums: [album],
         });
-        const artistSummary = artistToArtistSummary(artist);
 
         const tracks = [
-          aTrack({ artist: artistSummary, album: albumSummary, genre: hipHop }),
-          aTrack({ artist: artistSummary, album: albumSummary, genre: hipHop }),
+          aTrack({ artist: artistToArtistSummary(artist), album: albumToAlbumSummary(album), genre: hipHop }),
+          aTrack({ artist: artistToArtistSummary(artist), album: albumToAlbumSummary(album), genre: hipHop }),
           aTrack({
-            artist: artistSummary,
-            album: albumSummary,
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
             genre: tripHop,
           }),
           aTrack({
-            artist: artistSummary,
-            album: albumSummary,
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
             genre: tripHop,
           }),
         ];
@@ -1433,19 +1431,17 @@ describe("Navidrome", () => {
           name: "Burnin",
           genre: flipFlop,
         });
-        const albumSummary = albumToAlbumSummary(album);
 
         const artist = anArtist({
           id: "artist1",
           name: "Bob Marley",
           albums: [album],
         });
-        const artistSummary = artistToArtistSummary(artist);
 
         const tracks = [
           aTrack({
-            artist: artistSummary,
-            album: albumSummary,
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
             genre: flipFlop,
           }),
         ];
@@ -1520,18 +1516,16 @@ describe("Navidrome", () => {
       const pop = asGenre("Pop");
 
       const album = anAlbum({ id: "album1", name: "Burnin", genre: pop });
-      const albumSummary = albumToAlbumSummary(album);
 
       const artist = anArtist({
         id: "artist1",
         name: "Bob Marley",
         albums: [album],
       });
-      const artistSummary = artistToArtistSummary(artist);
 
       const track = aTrack({
-        artist: artistSummary,
-        album: albumSummary,
+        artist: artistToArtistSummary(artist),
+        album: albumToAlbumSummary(album),
         genre: pop,
       });
 
@@ -2730,11 +2724,11 @@ describe("Navidrome", () => {
   describe("searchAlbums", () => {
     describe("when there is 1 search results", () => {
       it("should return true", async () => {
-        const artist = anArtist({ name: "#1" });
         const album = anAlbum({
           name: "foo woo",
           genre: { id: "pop", name: "pop" },
         });
+        const artist = anArtist({ name: "#1", albums:[album] });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -2765,17 +2759,17 @@ describe("Navidrome", () => {
 
     describe("when there are many search results", () => {
       it("should return true", async () => {
-        const artist1 = anArtist({ name: "artist1" });
         const album1 = anAlbum({
           name: "album1",
           genre: { id: "pop", name: "pop" },
         });
+        const artist1 = anArtist({ name: "artist1", albums: [album1] });
 
-        const artist2 = anArtist({ name: "artist2" });
         const album2 = anAlbum({
           name: "album2",
           genre: { id: "pop", name: "pop" },
         });
+        const artist2 = anArtist({ name: "artist2", albums: [album2] });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))

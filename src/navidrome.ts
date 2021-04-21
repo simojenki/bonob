@@ -69,6 +69,8 @@ export type album = {
   _genre: string | undefined;
   _year: string | undefined;
   _coverArt: string | undefined;
+  _artist: string;
+  _artistId: string;
 };
 
 export type artistSummary = {
@@ -215,6 +217,8 @@ const asAlbum = (album: album) => ({
   name: album._name,
   year: album._year,
   genre: maybeAsGenre(album._genre),
+  artistId: album._artistId,
+  artistName: album._artist
 });
 
 export const asGenre = (genreName: string) => ({
@@ -361,6 +365,8 @@ export class Navidrome implements MusicService {
         name: album._name,
         year: album._year,
         genre: maybeAsGenre(album._genre),
+        artistId: album._artistId,
+        artistName: album._artist
       }));
 
   getArtist = (
@@ -379,6 +385,8 @@ export class Navidrome implements MusicService {
           name: album._name,
           year: album._year,
           genre: maybeAsGenre(album._genre),
+          artistId: it._id,
+          artistName: it._name,
         })),
       }));
 
@@ -422,6 +430,8 @@ export class Navidrome implements MusicService {
       name: album._name,
       year: album._year,
       genre: maybeAsGenre(album._genre),
+      artistId: album._artistId,
+      artistName: album._artist
     }));
 
   search3 = (credentials: Credentials, q: any) =>

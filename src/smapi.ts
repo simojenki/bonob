@@ -188,29 +188,14 @@ class SonosSoap {
   }
 }
 
+export type ContainerType = "container" | "search" | "albumList";
+
 export type Container = {
-  itemType: "container" | "search";
+  itemType: ContainerType;
   id: string;
   title: string;
+  displayType: string | undefined
 };
-
-const container = ({
-  id,
-  title,
-}: {
-  id: string;
-  title: string;
-}): Container => ({
-  itemType: "container",
-  id,
-  title,
-});
-
-const search = ({ id, title }: { id: string; title: string }): Container => ({
-  itemType: "search",
-  id,
-  title,
-});
 
 const genre = (genre: Genre) => ({
   itemType: "container",
@@ -239,6 +224,8 @@ export const album = (
 ) => ({
   itemType: "album",
   id: `album:${album.id}`,
+  artist: album.artistName,
+  artistId: album.artistId,
   title: album.name,
   albumArtURI: defaultAlbumArtURI(webAddress, accessToken, album),
   canPlay: true,
@@ -262,10 +249,10 @@ export const track = (
     albumArtURI: defaultAlbumArtURI(webAddress, accessToken, track.album),
     artist: track.artist.name,
     artistId: track.artist.id,
-    duration: `${track.duration}`,
+    duration: track.duration,
     genre: track.album.genre?.name,
     genreId: track.album.genre?.id,
-    trackNumber: `${track.number}`,
+    trackNumber: track.number,
   },
 });
 
@@ -490,23 +477,46 @@ function bindSmapiSoapServiceToExpress(
                   case "root":
                     return getMetadataResult({
                       mediaCollection: [
-                        container({ id: "artists", title: "Artists" }),
-                        container({ id: "albums", title: "Albums" }),
-                        container({ id: "genres", title: "Genres" }),
-                        container({ id: "randomAlbums", title: "Random" }),
-                        container({ id: "starredAlbums", title: "Starred" }),
-                        container({
+                        {
+                          itemType: "container",
+                          id: "artists",
+                          title: "Artists",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "albums",
+                          title: "Albums",
+                        },
+                        {
+                          itemType: "container",
+                          id: "genres",
+                          title: "Genres",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "randomAlbums",
+                          title: "Random",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "starredAlbums",
+                          title: "Starred",
+                        },
+                        {
+                          itemType: "albumList",
                           id: "recentlyAdded",
                           title: "Recently Added",
-                        }),
-                        container({
+                        },
+                        {
+                          itemType: "albumList",
                           id: "recentlyPlayed",
                           title: "Recently Played",
-                        }),
-                        container({
+                        },
+                        {
+                          itemType: "albumList",
                           id: "mostPlayed",
                           title: "Most Played",
-                        }),
+                        },
                       ],
                       index: 0,
                       total: 8,
@@ -514,9 +524,9 @@ function bindSmapiSoapServiceToExpress(
                   case "search":
                     return getMetadataResult({
                       mediaCollection: [
-                        search({ id: "artists", title: "Artists" }),
-                        search({ id: "albums", title: "Albums" }),
-                        search({ id: "tracks", title: "Tracks" }),
+                        { itemType: "search", id: "artists", title: "Artists" },
+                        { itemType: "search", id: "albums", title: "Albums" },
+                        { itemType: "search", id: "tracks", title: "Tracks" },
                       ],
                       index: 0,
                       total: 3,

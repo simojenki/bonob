@@ -50,6 +50,9 @@ export type AlbumSummary = {
   name: string;
   year: string | undefined;
   genre: Genre | undefined;
+
+  artistName: string;
+  artistId: string;
 };
 
 export type Album = AlbumSummary & {};
@@ -111,6 +114,8 @@ export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
   name: it.name,
   year: it.year,
   genre: it.genre,
+  artistName: it.artistName,
+  artistId: it.artistId,
 });
 
 export type StreamingHeader = "content-type" | "content-length" | "content-range" | "accept-ranges";
