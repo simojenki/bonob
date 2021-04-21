@@ -135,7 +135,7 @@ function server(
               <Category id="tracks"/>
           </SearchCategories>
         </Match>
-      </PresentationMap>      
+      </PresentationMap>
     </Presentation>`);
   });
 

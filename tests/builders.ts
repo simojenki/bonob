@@ -4,6 +4,7 @@ import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
 import { Album, Artist, Track, albumToAlbumSummary, artistToArtistSummary } from "../src/music_service";
+import randomString from "../src/random_string";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -70,7 +71,7 @@ export function someCredentials(token: string): Credentials {
 
 export function anArtist(fields: Partial<Artist> = {}): Artist {
   const id = uuid();
-  return {
+  const artist = {
     id,
     name: `Artist ${id}`,
     albums: [anAlbum(), anAlbum(), anAlbum()],
@@ -85,6 +86,11 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
     ],
     ...fields,
   };
+  artist.albums.forEach(album => {
+    album.artistId = artist.id;
+    album.artistName = artist.name;
+  })
+  return artist;
 }
 
 export const HIP_HOP = { id: "genre_hip_hop", name: "Hip-Hop" };
@@ -123,25 +129,33 @@ export function anAlbum(fields: Partial<Album> = {}): Album {
     name: `Album ${id}`,
     genre: randomGenre(),
     year: `19${randomInt(99)}`,
+    artistId: `Artist ${uuid()}`,
+    artistName: `Artist ${randomString()}`,
     ...fields,
   };
 }
 
+export const BLONDIE_ID = uuid();
+export const BLONDIE_NAME = "Blondie";
 export const BLONDIE: Artist = {
-  id: uuid(),
-  name: "Blondie",
+  id: BLONDIE_ID,
+  name: BLONDIE_NAME,
   albums: [
     {
       id: uuid(),
       name: "Blondie",
       year: "1976",
       genre: NEW_WAVE,
+      artistId: BLONDIE_ID,
+      artistName: BLONDIE_NAME
     },
     {
       id: uuid(),
       name: "Parallel Lines",
       year: "1978",
       genre: POP_ROCK,
+      artistId: BLONDIE_ID,
+      artistName: BLONDIE_NAME
     },
   ],
   image: {
@@ -152,13 +166,15 @@ export const BLONDIE: Artist = {
   similarArtists: [],
 };
 
+export const BOB_MARLEY_ID = uuid();
+export const BOB_MARLEY_NAME = "Bob Marley";
 export const BOB_MARLEY: Artist = {
-  id: uuid(),
-  name: "Bob Marley",
+  id: BOB_MARLEY_ID,
+  name: BOB_MARLEY_NAME,
   albums: [
-    { id: uuid(), name: "Burin'", year: "1973", genre: REGGAE },
-    { id: uuid(), name: "Exodus", year: "1977", genre: REGGAE },
-    { id: uuid(), name: "Kaya", year: "1978", genre: SKA },
+    { id: uuid(), name: "Burin'", year: "1973", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME },
+    { id: uuid(), name: "Exodus", year: "1977", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME },
+    { id: uuid(), name: "Kaya", year: "1978", genre: SKA, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME },
   ],
   image: {
     small: "http://localhost/BOB_MARLEY/sml",
@@ -168,9 +184,11 @@ export const BOB_MARLEY: Artist = {
   similarArtists: [],
 };
 
+export const MADONNA_ID = uuid();
+export const MADONNA_NAME = "Madonna";
 export const MADONNA: Artist = {
-  id: uuid(),
-  name: "Madonna",
+  id: MADONNA_ID,
+  name: MADONNA_NAME,
   albums: [],
   image: {
     small: "http://localhost/MADONNA/sml",
@@ -180,21 +198,27 @@ export const MADONNA: Artist = {
   similarArtists: [],
 };
 
+export const METALLICA_ID = uuid();
+export const METALLICA_NAME = "Metallica";
 export const METALLICA: Artist = {
-  id: uuid(),
-  name: "Metallica",
+  id: METALLICA_ID,
+  name: METALLICA_NAME,
   albums: [
     {
       id: uuid(),
       name: "Ride the Lightening",
       year: "1984",
       genre: METAL,
+      artistId: METALLICA_ID,
+      artistName: METALLICA_NAME,
     },
     {
       id: uuid(),
       name: "Master of Puppets",
       year: "1986",
       genre: METAL,
+      artistId: METALLICA_ID,
+      artistName: METALLICA_NAME,
     },
   ],
   image: {

@@ -241,6 +241,8 @@ describe("album", () => {
       title: someAlbum.name,
       albumArtURI: defaultAlbumArtURI(webAddress, accessToken, someAlbum),
       canPlay: true,
+      artist: someAlbum.artistName,
+      artistId: someAlbum.artistId
     });
   });
 });
@@ -633,7 +635,7 @@ describe("api", () => {
             musicLibrary.searchTracks.mockResolvedValue([track1, track2]);
           });
 
-          it.only("should return the tracks", async () => {
+          it("should return the tracks", async () => {
             const term = "whoopie";
 
             const result = await ws.searchAsync({
@@ -642,7 +644,15 @@ describe("api", () => {
             });
             expect(result[0]).toEqual(
               searchResult({
-                mediaCollection: tracks.map((it) => track(rootUrl, accessToken, it)),
+                mediaCollection: tracks.map((it) => {
+                  const t = track(rootUrl, accessToken, it) as any;
+                  t.trackMetadata = {
+                    ...t.trackMetadata,
+                    duration: `${t.trackMetadata.duration}`,
+                    trackNumber: `${t.trackMetadata.trackNumber}`,
+                  }
+                  return t;
+                }),
                 index: 0,
                 total: 2,
               })
@@ -722,30 +732,30 @@ describe("api", () => {
               getMetadataResult({
                 mediaCollection: [
                   { itemType: "container", id: "artists", title: "Artists" },
-                  { itemType: "container", id: "albums", title: "Albums" },
+                  { itemType: "albumList", id: "albums", title: "Albums" },
                   { itemType: "container", id: "genres", title: "Genres" },
                   {
-                    itemType: "container",
+                    itemType: "albumList",
                     id: "randomAlbums",
                     title: "Random",
                   },
                   {
-                    itemType: "container",
+                    itemType: "albumList",
                     id: "starredAlbums",
                     title: "Starred",
                   },
                   {
-                    itemType: "container",
+                    itemType: "albumList",
                     id: "recentlyAdded",
                     title: "Recently Added",
                   },
                   {
-                    itemType: "container",
+                    itemType: "albumList",
                     id: "recentlyPlayed",
                     title: "Recently Played",
                   },
                   {
-                    itemType: "container",
+                    itemType: "albumList",
                     id: "mostPlayed",
                     title: "Most Played",
                   },
@@ -853,6 +863,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: artistWithManyAlbums.albums.length,
@@ -884,6 +896,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 2,
                   total: artistWithManyAlbums.albums.length,
@@ -1137,6 +1151,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 6,
@@ -1180,6 +1196,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 6,
@@ -1223,6 +1241,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 6,
@@ -1266,6 +1286,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 6,
@@ -1309,6 +1331,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 6,
@@ -1350,6 +1374,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 6,
@@ -1391,6 +1417,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 2,
                   total: 6,
@@ -1430,6 +1458,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 4,
@@ -1472,6 +1502,8 @@ describe("api", () => {
                     title: it.name,
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
+                    artistId: it.artistId,
+                    artist: it.artistName
                   })),
                   index: 0,
                   total: 4,
