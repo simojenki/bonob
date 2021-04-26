@@ -644,15 +644,7 @@ describe("api", () => {
             });
             expect(result[0]).toEqual(
               searchResult({
-                mediaCollection: tracks.map((it) => {
-                  const t = track(rootUrl, accessToken, it) as any;
-                  t.trackMetadata = {
-                    ...t.trackMetadata,
-                    duration: `${t.trackMetadata.duration}`,
-                    trackNumber: `${t.trackMetadata.trackNumber}`,
-                  }
-                  return t;
-                }),
+                mediaCollection: tracks.map((it) => album(rootUrl, accessToken, it.album)),
                 index: 0,
                 total: 2,
               })

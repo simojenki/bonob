@@ -392,7 +392,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((aTrack) =>
-                          track(webAddress, accessToken, aTrack)
+                          album(webAddress, accessToken, aTrack.album)
                         ),
                       })
                     );
