@@ -164,6 +164,38 @@ export type GetAlbumResponse = {
   };
 };
 
+export type playlist = {
+  _id: string;
+  _name: string;
+};
+
+export type entry = {
+  _id: string;
+  _parent: string;
+  _title: string;
+  _album: string;
+  _artist: string;
+  _track: string;
+  _year: string;
+  _genre: string;
+  _contentType: string;
+  _duration: string;
+  _albumId: string;
+  _artistId: string;
+};
+
+export type GetPlaylistResponse = {
+  playlist: {
+    _id: string;
+    _name: string;
+    entry: entry[];
+  };
+};
+
+export type GetPlaylistsResponse = {
+  playlists: { playlist: playlist[] };
+};
+
 export type GetSongResponse = {
   song: song;
 };
@@ -218,7 +250,7 @@ const asAlbum = (album: album) => ({
   year: album._year,
   genre: maybeAsGenre(album._genre),
   artistId: album._artistId,
-  artistName: album._artist
+  artistName: album._artist,
 });
 
 export const asGenre = (genreName: string) => ({
@@ -297,13 +329,15 @@ export class Navidrome implements MusicService {
         (response) =>
           new X2JS({
             arrayAccessFormPaths: [
-              "subsonic-response.artist.album",
-              "subsonic-response.albumList.album",
               "subsonic-response.album.song",
-              "subsonic-response.genres.genre",
+              "subsonic-response.albumList.album",
+              "subsonic-response.artist.album",
               "subsonic-response.artistInfo.similarArtist",
-              "subsonic-response.searchResult3.artist",
+              "subsonic-response.genres.genre",
+              "subsonic-response.playlist.entry",
+              "subsonic-response.playlists.playlist",
               "subsonic-response.searchResult3.album",
+              "subsonic-response.searchResult3.artist",
               "subsonic-response.searchResult3.song",
             ],
           }).xml2js(response.data) as SubconicEnvelope
@@ -366,7 +400,7 @@ export class Navidrome implements MusicService {
         year: album._year,
         genre: maybeAsGenre(album._genre),
         artistId: album._artistId,
-        artistName: album._artist
+        artistName: album._artist,
       }));
 
   getArtist = (
@@ -431,7 +465,7 @@ export class Navidrome implements MusicService {
       year: album._year,
       genre: maybeAsGenre(album._genre),
       artistId: album._artistId,
-      artistName: album._artist
+      artistName: album._artist,
     }));
 
   search3 = (credentials: Credentials, q: any) =>
@@ -610,6 +644,44 @@ export class Navidrome implements MusicService {
               songs.map((it) => navidrome.getTrack(credentials, it._id))
             )
           ),
+      playlists: async () =>
+        navidrome
+          .getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
+          .then((it) => it.playlists.playlist || [])
+          .then((playlists) =>
+            playlists.map((it) => ({ id: it._id, name: it._name }))
+          ),
+      playlist: async (id: string) =>
+        navidrome
+          .getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
+            id,
+          })
+          .then((it) => it.playlist)
+          .then((playlist) => ({
+            id: playlist._id,
+            name: playlist._name,
+            entries: (playlist.entry || []).map((entry) => ({
+              id: entry._id,
+              name: entry._title,
+              mimeType: entry._contentType,
+              duration: parseInt(entry._duration || "0"),
+              number: parseInt(entry._track || "0"),
+              genre: maybeAsGenre(entry._genre),
+              album: {
+                id: entry._albumId,
+                name: entry._album,
+                year: entry._year,
+                genre: maybeAsGenre(entry._genre),
+
+                artistName: entry._artist,
+                artistId: entry._artistId,
+              },
+              artist: {
+                id: entry._artistId,
+                name: entry._artist,
+              },
+            })),
+          })),
     };
 
     return Promise.resolve(musicLibrary);

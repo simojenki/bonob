@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
-import { Album, Artist, Track, albumToAlbumSummary, artistToArtistSummary } from "../src/music_service";
+import { Album, Artist, Track, albumToAlbumSummary, artistToArtistSummary, PlaylistSummary, Playlist } from "../src/music_service";
 import randomString from "../src/random_string";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
@@ -27,6 +27,23 @@ export const aService = (fields: Partial<Service> = {}): Service => ({
 
   ...fields,
 });
+
+export function aPlaylistSummary(fields: Partial<PlaylistSummary> = {}): PlaylistSummary {
+  return {
+    id: `playlist-${uuid()}`,
+    name: `playlistname-${randomString()}`,
+    ...fields
+  }
+}
+
+export function aPlaylist(fields: Partial<Playlist> = {}): Playlist {
+  return {
+    id: `playlist-${uuid()}`,
+    name: `playlist-${randomString()}`,
+    entries: [aTrack(), aTrack()],
+    ...fields
+  }
+} 
 
 export function aDevice(fields: Partial<Device> = {}): Device {
   return {
@@ -109,15 +126,17 @@ export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)];
 
 export function aTrack(fields: Partial<Track> = {}): Track {
   const id = uuid();
+  const artist = anArtist();
+  const genre = fields.genre || randomGenre();
   return {
     id,
     name: `Track ${id}`,
     mimeType: `audio/mp3-${id}`,
     duration: randomInt(500),
     number: randomInt(100),
-    genre: randomGenre(),
-    artist: artistToArtistSummary(anArtist()),
-    album: albumToAlbumSummary(anAlbum()),
+    genre,
+    artist: artistToArtistSummary(artist),
+    album: albumToAlbumSummary(anAlbum({ artistId: artist.id, artistName: artist.name, genre })),
     ...fields,
   };
 }

@@ -13,6 +13,7 @@ import {
   ArtistSummary,
   Genre,
   MusicService,
+  PlaylistSummary,
   slice2,
   Track,
 } from "./music_service";
@@ -194,13 +195,20 @@ export type Container = {
   itemType: ContainerType;
   id: string;
   title: string;
-  displayType: string | undefined
+  displayType: string | undefined;
 };
 
 const genre = (genre: Genre) => ({
   itemType: "container",
   id: `genre:${genre.id}`,
   title: genre.name,
+});
+
+const playlist = (playlist: PlaylistSummary) => ({
+  itemType: "album",
+  id: `playlist:${playlist.id}`,
+  title: playlist.name,
+  canPlay: true,
 });
 
 export const defaultAlbumArtURI = (
@@ -489,6 +497,11 @@ function bindSmapiSoapServiceToExpress(
                         },
                         {
                           itemType: "container",
+                          id: "playlists",
+                          title: "Playlists",
+                        },
+                        {
+                          itemType: "container",
                           id: "genres",
                           title: "Genres",
                         },
@@ -519,7 +532,7 @@ function bindSmapiSoapServiceToExpress(
                         },
                       ],
                       index: 0,
-                      total: 8,
+                      total: 9,
                     });
                   case "search":
                     return getMetadataResult({
@@ -589,6 +602,31 @@ function bindSmapiSoapServiceToExpress(
                           total,
                         })
                       );
+                  case "playlists":
+                    return musicLibrary
+                      .playlists()
+                      .then(slice2(paging))
+                      .then(([page, total]) =>
+                        getMetadataResult({
+                          mediaCollection: page.map(playlist),
+                          index: paging._index,
+                          total,
+                        })
+                      );
+                  case "playlist":
+                    return musicLibrary
+                      .playlist(typeId!)
+                      .then(playlist => playlist.entries)
+                      .then(slice2(paging))
+                      .then(([page, total]) => {
+                        return getMetadataResult({
+                          mediaMetadata: page.map((it) =>
+                            track(webAddress, accessToken, it)
+                          ),
+                          index: paging._index,
+                          total,
+                        });
+                      });
                   case "artist":
                     return musicLibrary
                       .artist(typeId!)

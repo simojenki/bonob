@@ -31,8 +31,17 @@ import {
   AlbumSummary,
   artistToArtistSummary,
   AlbumQuery,
+  PlaylistSummary,
+  Playlist,
+  ArtistSummary,
 } from "../src/music_service";
-import { anAlbum, anArtist, aTrack } from "./builders";
+import {
+  anAlbum,
+  anArtist,
+  aPlaylist,
+  aPlaylistSummary,
+  aTrack,
+} from "./builders";
 
 jest.mock("../src/random_string");
 
@@ -103,6 +112,9 @@ const ok = (data: string) => ({
   data,
 });
 
+const similarArtistXml = (artistSummary: ArtistSummary) =>
+  `<similarArtist id="${artistSummary.id}" name="${artistSummary.name}" albumCount="3"></similarArtist>`;
+
 const getArtistInfoXml = (
   artist: Artist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
@@ -113,10 +125,7 @@ const getArtistInfoXml = (
               <smallImageUrl>${artist.image.small || ""}</smallImageUrl>
               <mediumImageUrl>${artist.image.medium || ""}</mediumImageUrl>
               <largeImageUrl>${artist.image.large || ""}</largeImageUrl>
-              ${artist.similarArtists.map(
-                (it) =>
-                  `<similarArtist id="${it.id}" name="${it.name}" albumCount="3"></similarArtist>`
-              )}
+              ${artist.similarArtists.map(similarArtistXml).join("")}
           </artistInfo>
         </subsonic-response>`;
 
@@ -137,7 +146,7 @@ const albumXml = (
             created="2021-01-07T08:19:55.834207205Z" 
             artistId="${artist.id}" 
             songCount="19" 
-            isVideo="false">${tracks.map((track) => songXml(track))}</album>`;
+            isVideo="false">${tracks.map(songXml).join("")}</album>`;
 
 const songXml = (track: Track) => `<song 
             id="${track.id}" 
@@ -165,18 +174,20 @@ const albumListXml = (
   albums: [Artist, Album][]
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                     <albumList>
-                      ${albums.map(([artist, album]) =>
-                        albumXml(artist, album)
-                      )}
+                      ${albums
+                        .map(([artist, album]) => albumXml(artist, album))
+                        .join("")}
                     </albumList>
                   </subsonic-response>`;
 
 const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${
   artist.name
 }" albumCount="${artist.albums.length}" artistImageUrl="....">
-                                        ${artist.albums.map((album) =>
-                                          albumXml(artist, album)
-                                        )}
+                                        ${artist.albums
+                                          .map((album) =>
+                                            albumXml(artist, album)
+                                          )
+                                          .join("")}
                                       </artist>`;
 
 const getArtistXml = (
@@ -185,14 +196,14 @@ const getArtistXml = (
           ${artistXml(artist)}
         </subsonic-response>`;
 
+const genreXml = (genre: string) =>
+  `<genre songCount="1475" albumCount="86">${genre}</genre>`;
+
 const genresXml = (
   genres: string[]
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                           <genres>
-                                            ${genres.map(
-                                              (it) =>
-                                                `<genre songCount="1475" albumCount="86">${it}</genre>`
-                                            )}
+                                            ${genres.map(genreXml).join("")}
                                           </genres>
                                           </subsonic-response>`;
 
@@ -221,6 +232,56 @@ export type ArtistWithAlbum = {
   album: Album;
 };
 
+const playlistXml = (playlist: PlaylistSummary) =>
+  `<playlist id="${playlist.id}" name="${playlist.name}" songCount="1" duration="190" public="true" owner="bob" created="2021-05-06T02:07:24.308007023Z" changed="2021-05-06T02:08:06Z"></playlist>`;
+
+const getPlayLists = (
+  playlists: PlaylistSummary[]
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
+<playlists>
+  ${playlists.map(playlistXml).join("")}
+</playlists>
+</subsonic-response>`;
+
+const error = (code: string, message: string) =>
+  `<subsonic-response xmlns="http://subsonic.org/restapi" status="failed" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)"><error code="${code}" message="${message}"></error></subsonic-response>`;
+
+const getPlayList = (
+  playlist: Playlist
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
+<playlist id="${playlist.id}" name="${playlist.name}" songCount="${
+  playlist.entries.length
+}" duration="627" public="true" owner="bob" created="2021-05-06T02:07:30.460465988Z" changed="2021-05-06T02:40:04Z">
+  ${playlist.entries
+    .map(
+      (it) => `<entry 
+        id="${it.id}" 
+        parent="..." 
+        isDir="false" 
+        title="${it.name}" 
+        album="${it.album.name}" 
+        artist="${it.artist.name}" 
+        track="${it.number}" 
+        year="${it.album.year}" 
+        genre="${it.album.genre?.name}" 
+        coverArt="..." 
+        size="123" 
+        contentType="${it.mimeType}" 
+        suffix="mp3" 
+        duration="${it.duration}" 
+        bitRate="128" 
+        path="..." 
+        discNumber="1" 
+        created="2019-09-04T04:07:00.138169924Z" 
+        albumId="${it.album.id}" 
+        artistId="${it.artist.id}" 
+        type="music" 
+        isVideo="false"></entry>`
+    )
+    .join("")}
+</playlist>
+</subsonic-response>`;
+
 const searchResult3 = ({
   artists,
   albums,
@@ -231,14 +292,16 @@ const searchResult3 = ({
   tracks: Track[];
 }>) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.41.1 (43bb0758)">
 <searchResult3>
-  ${(artists || []).map((it) =>
-    artistXml({
-      ...it,
-      albums: [],
-    })
-  )}
-  ${(albums || []).map((it) => albumXml(it.artist, it.album, []))}
-  ${(tracks || []).map((it) => songXml(it))}
+  ${(artists || [])
+    .map((it) =>
+      artistXml({
+        ...it,
+        albums: [],
+      })
+    )
+    .join("")}
+  ${(albums || []).map((it) => albumXml(it.artist, it.album, [])).join("")}
+  ${(tracks || []).map((it) => songXml(it)).join("")}
 </searchResult3>
 </subsonic-response>`;
 
@@ -1382,8 +1445,16 @@ describe("Navidrome", () => {
         });
 
         const tracks = [
-          aTrack({ artist: artistToArtistSummary(artist), album: albumToAlbumSummary(album), genre: hipHop }),
-          aTrack({ artist: artistToArtistSummary(artist), album: albumToAlbumSummary(album), genre: hipHop }),
+          aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: hipHop,
+          }),
+          aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: hipHop,
+          }),
           aTrack({
             artist: artistToArtistSummary(artist),
             album: albumToAlbumSummary(album),
@@ -2728,7 +2799,7 @@ describe("Navidrome", () => {
           name: "foo woo",
           genre: { id: "pop", name: "pop" },
         });
-        const artist = anArtist({ name: "#1", albums:[album] });
+        const artist = anArtist({ name: "#1", albums: [album] });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -2984,6 +3055,173 @@ describe("Navidrome", () => {
             ...authParams,
           },
           headers,
+        });
+      });
+    });
+  });
+
+  describe("playlists", () => {
+    describe("getting playlists", () => {
+      describe("when there is 1 playlist results", () => {
+        it("should return it", async () => {
+          const playlist = aPlaylistSummary();
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getPlayLists([playlist])))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.playlists());
+
+          expect(result).toEqual([playlist]);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
+            params: authParams,
+            headers,
+          });
+        });
+      });
+
+      describe("when there are many playlists", () => {
+        it("should return them", async () => {
+          const playlist1 = aPlaylistSummary();
+          const playlist2 = aPlaylistSummary();
+          const playlist3 = aPlaylistSummary();
+          const playlists = [playlist1, playlist2, playlist3];
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getPlayLists(playlists)))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.playlists());
+
+          expect(result).toEqual(playlists);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
+            params: authParams,
+            headers,
+          });
+        });
+      });
+
+      describe("when there are no playlists", () => {
+        it("should return []", async () => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getPlayLists([])))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.playlists());
+
+          expect(result).toEqual([]);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
+            params: authParams,
+            headers,
+          });
+        });
+      });
+    });
+
+    describe("getting a single playlist", () => {
+      describe("when there is no playlist with the id", () => {
+        it("should raise error", async () => {
+          const id = "id404";
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(error("70", "not there")))
+            );
+
+          return expect(
+            navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.playlist(id))
+          ).rejects.toEqual("not there");
+        });
+      });
+
+      describe("when there is a playlist with the id", () => {
+        describe("and it has tracks", () => {
+          it("should return the playlist with entries", async () => {
+            const playlist = aPlaylist({
+              entries: [
+                aTrack({ genre: { id: "pop", name: "pop" } }),
+                aTrack({ genre: { id: "rock", name: "rock" } }),
+              ],
+            });
+
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getPlayList(playlist)))
+              );
+
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.playlist(playlist.id));
+
+            expect(result).toEqual(playlist);
+
+            expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
+              params: {
+                id: playlist.id,
+                ...authParams,
+              },
+              headers,
+            });
+          });
+        });
+
+        describe("and it has no tracks", () => {
+          it("should return the playlist with empty entries", async () => {
+            const playlist = aPlaylist({
+              entries: [],
+            });
+
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getPlayList(playlist)))
+              );
+
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.playlist(playlist.id));
+
+            expect(result).toEqual(playlist);
+
+            expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
+              params: {
+                id: playlist.id,
+                ...authParams,
+              },
+              headers,
+            });
+          });
         });
       });
     });
