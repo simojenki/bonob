@@ -9,7 +9,7 @@ Currently only a single integration allowing Navidrome to be registered with son
 ## Features
 
 - Integrates with Navidrome
-- Browse by Artist, Albums, Genres, Random Albums, Starred Albums, Recently Added Albums, Recently Played Albums, Most Played Albums
+- Browse by Artist, Albums, Genres, Playlist, Random Albums, Starred Albums, Recently Added Albums, Recently Played Albums, Most Played Albums
 - Artist Art
 - Album Art
 - View Related Artists via Artist -> '...' -> Menu -> Related Arists
@@ -20,6 +20,7 @@ Currently only a single integration allowing Navidrome to be registered with son
 - Multiple registrations within a single household.
 - Transcoding performed by Navidrome with specific player for bonob/sonos, customisable by mimeType
 - Ability to search by Album, Artist, Track
+- Ability to play a playlist
 
 ## Running
 
@@ -83,4 +84,4 @@ BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for cust
 ## TODO
 
 - Artist Radio
-- Playlist support
+- Add tracks to playlists

@@ -131,6 +131,15 @@ export type CoverArt = {
   data: Buffer;
 }
 
+export type PlaylistSummary = {
+  id: string,
+  name: string
+}
+
+export type Playlist = PlaylistSummary & {
+  entries: Track[]
+}
+
 export const range = (size: number) => [...Array(size).keys()];
 
 export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
@@ -163,4 +172,6 @@ export interface MusicLibrary {
   searchArtists(query: string): Promise<ArtistSummary[]>;
   searchAlbums(query: string): Promise<AlbumSummary[]>;
   searchTracks(query: string): Promise<Track[]>;
+  playlists(): Promise<PlaylistSummary[]>;
+  playlist(id: string): Promise<Playlist>;
 }

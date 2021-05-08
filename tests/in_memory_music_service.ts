@@ -133,6 +133,9 @@ export class InMemoryMusicService implements MusicService {
       searchArtists: async (_: string) => Promise.resolve([]),
       searchAlbums: async (_: string) => Promise.resolve([]),
       searchTracks: async (_: string) => Promise.resolve([]),
+      playlists: async () => Promise.resolve([]),
+      playlist: async (id: string) =>
+        Promise.reject(`No playlist with id ${id}`),
     });
   }
 

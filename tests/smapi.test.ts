@@ -242,7 +242,7 @@ describe("album", () => {
       albumArtURI: defaultAlbumArtURI(webAddress, accessToken, someAlbum),
       canPlay: true,
       artist: someAlbum.artistName,
-      artistId: someAlbum.artistId
+      artistId: someAlbum.artistId,
     });
   });
 });
@@ -288,6 +288,8 @@ describe("api", () => {
     artists: jest.fn(),
     artist: jest.fn(),
     genres: jest.fn(),
+    playlists: jest.fn(),
+    playlist: jest.fn(),
     albums: jest.fn(),
     tracks: jest.fn(),
     track: jest.fn(),
@@ -644,7 +646,9 @@ describe("api", () => {
             });
             expect(result[0]).toEqual(
               searchResult({
-                mediaCollection: tracks.map((it) => album(rootUrl, accessToken, it.album)),
+                mediaCollection: tracks.map((it) =>
+                  album(rootUrl, accessToken, it.album)
+                ),
                 index: 0,
                 total: 2,
               })
@@ -725,6 +729,11 @@ describe("api", () => {
                 mediaCollection: [
                   { itemType: "container", id: "artists", title: "Artists" },
                   { itemType: "albumList", id: "albums", title: "Albums" },
+                  {
+                    itemType: "container",
+                    id: "playlists",
+                    title: "Playlists",
+                  },
                   { itemType: "container", id: "genres", title: "Genres" },
                   {
                     itemType: "albumList",
@@ -753,7 +762,7 @@ describe("api", () => {
                   },
                 ],
                 index: 0,
-                total: 8,
+                total: 9,
               })
             );
           });
@@ -830,6 +839,66 @@ describe("api", () => {
           });
         });
 
+        describe("asking for playlists", () => {
+          const expectedPlayLists = [
+            { id: "1", name: "pl1" },
+            { id: "2", name: "pl2" },
+            { id: "3", name: "pl3" },
+            { id: "4", name: "pl4" },
+          ];
+
+          beforeEach(() => {
+            musicLibrary.playlists.mockResolvedValue(expectedPlayLists);
+          });
+
+          describe("asking for all playlists", () => {
+            it("should return a collection of playlists", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `playlists`,
+                index: 0,
+                count: 100,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: expectedPlayLists.map((playlist) => ({
+                    itemType: "album",
+                    id: `playlist:${playlist.id}`,
+                    title: playlist.name,
+                    canPlay: true,
+                  })),
+                  index: 0,
+                  total: expectedPlayLists.length,
+                })
+              );
+            });
+          });
+
+          describe("asking for a page of playlists", () => {
+            it("should return just that page", async () => {
+              const result = await ws.getMetadataAsync({
+                id: `playlists`,
+                index: 1,
+                count: 2,
+              });
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaCollection: [
+                    expectedPlayLists[1]!,
+                    expectedPlayLists[2]!,
+                  ].map((playlist) => ({
+                    itemType: "album",
+                    id: `playlist:${playlist.id}`,
+                    title: playlist.name,
+                    canPlay: true,
+                  })),
+                  index: 1,
+                  total: expectedPlayLists.length,
+                })
+              );
+            });
+          });
+        });
+
         describe("asking for a single artist", () => {
           const artistWithManyAlbums = anArtist({
             albums: [anAlbum(), anAlbum(), anAlbum(), anAlbum(), anAlbum()],
@@ -856,7 +925,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: artistWithManyAlbums.albums.length,
@@ -889,7 +958,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 2,
                   total: artistWithManyAlbums.albums.length,
@@ -1144,7 +1213,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 6,
@@ -1189,7 +1258,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 6,
@@ -1234,7 +1303,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 6,
@@ -1279,7 +1348,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 6,
@@ -1324,7 +1393,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 6,
@@ -1367,7 +1436,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 6,
@@ -1410,7 +1479,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 2,
                   total: 6,
@@ -1451,7 +1520,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 4,
@@ -1495,7 +1564,7 @@ describe("api", () => {
                     albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, it),
                     canPlay: true,
                     artistId: it.artistId,
-                    artist: it.artistName
+                    artist: it.artistName,
                   })),
                   index: 0,
                   total: 4,
@@ -1512,78 +1581,146 @@ describe("api", () => {
           });
         });
 
-        describe("asking for tracks", () => {
-          describe("for an album", () => {
-            const album = anAlbum();
-            const artist = anArtist({
-              albums: [album],
-            });
+        describe("asking for an album", () => {
+          const album = anAlbum();
+          const artist = anArtist({
+            albums: [album],
+          });
 
-            const track1 = aTrack({ artist, album, number: 1 });
-            const track2 = aTrack({ artist, album, number: 2 });
-            const track3 = aTrack({ artist, album, number: 3 });
-            const track4 = aTrack({ artist, album, number: 4 });
-            const track5 = aTrack({ artist, album, number: 5 });
+          const track1 = aTrack({ artist, album, number: 1 });
+          const track2 = aTrack({ artist, album, number: 2 });
+          const track3 = aTrack({ artist, album, number: 3 });
+          const track4 = aTrack({ artist, album, number: 4 });
+          const track5 = aTrack({ artist, album, number: 5 });
 
-            const tracks = [track1, track2, track3, track4, track5];
+          const tracks = [track1, track2, track3, track4, track5];
 
-            beforeEach(() => {
-              musicLibrary.tracks.mockResolvedValue(tracks);
-            });
+          beforeEach(() => {
+            musicLibrary.tracks.mockResolvedValue(tracks);
+          });
 
-            describe("asking for all for an album", () => {
-              it("should return them all", async () => {
-                const paging = {
+          describe("asking for all for an album", () => {
+            it("should return them all", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: `album:${album.id}`,
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaMetadata: tracks.map((it) =>
+                    track(rootUrl, accessToken, it)
+                  ),
                   index: 0,
-                  count: 100,
-                };
-
-                const result = await ws.getMetadataAsync({
-                  id: `album:${album.id}`,
-                  ...paging,
-                });
-
-                expect(result[0]).toEqual(
-                  getMetadataResult({
-                    mediaMetadata: tracks.map((it) =>
-                      track(rootUrl, accessToken, it)
-                    ),
-                    index: 0,
-                    total: tracks.length,
-                  })
-                );
-                expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
-              });
+                  total: tracks.length,
+                })
+              );
+              expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
             });
+          });
 
-            describe("asking for a single page of tracks", () => {
-              const pageOfTracks = [track3, track4];
+          describe("asking for a single page of tracks", () => {
+            const pageOfTracks = [track3, track4];
 
-              it("should return only that page", async () => {
-                const paging = {
-                  index: 2,
-                  count: 2,
-                };
+            it("should return only that page", async () => {
+              const paging = {
+                index: 2,
+                count: 2,
+              };
 
-                const result = await ws.getMetadataAsync({
-                  id: `album:${album.id}`,
-                  ...paging,
-                });
-
-                expect(result[0]).toEqual(
-                  getMetadataResult({
-                    mediaMetadata: pageOfTracks.map((it) =>
-                      track(rootUrl, accessToken, it)
-                    ),
-                    index: paging.index,
-                    total: tracks.length,
-                  })
-                );
-                expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
+              const result = await ws.getMetadataAsync({
+                id: `album:${album.id}`,
+                ...paging,
               });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaMetadata: pageOfTracks.map((it) =>
+                    track(rootUrl, accessToken, it)
+                  ),
+                  index: paging.index,
+                  total: tracks.length,
+                })
+              );
+              expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
             });
           });
         });
+
+        describe("asking for a playlist", () => {
+          const track1 = aTrack();
+          const track2 = aTrack();
+          const track3 = aTrack();
+          const track4 = aTrack();
+          const track5 = aTrack();
+
+          const playlist = {
+            id: uuid(),
+            name: "playlist for test",
+            entries: [track1, track2, track3, track4, track5]
+          }
+
+          beforeEach(() => {
+            musicLibrary.playlist.mockResolvedValue(playlist);
+          });
+
+          describe("asking for all for a playlist", () => {
+            it("should return them all", async () => {
+              const paging = {
+                index: 0,
+                count: 100,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: `playlist:${playlist.id}`,
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaMetadata: playlist.entries.map((it) =>
+                    track(rootUrl, accessToken, it)
+                  ),
+                  index: 0,
+                  total: playlist.entries.length,
+                })
+              );
+              expect(musicLibrary.playlist).toHaveBeenCalledWith(playlist.id);
+            });
+          });
+
+          describe("asking for a single page of a playlists entries", () => {
+            const pageOfTracks = [track3, track4];
+
+            it("should return only that page", async () => {
+              const paging = {
+                index: 2,
+                count: 2,
+              };
+
+              const result = await ws.getMetadataAsync({
+                id: `playlist:${playlist.id}`,
+                ...paging,
+              });
+
+              expect(result[0]).toEqual(
+                getMetadataResult({
+                  mediaMetadata: pageOfTracks.map((it) =>
+                    track(rootUrl, accessToken, it)
+                  ),
+                  index: paging.index,
+                  total: playlist.entries.length,
+                })
+              );
+              expect(musicLibrary.playlist).toHaveBeenCalledWith(playlist.id);
+            });
+          });
+        });        
       });
     });
 
