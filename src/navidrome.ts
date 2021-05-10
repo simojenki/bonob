@@ -657,31 +657,34 @@ export class Navidrome implements MusicService {
             id,
           })
           .then((it) => it.playlist)
-          .then((playlist) => ({
-            id: playlist._id,
-            name: playlist._name,
-            entries: (playlist.entry || []).map((entry) => ({
-              id: entry._id,
-              name: entry._title,
-              mimeType: entry._contentType,
-              duration: parseInt(entry._duration || "0"),
-              number: parseInt(entry._track || "0"),
-              genre: maybeAsGenre(entry._genre),
-              album: {
-                id: entry._albumId,
-                name: entry._album,
-                year: entry._year,
+          .then((playlist) => {
+            let trackNumber = 1;
+            return {
+              id: playlist._id,
+              name: playlist._name,
+              entries: (playlist.entry || []).map((entry) => ({
+                id: entry._id,
+                name: entry._title,
+                mimeType: entry._contentType,
+                duration: parseInt(entry._duration || "0"),
+                number: trackNumber++,
                 genre: maybeAsGenre(entry._genre),
-
-                artistName: entry._artist,
-                artistId: entry._artistId,
-              },
-              artist: {
-                id: entry._artistId,
-                name: entry._artist,
-              },
-            })),
-          })),
+                album: {
+                  id: entry._albumId,
+                  name: entry._album,
+                  year: entry._year,
+                  genre: maybeAsGenre(entry._genre),
+  
+                  artistName: entry._artist,
+                  artistId: entry._artistId,
+                },
+                artist: {
+                  id: entry._artistId,
+                  name: entry._artist,
+                },
+              })),
+            }
+          }),
     };
 
     return Promise.resolve(musicLibrary);

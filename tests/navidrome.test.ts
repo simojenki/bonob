@@ -3163,30 +3163,49 @@ describe("Navidrome", () => {
       describe("when there is a playlist with the id", () => {
         describe("and it has tracks", () => {
           it("should return the playlist with entries", async () => {
-            const playlist = aPlaylist({
-              entries: [
-                aTrack({ genre: { id: "pop", name: "pop" } }),
-                aTrack({ genre: { id: "rock", name: "rock" } }),
-              ],
+            const id = uuid();
+            const name = "Great Playlist";
+            const track1 = aTrack({
+              genre: { id: "pop", name: "pop" },
+              number: 66,
+            });
+            const track2 = aTrack({
+              genre: { id: "rock", name: "rock" },
+              number: 77,
             });
 
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getPlayList(playlist)))
+                Promise.resolve(
+                  ok(
+                    getPlayList({
+                      id,
+                      name,
+                      entries: [track1, track2],
+                    })
+                  )
+                )
               );
 
             const result = await navidrome
               .generateToken({ username, password })
               .then((it) => it as AuthSuccess)
               .then((it) => navidrome.login(it.authToken))
-              .then((it) => it.playlist(playlist.id));
+              .then((it) => it.playlist(id));
 
-            expect(result).toEqual(playlist);
+            expect(result).toEqual({
+              id,
+              name,
+              entries: [
+                { ...track1, number: 1 },
+                { ...track2, number: 2 },
+              ],
+            });
 
             expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
               params: {
-                id: playlist.id,
+                id,
                 ...authParams,
               },
               headers,
