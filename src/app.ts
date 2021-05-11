@@ -1,3 +1,4 @@
+import { hostname } from "os";
 import sonos, { bonobService } from "./sonos";
 import server from "./server";
 import logger from "./logger";
@@ -8,7 +9,12 @@ import { InMemoryLinkCodes } from "./link_codes";
 
 const PORT = +(process.env["BONOB_PORT"] || 4534);
 const WEB_ADDRESS =
-  process.env["BONOB_WEB_ADDRESS"] || `http://localhost:${PORT}`;
+  process.env["BONOB_WEB_ADDRESS"] || `http://${hostname()}:${PORT}`;
+
+if (WEB_ADDRESS.match("localhost")) {
+  logger.error("BONOB_WEB_ADDRESS containing localhost is almost certainly incorrect, sonos devices will not be able to communicate with bonob using localhost, please specify either public IP or DNS entry");
+  process.exit(1);
+} 
 
 const SONOS_DEVICE_DISCOVERY =
   (process.env["BONOB_SONOS_DEVICE_DISCOVERY"] || "true") == "true";
@@ -42,7 +48,7 @@ const app = server(
   bonob,
   WEB_ADDRESS,
   new Navidrome(
-    process.env["BONOB_NAVIDROME_URL"] || "http://localhost:4533",
+    process.env["BONOB_NAVIDROME_URL"] || `http://${hostname()}:4533`,
     encryption(secret),
     streamUserAgent
   ),

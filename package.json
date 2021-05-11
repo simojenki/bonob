@@ -47,7 +47,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "BONOB_PORT=4000 BONOB_WEB_ADDRESS=http://$(hostname):4000 nodemon ./src/app.ts",
+    "dev": "BONOB_PORT=4000 nodemon ./src/app.ts",
     "test": "jest",
     "client-test": "ts-node tests/bonob_client.ts"
   }
