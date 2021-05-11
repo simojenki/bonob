@@ -55,14 +55,14 @@ Bonob will now auto-register itself with sonos on startup, updating the registra
 item | default value | description
 ---- | ------------- | -----------
 BONOB_PORT | 4534 | Default http port for bonob to listen on
-BONOB_WEB_ADDRESS | http://localhost:4534 | URL for bonob so that sonos devices can communicate
+BONOB_WEB_ADDRESS | http://$(hostname):4534 | URL for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
 BONOB_SECRET | bonob | secret used for encrypting credentials
 BONOB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
 BONOB_SONOS_DEVICE_DISCOVERY | true | whether or not sonos device discovery should be enabled
 BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommitted for for auto-discovery
 BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BONOB_SONOS_SERVICE_ID | 246 | service id for sonos
-BONOB_NAVIDROME_URL | http://localhost:4533 | URL for navidrome
+BONOB_NAVIDROME_URL | http://$(hostname):4533 | URL for navidrome
 BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom navidrome clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
 
 ## Initialising service within sonos app
