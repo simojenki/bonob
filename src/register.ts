@@ -16,5 +16,9 @@ sonosSystem.register(bonob).then((success) => {
         logger.info(
             `Successfully registered ${bonob.name}(SID:${bonob.sid}) with sonos`
         );
+        process.exit(0);
+    } else {
+        logger.error(`Failed to register ${bonob.name}(SID:${bonob.sid}) with sonos!!`)
+        process.exit(1);
     }
 });
