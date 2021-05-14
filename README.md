@@ -52,16 +52,19 @@ Bonob will now auto-register itself with sonos on startup, updating the registra
 
 ### Running bonob on a different network to your sonos devices
 
-Running bonob outside of your lan will require require registering your bonob install with your sonos devices from within your lan.  If you are running this on the internet, you should use certificates/https.
+Running bonob outside of your lan will require require registering your bonob install with your sonos devices from within your lan.  
+
+If you are running this on the internet, you should put bonob behind a reverse proxy and use certificates/https.
 
 Start bonob outside the lan with sonos discovery & registration disabled as they are meaningless in this case, ie.
 
 ```bash
 docker run \
     -e BONOB_PORT=4534 \
-    -e BONOB_WEB_ADDRESS=https://my-bonob-service.com:4534 \
+    -e BONOB_WEB_ADDRESS=https://my-bonob-service.com \
     -e BONOB_SONOS_AUTO_REGISTER=false \
     -e BONOB_SONOS_DEVICE_DISCOVERY=false \
+    -e BONOB_NAVIDROME_URL=https://my-navidrome-service.com:4533 \
     -p 4534:4534 \
     simojenki/bonob
 ```
@@ -70,7 +73,7 @@ Now inside the lan that contains the sonos devices run bonob registration, using
 
 ```bash
 docker run \
-    -e BONOB_WEB_ADDRESS=https://my-bonob-service.com:4534 \
+    -e BONOB_WEB_ADDRESS=https://my-bonob-service.com \
     -e BONOB_SONOS_DEVICE_DISCOVERY=true \
     --network host \
     simojenki/bonob register
