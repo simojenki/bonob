@@ -19,7 +19,9 @@ RUN yarn install && \
 
 FROM node:14.15-alpine
 
-EXPOSE 4534
+ENV BONOB_PORT=4534
+
+EXPOSE $BONOB_PORT
 
 WORKDIR /bonob
 
