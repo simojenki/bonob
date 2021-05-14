@@ -1,35 +1,41 @@
-import { hostname } from "os";
-import sonos, { bonobService } from "./sonos";
 import server from "./server";
 import logger from "./logger";
-import { DEFAULT, Navidrome, appendMimeTypeToClientFor } from "./navidrome";
+import { appendMimeTypeToClientFor, DEFAULT, Navidrome } from "./navidrome";
 import encryption from "./encryption";
 import { InMemoryAccessTokens, sha256 } from "./access_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
+import config from "./config";
+import sonos, { bonobService } from "./sonos";
 
-const PORT = +(process.env["BONOB_PORT"] || 4534);
-const WEB_ADDRESS =
-  process.env["BONOB_WEB_ADDRESS"] || `http://${hostname()}:${PORT}`;
-
-if (WEB_ADDRESS.match("localhost")) {
-  logger.error("BONOB_WEB_ADDRESS containing localhost is almost certainly incorrect, sonos devices will not be able to communicate with bonob using localhost, please specify either public IP or DNS entry");
-  process.exit(1);
-} 
-
-const SONOS_DEVICE_DISCOVERY =
-  (process.env["BONOB_SONOS_DEVICE_DISCOVERY"] || "true") == "true";
-const SONOS_SEED_HOST = process.env["BONOB_SONOS_SEED_HOST"];
+logger.info(
+  `Starting bonob with config ${JSON.stringify(config)}`
+);
 
 const bonob = bonobService(
-  process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
-  Number(process.env["BONOS_SONOS_SERVICE_ID"] || "246"),
-  WEB_ADDRESS,
+  config.sonos.serviceName,
+  config.sonos.sid,
+  config.webAddress,
   "AppLink"
 );
-const secret = process.env["BONOB_SECRET"] || "bonob";
 
-const sonosSystem = sonos(SONOS_DEVICE_DISCOVERY, SONOS_SEED_HOST);
-if (process.env["BONOB_SONOS_AUTO_REGISTER"] == "true") {
+const sonosSystem = sonos(config.sonos.deviceDiscovery, config.sonos.seedHost);
+
+const streamUserAgent = config.navidrome.customClientsFor ? appendMimeTypeToClientFor(config.navidrome.customClientsFor.split(",")) : DEFAULT;
+
+const app = server(
+  sonosSystem,
+  bonob,
+  config.webAddress,
+  new Navidrome(
+    config.navidrome.url,
+    encryption(config.secret),
+    streamUserAgent
+  ),
+  new InMemoryLinkCodes(),
+  new InMemoryAccessTokens(sha256(config.secret))
+);
+
+if (config.sonos.autoRegister) {
   sonosSystem.register(bonob).then((success) => {
     if (success) {
       logger.info(
@@ -39,25 +45,8 @@ if (process.env["BONOB_SONOS_AUTO_REGISTER"] == "true") {
   });
 }
 
-const customClientsFor = process.env["BONOB_NAVIDROME_CUSTOM_CLIENTS"] || "none";
-const streamUserAgent =
-customClientsFor == "none" ? DEFAULT : appendMimeTypeToClientFor(customClientsFor.split(","));
-
-const app = server(
-  sonosSystem,
-  bonob,
-  WEB_ADDRESS,
-  new Navidrome(
-    process.env["BONOB_NAVIDROME_URL"] || `http://${hostname()}:4533`,
-    encryption(secret),
-    streamUserAgent
-  ),
-  new InMemoryLinkCodes(),
-  new InMemoryAccessTokens(sha256(secret))
-);
-
-app.listen(PORT, () => {
-  logger.info(`Listening on ${PORT} available @ ${WEB_ADDRESS}`);
+app.listen(config.port, () => {
+  logger.info(`Listening on ${config.port} available @ ${config.webAddress}`);
 });
 
 export default app;
