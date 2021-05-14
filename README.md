@@ -50,6 +50,30 @@ docker run \
 
 Bonob will now auto-register itself with sonos on startup, updating the registration if the configuration has changed.  Bonob should show up in the "Services" list on http://localhost:3000
 
+
+### Running bonob on a different network to your sonos devices.
+Start bonob without sonos discovery or registration, ie.
+```
+docker run \
+    -e BONOB_PORT=4534 \
+    -e BONOB_WEB_ADDRESS=http://my-bonob-service:4534 \
+    -e BONOB_SONOS_AUTO_REGISTER=false \
+    -e BONOB_SONOS_DEVICE_DISCOVERY=false \
+    -p 4534 \
+    simojenki/bonob
+```
+
+Run bonob registration within the network that contains your sonos devices, using the same BONOB_WEB_ADDRESS and discovery and registration enabled
+```
+docker run \
+    -e BONOB_PORT=4534 \
+    -e BONOB_WEB_ADDRESS=http://my-bonob-service:4534 \
+    -e BONOB_SONOS_AUTO_REGISTER=true \
+    -e BONOB_SONOS_DEVICE_DISCOVERY=true \
+    simojenki/bonob registrar
+```
+
+
 ## Configuration
 
 item | default value | description
