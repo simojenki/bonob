@@ -52,7 +52,7 @@ Bonob will now auto-register itself with sonos on startup, updating the registra
 
 ### Running bonob on a different network to your sonos devices
 
-Running bonob outside of your lan will require require registering your bonob install with your sonos devices from within your lan.  
+Running bonob outside of your lan will require registering your bonob install with your sonos devices from within your lan.  
 
 If you are running this on the internet, you should put bonob behind a reverse proxy and use certificates/https.
 
