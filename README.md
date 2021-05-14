@@ -30,7 +30,7 @@ bonob is ditributed via docker and can be run in a number of ways
 
 ```bash
 docker run \
-    -p 4534 \
+    -p 4534:4534 \
     --network host \
     simojenki/bonob
 ```
@@ -44,35 +44,37 @@ docker run \
     -e BONOB_PORT=3000 \
     -e BONOB_SONOS_AUTO_REGISTER=true \
     -e BONOB_SONOS_SEED_HOST=192.168.1.123 \
-    -p 3000 \
+    -p 3000:3000 \
     simojenki/bonob
 ```
 
 Bonob will now auto-register itself with sonos on startup, updating the registration if the configuration has changed.  Bonob should show up in the "Services" list on http://localhost:3000
 
+### Running bonob on a different network to your sonos devices
 
-### Running bonob on a different network to your sonos devices.
-Start bonob without sonos discovery or registration, ie.
-```
+Running bonob outside of your lan will require require registering your bonob install with your sonos devices from within your lan.
+
+Start bonob outside the lan with sonos discovery & registration disabled as they are meaningless in this case, ie.
+
+```bash
 docker run \
     -e BONOB_PORT=4534 \
-    -e BONOB_WEB_ADDRESS=http://my-bonob-service:4534 \
+    -e BONOB_WEB_ADDRESS=http://my-bonob-service.com:4534 \
     -e BONOB_SONOS_AUTO_REGISTER=false \
     -e BONOB_SONOS_DEVICE_DISCOVERY=false \
-    -p 4534 \
+    -p 4534:4534 \
     simojenki/bonob
 ```
 
-Run bonob registration within the network that contains your sonos devices, using the same BONOB_WEB_ADDRESS and discovery and registration enabled
-```
-docker run \
-    -e BONOB_PORT=4534 \
-    -e BONOB_WEB_ADDRESS=http://my-bonob-service:4534 \
-    -e BONOB_SONOS_AUTO_REGISTER=true \
-    -e BONOB_SONOS_DEVICE_DISCOVERY=true \
-    simojenki/bonob registrar
-```
+Now inside the lan that contains the sonos devices run bonob registration, using the same BONOB_WEB_ADDRESS as above, and with discovery enabled.  Make sure to use host networking so that bonob can find the sonos devices (or provide a BONOB_SONOS_SEED_HOST)
 
+```bash
+docker run \
+    -e BONOB_WEB_ADDRESS=http://my-bonob-service:4534 \
+    -e BONOB_SONOS_DEVICE_DISCOVERY=true \
+    --network host \
+    simojenki/bonob register
+```
 
 ## Configuration
 
