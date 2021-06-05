@@ -98,9 +98,9 @@ BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for cust
 
 - Open sonos app on your device
 - Settings -> Services & Voice -> + Add a Service
-- Select your Music Service, default name is 'bonob', can be override with configuration BONOB_SONOS_SERVICE_NAME
+- Select your Music Service, default name is 'bonob', can be overriden with configuration BONOB_SONOS_SERVICE_NAME
 - Press 'Add to Sonos' -> 'Linking sonos with bonob' -> Authorize
-- Your device should open and brower and you should now see a login screen, enter your navidrome credentials
+- Your device should open a browser and you should now see a login screen, enter your navidrome credentials
 - You should get 'Login successful!'
 - Go back into the sonos app and complete the process
 - You should now be able to play music from navidrome
