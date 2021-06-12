@@ -471,9 +471,9 @@ function bindSmapiSoapServiceToExpress(
                           title: it.name,
                           mimeType: it.mimeType,
                           trackMetadata: {
-                            artistId: it.artist.id,
+                            artistId: `artist:${it.artist.id}`,
                             artist: it.artist.name,
-                            albumId: it.album.id,
+                            albumId: `album:${it.album.id}`,
                             album: it.album.name,
                             genre: it.genre?.name,
                             genreId: it.genre?.id,
