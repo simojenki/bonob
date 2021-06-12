@@ -35,6 +35,7 @@ import {
   ROCK,
   TRIP_HOP,
   PUNK,
+  aPlaylist,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -296,6 +297,10 @@ describe("api", () => {
     searchArtists: jest.fn(),
     searchAlbums: jest.fn(),
     searchTracks: jest.fn(),
+    createPlaylist: jest.fn(),
+    addToPlaylist: jest.fn(),
+    deletePlaylist: jest.fn(),
+    removeFromPlaylist: jest.fn(),
   };
   const accessTokens = {
     mint: jest.fn(),
@@ -309,9 +314,9 @@ describe("api", () => {
     SONOS_DISABLED,
     service,
     rootUrl,
-    (musicService as unknown) as MusicService,
-    (linkCodes as unknown) as LinkCodes,
-    (accessTokens as unknown) as AccessTokens,
+    musicService as unknown as MusicService,
+    linkCodes as unknown as LinkCodes,
+    accessTokens as unknown as AccessTokens,
     clock
   );
 
@@ -498,9 +503,10 @@ describe("api", () => {
 
         expect(result[0]).toEqual({
           getLastUpdateResult: {
+            autoRefreshEnabled: true,
             favorites: `${now.unix()}`,
             catalog: `${now.unix()}`,
-            pollInterval: 120,
+            pollInterval: 60,
           },
         });
       });
@@ -730,9 +736,14 @@ describe("api", () => {
                   { itemType: "container", id: "artists", title: "Artists" },
                   { itemType: "albumList", id: "albums", title: "Albums" },
                   {
-                    itemType: "container",
+                    itemType: "playlist",
                     id: "playlists",
                     title: "Playlists",
+                    attributes: {
+                      readOnly: "false",
+                      renameable: "false",
+                      userContent: "true",
+                    },
                   },
                   { itemType: "container", id: "genres", title: "Genres" },
                   {
@@ -861,10 +872,15 @@ describe("api", () => {
               expect(result[0]).toEqual(
                 getMetadataResult({
                   mediaCollection: expectedPlayLists.map((playlist) => ({
-                    itemType: "album",
+                    itemType: "playlist",
                     id: `playlist:${playlist.id}`,
                     title: playlist.name,
                     canPlay: true,
+                    attributes: {
+                      readOnly: "false",
+                      userContent: "false",
+                      renameable: "false",
+                    },
                   })),
                   index: 0,
                   total: expectedPlayLists.length,
@@ -886,10 +902,15 @@ describe("api", () => {
                     expectedPlayLists[1]!,
                     expectedPlayLists[2]!,
                   ].map((playlist) => ({
-                    itemType: "album",
+                    itemType: "playlist",
                     id: `playlist:${playlist.id}`,
                     title: playlist.name,
                     canPlay: true,
+                    attributes: {
+                      readOnly: "false",
+                      userContent: "false",
+                      renameable: "false",
+                    },
                   })),
                   index: 1,
                   total: expectedPlayLists.length,
@@ -1662,8 +1683,8 @@ describe("api", () => {
           const playlist = {
             id: uuid(),
             name: "playlist for test",
-            entries: [track1, track2, track3, track4, track5]
-          }
+            entries: [track1, track2, track3, track4, track5],
+          };
 
           beforeEach(() => {
             musicLibrary.playlist.mockResolvedValue(playlist);
@@ -1720,7 +1741,7 @@ describe("api", () => {
               expect(musicLibrary.playlist).toHaveBeenCalledWith(playlist.id);
             });
           });
-        });        
+        });
       });
     });
 
@@ -1916,6 +1937,44 @@ describe("api", () => {
             });
           });
         });
+
+        describe("asking for a track", () => {
+          it("should return the albums", async () => {
+            const track = aTrack();
+
+            musicLibrary.track.mockResolvedValue(track);
+
+            const root = await ws.getExtendedMetadataAsync({
+              id: `track:${track.id}`,
+            });
+
+            expect(root[0]).toEqual({
+              getExtendedMetadataResult: {
+                mediaMetadata: {
+                  id: `track:${track.id}`,
+                  itemType: "track",
+                  title: track.name,
+                  mimeType: track.mimeType,
+                  trackMetadata: {
+                    artistId: track.artist.id,
+                    artist: track.artist.name,
+                    albumId: track.album.id,
+                    album: track.album.name,
+                    genre: track.genre?.name,
+                    genreId: track.genre?.id,
+                    duration: track.duration,
+                    albumArtURI: defaultAlbumArtURI(
+                      rootUrl,
+                      accessToken,
+                      track.album
+                    ),
+                  },
+                },
+              },
+            });
+            expect(musicLibrary.track).toHaveBeenCalledWith(track.id);
+          });
+        });
       });
     });
 
@@ -2079,5 +2138,202 @@ describe("api", () => {
         });
       });
     });
+
+    describe("createContainer", () => {
+      const authToken = `authToken-${uuid()}`;
+      const accessToken = `accessToken-${uuid()}`;
+
+      let ws: Client;
+
+      beforeEach(async () => {
+        musicService.login.mockResolvedValue(musicLibrary);
+        accessTokens.mint.mockReturnValue(accessToken);
+
+        ws = await createClientAsync(`${service.uri}?wsdl`, {
+          endpoint: service.uri,
+          httpClient: supersoap(server, rootUrl),
+        });
+        ws.addSoapHeader({ credentials: someCredentials(authToken) });
+      });
+
+      describe("with only a title", () => {
+        const title = "aNewPlaylist";
+        const idOfNewPlaylist = uuid();
+
+        it("should create a playlist", async () => {
+          musicLibrary.createPlaylist.mockResolvedValue({ id: idOfNewPlaylist, name: title });
+
+          const result = await ws.createContainerAsync({
+            title,
+          });
+
+          expect(result[0]).toEqual({
+            createContainerResult: {
+              id: `playlist:${idOfNewPlaylist}`,
+              updateId: null,
+            },
+          });
+          expect(musicService.login).toHaveBeenCalledWith(authToken);
+          expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+          expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
+        });
+      });
+
+      describe("with a title and a seed track", () => {
+        const title = "aNewPlaylist2";
+        const trackId = 'track123';
+        const idOfNewPlaylist = 'playlistId';
+
+        it("should create a playlist with the track", async () => {
+          musicLibrary.createPlaylist.mockResolvedValue({ id: idOfNewPlaylist, name: title });
+          musicLibrary.addToPlaylist.mockResolvedValue(true);
+
+          const result = await ws.createContainerAsync({
+            title,
+            seedId: `track:${trackId}`
+          });
+
+          expect(result[0]).toEqual({
+            createContainerResult: {
+              id: `playlist:${idOfNewPlaylist}`,
+              updateId: null,
+            },
+          });
+          expect(musicService.login).toHaveBeenCalledWith(authToken);
+          expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+          expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
+          expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(idOfNewPlaylist, trackId);
+        });
+
+      });
+    });
+
+    describe("deleteContainer", () => {
+      const authToken = `authToken-${uuid()}`;
+      const accessToken = `accessToken-${uuid()}`;
+      const id = "id123";
+
+      let ws: Client;
+
+      beforeEach(async () => {
+        musicService.login.mockResolvedValue(musicLibrary);
+        accessTokens.mint.mockReturnValue(accessToken);
+
+        ws = await createClientAsync(`${service.uri}?wsdl`, {
+          endpoint: service.uri,
+          httpClient: supersoap(server, rootUrl),
+        });
+        ws.addSoapHeader({ credentials: someCredentials(authToken) });
+      });
+
+      it("should delete the playlist", async () => {
+        musicLibrary.deletePlaylist.mockResolvedValue(true);
+
+        const result = await ws.deleteContainerAsync({
+          id,
+        });
+
+        expect(result[0]).toEqual({ deleteContainerResult: null });
+        expect(musicService.login).toHaveBeenCalledWith(authToken);
+        expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+        expect(musicLibrary.deletePlaylist).toHaveBeenCalledWith(id);
+      });
+
+      describe("addToContainer", () => {
+        const authToken = `authToken-${uuid()}`;
+        const accessToken = `accessToken-${uuid()}`;
+        const trackId = "track123";
+        const playlistId = "parent123";
+  
+        let ws: Client;
+  
+        beforeEach(async () => {
+          musicService.login.mockResolvedValue(musicLibrary);
+          accessTokens.mint.mockReturnValue(accessToken);
+  
+          ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+          ws.addSoapHeader({ credentials: someCredentials(authToken) });
+        });
+  
+        it("should delete the playlist", async () => {
+          musicLibrary.addToPlaylist.mockResolvedValue(true);
+  
+          const result = await ws.addToContainerAsync({
+            id: `track:${trackId}`,
+            parentId: `parent:${playlistId}`
+          });
+  
+          expect(result[0]).toEqual({ addToContainerResult: { updateId: null } });
+          expect(musicService.login).toHaveBeenCalledWith(authToken);
+          expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+          expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(playlistId, trackId);
+        });
+      });
+
+      describe("removeFromContainer", () => {
+        const authToken = `authToken-${uuid()}`;
+        const accessToken = `accessToken-${uuid()}`;
+  
+        let ws: Client;
+  
+        beforeEach(async () => {
+          musicService.login.mockResolvedValue(musicLibrary);
+          accessTokens.mint.mockReturnValue(accessToken);
+  
+          ws = await createClientAsync(`${service.uri}?wsdl`, {
+            endpoint: service.uri,
+            httpClient: supersoap(server, rootUrl),
+          });
+          ws.addSoapHeader({ credentials: someCredentials(authToken) });
+        });
+
+        describe("removing tracks from a playlist", () => {
+          const playlistId = "parent123";
+  
+          it("should remove the track from playlist", async () => {
+            musicLibrary.removeFromPlaylist.mockResolvedValue(true);
+    
+            const result = await ws.removeFromContainerAsync({
+              id: `playlist:${playlistId}`,
+              indices: `1,6,9`
+            });
+    
+            expect(result[0]).toEqual({ removeFromContainerResult: { updateId: null } });
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.removeFromPlaylist).toHaveBeenCalledWith(playlistId, [1,6,9]);
+          });
+        });
+
+        describe("removing a playlist", () => {
+          const playlist1 = aPlaylist({ id: 'p1' });
+          const playlist2 = aPlaylist({ id: 'p2' });
+          const playlist3 = aPlaylist({ id: 'p3' });
+          const playlist4 = aPlaylist({ id: 'p4' });
+          const playlist5 = aPlaylist({ id: 'p5' });
+
+          it("should delete the playlist", async () => {
+            musicLibrary.playlists.mockResolvedValue([playlist1, playlist2, playlist3, playlist4, playlist5]);
+            musicLibrary.deletePlaylist.mockResolvedValue(true);
+    
+            const result = await ws.removeFromContainerAsync({
+              id: `playlists`,
+              indices: `0,2,4`
+            });
+    
+            expect(result[0]).toEqual({ removeFromContainerResult: { updateId: null } });
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.deletePlaylist).toHaveBeenCalledTimes(3);
+            expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(1, playlist1.id);
+            expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(2, playlist3.id);
+            expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(3, playlist5.id);
+          });
+        });
+      });
+    });    
   });
 });

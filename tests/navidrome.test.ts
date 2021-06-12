@@ -9,6 +9,7 @@ import {
   DODGY_IMAGE_NAME,
   asGenre,
   appendMimeTypeToClientFor,
+  asURLSearchParams
 } from "../src/navidrome";
 import encryption from "../src/encryption";
 
@@ -105,6 +106,52 @@ describe("appendMimeTypeToUserAgentFor", () => {
       });
     });
   });
+});
+
+describe("asURLSearchParams", () => {
+  describe("empty q", () => {
+    it("should return empty params", () => {
+      const q = {};
+      const expected = new URLSearchParams();
+      expect(asURLSearchParams(q)).toEqual(expected);
+    });
+  });
+
+  describe("singular params", () => {
+    it("should append each", () => {
+      const q = {
+        a: 1,
+        b: "bee",
+        c: false,
+        d: true
+      };
+      const expected = new URLSearchParams();
+      expected.append("a", "1");
+      expected.append("b", "bee");
+      expected.append("c", "false");
+      expected.append("d", "true");
+
+      expect(asURLSearchParams(q)).toEqual(expected);
+    });
+  });
+
+  describe("list params", () => {
+    it("should append each", () => {
+      const q = {
+        a: [1, "two", false, true],
+        b: "yippee"
+      };
+
+      const expected = new URLSearchParams();
+      expected.append("a", "1");
+      expected.append("a", "two");
+      expected.append("a", "false");
+      expected.append("a", "true");
+      expected.append("b", "yippee");
+
+      expect(asURLSearchParams(q)).toEqual(expected);
+    });
+  });  
 });
 
 const ok = (data: string) => ({
@@ -246,6 +293,10 @@ const getPlayLists = (
 const error = (code: string, message: string) =>
   `<subsonic-response xmlns="http://subsonic.org/restapi" status="failed" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)"><error code="${code}" message="${message}"></error></subsonic-response>`;
 
+const createPlayList = (playlist: PlaylistSummary) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
+  ${playlistXml(playlist)}
+  </subsonic-response>`
+
 const getPlayList = (
   playlist: Playlist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
@@ -338,10 +389,10 @@ describe("Navidrome", () => {
 
   const authParams = {
     u: username,
-    t: t(password, salt),
-    s: salt,
     v: "1.16.1",
     c: "bonob",
+    t: t(password, salt),
+    s: salt,
   };
   const headers = {
     "User-Agent": "bonob",
@@ -362,7 +413,7 @@ describe("Navidrome", () => {
         expect(token.userId).toEqual(username);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-          params: authParams,
+          params: asURLSearchParams(authParams),
           headers,
         });
       });
@@ -403,9 +454,7 @@ describe("Navidrome", () => {
         expect(result).toEqual(genres.map(asGenre));
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: {
-            ...authParams,
-          },
+          params: asURLSearchParams(authParams),
           headers,
         });
       });
@@ -429,9 +478,7 @@ describe("Navidrome", () => {
         expect(result).toEqual(genres.map(asGenre));
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: {
-            ...authParams,
-          },
+          params: asURLSearchParams(authParams),
           headers,
         });
       });
@@ -489,18 +536,18 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: {
-              id: artist.id,
+            params:asURLSearchParams( {
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
         });
@@ -552,18 +599,18 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
         });
@@ -615,18 +662,18 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
         });
@@ -678,18 +725,18 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
         });
@@ -732,18 +779,18 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
         });
@@ -784,18 +831,18 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
         });
@@ -834,18 +881,18 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
-            params: {
-              id: artist.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: artist.id,
+            }),
             headers,
           });
         });
@@ -939,7 +986,7 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: authParams,
+            params: asURLSearchParams(authParams),
             headers,
           });
         });
@@ -967,7 +1014,7 @@ describe("Navidrome", () => {
           expect(artists).toEqual({ results: expectedResults, total: 4 });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: authParams,
+            params: asURLSearchParams(authParams),
             headers,
           });
         });
@@ -1018,13 +1065,13 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               type: "byGenre",
               genre: "Pop",
               size: 500,
               offset: 0,
-              ...authParams,
-            },
+            }),
             headers,
           });
         });
@@ -1060,12 +1107,12 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               type: "newest",
               size: 500,
               offset: 0,
-              ...authParams,
-            },
+            }),
             headers,
           });
         });
@@ -1101,12 +1148,12 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               type: "recent",
               size: 500,
               offset: 0,
-              ...authParams,
-            },
+            }),
             headers,
           });
         });
@@ -1135,12 +1182,12 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               type: "frequent",
               size: 500,
               offset: 0,
-              ...authParams,
-            },
+            }),
             headers,
           });
         });
@@ -1181,12 +1228,12 @@ describe("Navidrome", () => {
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-          params: {
+          params: asURLSearchParams({
+            ...authParams,
             type: "alphabeticalByArtist",
             size: 500,
             offset: 0,
-            ...authParams,
-          },
+          }),
           headers,
         });
       });
@@ -1226,12 +1273,12 @@ describe("Navidrome", () => {
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-          params: {
+          params: asURLSearchParams({
+            ...authParams,
             type: "alphabeticalByArtist",
             size: 500,
             offset: 0,
-            ...authParams,
-          },
+          }),
           headers,
         });
       });
@@ -1288,12 +1335,12 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               type: "alphabeticalByArtist",
               size: 500,
               offset: 0,
-              ...authParams,
-            },
+            }),
             headers,
           });
         });
@@ -1318,12 +1365,12 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               type: "alphabeticalByArtist",
               size: 2,
               offset: 2,
-              ...authParams,
-            },
+            }),
             headers,
           });
         });
@@ -1374,12 +1421,12 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               type: "alphabeticalByArtist",
               size: 500,
               offset: 0,
-              ...authParams,
-            },
+            }),
             headers,
           });
         });
@@ -1420,10 +1467,10 @@ describe("Navidrome", () => {
         expect(result).toEqual(album);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-          params: {
-            id: album.id,
+          params: asURLSearchParams({
             ...authParams,
-          },
+            id: album.id,
+          }),
           headers,
         });
       });
@@ -1485,10 +1532,10 @@ describe("Navidrome", () => {
           expect(result).toEqual(tracks);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: {
-              id: album.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: album.id,
+            }),
             headers,
           });
         });
@@ -1535,10 +1582,10 @@ describe("Navidrome", () => {
           expect(result).toEqual(tracks);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: {
-              id: album.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: album.id,
+            }),
             headers,
           });
         });
@@ -1573,10 +1620,10 @@ describe("Navidrome", () => {
           expect(result).toEqual([]);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: {
-              id: album.id,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: album.id,
+            }),
             headers,
           });
         });
@@ -1619,18 +1666,18 @@ describe("Navidrome", () => {
         expect(result).toEqual(track);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
-          params: {
-            id: track.id,
+          params: asURLSearchParams({
             ...authParams,
-          },
+            id: track.id,
+          }),
           headers,
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-          params: {
-            id: album.id,
+          params: asURLSearchParams({
             ...authParams,
-          },
+            id: album.id,
+          }),
           headers,
         });
       });
@@ -1783,10 +1830,10 @@ describe("Navidrome", () => {
             expect(result.stream).toEqual(stream);
 
             expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-              params: {
-                id: trackId,
+              params: asURLSearchParams({
                 ...authParams,
-              },
+                id: trackId,
+              }),
               headers: {
                 "User-Agent": "bonob",
               },
@@ -1869,10 +1916,10 @@ describe("Navidrome", () => {
           expect(result.stream).toEqual(stream);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-            params: {
-              id: trackId,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: trackId,
+            }),
             headers: {
               "User-Agent": "bonob",
               Range: range,
@@ -1915,11 +1962,11 @@ describe("Navidrome", () => {
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-            params: {
-              id: trackId,
+            params: asURLSearchParams({
               ...authParams,
+              id: trackId,
               c: clientApplication,
-            },
+            }),
             headers: {
               "User-Agent": "bonob",
             },
@@ -1960,11 +2007,11 @@ describe("Navidrome", () => {
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-            params: {
-              id: trackId,
+            params:asURLSearchParams( {
               ...authParams,
+              id: trackId,
               c: clientApplication,
-            },
+            }),
             headers: {
               "User-Agent": "bonob",
               Range: range,
@@ -2005,10 +2052,10 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
-            params: {
-              id: coverArtId,
+            params: asURLSearchParams({
               ...authParams,
-            },
+              id: coverArtId
+            }),
             headers,
             responseType: "arraybuffer",
           });
@@ -2043,11 +2090,11 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
-            params: {
+            params: asURLSearchParams({
+              ...authParams,
               id: coverArtId,
               size,
-              ...authParams,
-            },
+            }),
             headers,
             responseType: "arraybuffer",
           });
@@ -2101,10 +2148,10 @@ describe("Navidrome", () => {
             expect(axios.get).toHaveBeenCalledWith(
               `${url}/rest/getArtistInfo`,
               {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               }
             );
@@ -2166,20 +2213,20 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               });
 
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getArtistInfo`,
                 {
-                  params: {
-                    id: artistId,
+                  params: asURLSearchParams({
                     ...authParams,
-                  },
+                    id: artistId,
+                  }),
                   headers,
                 }
               );
@@ -2187,10 +2234,10 @@ describe("Navidrome", () => {
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getCoverArt`,
                 {
-                  params: {
-                    id: album1.id,
+                  params: asURLSearchParams({
                     ...authParams,
-                  },
+                    id: album1.id,
+                  }),
                   headers,
                   responseType: "arraybuffer",
                 }
@@ -2241,20 +2288,20 @@ describe("Navidrome", () => {
               expect(result).toBeUndefined();
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               });
 
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getArtistInfo`,
                 {
-                  params: {
-                    id: artistId,
+                  params: asURLSearchParams({
                     ...authParams,
-                  },
+                    id: artistId,
+                  }),
                   headers,
                 }
               );
@@ -2319,10 +2366,10 @@ describe("Navidrome", () => {
             expect(axios.get).toHaveBeenCalledWith(
               `${url}/rest/getArtistInfo`,
               {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               }
             );
@@ -2387,20 +2434,20 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               });
 
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getArtistInfo`,
                 {
-                  params: {
-                    id: artistId,
+                  params: asURLSearchParams({
                     ...authParams,
-                  },
+                    id: artistId,
+                  }),
                   headers,
                 }
               );
@@ -2408,11 +2455,11 @@ describe("Navidrome", () => {
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getCoverArt`,
                 {
-                  params: {
+                  params: asURLSearchParams({
+                    ...authParams,
                     id: album1.id,
                     size,
-                    ...authParams,
-                  },
+                  }),
                   headers,
                   responseType: "arraybuffer",
                 }
@@ -2463,20 +2510,20 @@ describe("Navidrome", () => {
               expect(result).toBeUndefined();
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               });
 
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getArtistInfo`,
                 {
-                  params: {
-                    id: artistId,
+                  params: asURLSearchParams({
                     ...authParams,
-                  },
+                    id: artistId,
+                  }),
                   headers,
                 }
               );
@@ -2534,20 +2581,20 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               });
 
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getArtistInfo`,
                 {
-                  params: {
-                    id: artistId,
+                  params: asURLSearchParams({
                     ...authParams,
-                  },
+                    id: artistId,
+                  }),
                   headers,
                 }
               );
@@ -2555,11 +2602,11 @@ describe("Navidrome", () => {
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getCoverArt`,
                 {
-                  params: {
+                  params: asURLSearchParams({
+                    ...authParams,
                     id: album1.id,
                     size,
-                    ...authParams,
-                  },
+                  }),
                   headers,
                   responseType: "arraybuffer",
                 }
@@ -2610,20 +2657,20 @@ describe("Navidrome", () => {
               expect(result).toBeUndefined();
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                params: {
-                  id: artistId,
+                params: asURLSearchParams({
                   ...authParams,
-                },
+                  id: artistId,
+                }),
                 headers,
               });
 
               expect(axios.get).toHaveBeenCalledWith(
                 `${url}/rest/getArtistInfo`,
                 {
-                  params: {
-                    id: artistId,
+                  params: asURLSearchParams({
                     ...authParams,
-                  },
+                    id: artistId,
+                  }),
                   headers,
                 }
               );
@@ -2652,11 +2699,11 @@ describe("Navidrome", () => {
         expect(result).toEqual(true);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
-          params: {
+          params: asURLSearchParams({
+            ...authParams,
             id,
             submission: true,
-            ...authParams,
-          },
+          }),
           headers,
         });
       });
@@ -2684,11 +2731,11 @@ describe("Navidrome", () => {
         expect(result).toEqual(false);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
-          params: {
+          params: asURLSearchParams({
+            ...authParams,
             id,
             submission: true,
-            ...authParams,
-          },
+          }),
           headers,
         });
       });
@@ -2715,13 +2762,13 @@ describe("Navidrome", () => {
         expect(result).toEqual([artistToArtistSummary(artist1)]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "foo",
+          params: asURLSearchParams({
+            ...authParams,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
-            ...authParams,
-          },
+            query: "foo",
+          }),
           headers,
         });
       });
@@ -2750,13 +2797,13 @@ describe("Navidrome", () => {
         ]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "foo",
+          params: asURLSearchParams({
+            ...authParams,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
-            ...authParams,
-          },
+            query: "foo",
+          }),
           headers,
         });
       });
@@ -2779,13 +2826,13 @@ describe("Navidrome", () => {
         expect(result).toEqual([]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "foo",
+          params: asURLSearchParams({
+            ...authParams,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
-            ...authParams,
-          },
+            query: "foo",
+          }),
           headers,
         });
       });
@@ -2816,13 +2863,13 @@ describe("Navidrome", () => {
         expect(result).toEqual([albumToAlbumSummary(album)]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "foo",
-            albumCount: 20,
-            artistCount: 0,
-            songCount: 0,
+          params: asURLSearchParams({
             ...authParams,
-          },
+            artistCount: 0,
+            albumCount: 20,
+            songCount: 0,
+            query: "foo",
+          }),
           headers,
         });
       });
@@ -2869,13 +2916,13 @@ describe("Navidrome", () => {
         ]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "moo",
-            albumCount: 20,
-            artistCount: 0,
-            songCount: 0,
+          params: asURLSearchParams({
             ...authParams,
-          },
+            artistCount: 0,
+            albumCount: 20,
+            songCount: 0,
+            query: "moo",
+          }),
           headers,
         });
       });
@@ -2898,13 +2945,13 @@ describe("Navidrome", () => {
         expect(result).toEqual([]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "foo",
-            albumCount: 20,
-            artistCount: 0,
-            songCount: 0,
+          params: asURLSearchParams({
             ...authParams,
-          },
+            artistCount: 0,
+            albumCount: 20,
+            songCount: 0,
+            query: "foo",
+          }),
           headers,
         });
       });
@@ -2947,13 +2994,13 @@ describe("Navidrome", () => {
         expect(result).toEqual([track]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "foo",
-            songCount: 20,
+          params: asURLSearchParams({
+            ...authParams,
             artistCount: 0,
             albumCount: 0,
-            ...authParams,
-          },
+            songCount: 20,
+            query: "foo",
+          }),
           headers,
         });
       });
@@ -3018,13 +3065,13 @@ describe("Navidrome", () => {
         expect(result).toEqual([track1, track2]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "moo",
-            songCount: 20,
+          params: asURLSearchParams({
+            ...authParams,
             artistCount: 0,
             albumCount: 0,
-            ...authParams,
-          },
+            songCount: 20,
+            query: "moo",
+          }),
           headers,
         });
       });
@@ -3047,13 +3094,13 @@ describe("Navidrome", () => {
         expect(result).toEqual([]);
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: {
-            query: "foo",
-            songCount: 20,
+          params: asURLSearchParams({
+            ...authParams,
             artistCount: 0,
             albumCount: 0,
-            ...authParams,
-          },
+            songCount: 20,
+            query: "foo",
+          }),
           headers,
         });
       });
@@ -3081,7 +3128,7 @@ describe("Navidrome", () => {
           expect(result).toEqual([playlist]);
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: authParams,
+            params: asURLSearchParams(authParams),
             headers,
           });
         });
@@ -3109,7 +3156,7 @@ describe("Navidrome", () => {
           expect(result).toEqual(playlists);
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: authParams,
+            params: asURLSearchParams(authParams),
             headers,
           });
         });
@@ -3132,7 +3179,7 @@ describe("Navidrome", () => {
           expect(result).toEqual([]);
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: authParams,
+            params: asURLSearchParams(authParams),
             headers,
           });
         });
@@ -3204,10 +3251,10 @@ describe("Navidrome", () => {
             });
 
             expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
-              params: {
-                id,
+              params: asURLSearchParams({
                 ...authParams,
-              },
+                id,
+              }),
               headers,
             });
           });
@@ -3234,15 +3281,134 @@ describe("Navidrome", () => {
             expect(result).toEqual(playlist);
 
             expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
-              params: {
-                id: playlist.id,
+              params: asURLSearchParams({
                 ...authParams,
-              },
+                id: playlist.id,
+              }),
               headers,
             });
           });
         });
       });
     });
+
+    describe("creating a playlist", () => {
+      it("should create a playlist with the given name", async () => {
+        const name = "ThePlaylist";
+        const id = uuid();
+
+        mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(createPlayList({id, name})))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.createPlaylist(name));
+
+          expect(result).toEqual({ id, name });
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/createPlaylist`, {
+            params: asURLSearchParams({
+              ...authParams,
+              name, 
+            }),
+            headers,
+          });
+      });
+    });
+
+    describe("deleting a playlist", () => {
+      it("should delete the playlist by id", async () => {
+        const id = "id-to-delete";
+
+        mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(EMPTY))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.deletePlaylist(id));
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/deletePlaylist`, {
+            params: asURLSearchParams({
+              ...authParams,
+              id, 
+            }),
+            headers,
+          });
+      });
+    });
+
+    describe("editing playlists", () => {
+      describe("adding a track to a playlist", () => {
+        it("should add it", async () => {
+          const playlistId = uuid();
+          const trackId = uuid();
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(EMPTY))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.addToPlaylist(playlistId, trackId));
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
+            params: asURLSearchParams({
+              ...authParams,
+              playlistId,
+              songIdToAdd: trackId, 
+            }),
+            headers,
+          });
+        });
+      });
+
+      describe("removing a track from a playlist", () => {
+        it("should remove it", async () => {
+          const playlistId = uuid();
+          const indicies =[6, 100, 33];
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(EMPTY))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.removeFromPlaylist(playlistId, indicies));
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
+            params: asURLSearchParams({
+              ...authParams,
+              playlistId,
+              songIndexToRemove: indicies, 
+            }),
+            headers,
+          });
+        });
+      });
+    });    
   });
 });

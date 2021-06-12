@@ -7,7 +7,7 @@ import logger from "./logger";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
 import qs from "querystring"
 
-export const PRESENTATION_AND_STRINGS_VERSION = "15";
+export const PRESENTATION_AND_STRINGS_VERSION = "18";
 
 export type Capability =
   | "search"
@@ -22,7 +22,7 @@ export const BONOB_CAPABILITIES: Capability[] = [
   "search",
   // "trFavorites",
   // "alFavorites",
-  // "ucPlaylists",
+  "ucPlaylists",
   "extendedMD",
 ];
 

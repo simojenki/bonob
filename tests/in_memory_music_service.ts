@@ -136,6 +136,10 @@ export class InMemoryMusicService implements MusicService {
       playlists: async () => Promise.resolve([]),
       playlist: async (id: string) =>
         Promise.reject(`No playlist with id ${id}`),
+      createPlaylist: async (_: string) => Promise.reject("Unsupported operation"),
+      deletePlaylist: async (_: string) => Promise.reject("Unsupported operation"),
+      addToPlaylist: async (_: string) => Promise.reject("Unsupported operation"),
+      removeFromPlaylist: async (_: string, _2: number[]) => Promise.reject("Unsupported operation"),
     });
   }
 

@@ -21,6 +21,8 @@ Currently only a single integration allowing Navidrome to be registered with son
 - Transcoding performed by Navidrome with specific player for bonob/sonos, customisable by mimeType
 - Ability to search by Album, Artist, Track
 - Ability to play a playlist
+- Ability to add/remove playlists
+- Ability to add/remove tracks from a playlist
 
 ## Running
 
@@ -113,4 +115,3 @@ BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for cust
 ## TODO
 
 - Artist Radio
-- Add tracks to playlists

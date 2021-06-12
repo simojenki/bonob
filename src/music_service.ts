@@ -174,4 +174,8 @@ export interface MusicLibrary {
   searchTracks(query: string): Promise<Track[]>;
   playlists(): Promise<PlaylistSummary[]>;
   playlist(id: string): Promise<Playlist>;
+  createPlaylist(name: string): Promise<PlaylistSummary>
+  deletePlaylist(id: string): Promise<boolean>
+  addToPlaylist(playlistId: string, trackId: string): Promise<boolean>
+  removeFromPlaylist(playlistId: string, indicies: number[]): Promise<boolean>
 }
