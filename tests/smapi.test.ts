@@ -1956,9 +1956,9 @@ describe("api", () => {
                   title: track.name,
                   mimeType: track.mimeType,
                   trackMetadata: {
-                    artistId: track.artist.id,
+                    artistId: `artist:${track.artist.id}`,
                     artist: track.artist.name,
-                    albumId: track.album.id,
+                    albumId: `album:${track.album.id}`,
                     album: track.album.name,
                     genre: track.genre?.name,
                     genreId: track.genre?.id,
