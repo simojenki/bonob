@@ -205,10 +205,15 @@ const genre = (genre: Genre) => ({
 });
 
 const playlist = (playlist: PlaylistSummary) => ({
-  itemType: "album",
+  itemType: "playlist",
   id: `playlist:${playlist.id}`,
   title: playlist.name,
   canPlay: true,
+  attributes: {
+    readOnly: false,
+    userContent: false,
+    renameable: false,
+  },
 });
 
 export const defaultAlbumArtURI = (
@@ -279,7 +284,6 @@ export const artist = (
 const auth = async (
   musicService: MusicService,
   accessTokens: AccessTokens,
-  id: string,
   headers?: SoapyHeaders
 ) => {
   if (!headers?.credentials) {
@@ -292,15 +296,13 @@ const auth = async (
   }
   const authToken = headers.credentials.loginToken.token;
   const accessToken = accessTokens.mint(authToken);
-  const [type, typeId] = id.split(":");
+
   return musicService
     .login(authToken)
     .then((musicLibrary) => ({
       musicLibrary,
       authToken,
       accessToken,
-      type,
-      typeId,
     }))
     .catch((_) => {
       throw {
@@ -311,6 +313,15 @@ const auth = async (
       };
     });
 };
+
+function splitId<T>(id: string) {
+  const [type, typeId] = id.split(":");
+  return (t: T) => ({
+    ...t,
+    type,
+    typeId: typeId!,
+  });
+}
 
 type SoapyHeaders = {
   credentials?: Credentials;
@@ -337,9 +348,10 @@ function bindSmapiSoapServiceToExpress(
             sonosSoap.getDeviceAuthToken({ linkCode }),
           getLastUpdate: () => ({
             getLastUpdateResult: {
+              autoRefreshEnabled: true,
               favorites: clock.now().unix(),
               catalog: clock.now().unix(),
-              pollInterval: 120,
+              pollInterval: 60,
             },
           }),
           getMediaURI: async (
@@ -347,8 +359,9 @@ function bindSmapiSoapServiceToExpress(
             _,
             headers?: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, id, headers).then(
-              ({ accessToken, type, typeId }) => ({
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then(({ accessToken, type, typeId }) => ({
                 getMediaURIResult: `${webAddress}/stream/${type}/${typeId}`,
                 httpHeaders: [
                   {
@@ -356,26 +369,27 @@ function bindSmapiSoapServiceToExpress(
                     value: accessToken,
                   },
                 ],
-              })
-            ),
+              })),
           getMediaMetadata: async (
             { id }: { id: string },
             _,
             headers?: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, id, headers).then(
-              async ({ musicLibrary, accessToken, typeId }) =>
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then(async ({ musicLibrary, accessToken, typeId }) =>
                 musicLibrary.track(typeId!).then((it) => ({
                   getMediaMetadataResult: track(webAddress, accessToken, it),
                 }))
-            ),
+              ),
           search: async (
             { id, term }: { id: string; term: string },
             _,
             headers?: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, id, headers).then(
-              async ({ musicLibrary, accessToken }) => {
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then(async ({ musicLibrary, accessToken }) => {
                 switch (id) {
                   case "albums":
                     return musicLibrary.searchAlbums(term).then((it) =>
@@ -407,8 +421,7 @@ function bindSmapiSoapServiceToExpress(
                   default:
                     throw `Unsupported search by:${id}`;
                 }
-              }
-            ),
+              }),
           getExtendedMetadata: async (
             {
               id,
@@ -419,12 +432,13 @@ function bindSmapiSoapServiceToExpress(
             _,
             headers?: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, id, headers).then(
-              async ({ musicLibrary, accessToken, type, typeId }) => {
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then(async ({ musicLibrary, accessToken, type, typeId }) => {
                 const paging = { _index: index, _count: count };
                 switch (type) {
                   case "artist":
-                    return musicLibrary.artist(typeId!).then((artist) => {
+                    return musicLibrary.artist(typeId).then((artist) => {
                       const [page, total] = slice2<Album>(paging)(
                         artist.albums
                       );
@@ -448,11 +462,35 @@ function bindSmapiSoapServiceToExpress(
                         },
                       };
                     });
+                  case "track":
+                    return musicLibrary.track(typeId).then((it) => ({
+                      getExtendedMetadataResult: {
+                        mediaMetadata: {
+                          id: `track:${it.id}`,
+                          itemType: "track",
+                          title: it.name,
+                          mimeType: it.mimeType,
+                          trackMetadata: {
+                            artistId: it.artist.id,
+                            artist: it.artist.name,
+                            albumId: it.album.id,
+                            album: it.album.name,
+                            genre: it.genre?.name,
+                            genreId: it.genre?.id,
+                            duration: it.duration,
+                            albumArtURI: defaultAlbumArtURI(
+                              webAddress,
+                              accessToken,
+                              it.album
+                            ),
+                          },
+                        },
+                      },
+                    }));
                   default:
-                    throw `Unsupported id:${id}`;
+                    throw `Unsupported getExtendedMetadata id=${id}`;
                 }
-              }
-            ),
+              }),
           getMetadata: async (
             {
               id,
@@ -463,8 +501,9 @@ function bindSmapiSoapServiceToExpress(
             _,
             headers?: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, id, headers).then(
-              ({ musicLibrary, accessToken, type, typeId }) => {
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then(({ musicLibrary, accessToken, type, typeId }) => {
                 const paging = { _index: index, _count: count };
                 logger.debug(
                   `Fetching metadata type=${type}, typeId=${typeId}`
@@ -496,9 +535,14 @@ function bindSmapiSoapServiceToExpress(
                           title: "Albums",
                         },
                         {
-                          itemType: "container",
+                          itemType: "playlist",
                           id: "playlists",
                           title: "Playlists",
+                          attributes: {
+                            readOnly: false,
+                            userContent: true,
+                            renameable: false,
+                          },
                         },
                         {
                           itemType: "container",
@@ -616,7 +660,7 @@ function bindSmapiSoapServiceToExpress(
                   case "playlist":
                     return musicLibrary
                       .playlist(typeId!)
-                      .then(playlist => playlist.entries)
+                      .then((playlist) => playlist.entries)
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({
@@ -669,10 +713,77 @@ function bindSmapiSoapServiceToExpress(
                         });
                       });
                   default:
-                    throw `Unsupported id:${id}`;
+                    throw `Unsupported getMetadata id=${id}`;
                 }
-              }
-            ),
+              }),
+          createContainer: async (
+            { title, seedId }: { title: string; seedId: string | undefined },
+            _,
+            headers?: SoapyHeaders
+          ) =>
+            auth(musicService, accessTokens, headers)
+              .then(({ musicLibrary }) =>
+                musicLibrary
+                  .createPlaylist(title)
+                  .then((playlist) => ({ playlist, musicLibrary }))
+              )
+              .then(({ musicLibrary, playlist }) => {
+                if (seedId) {
+                  musicLibrary.addToPlaylist(
+                    playlist.id,
+                    seedId.split(":")[1]!
+                  );
+                }
+                return playlist;
+              })
+              .then((it) => ({
+                createContainerResult: {
+                  id: `playlist:${it.id}`,
+                  updateId: "",
+                },
+              })),
+          deleteContainer: async (
+            { id }: { id: string },
+            _,
+            headers?: SoapyHeaders
+          ) =>
+            auth(musicService, accessTokens, headers)
+              .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
+              .then((_) => ({ deleteContainerResult: {} })),
+          addToContainer: async (
+            { id, parentId }: { id: string; parentId: string },
+            _,
+            headers?: SoapyHeaders
+          ) =>
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then(({ musicLibrary, typeId }) =>
+                musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
+              )
+              .then((_) => ({ addToContainerResult: { updateId: "" } })),
+          removeFromContainer: async (
+            { id, indices }: { id: string; indices: string },
+            _,
+            headers?: SoapyHeaders
+          ) =>
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then((it) => ({
+                ...it,
+                indices: indices.split(",").map((it) => +it),
+              }))
+              .then(({ musicLibrary, typeId, indices }) => {
+                if (id == "playlists") {
+                  musicLibrary.playlists().then((it) => {
+                    indices.forEach((i) => {
+                      musicLibrary.deletePlaylist(it[i]?.id!);
+                    });
+                  });
+                } else {
+                  musicLibrary.removeFromPlaylist(typeId, indices);
+                }
+              })
+              .then((_) => ({ removeFromContainerResult: { updateId: "" } })),
         },
       },
     },

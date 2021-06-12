@@ -21,7 +21,7 @@ import {
 } from "./music_service";
 import X2JS from "x2js";
 import sharp from "sharp";
-import { pick } from "underscore";
+import _, { pick } from "underscore";
 
 import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
@@ -278,6 +278,16 @@ export function appendMimeTypeToClientFor(mimeTypes: string[]) {
     mimeTypes.includes(track.mimeType) ? `bonob+${track.mimeType}` : "bonob";
 }
 
+export const asURLSearchParams = (q: any) => {
+  const urlSearchParams = new URLSearchParams();
+  Object.keys(q).forEach((k) => {
+    _.flatten([q[k]]).forEach((v) => {
+      urlSearchParams.append(k, `${v}`);
+    });
+  });
+  return urlSearchParams;
+};
+
 export class Navidrome implements MusicService {
   url: string;
   encryption: Encryption;
@@ -301,13 +311,13 @@ export class Navidrome implements MusicService {
   ) =>
     axios
       .get(`${this.url}${path}`, {
-        params: {
+        params: asURLSearchParams({
           u: username,
           v: "1.16.1",
           c: DEFAULT_CLIENT_APPLICATION,
           ...t_and_s(password),
           ...q,
-        },
+        }),
         headers: {
           "User-Agent": USER_AGENT,
         },
@@ -345,7 +355,7 @@ export class Navidrome implements MusicService {
       .then((json) => json["subsonic-response"])
       .then((json) => {
         if (isError(json)) throw json.error._message;
-        else return (json as unknown) as T;
+        else return json as unknown as T;
       });
 
   generateToken = async (credentials: Credentials) =>
@@ -437,15 +447,10 @@ export class Navidrome implements MusicService {
     }));
 
   getCoverArt = (credentials: Credentials, id: string, size?: number) =>
-    this.get(
-      credentials,
-      "/rest/getCoverArt",
-      { id, size },
-      {
-        headers: { "User-Agent": "bonob" },
-        responseType: "arraybuffer",
-      }
-    );
+    this.get(credentials, "/rest/getCoverArt", size ? { id, size } : { id }, {
+      headers: { "User-Agent": "bonob" },
+      responseType: "arraybuffer",
+    });
 
   getTrack = (credentials: Credentials, id: string) =>
     this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
@@ -674,7 +679,6 @@ export class Navidrome implements MusicService {
                   name: entry._album,
                   year: entry._year,
                   genre: maybeAsGenre(entry._genre),
-  
                   artistName: entry._artist,
                   artistId: entry._artistId,
                 },
@@ -683,8 +687,35 @@ export class Navidrome implements MusicService {
                   name: entry._artist,
                 },
               })),
-            }
+            };
           }),
+      createPlaylist: async (name: string) =>
+        navidrome
+          .getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
+            name,
+          })
+          .then((it) => it.playlist)
+          .then((it) => ({ id: it._id, name: it._name })),
+      deletePlaylist: async (id: string) =>
+        navidrome
+          .getJSON<GetPlaylistResponse>(credentials, "/rest/deletePlaylist", {
+            id,
+          })
+          .then((_) => true),
+      addToPlaylist: async (playlistId: string, trackId: string) =>
+        navidrome
+          .getJSON<GetPlaylistResponse>(credentials, "/rest/updatePlaylist", {
+            playlistId,
+            songIdToAdd: trackId,
+          })
+          .then((_) => true),
+      removeFromPlaylist: async (playlistId: string, indicies: number[]) =>
+        navidrome
+          .getJSON<GetPlaylistResponse>(credentials, "/rest/updatePlaylist", {
+            playlistId,
+            songIndexToRemove: indicies,
+          })
+          .then((_) => true),
     };
 
     return Promise.resolve(musicLibrary);
