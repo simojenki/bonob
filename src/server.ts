@@ -142,6 +142,7 @@ function server(
   app.head("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
     const accessToken = req.headers[BONOB_ACCESS_TOKEN_HEADER] as string;
+    logger.info(`Stream HEAD requested for ${id}, accessToken=${accessToken}`)
     const authToken = accessTokens.authTokenFor(accessToken);
     if (!authToken) {
       return res.status(401).send();
@@ -165,6 +166,7 @@ function server(
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
     const accessToken = req.headers[BONOB_ACCESS_TOKEN_HEADER] as string;
+    logger.info(`Stream requested for ${id}, accessToken=${accessToken}`)
     const authToken = accessTokens.authTokenFor(accessToken);
     if (!authToken) {
       return res.status(401).send();
@@ -182,6 +184,7 @@ function server(
           it.stream({ trackId: id, range: req.headers["range"] || undefined })
         )
         .then((trackStream) => {
+          logger.info(`Streaming ${id}, status=${trackStream.status}, headers=(${JSON.stringify(trackStream.headers)})`)
           res.status(trackStream.status);
           Object.entries(trackStream.headers)
             .filter(([_, v]) => v !== undefined)
