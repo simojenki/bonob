@@ -1,7 +1,7 @@
 import { v4 as uuid } from "uuid";
 import dayjs from "dayjs";
 import request from "supertest";
-import {  MusicService } from "../src/music_service";
+import { MusicService } from "../src/music_service";
 import makeServer, { BONOB_ACCESS_TOKEN_HEADER } from "../src/server";
 import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
@@ -158,7 +158,7 @@ describe("server", () => {
       sid: 999,
     });
     const server = makeServer(
-      (sonos as unknown) as Sonos,
+      sonos as unknown as Sonos,
       theService,
       "http://localhost:1234",
       new InMemoryMusicService()
@@ -199,16 +199,16 @@ describe("server", () => {
     };
     const musicLibrary = {
       stream: jest.fn(),
-      scrobble: jest.fn()
+      scrobble: jest.fn(),
     };
     let now = dayjs();
     const accessTokens = new ExpiringAccessTokens({ now: () => now });
 
     const server = makeServer(
-      (jest.fn() as unknown) as Sonos,
+      jest.fn() as unknown as Sonos,
       aService(),
       "http://localhost:1234",
-      (musicService as unknown) as MusicService,
+      musicService as unknown as MusicService,
       new InMemoryLinkCodes(),
       accessTokens
     );
@@ -221,301 +221,414 @@ describe("server", () => {
       accessToken = accessTokens.mint(authToken);
     });
 
-    describe("when there is no access-token", () => {
-      it("should return a 401", async () => {
-        const res = await request(server).get(`/stream/track/${trackId}`);
+    describe("HEAD requests", () => {
+      describe("when there is no access-token", () => {
+        it("should return a 401", async () => {
+          const res = await request(server).head(`/stream/track/${trackId}`);
 
-        expect(res.status).toEqual(401);
-      });
-    });
-
-    describe("when the access-token has expired", () => {
-      it("should return a 401", async () => {
-        now = now.add(1, "day");
-
-        const res = await request(server)
-          .get(`/stream/track/${trackId}`)
-          .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-        expect(res.status).toEqual(401);
-      });
-    });
-
-    describe("scrobbling", () => {
-      describe("when scrobbling succeeds", () => {
-        it("should scrobble the track", async () => {
-          const trackStream = {
-            status: 200,
-            headers: {
-              "content-type": "audio/mp3",
-            },
-            stream: {
-              pipe: (res: Response) => res.send("")
-            }
-          };
-  
-          musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(true);
-  
-          const res = await request(server)
-            .get(`/stream/track/${trackId}`)
-            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
-          expect(res.status).toEqual(trackStream.status);
-          expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+          expect(res.status).toEqual(401);
         });
       });
 
-      describe("when scrobbling succeeds", () => {
-        it("should still return the track", async () => {
+      describe("when the access-token has expired", () => {
+        it("should return a 401", async () => {
+          now = now.add(1, "day");
+
+          const res = await request(server)
+            .head(`/stream/track/${trackId}`)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+          expect(res.status).toEqual(401);
+        });
+      });
+
+      describe("when the access-token is valid", () => {
+        describe("and the track exists", () => {
+          it("should return a 200", async () => {
+            const trackStream = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mp3; charset=utf-8",
+                "content-length": "123",
+              },
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
+
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+
+            const res = await request(server)
+              .head(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+            expect(res.status).toEqual(trackStream.status);
+            expect(res.headers["content-type"]).toEqual(
+              "audio/mp3; charset=utf-8"
+            );
+            expect(res.headers["content-length"]).toEqual(
+              "123"
+            );
+            expect(res.body).toEqual({});
+          });
+        });
+
+        describe("and the track doesnt exist", () => {
+          it("should return a 404", async () => {
+            const trackStream = {
+              status: 404,
+              headers: {},
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
+
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+
+            const res = await request(server)
+              .head(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+            expect(res.status).toEqual(404);
+            expect(res.body).toEqual({});
+          });
+        });
+      });
+    });
+
+    describe("GET requests", () => {
+      describe("when there is no access-token", () => {
+        it("should return a 401", async () => {
+          const res = await request(server).get(`/stream/track/${trackId}`);
+
+          expect(res.status).toEqual(401);
+        });
+      });
+
+      describe("when the access-token has expired", () => {
+        it("should return a 401", async () => {
+          now = now.add(1, "day");
+
+          const res = await request(server)
+            .get(`/stream/track/${trackId}`)
+            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+          expect(res.status).toEqual(401);
+        });
+      });
+
+      describe("scrobbling", () => {
+        describe("when scrobbling succeeds", () => {
+          it("should scrobble the track", async () => {
+            const trackStream = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mp3",
+              },
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
+
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(true);
+
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+            expect(res.status).toEqual(trackStream.status);
+            expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+          });
+        });
+
+        describe("when scrobbling succeeds", () => {
+          it("should still return the track", async () => {
+            const trackStream = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mp3",
+              },
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
+
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(false);
+
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+            expect(res.status).toEqual(trackStream.status);
+            expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+          });
+        });
+      });
+
+      describe("when the track doesnt exist", () => {
+        it("should return a 404", async () => {
           const trackStream = {
-            status: 200,
+            status: 404,
             headers: {
-              "content-type": "audio/mp3",
             },
             stream: {
-              pipe: (res: Response) => res.send("")
-            }
+              pipe: (res: Response) => res.send(""),
+            },
           };
-  
+
           musicService.login.mockResolvedValue(musicLibrary);
           musicLibrary.stream.mockResolvedValue(trackStream);
           musicLibrary.scrobble.mockResolvedValue(false);
-  
-          const res = await request(server)
-            .get(`/stream/track/${trackId}`)
-            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
-          expect(res.status).toEqual(trackStream.status);
-          expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
-        });
-      });
-    });
-
-    describe("when sonos does not ask for a range", () => {
-      describe("when the music service does not return a content-range, content-length or accept-ranges", () => {
-        it("should return a 200 with the data, without adding the undefined headers", async () => {
-          const trackStream = {
-            status: 200,
-            headers: {
-              "content-type": "audio/mp3",
-            },
-            stream: {
-              pipe: (res: Response) => res.send("")
-            }
-          };
-
-          musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(true);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
             .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-          expect(res.status).toEqual(trackStream.status);
-          expect(res.headers["content-type"]).toEqual("audio/mp3; charset=utf-8")
-          expect(Object.keys(res.headers)).not.toContain("content-range")
-          expect(Object.keys(res.headers)).not.toContain("accept-ranges")
+          expect(res.status).toEqual(404);
         });
       });
 
-      describe("when the music service returns undefined values for content-range, content-length or accept-ranges", () => {
-        it("should return a 200 with the data, without adding the undefined headers", async () => {
-          const trackStream = {
-            status: 200,
-            headers: {
-              "content-type": "audio/mp3",
-              "content-length": undefined,
-              "accept-ranges": undefined,
-              "content-range": undefined,
-            },
-            stream: {
-              pipe: (res: Response) => res.send("")
-            }
-          };
+      describe("when sonos does not ask for a range", () => {
+        describe("when the music service does not return a content-range, content-length or accept-ranges", () => {
+          it("should return a 200 with the data, without adding the undefined headers", async () => {
+            const content = "some-track";
 
-          musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(true);
+            const trackStream = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mp3",
+                // this content-length seems to be ignored for GET requests, stream.pipe must set its' own
+                "content-length": "666"
+              },
+              stream: {
+                pipe: (res: Response) => res.send(content),
+              },
+            };
 
-          const res = await request(server)
-            .get(`/stream/track/${trackId}`)
-            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(true);
+
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
             expect(res.status).toEqual(trackStream.status);
-            expect(res.headers["content-type"]).toEqual("audio/mp3; charset=utf-8")
-            expect(Object.keys(res.headers)).not.toContain("content-range")
-            expect(Object.keys(res.headers)).not.toContain("accept-ranges")
+            expect(res.headers["content-type"]).toEqual(
+              "audio/mp3; charset=utf-8"
+            );
+            expect(res.headers["content-length"]).toEqual(
+              `${content.length}`
+            );
+            expect(Object.keys(res.headers)).not.toContain("content-range");
+            expect(Object.keys(res.headers)).not.toContain("accept-ranges");
           });
-      });
-
-      describe("when the music service returns a 200", () => {
-        it("should return a 200 with the data", async () => {
-          const trackStream = {
-            status: 200,
-            headers: {
-              "content-type": "audio/mp3",
-              "content-length": "222",
-              "accept-ranges": "bytes",
-              "content-range": "-100",
-            },
-            stream: {
-              pipe: (res: Response) => {
-                console.log("calling send on response")
-                res.send("")
-              }
-            }
-          };
-
-          musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(true);
-
-          const res = await request(server)
-            .get(`/stream/track/${trackId}`)
-            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-          expect(res.status).toEqual(trackStream.status);
-          expect(res.header["content-type"]).toEqual(
-            `${trackStream.headers["content-type"]}; charset=utf-8`
-          );
-          expect(res.header["accept-ranges"]).toEqual(
-            trackStream.headers["accept-ranges"]
-          );
-          expect(res.header["content-range"]).toEqual(
-            trackStream.headers["content-range"]
-          );
-
-          expect(musicService.login).toHaveBeenCalledWith(authToken);
-          expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
         });
-      });
 
-      describe("when the music service returns a 206", () => {
-        it("should return a 206 with the data", async () => {
-          const trackStream = {
-            status: 206,
-            headers: {
-              "content-type": "audio/ogg",
-              "content-length": "333",
-              "accept-ranges": "bytez",
-              "content-range": "100-200",
-            },
-            stream: {
-              pipe: (res: Response) => res.send("")
-            }
-          };
+        describe("when the music service returns undefined values for content-range, content-length or accept-ranges", () => {
+          it("should return a 200 with the data, without adding the undefined headers", async () => {
+            const trackStream = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mp3",
+                "content-length": undefined,
+                "accept-ranges": undefined,
+                "content-range": undefined,
+              },
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
 
-          musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(true);
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(true);
 
-          const res = await request(server)
-            .get(`/stream/track/${trackId}`)
-            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-          expect(res.status).toEqual(trackStream.status);
-          expect(res.header["content-type"]).toEqual(
-            `${trackStream.headers["content-type"]}; charset=utf-8`
-          );
-          expect(res.header["accept-ranges"]).toEqual(
-            trackStream.headers["accept-ranges"]
-          );
-          expect(res.header["content-range"]).toEqual(
-            trackStream.headers["content-range"]
-          );
-
-          expect(musicService.login).toHaveBeenCalledWith(authToken);
-          expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+            expect(res.status).toEqual(trackStream.status);
+            expect(res.headers["content-type"]).toEqual(
+              "audio/mp3; charset=utf-8"
+            );
+            expect(Object.keys(res.headers)).not.toContain("content-range");
+            expect(Object.keys(res.headers)).not.toContain("accept-ranges");
+          });
         });
-      });
-    });
 
-    describe("when sonos does ask for a range", () => {
-      describe("when the music service returns a 200", () => {
-        it("should return a 200 with the data", async () => {
-          const trackStream = {
-            status: 200,
-            headers: {
-              "content-type": "audio/mp3",
-              "content-length": "222",
-              "accept-ranges": "bytes",
-              "content-range": "-100",
-            },
-            stream: {
-              pipe: (res: Response) => res.send("")
-            }
-          };
+        describe("when the music service returns a 200", () => {
+          it("should return a 200 with the data", async () => {
+            const trackStream = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mp3",
+                "content-length": "222",
+                "accept-ranges": "bytes",
+                "content-range": "-100",
+              },
+              stream: {
+                pipe: (res: Response) => {
+                  console.log("calling send on response");
+                  res.send("");
+                },
+              },
+            };
 
-          musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(true);
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(true);
 
-          const res = await request(server)
-            .get(`/stream/track/${trackId}`)
-            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
-            .set("Range", "3000-4000");
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-          expect(res.status).toEqual(trackStream.status);
-          expect(res.header["content-type"]).toEqual(
-            `${trackStream.headers["content-type"]}; charset=utf-8`
-          );
-          expect(res.header["accept-ranges"]).toEqual(
-            trackStream.headers["accept-ranges"]
-          );
-          expect(res.header["content-range"]).toEqual(
-            trackStream.headers["content-range"]
-          );
+            expect(res.status).toEqual(trackStream.status);
+            expect(res.header["content-type"]).toEqual(
+              `${trackStream.headers["content-type"]}; charset=utf-8`
+            );
+            expect(res.header["accept-ranges"]).toEqual(
+              trackStream.headers["accept-ranges"]
+            );
+            expect(res.header["content-range"]).toEqual(
+              trackStream.headers["content-range"]
+            );
 
-          expect(musicService.login).toHaveBeenCalledWith(authToken);
-          expect(musicLibrary.stream).toHaveBeenCalledWith({
-            trackId,
-            range: "3000-4000",
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+          });
+        });
+
+        describe("when the music service returns a 206", () => {
+          it("should return a 206 with the data", async () => {
+            const trackStream = {
+              status: 206,
+              headers: {
+                "content-type": "audio/ogg",
+                "content-length": "333",
+                "accept-ranges": "bytez",
+                "content-range": "100-200",
+              },
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
+
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(true);
+
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+            expect(res.status).toEqual(trackStream.status);
+            expect(res.header["content-type"]).toEqual(
+              `${trackStream.headers["content-type"]}; charset=utf-8`
+            );
+            expect(res.header["accept-ranges"]).toEqual(
+              trackStream.headers["accept-ranges"]
+            );
+            expect(res.header["content-range"]).toEqual(
+              trackStream.headers["content-range"]
+            );
+
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
           });
         });
       });
 
-      describe("when the music service returns a 206", () => {
-        it("should return a 206 with the data", async () => {
-          const trackStream = {
-            status: 206,
-            headers: {
-              "content-type": "audio/ogg",
-              "content-length": "333",
-              "accept-ranges": "bytez",
-              "content-range": "100-200",
-            },
-            stream: {
-              pipe: (res: Response) => res.send("")
-            }
-          };
+      describe("when sonos does ask for a range", () => {
+        describe("when the music service returns a 200", () => {
+          it("should return a 200 with the data", async () => {
+            const trackStream = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mp3",
+                "content-length": "222",
+                "accept-ranges": "bytes",
+                "content-range": "-100",
+              },
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
 
-          musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(true);
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(true);
 
-          const res = await request(server)
-            .get(`/stream/track/${trackId}`)
-            .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
-            .set("Range", "4000-5000");
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
+              .set("Range", "3000-4000");
 
-          expect(res.status).toEqual(trackStream.status);
-          expect(res.header["content-type"]).toEqual(
-            `${trackStream.headers["content-type"]}; charset=utf-8`
-          );
-          expect(res.header["accept-ranges"]).toEqual(
-            trackStream.headers["accept-ranges"]
-          );
-          expect(res.header["content-range"]).toEqual(
-            trackStream.headers["content-range"]
-          );
+            expect(res.status).toEqual(trackStream.status);
+            expect(res.header["content-type"]).toEqual(
+              `${trackStream.headers["content-type"]}; charset=utf-8`
+            );
+            expect(res.header["accept-ranges"]).toEqual(
+              trackStream.headers["accept-ranges"]
+            );
+            expect(res.header["content-range"]).toEqual(
+              trackStream.headers["content-range"]
+            );
 
-          expect(musicService.login).toHaveBeenCalledWith(authToken);
-          expect(musicLibrary.stream).toHaveBeenCalledWith({
-            trackId,
-            range: "4000-5000",
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.stream).toHaveBeenCalledWith({
+              trackId,
+              range: "3000-4000",
+            });
+          });
+        });
+
+        describe("when the music service returns a 206", () => {
+          it("should return a 206 with the data", async () => {
+            const trackStream = {
+              status: 206,
+              headers: {
+                "content-type": "audio/ogg",
+                "content-length": "333",
+                "accept-ranges": "bytez",
+                "content-range": "100-200",
+              },
+              stream: {
+                pipe: (res: Response) => res.send(""),
+              },
+            };
+
+            musicService.login.mockResolvedValue(musicLibrary);
+            musicLibrary.stream.mockResolvedValue(trackStream);
+            musicLibrary.scrobble.mockResolvedValue(true);
+
+            const res = await request(server)
+              .get(`/stream/track/${trackId}`)
+              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
+              .set("Range", "4000-5000");
+
+            expect(res.status).toEqual(trackStream.status);
+            expect(res.header["content-type"]).toEqual(
+              `${trackStream.headers["content-type"]}; charset=utf-8`
+            );
+            expect(res.header["accept-ranges"]).toEqual(
+              trackStream.headers["accept-ranges"]
+            );
+            expect(res.header["content-range"]).toEqual(
+              trackStream.headers["content-range"]
+            );
+
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.stream).toHaveBeenCalledWith({
+              trackId,
+              range: "4000-5000",
+            });
           });
         });
       });
@@ -533,10 +646,10 @@ describe("server", () => {
     const accessTokens = new ExpiringAccessTokens({ now: () => now });
 
     const server = makeServer(
-      (jest.fn() as unknown) as Sonos,
+      jest.fn() as unknown as Sonos,
       aService(),
       "http://localhost:1234",
-      (musicService as unknown) as MusicService,
+      musicService as unknown as MusicService,
       new InMemoryLinkCodes(),
       accessTokens
     );
@@ -590,58 +703,62 @@ describe("server", () => {
               contentType: "image/jpeg",
               data: Buffer.from("some image", "ascii"),
             };
-  
+
             musicService.login.mockResolvedValue(musicLibrary);
-  
+
             musicLibrary.coverArt.mockResolvedValue(coverArt);
-  
+
             const res = await request(server)
               .get(
                 `/artist/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
               )
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
+
             expect(res.status).toEqual(coverArt.status);
             expect(res.header["content-type"]).toEqual(coverArt.contentType);
-  
+
             expect(musicService.login).toHaveBeenCalledWith(authToken);
-            expect(musicLibrary.coverArt).toHaveBeenCalledWith(albumId, "artist", 180);
+            expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+              albumId,
+              "artist",
+              180
+            );
           });
         });
 
         describe("when there isn't one", () => {
           it("should return a 404", async () => {
             musicService.login.mockResolvedValue(musicLibrary);
-  
+
             musicLibrary.coverArt.mockResolvedValue(undefined);
-  
+
             const res = await request(server)
               .get(
                 `/artist/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
               )
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
+
             expect(res.status).toEqual(404);
           });
-        });   
-        
+        });
+
         describe("when there is an error", () => {
           it("should return a 500", async () => {
             musicService.login.mockResolvedValue(musicLibrary);
-  
-            musicLibrary.coverArt.mockRejectedValue("Boom")
-  
+
+            musicLibrary.coverArt.mockRejectedValue("Boom");
+
             const res = await request(server)
               .get(
                 `/artist/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
               )
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
+
             expect(res.status).toEqual(500);
           });
-        });         
+        });
       });
-  
+
       describe("album art", () => {
         describe("when there is some", () => {
           it("should return the image and a 200", async () => {
@@ -650,21 +767,25 @@ describe("server", () => {
               contentType: "image/jpeg",
               data: Buffer.from("some image", "ascii"),
             };
-  
+
             musicService.login.mockResolvedValue(musicLibrary);
             musicLibrary.coverArt.mockResolvedValue(coverArt);
-  
+
             const res = await request(server)
               .get(
                 `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
               )
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
+
             expect(res.status).toEqual(coverArt.status);
             expect(res.header["content-type"]).toEqual(coverArt.contentType);
-  
+
             expect(musicService.login).toHaveBeenCalledWith(authToken);
-            expect(musicLibrary.coverArt).toHaveBeenCalledWith(albumId, "album", 180);
+            expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+              albumId,
+              "album",
+              180
+            );
           });
         });
 
@@ -672,13 +793,13 @@ describe("server", () => {
           it("should return a 404", async () => {
             musicService.login.mockResolvedValue(musicLibrary);
             musicLibrary.coverArt.mockResolvedValue(undefined);
-  
+
             const res = await request(server)
               .get(
                 `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
               )
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
+
             expect(res.status).toEqual(404);
           });
         });
@@ -686,19 +807,18 @@ describe("server", () => {
         describe("when there is an error", () => {
           it("should return a 500", async () => {
             musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.coverArt.mockRejectedValue("Boooooom")
-  
+            musicLibrary.coverArt.mockRejectedValue("Boooooom");
+
             const res = await request(server)
               .get(
                 `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
               )
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-  
+
             expect(res.status).toEqual(500);
           });
         });
       });
     });
   });
- 
 });
