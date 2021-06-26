@@ -168,6 +168,7 @@ export interface MusicLibrary {
     range: string | undefined;
   }): Promise<TrackStream>;
   coverArt(id: string, type: "album" | "artist", size?: number): Promise<CoverArt | undefined>;
+  nowPlaying(id: string): Promise<boolean>
   scrobble(id: string): Promise<boolean>
   searchArtists(query: string): Promise<ArtistSummary[]>;
   searchAlbums(query: string): Promise<AlbumSummary[]>;

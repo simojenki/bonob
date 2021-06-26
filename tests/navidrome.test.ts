@@ -2682,7 +2682,7 @@ describe("Navidrome", () => {
   });
 
   describe("scrobble", () => {
-    describe("when scrobbling succeeds", () => {
+    describe("when succeeds", () => {
       it("should return true", async () => {
         const id = uuid();
 
@@ -2709,7 +2709,7 @@ describe("Navidrome", () => {
       });
     });
 
-    describe("when scrobbling fails", () => {
+    describe("when fails", () => {
       it("should return false", async () => {
         const id = uuid();
 
@@ -2735,6 +2735,65 @@ describe("Navidrome", () => {
             ...authParams,
             id,
             submission: true,
+          }),
+          headers,
+        });
+      });
+    });
+  });
+
+  describe("nowPlaying", () => {
+    describe("when succeeds", () => {
+      it("should return true", async () => {
+        const id = uuid();
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.nowPlaying(id));
+
+        expect(result).toEqual(true);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+          params: asURLSearchParams({
+            ...authParams,
+            id,
+          }),
+          headers,
+        });
+      });
+    });
+
+    describe("when fails", () => {
+      it("should return false", async () => {
+        const id = uuid();
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve({
+              status: 500,
+              data: {},
+            })
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.nowPlaying(id));
+
+        expect(result).toEqual(false);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+          params: asURLSearchParams({
+            ...authParams,
+            id,
           }),
           headers,
         });
