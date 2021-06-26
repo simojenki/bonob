@@ -2,7 +2,7 @@ import { v4 as uuid } from "uuid";
 import dayjs from "dayjs";
 import request from "supertest";
 import { MusicService } from "../src/music_service";
-import makeServer, { BONOB_ACCESS_TOKEN_HEADER } from "../src/server";
+import makeServer, { BONOB_ACCESS_TOKEN_HEADER, RangeBytesFromFilter, rangeFilterFor } from "../src/server";
 import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
 import { aDevice, aService } from "./builders";
@@ -10,6 +10,135 @@ import { InMemoryMusicService } from "./in_memory_music_service";
 import { ExpiringAccessTokens } from "../src/access_tokens";
 import { InMemoryLinkCodes } from "../src/link_codes";
 import { Response } from "express";
+import { Transform } from "stream";
+
+describe("rangeFilterFor", () => {
+  describe("invalid range header string", () => {
+    it("should fail", () => {
+      const cases = [
+        "bytes",
+        "bytes=0",
+        "bytes=-",
+        "bytes=100-200,300-400",
+        "bytes=100-200, 300-400",
+        "seconds",
+        "seconds=0",
+        "seconds=-",
+      ]
+
+      for (let range in cases) {
+        expect(() => rangeFilterFor(range)).toThrowError(`Unsupported range: ${range}`);
+      }
+
+    });
+  });
+
+  describe("bytes", () => {
+    describe("0-", () => {
+      it("should return a RangeBytesFromFilter", () => {
+        const filter = rangeFilterFor("bytes=0-");
+
+        expect(filter instanceof RangeBytesFromFilter).toEqual(true);
+        expect((filter as RangeBytesFromFilter).from).toEqual(0);
+        expect(filter.range(100)).toEqual("0-99/100");
+      });
+    });
+
+    describe("64-", () => {
+      it("should return a RangeBytesFromFilter", () => {
+        const filter = rangeFilterFor("bytes=64-")
+
+        expect(filter instanceof RangeBytesFromFilter).toEqual(true);
+        expect((filter as RangeBytesFromFilter).from).toEqual(64);
+        expect(filter.range(8877)).toEqual("64-8876/8877");
+      });
+    });
+
+    describe("-900", () => {
+      it("should fail", () => {
+        expect(() => rangeFilterFor("bytes=-900")).toThrowError("Unsupported range: bytes=-900")
+      });
+    });
+
+    describe("100-200", () => {
+      it("should fail", () => {
+        expect(() => rangeFilterFor("bytes=100-200")).toThrowError("Unsupported range: bytes=100-200")
+      });
+    });
+
+    describe("100-200, 400-500", () => {
+      it("should fail", () => {
+        expect(() => rangeFilterFor("bytes=100-200, 400-500")).toThrowError("Unsupported range: bytes=100-200, 400-500")
+      });
+    });
+  });
+
+  describe("not bytes", () => {
+    it("should fail", () => {
+      const cases = [
+        "seconds=0-",
+        "seconds=100-200",
+        "chickens=100-200, 400-500"
+      ]
+
+      for (let range in cases) {
+        expect(() => rangeFilterFor(range)).toThrowError(`Unsupported range: ${range}`);
+      }
+    });
+  });
+});
+
+describe("RangeBytesFromFilter", () => {
+  describe("range from", () => {
+    describe("0-", () => {
+      it("should not filter at all", () => {
+        const filter = new RangeBytesFromFilter(0);
+        const result: any[] = []
+        
+        const callback = (_?: Error | null, data?: any) => {
+          if(data) result.push(...data!)
+        }
+
+        filter._transform(['a', 'b', 'c'], 'ascii', callback)
+        filter._transform(['d', 'e', 'f'], 'ascii', callback)
+
+        expect(result).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+      });
+    });
+
+    describe("1-", () => {
+      it("should filter the first byte", () => {
+        const filter = new RangeBytesFromFilter(1);
+        const result: any[] = []
+        
+        const callback = (_?: Error | null, data?: any) => {
+          if(data) result.push(...data!)
+        }
+
+        filter._transform(['a', 'b', 'c'], 'ascii', callback)
+        filter._transform(['d', 'e', 'f'], 'ascii', callback)
+
+        expect(result).toEqual(['b', 'c', 'd', 'e', 'f'])
+      });
+    });
+
+    describe("5-", () => {
+      it("should filter the first byte", () => {
+        const filter = new RangeBytesFromFilter(5);
+        const result: any[] = []
+        
+        const callback = (_?: Error | null, data?: any) => {
+          if(data) result.push(...data!)
+        }
+
+        filter._transform(['a', 'b', 'c'], 'ascii', callback)
+        filter._transform(['d', 'e', 'f'], 'ascii', callback)
+
+        expect(result).toEqual(['f'])
+      });
+    });
+  });
+});
 
 describe("server", () => {
   beforeEach(() => {
@@ -200,6 +329,7 @@ describe("server", () => {
     const musicLibrary = {
       stream: jest.fn(),
       scrobble: jest.fn(),
+      nowPlaying: jest.fn(),
     };
     let now = dayjs();
     const accessTokens = new ExpiringAccessTokens({ now: () => now });
@@ -220,6 +350,16 @@ describe("server", () => {
     beforeEach(() => {
       accessToken = accessTokens.mint(authToken);
     });
+
+    const streamContent = (content: string) => ({
+      pipe: (_: Transform) => {
+        return {
+          pipe: (res: Response) => {
+            res.send(content);
+          }
+        }
+      },
+    })
 
     describe("HEAD requests", () => {
       describe("when there is no access-token", () => {
@@ -251,9 +391,7 @@ describe("server", () => {
                 "content-type": "audio/mp3; charset=utf-8",
                 "content-length": "123",
               },
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
+              stream: streamContent(""),
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
@@ -279,9 +417,7 @@ describe("server", () => {
             const trackStream = {
               status: 404,
               headers: {},
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
+              stream: streamContent(""),
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
@@ -319,78 +455,26 @@ describe("server", () => {
         });
       });
 
-      describe("scrobbling", () => {
-        describe("when scrobbling succeeds", () => {
-          it("should scrobble the track", async () => {
-            const trackStream = {
-              status: 200,
-              headers: {
-                "content-type": "audio/mp3",
-              },
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
-            };
-
-            musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(true);
-
-            const res = await request(server)
-              .get(`/stream/track/${trackId}`)
-              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-            expect(res.status).toEqual(trackStream.status);
-            expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
-          });
-        });
-
-        describe("when scrobbling succeeds", () => {
-          it("should still return the track", async () => {
-            const trackStream = {
-              status: 200,
-              headers: {
-                "content-type": "audio/mp3",
-              },
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
-            };
-
-            musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(false);
-
-            const res = await request(server)
-              .get(`/stream/track/${trackId}`)
-              .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-            expect(res.status).toEqual(trackStream.status);
-            expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
-          });
-        });
-      });
-
       describe("when the track doesnt exist", () => {
         it("should return a 404", async () => {
-          const trackStream = {
+          const stream = {
             status: 404,
             headers: {
             },
-            stream: {
-              pipe: (res: Response) => res.send(""),
-            },
+            stream: streamContent(""),
           };
 
           musicService.login.mockResolvedValue(musicLibrary);
-          musicLibrary.stream.mockResolvedValue(trackStream);
-          musicLibrary.scrobble.mockResolvedValue(false);
+          musicLibrary.stream.mockResolvedValue(stream);
 
           const res = await request(server)
             .get(`/stream/track/${trackId}`)
             .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
           expect(res.status).toEqual(404);
+
+          expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
+          expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
         });
       });
 
@@ -399,41 +483,41 @@ describe("server", () => {
           it("should return a 200 with the data, without adding the undefined headers", async () => {
             const content = "some-track";
 
-            const trackStream = {
+            const stream = {
               status: 200,
               headers: {
                 "content-type": "audio/mp3",
-                // this content-length seems to be ignored for GET requests, stream.pipe must set its' own
-                "content-length": "666"
               },
-              stream: {
-                pipe: (res: Response) => res.send(content),
-              },
+              stream: streamContent(content),
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(true);
+            musicLibrary.stream.mockResolvedValue(stream);
+            musicLibrary.nowPlaying.mockResolvedValue(true);
 
             const res = await request(server)
               .get(`/stream/track/${trackId}`)
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-            expect(res.status).toEqual(trackStream.status);
+            expect(res.status).toEqual(stream.status);
             expect(res.headers["content-type"]).toEqual(
               "audio/mp3; charset=utf-8"
             );
+            expect(res.header["accept-ranges"]).toBeUndefined();
             expect(res.headers["content-length"]).toEqual(
               `${content.length}`
             );
             expect(Object.keys(res.headers)).not.toContain("content-range");
-            expect(Object.keys(res.headers)).not.toContain("accept-ranges");
+
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+            expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
           });
         });
 
         describe("when the music service returns undefined values for content-range, content-length or accept-ranges", () => {
           it("should return a 200 with the data, without adding the undefined headers", async () => {
-            const trackStream = {
+            const stream = {
               status: 200,
               headers: {
                 "content-type": "audio/mp3",
@@ -441,73 +525,70 @@ describe("server", () => {
                 "accept-ranges": undefined,
                 "content-range": undefined,
               },
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
+              stream: streamContent("")
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(true);
+            musicLibrary.stream.mockResolvedValue(stream);
+            musicLibrary.nowPlaying.mockResolvedValue(true);
 
             const res = await request(server)
               .get(`/stream/track/${trackId}`)
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-            expect(res.status).toEqual(trackStream.status);
+            expect(res.status).toEqual(stream.status);
             expect(res.headers["content-type"]).toEqual(
               "audio/mp3; charset=utf-8"
             );
+            expect(res.header["accept-ranges"]).toEqual(
+              stream.headers["accept-ranges"]
+            );
             expect(Object.keys(res.headers)).not.toContain("content-range");
-            expect(Object.keys(res.headers)).not.toContain("accept-ranges");
+
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+            expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
           });
         });
 
         describe("when the music service returns a 200", () => {
           it("should return a 200 with the data", async () => {
-            const trackStream = {
+            const stream = {
               status: 200,
               headers: {
                 "content-type": "audio/mp3",
                 "content-length": "222",
                 "accept-ranges": "bytes",
-                "content-range": "-100",
               },
-              stream: {
-                pipe: (res: Response) => {
-                  console.log("calling send on response");
-                  res.send("");
-                },
-              },
+              stream: streamContent("")
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(true);
+            musicLibrary.stream.mockResolvedValue(stream);
+            musicLibrary.nowPlaying.mockResolvedValue(true);
 
             const res = await request(server)
               .get(`/stream/track/${trackId}`)
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-            expect(res.status).toEqual(trackStream.status);
+            expect(res.status).toEqual(stream.status);
             expect(res.header["content-type"]).toEqual(
-              `${trackStream.headers["content-type"]}; charset=utf-8`
+              `${stream.headers["content-type"]}; charset=utf-8`
             );
             expect(res.header["accept-ranges"]).toEqual(
-              trackStream.headers["accept-ranges"]
+              stream.headers["accept-ranges"]
             );
-            expect(res.header["content-range"]).toEqual(
-              trackStream.headers["content-range"]
-            );
+            expect(res.header["content-range"]).toBeUndefined();
 
             expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
             expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
           });
         });
 
         describe("when the music service returns a 206", () => {
           it("should return a 206 with the data", async () => {
-            const trackStream = {
+            const stream = {
               status: 206,
               headers: {
                 "content-type": "audio/ogg",
@@ -515,31 +596,30 @@ describe("server", () => {
                 "accept-ranges": "bytez",
                 "content-range": "100-200",
               },
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
+              stream: streamContent("")
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(true);
+            musicLibrary.stream.mockResolvedValue(stream);
+            musicLibrary.nowPlaying.mockResolvedValue(true);
 
             const res = await request(server)
               .get(`/stream/track/${trackId}`)
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-            expect(res.status).toEqual(trackStream.status);
+            expect(res.status).toEqual(stream.status);
             expect(res.header["content-type"]).toEqual(
-              `${trackStream.headers["content-type"]}; charset=utf-8`
+              `${stream.headers["content-type"]}; charset=utf-8`
             );
             expect(res.header["accept-ranges"]).toEqual(
-              trackStream.headers["accept-ranges"]
+              stream.headers["accept-ranges"]
             );
             expect(res.header["content-range"]).toEqual(
-              trackStream.headers["content-range"]
+              stream.headers["content-range"]
             );
 
             expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
             expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
           });
         });
@@ -548,50 +628,48 @@ describe("server", () => {
       describe("when sonos does ask for a range", () => {
         describe("when the music service returns a 200", () => {
           it("should return a 200 with the data", async () => {
-            const trackStream = {
+            const stream = {
               status: 200,
               headers: {
                 "content-type": "audio/mp3",
                 "content-length": "222",
-                "accept-ranges": "bytes",
-                "content-range": "-100",
+                "accept-ranges": "none",
               },
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
+              stream: streamContent("")
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(true);
+            musicLibrary.stream.mockResolvedValue(stream);
+            musicLibrary.nowPlaying.mockResolvedValue(true);
+
+            const requestedRange = "40-";
 
             const res = await request(server)
               .get(`/stream/track/${trackId}`)
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
-              .set("Range", "3000-4000");
+              .set("Range", requestedRange);
 
-            expect(res.status).toEqual(trackStream.status);
+            expect(res.status).toEqual(stream.status);
             expect(res.header["content-type"]).toEqual(
-              `${trackStream.headers["content-type"]}; charset=utf-8`
+              `${stream.headers["content-type"]}; charset=utf-8`
             );
             expect(res.header["accept-ranges"]).toEqual(
-              trackStream.headers["accept-ranges"]
+              stream.headers["accept-ranges"]
             );
-            expect(res.header["content-range"]).toEqual(
-              trackStream.headers["content-range"]
-            );
+            expect(res.header["content-range"]).toBeUndefined();
 
             expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
             expect(musicLibrary.stream).toHaveBeenCalledWith({
               trackId,
-              range: "3000-4000",
+              range: requestedRange,
             });
           });
         });
 
         describe("when the music service returns a 206", () => {
           it("should return a 206 with the data", async () => {
-            const trackStream = {
+            const stream = {
               status: 206,
               headers: {
                 "content-type": "audio/ogg",
@@ -599,32 +677,31 @@ describe("server", () => {
                 "accept-ranges": "bytez",
                 "content-range": "100-200",
               },
-              stream: {
-                pipe: (res: Response) => res.send(""),
-              },
+              stream: streamContent("")
             };
 
             musicService.login.mockResolvedValue(musicLibrary);
-            musicLibrary.stream.mockResolvedValue(trackStream);
-            musicLibrary.scrobble.mockResolvedValue(true);
+            musicLibrary.stream.mockResolvedValue(stream);
+            musicLibrary.nowPlaying.mockResolvedValue(true);
 
             const res = await request(server)
               .get(`/stream/track/${trackId}`)
               .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
               .set("Range", "4000-5000");
 
-            expect(res.status).toEqual(trackStream.status);
+            expect(res.status).toEqual(stream.status);
             expect(res.header["content-type"]).toEqual(
-              `${trackStream.headers["content-type"]}; charset=utf-8`
+              `${stream.headers["content-type"]}; charset=utf-8`
             );
             expect(res.header["accept-ranges"]).toEqual(
-              trackStream.headers["accept-ranges"]
+              stream.headers["accept-ranges"]
             );
             expect(res.header["content-range"]).toEqual(
-              trackStream.headers["content-range"]
+              stream.headers["content-range"]
             );
 
             expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
             expect(musicLibrary.stream).toHaveBeenCalledWith({
               trackId,
               range: "4000-5000",

@@ -130,6 +130,9 @@ export class InMemoryMusicService implements MusicService {
       scrobble: async (_: string) => {
         return Promise.resolve(true);
       },
+      nowPlaying: async (_: string) => {
+        return Promise.resolve(true);
+      },
       searchArtists: async (_: string) => Promise.resolve([]),
       searchAlbums: async (_: string) => Promise.resolve([]),
       searchTracks: async (_: string) => Promise.resolve([]),

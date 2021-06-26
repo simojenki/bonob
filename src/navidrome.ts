@@ -549,7 +549,10 @@ export class Navidrome implements MusicService {
             .get(
               credentials,
               `/rest/stream`,
-              { id: trackId, c: this.streamClientApplication(track) },
+              {
+                id: trackId,
+                c: this.streamClientApplication(track),
+              },
               {
                 headers: pipe(
                   range,
@@ -625,6 +628,13 @@ export class Navidrome implements MusicService {
           .get(credentials, `/rest/scrobble`, {
             id,
             submission: true,
+          })
+          .then((_) => true)
+          .catch(() => false),
+      nowPlaying: async (id: string) =>
+        navidrome
+          .get(credentials, `/rest/scrobble`, {
+            id,
           })
           .then((_) => true)
           .catch(() => false),
