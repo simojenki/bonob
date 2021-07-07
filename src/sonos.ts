@@ -5,10 +5,12 @@ import { MusicService } from "@svrooij/sonos/lib/services";
 import { head } from "underscore";
 import logger from "./logger";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
-import qs from "querystring"
+import qs from "querystring";
 
 export const PRESENTATION_AND_STRINGS_VERSION = "18";
 
+// NOTE: manifest requires https for the URL,
+// otherwise you will get an error trying to register
 export type Capability =
   | "search"
   | "trFavorites"
@@ -16,7 +18,9 @@ export type Capability =
   | "ucPlaylists"
   | "extendedMD"
   | "contextHeaders"
-  | "authorizationHeader";
+  | "authorizationHeader"
+  | "logging"
+  | "manifest";
 
 export const BONOB_CAPABILITIES: Capability[] = [
   "search",
@@ -24,6 +28,7 @@ export const BONOB_CAPABILITIES: Capability[] = [
   // "alFavorites",
   "ucPlaylists",
   "extendedMD",
+  "logging",
 ];
 
 export type Device = {
@@ -38,13 +43,13 @@ export type Service = {
   sid: number;
   uri: string;
   secureUri: string;
-  strings: { uri?: string; version?: string };
-  presentation: { uri?: string; version?: string };
+  strings?: { uri?: string; version?: string };
+  presentation?: { uri?: string; version?: string };
   pollInterval?: number;
   authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId";
 };
 
-const stripTailingSlash = (url: string) =>
+export const stripTailingSlash = (url: string) =>
   url.endsWith("/") ? url.substring(0, url.length - 1) : url;
 
 export const bonobService = (
@@ -113,12 +118,10 @@ export const asCustomdForm = (csrfToken: string, service: Service) => ({
   secureUri: service.secureUri,
   pollInterval: `${service.pollInterval || 1200}`,
   authType: service.authType,
-  stringsVersion: service.strings.version || "",
-  stringsUri: service.strings.uri || "",
-  presentationMapVersion: service.presentation.version || "",
-  presentationMapUri: service.presentation.uri || "",
-  manifestVersion: "0",
-  manifestUri: "",
+  stringsVersion: service.strings?.version || "0",
+  stringsUri: service.strings?.uri || "",
+  presentationMapVersion: service.presentation?.version || "0",
+  presentationMapUri: service.presentation?.uri || "",
   containerType: "MService",
   caps: BONOB_CAPABILITIES,
 });
@@ -193,9 +196,10 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
         );
         return false;
       }
-
+      const customdForm = asCustomdForm(csrfToken, service);
+      logger.info(`Registering with sonos @ ${customd}`, { customdForm });
       return axios
-        .post(customd, new URLSearchParams(qs.stringify(asCustomdForm(csrfToken, service))), {
+        .post(customd, new URLSearchParams(qs.stringify(customdForm)), {
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
           },

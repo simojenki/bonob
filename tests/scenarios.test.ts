@@ -89,11 +89,11 @@ class SonosDriver {
     expect(this.service.authType).toEqual("AppLink");
 
     await request(this.server)
-      .get(this.stripServiceRoot(this.service.strings.uri!))
+      .get(this.stripServiceRoot(this.service.strings!.uri!))
       .expect(200);
 
     await request(this.server)
-      .get(this.stripServiceRoot(this.service.presentation.uri!))
+      .get(this.stripServiceRoot(this.service.presentation!.uri!))
       .expect(200);
 
     const client = await createClientAsync(`${this.service.uri}?wsdl`, {
