@@ -291,6 +291,7 @@ describe("api", () => {
     genres: jest.fn(),
     playlists: jest.fn(),
     playlist: jest.fn(),
+    album: jest.fn(),
     albums: jest.fn(),
     tracks: jest.fn(),
     track: jest.fn(),
@@ -301,6 +302,7 @@ describe("api", () => {
     addToPlaylist: jest.fn(),
     deletePlaylist: jest.fn(),
     removeFromPlaylist: jest.fn(),
+    scrobble: jest.fn(),
   };
   const accessTokens = {
     mint: jest.fn(),
@@ -1939,7 +1941,7 @@ describe("api", () => {
         });
 
         describe("asking for a track", () => {
-          it("should return the albums", async () => {
+          it("should return the track", async () => {
             const track = aTrack();
 
             musicLibrary.track.mockResolvedValue(track);
@@ -1973,6 +1975,38 @@ describe("api", () => {
               },
             });
             expect(musicLibrary.track).toHaveBeenCalledWith(track.id);
+          });
+        });
+
+        describe("asking for an album", () => {
+          it("should return the album", async () => {
+            const album = anAlbum();
+
+            musicLibrary.album.mockResolvedValue(album);
+
+            const root = await ws.getExtendedMetadataAsync({
+              id: `album:${album.id}`,
+            });
+
+            expect(root[0]).toEqual({
+              getExtendedMetadataResult: {
+                mediaCollection: {
+                  attributes: {
+                    readOnly: "true",
+                    userContent: "false",
+                    renameable: "false",
+                  },
+                  itemType: "album",
+                  id: `album:${album.id}`,
+                  title: album.name,
+                  albumArtURI: defaultAlbumArtURI(rootUrl, accessToken, album),
+                  canPlay: true,
+                  artistId: album.artistId,
+                  artist: album.artistName,
+                },
+              },
+            });
+            expect(musicLibrary.album).toHaveBeenCalledWith(album.id);
           });
         });
       });
@@ -2161,7 +2195,10 @@ describe("api", () => {
         const idOfNewPlaylist = uuid();
 
         it("should create a playlist", async () => {
-          musicLibrary.createPlaylist.mockResolvedValue({ id: idOfNewPlaylist, name: title });
+          musicLibrary.createPlaylist.mockResolvedValue({
+            id: idOfNewPlaylist,
+            name: title,
+          });
 
           const result = await ws.createContainerAsync({
             title,
@@ -2181,16 +2218,19 @@ describe("api", () => {
 
       describe("with a title and a seed track", () => {
         const title = "aNewPlaylist2";
-        const trackId = 'track123';
-        const idOfNewPlaylist = 'playlistId';
+        const trackId = "track123";
+        const idOfNewPlaylist = "playlistId";
 
         it("should create a playlist with the track", async () => {
-          musicLibrary.createPlaylist.mockResolvedValue({ id: idOfNewPlaylist, name: title });
+          musicLibrary.createPlaylist.mockResolvedValue({
+            id: idOfNewPlaylist,
+            name: title,
+          });
           musicLibrary.addToPlaylist.mockResolvedValue(true);
 
           const result = await ws.createContainerAsync({
             title,
-            seedId: `track:${trackId}`
+            seedId: `track:${trackId}`,
           });
 
           expect(result[0]).toEqual({
@@ -2202,9 +2242,11 @@ describe("api", () => {
           expect(musicService.login).toHaveBeenCalledWith(authToken);
           expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
           expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
-          expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(idOfNewPlaylist, trackId);
+          expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
+            idOfNewPlaylist,
+            trackId
+          );
         });
-
       });
     });
 
@@ -2238,102 +2280,271 @@ describe("api", () => {
         expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
         expect(musicLibrary.deletePlaylist).toHaveBeenCalledWith(id);
       });
+    });
 
-      describe("addToContainer", () => {
-        const authToken = `authToken-${uuid()}`;
-        const accessToken = `accessToken-${uuid()}`;
-        const trackId = "track123";
-        const playlistId = "parent123";
-  
-        let ws: Client;
-  
-        beforeEach(async () => {
-          musicService.login.mockResolvedValue(musicLibrary);
-          accessTokens.mint.mockReturnValue(accessToken);
-  
-          ws = await createClientAsync(`${service.uri}?wsdl`, {
-            endpoint: service.uri,
-            httpClient: supersoap(server, rootUrl),
-          });
-          ws.addSoapHeader({ credentials: someCredentials(authToken) });
+    describe("addToContainer", () => {
+      const authToken = `authToken-${uuid()}`;
+      const accessToken = `accessToken-${uuid()}`;
+      const trackId = "track123";
+      const playlistId = "parent123";
+
+      let ws: Client;
+
+      beforeEach(async () => {
+        musicService.login.mockResolvedValue(musicLibrary);
+        accessTokens.mint.mockReturnValue(accessToken);
+
+        ws = await createClientAsync(`${service.uri}?wsdl`, {
+          endpoint: service.uri,
+          httpClient: supersoap(server, rootUrl),
         });
-  
-        it("should delete the playlist", async () => {
-          musicLibrary.addToPlaylist.mockResolvedValue(true);
-  
-          const result = await ws.addToContainerAsync({
-            id: `track:${trackId}`,
-            parentId: `parent:${playlistId}`
+        ws.addSoapHeader({ credentials: someCredentials(authToken) });
+      });
+
+      it("should delete the playlist", async () => {
+        musicLibrary.addToPlaylist.mockResolvedValue(true);
+
+        const result = await ws.addToContainerAsync({
+          id: `track:${trackId}`,
+          parentId: `parent:${playlistId}`,
+        });
+
+        expect(result[0]).toEqual({ addToContainerResult: { updateId: null } });
+        expect(musicService.login).toHaveBeenCalledWith(authToken);
+        expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+        expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
+          playlistId,
+          trackId
+        );
+      });
+    });
+
+    describe("removeFromContainer", () => {
+      const authToken = `authToken-${uuid()}`;
+      const accessToken = `accessToken-${uuid()}`;
+
+      let ws: Client;
+
+      beforeEach(async () => {
+        musicService.login.mockResolvedValue(musicLibrary);
+        accessTokens.mint.mockReturnValue(accessToken);
+
+        ws = await createClientAsync(`${service.uri}?wsdl`, {
+          endpoint: service.uri,
+          httpClient: supersoap(server, rootUrl),
+        });
+        ws.addSoapHeader({ credentials: someCredentials(authToken) });
+      });
+
+      describe("removing tracks from a playlist", () => {
+        const playlistId = "parent123";
+
+        it("should remove the track from playlist", async () => {
+          musicLibrary.removeFromPlaylist.mockResolvedValue(true);
+
+          const result = await ws.removeFromContainerAsync({
+            id: `playlist:${playlistId}`,
+            indices: `1,6,9`,
           });
-  
-          expect(result[0]).toEqual({ addToContainerResult: { updateId: null } });
+
+          expect(result[0]).toEqual({
+            removeFromContainerResult: { updateId: null },
+          });
           expect(musicService.login).toHaveBeenCalledWith(authToken);
           expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-          expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(playlistId, trackId);
+          expect(musicLibrary.removeFromPlaylist).toHaveBeenCalledWith(
+            playlistId,
+            [1, 6, 9]
+          );
         });
       });
 
-      describe("removeFromContainer", () => {
-        const authToken = `authToken-${uuid()}`;
-        const accessToken = `accessToken-${uuid()}`;
-  
-        let ws: Client;
-  
-        beforeEach(async () => {
-          musicService.login.mockResolvedValue(musicLibrary);
-          accessTokens.mint.mockReturnValue(accessToken);
-  
-          ws = await createClientAsync(`${service.uri}?wsdl`, {
-            endpoint: service.uri,
-            httpClient: supersoap(server, rootUrl),
-          });
-          ws.addSoapHeader({ credentials: someCredentials(authToken) });
-        });
+      describe("removing a playlist", () => {
+        const playlist1 = aPlaylist({ id: "p1" });
+        const playlist2 = aPlaylist({ id: "p2" });
+        const playlist3 = aPlaylist({ id: "p3" });
+        const playlist4 = aPlaylist({ id: "p4" });
+        const playlist5 = aPlaylist({ id: "p5" });
 
-        describe("removing tracks from a playlist", () => {
-          const playlistId = "parent123";
-  
-          it("should remove the track from playlist", async () => {
-            musicLibrary.removeFromPlaylist.mockResolvedValue(true);
-    
-            const result = await ws.removeFromContainerAsync({
-              id: `playlist:${playlistId}`,
-              indices: `1,6,9`
+        it("should delete the playlist", async () => {
+          musicLibrary.playlists.mockResolvedValue([
+            playlist1,
+            playlist2,
+            playlist3,
+            playlist4,
+            playlist5,
+          ]);
+          musicLibrary.deletePlaylist.mockResolvedValue(true);
+
+          const result = await ws.removeFromContainerAsync({
+            id: `playlists`,
+            indices: `0,2,4`,
+          });
+
+          expect(result[0]).toEqual({
+            removeFromContainerResult: { updateId: null },
+          });
+          expect(musicService.login).toHaveBeenCalledWith(authToken);
+          expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+          expect(musicLibrary.deletePlaylist).toHaveBeenCalledTimes(3);
+          expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
+            1,
+            playlist1.id
+          );
+          expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
+            2,
+            playlist3.id
+          );
+          expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
+            3,
+            playlist5.id
+          );
+        });
+      });
+    });
+
+    describe("setPlayedSeconds", () => {
+      const authToken = `authToken-${uuid()}`;
+      const accessToken = `accessToken-${uuid()}`;
+
+      let ws: Client;
+
+      beforeEach(async () => {
+        musicService.login.mockResolvedValue(musicLibrary);
+        accessTokens.mint.mockReturnValue(accessToken);
+
+        ws = await createClientAsync(`${service.uri}?wsdl`, {
+          endpoint: service.uri,
+          httpClient: supersoap(server, rootUrl),
+        });
+        ws.addSoapHeader({ credentials: someCredentials(authToken) });
+      });
+
+      describe("when id is for a track", () => {
+        const trackId = "123456";
+
+        function itShouldScroble({
+          trackId,
+          secondsPlayed,
+        }: {
+          trackId: string;
+          secondsPlayed: number;
+        }) {
+          it("should scrobble", async () => {
+            musicLibrary.scrobble.mockResolvedValue(true);
+
+            const result = await ws.setPlayedSecondsAsync({
+              id: `track:${trackId}`,
+              seconds: `${secondsPlayed}`,
             });
-    
-            expect(result[0]).toEqual({ removeFromContainerResult: { updateId: null } });
+
+            expect(result[0]).toEqual({ setPlayedSecondsResult: null });
             expect(musicService.login).toHaveBeenCalledWith(authToken);
             expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-            expect(musicLibrary.removeFromPlaylist).toHaveBeenCalledWith(playlistId, [1,6,9]);
+            expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
+            expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+          });
+        }
+
+        function itShouldNotScroble({
+          trackId,
+          secondsPlayed,
+        }: {
+          trackId: string;
+          secondsPlayed: number;
+        }) {
+          it("should scrobble", async () => {
+            const result = await ws.setPlayedSecondsAsync({
+              id: `track:${trackId}`,
+              seconds: `${secondsPlayed}`,
+            });
+
+            expect(result[0]).toEqual({ setPlayedSecondsResult: null });
+            expect(musicService.login).toHaveBeenCalledWith(authToken);
+            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+            expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
+            expect(musicLibrary.scrobble).not.toHaveBeenCalled();
+          });
+        }
+
+        describe("when the track length is 30 seconds", () => {
+          beforeEach(() => {
+            musicLibrary.track.mockResolvedValue(
+              aTrack({ id: trackId, duration: 30 })
+            );
+          });
+
+          describe("when the played length is 30 seconds", () => {
+            itShouldScroble({ trackId, secondsPlayed: 30 });
+          });
+
+          describe("when the played length is > 30 seconds", () => {
+            itShouldScroble({ trackId, secondsPlayed: 90 });
+          });
+
+          describe("when the played length is < 30 seconds", () => {
+            itShouldNotScroble({ trackId, secondsPlayed: 29 });
           });
         });
 
-        describe("removing a playlist", () => {
-          const playlist1 = aPlaylist({ id: 'p1' });
-          const playlist2 = aPlaylist({ id: 'p2' });
-          const playlist3 = aPlaylist({ id: 'p3' });
-          const playlist4 = aPlaylist({ id: 'p4' });
-          const playlist5 = aPlaylist({ id: 'p5' });
+        describe("when the track length is > 30 seconds", () => {
+          beforeEach(() => {
+            musicLibrary.track.mockResolvedValue(
+              aTrack({ id: trackId, duration: 31 })
+            );
+          });
 
-          it("should delete the playlist", async () => {
-            musicLibrary.playlists.mockResolvedValue([playlist1, playlist2, playlist3, playlist4, playlist5]);
-            musicLibrary.deletePlaylist.mockResolvedValue(true);
-    
-            const result = await ws.removeFromContainerAsync({
-              id: `playlists`,
-              indices: `0,2,4`
-            });
-    
-            expect(result[0]).toEqual({ removeFromContainerResult: { updateId: null } });
-            expect(musicService.login).toHaveBeenCalledWith(authToken);
-            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-            expect(musicLibrary.deletePlaylist).toHaveBeenCalledTimes(3);
-            expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(1, playlist1.id);
-            expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(2, playlist3.id);
-            expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(3, playlist5.id);
+          describe("when the played length is 30 seconds", () => {
+            itShouldScroble({ trackId, secondsPlayed: 30 });
+          });
+
+          describe("when the played length is > 30 seconds", () => {
+            itShouldScroble({ trackId, secondsPlayed: 90 });
+          });
+
+          describe("when the played length is < 30 seconds", () => {
+            itShouldNotScroble({ trackId, secondsPlayed: 29 });
+          });
+        });
+
+        describe("when the track length is 29 seconds", () => {
+          beforeEach(() => {
+            musicLibrary.track.mockResolvedValue(
+              aTrack({ id: trackId, duration: 29 })
+            );
+          });
+
+          describe("when the played length is 29 seconds", () => {
+            itShouldScroble({ trackId, secondsPlayed: 30 });
+          });
+
+          describe("when the played length is > 29 seconds", () => {
+            itShouldScroble({ trackId, secondsPlayed: 30 });
+          });
+
+          describe("when the played length is 10 seconds", () => {
+            itShouldScroble({ trackId, secondsPlayed: 10 });
+          });
+
+          describe("when the played length is < 10 seconds", () => {
+            itShouldNotScroble({ trackId, secondsPlayed: 9 });
           });
         });
       });
-    });    
+
+      describe("when the id is for something that isnt a track", () => {
+        it("should not scrobble", async () => {
+          const result = await ws.setPlayedSecondsAsync({
+            id: `album:666`,
+            seconds: "100",
+          });
+
+          expect(result[0]).toEqual({ setPlayedSecondsResult: null });
+          expect(musicService.login).toHaveBeenCalledWith(authToken);
+          expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+          expect(musicLibrary.scrobble).not.toHaveBeenCalled();
+        });
+      });
+    });
   });
 });

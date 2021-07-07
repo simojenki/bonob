@@ -13,7 +13,7 @@ Currently only a single integration allowing Navidrome to be registered with son
 - Artist Art
 - Album Art
 - View Related Artists via Artist -> '...' -> Menu -> Related Arists
-- Track scrobbling
+- Now playing & Track Scrobbling
 - Auto discovery of sonos devices
 - Discovery of sonos devices using seed IP address
 - Auto register bonob service with sonos system
@@ -109,6 +109,7 @@ BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for cust
 - Within navidrome a new player will be created, 'bonob (username)', so you can configure transcoding specifically for sonos
 
 ## Implementing a different music source other than navidrome
+
 - Implement the MusicService/MusicLibrary interface
 - Startup bonob with your new implementation.
 

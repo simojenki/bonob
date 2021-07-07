@@ -164,7 +164,7 @@ function server(
             ${SONOS_RECOMMENDED_IMAGE_SIZES.map(
               (size) =>
                 `<sizeEntry size="${size}" substitution="/art/size/${size}"/>`
-            )}
+            ).join("")}
           </imageSizeMap>
         </Match>
       </PresentationMap>

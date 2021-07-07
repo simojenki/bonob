@@ -242,6 +242,10 @@ export const album = (
   title: album.name,
   albumArtURI: defaultAlbumArtURI(webAddress, accessToken, album),
   canPlay: true,
+  // defaults
+  // canScroll: false,
+  // canEnumerate: true,
+  // canAddToFavorites: true
 });
 
 export const track = (
@@ -485,6 +489,26 @@ function bindSmapiSoapServiceToExpress(
                             ),
                           },
                         },
+                      },
+                    }));
+                  case "album":
+                    return musicLibrary.album(typeId).then((it) => ({
+                      getExtendedMetadataResult: {
+                        mediaCollection: {
+                          attributes: {
+                            readOnly: true,
+                            userContent: false,
+                            renameable: false,
+                          },
+                          ...album(webAddress, accessToken, it),
+                        },
+                        // <mediaCollection readonly="true">
+                        //   </mediaCollection>
+                        //   <relatedText>
+                        //     <id>AL:123456</id>
+                        //     <type>ALBUM_NOTES</type>
+                        //   </relatedText>
+                        // </getExtendedMetadataResult>
                       },
                     }));
                   default:
@@ -784,10 +808,42 @@ function bindSmapiSoapServiceToExpress(
                 }
               })
               .then((_) => ({ removeFromContainerResult: { updateId: "" } })),
+          setPlayedSeconds: async (
+            { id, seconds }: { id: string; seconds: string },
+            _,
+            headers?: SoapyHeaders
+          ) =>
+            auth(musicService, accessTokens, headers)
+              .then(splitId(id))
+              .then(({ musicLibrary, type, typeId }) => {
+                switch (type) {
+                  case "track":
+                    musicLibrary.track(typeId).then(({ duration }) => {
+                      if (
+                        (duration < 30 && +seconds >= 10) ||
+                        (duration >= 30 && +seconds >= 30)
+                      ) {
+                        musicLibrary.scrobble(typeId);
+                      }
+                    });
+                    break;
+                  default:
+                    logger.info("Unsupported scrobble", { id, seconds });
+                    break;
+                }
+              })
+              .then((_) => ({
+                setPlayedSecondsResult: {},
+              })),
         },
       },
     },
-    readFileSync(WSDL_FILE, "utf8")
+    readFileSync(WSDL_FILE, "utf8"),
+    (err: any, res: any) => {
+      if (err) {
+        logger.error("BOOOOM", { err, res });
+      }
+    }
   );
 
   soapyService.log = (type, data) => {

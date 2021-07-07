@@ -207,8 +207,6 @@ describe("sonos", () => {
           stringsUri: "http://strings.example.com",
           presentationMapVersion: "27",
           presentationMapUri: "http://presentation.example.com",
-          manifestVersion: "0",
-          manifestUri: "",
           containerType: "MService",
           caps: BONOB_CAPABILITIES
         });
@@ -230,9 +228,9 @@ describe("sonos", () => {
         });
         const form = asCustomdForm(uuid(), service)
         expect(form.stringsUri).toEqual("");
-        expect(form.stringsVersion).toEqual("");
+        expect(form.stringsVersion).toEqual("0");
         expect(form.presentationMapUri).toEqual("");
-        expect(form.presentationMapVersion).toEqual("");
+        expect(form.presentationMapVersion).toEqual("0");
       });
     });
   });
