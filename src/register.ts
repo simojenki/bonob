@@ -1,6 +1,8 @@
-import config from "./config";
+import readConfig from "./config";
 import logger from "./logger";
 import sonos, { bonobService } from "./sonos";
+
+const config = readConfig();
 
 const bonob = bonobService(
     config.sonos.serviceName,
