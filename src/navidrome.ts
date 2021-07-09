@@ -635,6 +635,7 @@ export class Navidrome implements MusicService {
         navidrome
           .get(credentials, `/rest/scrobble`, {
             id,
+            submission: false,
           })
           .then((_) => true)
           .catch(() => false),

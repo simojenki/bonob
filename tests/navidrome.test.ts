@@ -2763,6 +2763,7 @@ describe("Navidrome", () => {
           params: asURLSearchParams({
             ...authParams,
             id,
+            submission: false,
           }),
           headers,
         });
@@ -2794,6 +2795,7 @@ describe("Navidrome", () => {
           params: asURLSearchParams({
             ...authParams,
             id,
+            submission: false,
           }),
           headers,
         });
