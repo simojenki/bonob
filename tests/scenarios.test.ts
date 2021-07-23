@@ -21,6 +21,7 @@ import { Credentials } from "../src/music_service";
 import makeServer from "../src/server";
 import { Service, bonobService, SONOS_DISABLED } from "../src/sonos";
 import supersoap from "./supersoap";
+import url, { URLBuilder } from "../src/url_builder";
 
 class LoggedInSonosDriver {
   client: Client;
@@ -41,9 +42,10 @@ class LoggedInSonosDriver {
     let next = path.shift();
     while (next) {
       if (next != "root") {
-        const childIds = this.currentMetadata!.getMetadataResult.mediaCollection!.map(
-          (it) => it.id
-        );
+        const childIds =
+          this.currentMetadata!.getMetadataResult.mediaCollection!.map(
+            (it) => it.id
+          );
         if (!childIds.includes(next)) {
           throw `Expected to find a child element with id=${next} in order to browse, but found only ${childIds}`;
         }
@@ -74,31 +76,50 @@ class LoggedInSonosDriver {
 
 class SonosDriver {
   server: Express;
-  rootUrl: string;
+  bonobUrl: URLBuilder;
   service: Service;
 
-  constructor(server: Express, rootUrl: string, service: Service) {
+  constructor(server: Express, bonobUrl: URLBuilder, service: Service) {
     this.server = server;
-    this.rootUrl = rootUrl;
+    this.bonobUrl = bonobUrl;
     this.service = service;
   }
 
-  stripServiceRoot = (url: string) => url.replace(this.rootUrl, "");
+  extractPathname = (url: string) => new URL(url).pathname;
+
+  async register() {
+    const action = await request(this.server)
+      .get(this.bonobUrl.append({ pathname: "/" }).pathname())
+      .expect(200)
+      .then((response) => {
+        const m = response.text.match(/ action="(.*)" /i);
+        return m![1]!;
+      });
+
+    return request(this.server)
+      .post(action)
+      .type("form")
+      .send({})
+      .expect(200)
+      .then((response) =>
+        expect(response.text).toContain("Successfully registered")
+      );
+  }
 
   async addService() {
     expect(this.service.authType).toEqual("AppLink");
 
     await request(this.server)
-      .get(this.stripServiceRoot(this.service.strings!.uri!))
+      .get(this.extractPathname(this.service.strings!.uri!))
       .expect(200);
 
     await request(this.server)
-      .get(this.stripServiceRoot(this.service.presentation!.uri!))
+      .get(this.extractPathname(this.service.presentation!.uri!))
       .expect(200);
 
     const client = await createClientAsync(`${this.service.uri}?wsdl`, {
       endpoint: this.service.uri,
-      httpClient: supersoap(this.server, this.rootUrl),
+      httpClient: supersoap(this.server),
     });
 
     return client
@@ -109,12 +130,18 @@ class SonosDriver {
       )
       .then(({ regUrl, linkCode }: { regUrl: string; linkCode: string }) => ({
         login: async ({ username, password }: Credentials) => {
-          await request(this.server)
-            .get(this.stripServiceRoot(regUrl))
-            .expect(200);
+          const action = await request(this.server)
+            .get(this.extractPathname(regUrl))
+            .expect(200)
+            .then((response) => {
+              const m = response.text.match(/ action="(.*)" /i);
+              return m![1]!;
+            });
+
+          console.log(`posting to action ${action}`);
 
           return request(this.server)
-            .post(this.stripServiceRoot(regUrl))
+            .post(action)
             .type("form")
             .send({ username, password, linkCode })
             .then((response) => ({
@@ -140,92 +167,137 @@ class SonosDriver {
 }
 
 describe("scenarios", () => {
-  const bonobUrl = "http://localhost:1234";
-  const bonob = bonobService("bonob", 123, bonobUrl);
   const musicService = new InMemoryMusicService().hasArtists(
     BOB_MARLEY,
     BLONDIE
   );
   const linkCodes = new InMemoryLinkCodes();
-  const server = makeServer(
-    SONOS_DISABLED,
-    bonob,
-    bonobUrl,
-    musicService,
-    linkCodes
-  );
-
-  const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
 
   beforeEach(() => {
     musicService.clear();
     linkCodes.clear();
   });
 
-  describe("adding the service", () => {
-    describe("when the user doesnt exists within the music service", () => {
-      const username = "invaliduser";
-      const password = "invalidpassword";
-
-      it("should fail to sign up", async () => {
-        musicService.hasNoUsers();
-
-        await sonosDriver
-          .addService()
-          .then((it) => it.login({ username, password }))
-          .then((it) => it.expectFailure());
-
-        expect(linkCodes.count()).toEqual(1);
+  function itShouldBeAbleToAddTheService(sonosDriver: SonosDriver) {
+    describe("registering bonob with the sonos device", () => {
+      it("should complete successfully", async () => {
+        await sonosDriver.register();
       });
     });
 
-    describe("when the user exists within the music service", () => {
-      const username = "validuser";
-      const password = "validpassword";
+    describe("adding the service", () => {
+      describe("when the user doesnt exists within the music service", () => {
+        const username = "invaliduser";
+        const password = "invalidpassword";
 
-      beforeEach(() => {
-        musicService.hasUser({ username, password });
-        musicService.hasArtists(BLONDIE, BOB_MARLEY, MADONNA);
+        it("should fail to sign up", async () => {
+          musicService.hasNoUsers();
+
+          await sonosDriver
+            .addService()
+            .then((it) => it.login({ username, password }))
+            .then((it) => it.expectFailure());
+
+          expect(linkCodes.count()).toEqual(1);
+        });
       });
 
-      it("should successfuly sign up", async () => {
-        await sonosDriver
-          .addService()
-          .then((it) => it.login({ username, password }))
-          .then((it) => it.expectSuccess());
+      describe("when the user exists within the music service", () => {
+        const username = "validuser";
+        const password = "validpassword";
 
-        expect(linkCodes.count()).toEqual(1);
-      });
+        beforeEach(() => {
+          musicService.hasUser({ username, password });
+          musicService.hasArtists(BLONDIE, BOB_MARLEY, MADONNA);
+        });
 
-      it("should be able to list the artists", async () => {
-        await sonosDriver
-          .addService()
-          .then((it) => it.login({ username, password }))
-          .then((it) => it.expectSuccess())
-          .then((it) => it.navigate("root", "artists"))
-          .then((it) =>
-            it.expectTitles(
-              [BLONDIE, BOB_MARLEY, MADONNA].map(
-                (it) => it.name
+        it("should successfuly sign up", async () => {
+          await sonosDriver
+            .addService()
+            .then((it) => it.login({ username, password }))
+            .then((it) => it.expectSuccess());
+
+          expect(linkCodes.count()).toEqual(1);
+        });
+
+        it("should be able to list the artists", async () => {
+          await sonosDriver
+            .addService()
+            .then((it) => it.login({ username, password }))
+            .then((it) => it.expectSuccess())
+            .then((it) => it.navigate("root", "artists"))
+            .then((it) =>
+              it.expectTitles(
+                [BLONDIE, BOB_MARLEY, MADONNA].map((it) => it.name)
               )
-            )
-          );
-      });
+            );
+        });
 
-      it("should be able to list the albums", async () => {
-        await sonosDriver
-          .addService()
-          .then((it) => it.login({ username, password }))
-          .then((it) => it.expectSuccess())
-          .then((it) => it.navigate("root", "albums"))
-          .then((it) =>
-            it.expectTitles(
-              [...BLONDIE.albums, ...BOB_MARLEY.albums, ...MADONNA.albums].map(
-                (it) => it.name
+        it("should be able to list the albums", async () => {
+          await sonosDriver
+            .addService()
+            .then((it) => it.login({ username, password }))
+            .then((it) => it.expectSuccess())
+            .then((it) => it.navigate("root", "albums"))
+            .then((it) =>
+              it.expectTitles(
+                [
+                  ...BLONDIE.albums,
+                  ...BOB_MARLEY.albums,
+                  ...MADONNA.albums,
+                ].map((it) => it.name)
               )
-            )
-          );
+            );
+        });
       });
     });
+  }
+
+  describe("when the bonobUrl has no context path and no trailing slash", () => {
+    const bonobUrl = url("http://localhost:1234");
+    const bonob = bonobService("bonob", 123, bonobUrl);
+    const server = makeServer(
+      SONOS_DISABLED,
+      bonob,
+      bonobUrl,
+      musicService,
+      linkCodes
+    );
+
+    const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
+
+    itShouldBeAbleToAddTheService(sonosDriver);
+  });
+
+  describe("when the bonobUrl has no context path, but does have a trailing slash", () => {
+    const bonobUrl = url("http://localhost:1234/");
+    const bonob = bonobService("bonob", 123, bonobUrl);
+    const server = makeServer(
+      SONOS_DISABLED,
+      bonob,
+      bonobUrl,
+      musicService,
+      linkCodes
+    );
+
+    const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
+
+    itShouldBeAbleToAddTheService(sonosDriver);
+  });
+
+  describe("when the bonobUrl has a context path", () => {
+    const bonobUrl = url("http://localhost:1234/context-for-bonob");
+    const bonob = bonobService("bonob", 123, bonobUrl);
+    const server = makeServer(
+      SONOS_DISABLED,
+      bonob,
+      bonobUrl,
+      musicService,
+      linkCodes
+    );
+
+    const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
+
+    itShouldBeAbleToAddTheService(sonosDriver);
   });
 });

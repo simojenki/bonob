@@ -20,8 +20,10 @@ import {
 import { AccessTokens } from "./access_tokens";
 import { BONOB_ACCESS_TOKEN_HEADER } from "./server";
 import { Clock } from "./clock";
+import { URLBuilder } from "./url_builder";
 
 export const LOGIN_ROUTE = "/login";
+export const REGISTER_ROUTE = "/register";
 export const SOAP_PATH = "/ws/sonos";
 export const STRINGS_ROUTE = "/sonos/strings.xml";
 export const PRESENTATION_MAP_ROUTE = "/sonos/presentationMap.xml";
@@ -131,10 +133,10 @@ export function searchResult(
 
 class SonosSoap {
   linkCodes: LinkCodes;
-  webAddress: string;
+  bonobUrl: URLBuilder;
 
-  constructor(webAddress: string, linkCodes: LinkCodes) {
-    this.webAddress = webAddress;
+  constructor(bonobUrl: URLBuilder, linkCodes: LinkCodes) {
+    this.bonobUrl = bonobUrl;
     this.linkCodes = linkCodes;
   }
 
@@ -145,7 +147,10 @@ class SonosSoap {
         authorizeAccount: {
           appUrlStringId: "AppLinkMessage",
           deviceLink: {
-            regUrl: `${this.webAddress}${LOGIN_ROUTE}?linkCode=${linkCode}`,
+            regUrl: this.bonobUrl
+              .append({ pathname: LOGIN_ROUTE })
+              .with({ searchParams: { linkCode } })
+              .href(),
             linkCode: linkCode,
             showLinkCode: false,
           },
@@ -216,31 +221,21 @@ const playlist = (playlist: PlaylistSummary) => ({
   },
 });
 
-export const defaultAlbumArtURI = (
-  webAddress: string,
-  accessToken: string,
-  album: AlbumSummary
-) =>
-  `${webAddress}/album/${album.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`;
+export const defaultAlbumArtURI = (bonobUrl: URLBuilder, album: AlbumSummary) =>
+  bonobUrl.append({ pathname: `/album/${album.id}/art/size/180` });
 
 export const defaultArtistArtURI = (
-  webAddress: string,
-  accessToken: string,
+  bonobUrl: URLBuilder,
   artist: ArtistSummary
-) =>
-  `${webAddress}/artist/${artist.id}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`;
+) => bonobUrl.append({ pathname: `/artist/${artist.id}/art/size/180` });
 
-export const album = (
-  webAddress: string,
-  accessToken: string,
-  album: AlbumSummary
-) => ({
+export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   itemType: "album",
   id: `album:${album.id}`,
   artist: album.artistName,
   artistId: album.artistId,
   title: album.name,
-  albumArtURI: defaultAlbumArtURI(webAddress, accessToken, album),
+  albumArtURI: defaultAlbumArtURI(bonobUrl, album).href(),
   canPlay: true,
   // defaults
   // canScroll: false,
@@ -248,11 +243,7 @@ export const album = (
   // canAddToFavorites: true
 });
 
-export const track = (
-  webAddress: string,
-  accessToken: string,
-  track: Track
-) => ({
+export const track = (bonobUrl: URLBuilder, track: Track) => ({
   itemType: "track",
   id: `track:${track.id}`,
   mimeType: track.mimeType,
@@ -263,7 +254,7 @@ export const track = (
     albumId: track.album.id,
     albumArtist: track.artist.name,
     albumArtistId: track.artist.id,
-    albumArtURI: defaultAlbumArtURI(webAddress, accessToken, track.album),
+    albumArtURI: defaultAlbumArtURI(bonobUrl, track.album).href(),
     artist: track.artist.name,
     artistId: track.artist.id,
     duration: track.duration,
@@ -273,16 +264,12 @@ export const track = (
   },
 });
 
-export const artist = (
-  webAddress: string,
-  accessToken: string,
-  artist: ArtistSummary
-) => ({
+export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
   itemType: "artist",
   id: `artist:${artist.id}`,
   artistId: artist.id,
   title: artist.name,
-  albumArtURI: defaultArtistArtURI(webAddress, accessToken, artist),
+  albumArtURI: defaultArtistArtURI(bonobUrl, artist).href(),
 });
 
 const auth = async (
@@ -334,13 +321,20 @@ type SoapyHeaders = {
 function bindSmapiSoapServiceToExpress(
   app: Express,
   soapPath: string,
-  webAddress: string,
+  bonobUrl: URLBuilder,
   linkCodes: LinkCodes,
   musicService: MusicService,
   accessTokens: AccessTokens,
   clock: Clock
 ) {
-  const sonosSoap = new SonosSoap(webAddress, linkCodes);
+  const sonosSoap = new SonosSoap(bonobUrl, linkCodes);
+  const urlWithToken = (accessToken: string) =>
+    bonobUrl.append({
+      searchParams: {
+        "bonob-access-token": accessToken,
+      },
+    });
+
   const soapyService = listen(
     app,
     soapPath,
@@ -366,7 +360,11 @@ function bindSmapiSoapServiceToExpress(
             auth(musicService, accessTokens, headers)
               .then(splitId(id))
               .then(({ accessToken, type, typeId }) => ({
-                getMediaURIResult: `${webAddress}/stream/${type}/${typeId}`,
+                getMediaURIResult: bonobUrl
+                  .append({
+                    pathname: `/stream/${type}/${typeId}`,
+                  })
+                  .href(),
                 httpHeaders: [
                   {
                     header: BONOB_ACCESS_TOKEN_HEADER,
@@ -383,7 +381,10 @@ function bindSmapiSoapServiceToExpress(
               .then(splitId(id))
               .then(async ({ musicLibrary, accessToken, typeId }) =>
                 musicLibrary.track(typeId!).then((it) => ({
-                  getMediaMetadataResult: track(webAddress, accessToken, it),
+                  getMediaMetadataResult: track(
+                    urlWithToken(accessToken),
+                    it
+                  ),
                 }))
               ),
           search: async (
@@ -400,7 +401,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((albumSummary) =>
-                          album(webAddress, accessToken, albumSummary)
+                          album(urlWithToken(accessToken), albumSummary)
                         ),
                       })
                     );
@@ -409,7 +410,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((artistSummary) =>
-                          artist(webAddress, accessToken, artistSummary)
+                          artist(urlWithToken(accessToken), artistSummary)
                         ),
                       })
                     );
@@ -418,7 +419,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((aTrack) =>
-                          album(webAddress, accessToken, aTrack.album)
+                          album(urlWithToken(accessToken), aTrack.album)
                         ),
                       })
                     );
@@ -452,7 +453,7 @@ function bindSmapiSoapServiceToExpress(
                           index: paging._index,
                           total,
                           mediaCollection: page.map((it) =>
-                            album(webAddress, accessToken, it)
+                            album(urlWithToken(accessToken), it)
                           ),
                           relatedBrowse:
                             artist.similarArtists.length > 0
@@ -483,10 +484,9 @@ function bindSmapiSoapServiceToExpress(
                             genreId: it.genre?.id,
                             duration: it.duration,
                             albumArtURI: defaultAlbumArtURI(
-                              webAddress,
-                              accessToken,
+                              urlWithToken(accessToken),
                               it.album
-                            ),
+                            ).href(),
                           },
                         },
                       },
@@ -500,7 +500,7 @@ function bindSmapiSoapServiceToExpress(
                             userContent: false,
                             renameable: false,
                           },
-                          ...album(webAddress, accessToken, it),
+                          ...album(urlWithToken(accessToken), it),
                         },
                         // <mediaCollection readonly="true">
                         //   </mediaCollection>
@@ -537,7 +537,7 @@ function bindSmapiSoapServiceToExpress(
                   musicLibrary.albums(q).then((result) => {
                     return getMetadataResult({
                       mediaCollection: result.results.map((it) =>
-                        album(webAddress, accessToken, it)
+                        album(urlWithToken(accessToken), it)
                       ),
                       index: paging._index,
                       total: result.total,
@@ -616,7 +616,7 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary.artists(paging).then((result) => {
                       return getMetadataResult({
                         mediaCollection: result.results.map((it) =>
-                          artist(webAddress, accessToken, it)
+                          artist(urlWithToken(accessToken), it)
                         ),
                         index: paging._index,
                         total: result.total,
@@ -689,7 +689,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaMetadata: page.map((it) =>
-                            track(webAddress, accessToken, it)
+                            track(urlWithToken(accessToken), it)
                           ),
                           index: paging._index,
                           total,
@@ -703,7 +703,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            album(webAddress, accessToken, it)
+                            album(urlWithToken(accessToken), it)
                           ),
                           index: paging._index,
                           total,
@@ -717,7 +717,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            artist(webAddress, accessToken, it)
+                            artist(urlWithToken(accessToken), it)
                           ),
                           index: paging._index,
                           total,
@@ -730,7 +730,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaMetadata: page.map((it) =>
-                            track(webAddress, accessToken, it)
+                            track(urlWithToken(accessToken), it)
                           ),
                           index: paging._index,
                           total,

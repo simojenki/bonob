@@ -1,7 +1,7 @@
 import { Express } from "express";
 import request from "supertest";
 
-function supersoap(server: Express, rootUrl: string) {
+function supersoap(server: Express) {
   return {
     request: (
       rurl: string,
@@ -9,7 +9,8 @@ function supersoap(server: Express, rootUrl: string) {
       callback: (error: any, res?: any, body?: any) => any,
       exheaders?: any
     ) => {
-      const withoutHost = rurl.replace(rootUrl, "");
+      const url = new URL(rurl);
+      const withoutHost = `${url.pathname}${url.search}`;
       const req =
         data == null
           ? request(server).get(withoutHost).send()

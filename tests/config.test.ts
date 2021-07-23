@@ -13,7 +13,12 @@ describe("config", () => {
     process.env = OLD_ENV;
   });
 
-  function describeBooleanConfigValue(name: string, envVar: string, expectedDefault: boolean, propertyGetter: (config: any) => any) {
+  function describeBooleanConfigValue(
+    name: string,
+    envVar: string,
+    expectedDefault: boolean,
+    propertyGetter: (config: any) => any
+  ) {
     describe(name, () => {
       function expecting({
         value,
@@ -35,7 +40,72 @@ describe("config", () => {
       expecting({ value: "false", expected: false });
       expecting({ value: "foo", expected: false });
     });
-  };
+  }
+
+  describe("bonobUrl", () => {
+    describe("when BONOB_URL is specified", () => {
+      it("should be used", () => {
+        const url = "http://bonob1.example.com:8877/";
+        process.env["BONOB_URL"] = url;
+
+        expect(config().bonobUrl.href()).toEqual(url);
+      });
+    });
+
+    describe("when BONOB_URL is not specified, however legacy BONOB_WEB_ADDRESS is specified", () => {
+      it("should be used", () => {
+        const url = "http://bonob2.example.com:9988/";
+        process.env["BONOB_URL"] = "";
+        process.env["BONOB_WEB_ADDRESS"] = url;
+
+        expect(config().bonobUrl.href()).toEqual(url);
+      });
+    });
+
+    describe("when neither BONOB_URL nor BONOB_WEB_ADDRESS are specified", () => {
+      describe("when BONOB_PORT is not specified", () => {
+        it(`should default to http://${hostname()}:4534`, () => {
+          expect(config().bonobUrl.href()).toEqual(
+            `http://${hostname()}:4534/`
+          );
+        });
+      });
+
+      describe("when BONOB_PORT is specified as 3322", () => {
+        it(`should default to http://${hostname()}:3322`, () => {
+          process.env["BONOB_PORT"] = "3322";
+          expect(config().bonobUrl.href()).toEqual(
+            `http://${hostname()}:3322/`
+          );
+        });
+      });
+    });
+  });
+
+  describe("navidrome", () => {
+    describe("url", () => {
+      describe("when BONOB_NAVIDROME_URL is not specified", () => {
+        it(`should default to http://${hostname()}:4533`, () => {
+          expect(config().navidrome.url).toEqual(`http://${hostname()}:4533`);
+        });
+      });
+
+      describe("when BONOB_NAVIDROME_URL is ''", () => {
+        it(`should default to http://${hostname()}:4533`, () => {
+          process.env["BONOB_NAVIDROME_URL"] = "";
+          expect(config().navidrome.url).toEqual(`http://${hostname()}:4533`);
+        });
+      });
+
+      describe("when BONOB_NAVIDROME_URL is specified", () => {
+        it(`should use it`, () => {
+          const url = "http://navidrome.example.com:1234";
+          process.env["BONOB_NAVIDROME_URL"] = url;
+          expect(config().navidrome.url).toEqual(url);
+        });
+      });
+    });
+  });
 
   describe("secret", () => {
     it("should default to bonob", () => {
@@ -60,7 +130,12 @@ describe("config", () => {
       });
     });
 
-    describeBooleanConfigValue("deviceDiscovery", "BONOB_SONOS_DEVICE_DISCOVERY", true, config => config.sonos.deviceDiscovery);
+    describeBooleanConfigValue(
+      "deviceDiscovery",
+      "BONOB_SONOS_DEVICE_DISCOVERY",
+      true,
+      (config) => config.sonos.deviceDiscovery
+    );
 
     describe("seedHost", () => {
       it("should default to undefined", () => {
@@ -73,7 +148,12 @@ describe("config", () => {
       });
     });
 
-    describeBooleanConfigValue("autoRegister", "BONOB_SONOS_AUTO_REGISTER", false, config => config.sonos.autoRegister);
+    describeBooleanConfigValue(
+      "autoRegister",
+      "BONOB_SONOS_AUTO_REGISTER",
+      false,
+      (config) => config.sonos.autoRegister
+    );
 
     describe("sid", () => {
       it("should default to 246", () => {
@@ -111,6 +191,16 @@ describe("config", () => {
     });
   });
 
-  describeBooleanConfigValue("scrobbleTracks", "BONOB_SCROBBLE_TRACKS", true, config => config.scrobbleTracks);
-  describeBooleanConfigValue("reportNowPlaying", "BONOB_REPORT_NOW_PLAYING", true, config => config.reportNowPlaying);
+  describeBooleanConfigValue(
+    "scrobbleTracks",
+    "BONOB_SCROBBLE_TRACKS",
+    true,
+    (config) => config.scrobbleTracks
+  );
+  describeBooleanConfigValue(
+    "reportNowPlaying",
+    "BONOB_REPORT_NOW_PLAYING",
+    true,
+    (config) => config.reportNowPlaying
+  );
 });

@@ -63,7 +63,7 @@ Start bonob outside the lan with sonos discovery & registration disabled as they
 ```bash
 docker run \
     -e BONOB_PORT=4534 \
-    -e BONOB_WEB_ADDRESS=https://my-bonob-service.com \
+    -e BONOB_URL=https://my-server.example.com/bonob \
     -e BONOB_SONOS_AUTO_REGISTER=false \
     -e BONOB_SONOS_DEVICE_DISCOVERY=false \
     -e BONOB_NAVIDROME_URL=https://my-navidrome-service.com:4533 \
@@ -71,11 +71,11 @@ docker run \
     simojenki/bonob
 ```
 
-Now inside the lan that contains the sonos devices run bonob registration, using the same BONOB_WEB_ADDRESS as above, and with discovery enabled.  Make sure to use host networking so that bonob can find the sonos devices (or provide a BONOB_SONOS_SEED_HOST)
+Now inside the lan that contains the sonos devices run bonob registration, using the same BONOB_URL as above, and with discovery enabled.  Make sure to use host networking so that bonob can find the sonos devices (or provide a BONOB_SONOS_SEED_HOST)
 
 ```bash
 docker run \
-    -e BONOB_WEB_ADDRESS=https://my-bonob-service.com \
+    -e BONOB_URL=https://my-server.example.com/bonob \
     -e BONOB_SONOS_DEVICE_DISCOVERY=true \
     --network host \
     simojenki/bonob register
@@ -86,7 +86,7 @@ docker run \
 item | default value | description
 ---- | ------------- | -----------
 BONOB_PORT | 4534 | Default http port for bonob to listen on
-BONOB_WEB_ADDRESS | http://$(hostname):4534 | URL for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
+BONOB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
 BONOB_SECRET | bonob | secret used for encrypting credentials
 BONOB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
 BONOB_SONOS_DEVICE_DISCOVERY | true | whether or not sonos device discovery should be enabled

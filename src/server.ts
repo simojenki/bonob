@@ -12,6 +12,7 @@ import {
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
   LOGIN_ROUTE,
+  REGISTER_ROUTE,
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
@@ -20,6 +21,7 @@ import { AccessTokens, AccessTokenPerAuthToken } from "./access_tokens";
 import logger from "./logger";
 import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
+import { URLBuilder } from "./url_builder";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -63,17 +65,19 @@ export class RangeBytesFromFilter extends Transform {
 function server(
   sonos: Sonos,
   service: Service,
-  webAddress: string,
+  bonobUrl: URLBuilder,
   musicService: MusicService,
   linkCodes: LinkCodes = new InMemoryLinkCodes(),
   accessTokens: AccessTokens = new AccessTokenPerAuthToken(),
-  clock: Clock = SystemClock
+  clock: Clock = SystemClock,
+  applyContextPath = true
 ): Express {
   const app = express();
 
   app.use(morgan("combined"));
   app.use(express.urlencoded({ extended: false }));
 
+  // todo: pass options in here?
   app.use(express.static("./web/public"));
   app.engine("eta", Eta.renderFile);
 
@@ -91,12 +95,13 @@ function server(
           services,
           bonobService: service,
           registeredBonobService,
+          registerRoute: bonobUrl.append({ pathname: REGISTER_ROUTE }).pathname(),
         });
       }
     );
   });
 
-  app.post("/register", (_, res) => {
+  app.post(REGISTER_ROUTE, (_, res) => {
     sonos.register(service).then((success) => {
       if (success) {
         res.render("success", {
@@ -114,7 +119,7 @@ function server(
     res.render("login", {
       bonobService: service,
       linkCode: req.query.linkCode,
-      loginRoute: LOGIN_ROUTE,
+      loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
     });
   });
 
@@ -317,14 +322,20 @@ function server(
   bindSmapiSoapServiceToExpress(
     app,
     SOAP_PATH,
-    webAddress,
+    bonobUrl,
     linkCodes,
     musicService,
     accessTokens,
     clock
   );
 
-  return app;
+  if (applyContextPath) {
+    const container = express();
+    container.use(bonobUrl.path(), app);
+    return container;
+  } else {
+    return app;
+  }
 }
 
 export default server;

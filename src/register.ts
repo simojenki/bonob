@@ -7,7 +7,7 @@ const config = readConfig();
 const bonob = bonobService(
     config.sonos.serviceName,
     config.sonos.sid,
-    config.webAddress,
+    config.bonobUrl,
     "AppLink"
 );
 
