@@ -6,6 +6,7 @@ import { head } from "underscore";
 import logger from "./logger";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
 import qs from "querystring";
+import { URLBuilder } from "./url_builder";
 
 export const PRESENTATION_AND_STRINGS_VERSION = "18";
 
@@ -49,25 +50,25 @@ export type Service = {
   authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId";
 };
 
-export const stripTailingSlash = (url: string) =>
+export const stripTrailingSlash = (url: string) =>
   url.endsWith("/") ? url.substring(0, url.length - 1) : url;
 
 export const bonobService = (
   name: string,
   sid: number,
-  bonobRoot: string,
+  bonobUrl: URLBuilder,
   authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId" = "AppLink"
 ): Service => ({
   name,
   sid,
-  uri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
-  secureUri: `${stripTailingSlash(bonobRoot)}${SOAP_PATH}`,
+  uri: bonobUrl.append({pathname: SOAP_PATH }).href(),
+  secureUri: bonobUrl.append({pathname: SOAP_PATH }).href(),
   strings: {
-    uri: `${stripTailingSlash(bonobRoot)}${STRINGS_ROUTE}`,
+    uri: bonobUrl.append({pathname: STRINGS_ROUTE }).href(),
     version: PRESENTATION_AND_STRINGS_VERSION,
   },
   presentation: {
-    uri: `${stripTailingSlash(bonobRoot)}${PRESENTATION_MAP_ROUTE}`,
+    uri: bonobUrl.append({pathname: PRESENTATION_MAP_ROUTE }).href(),
     version: PRESENTATION_AND_STRINGS_VERSION,
   },
   pollInterval: 1200,
@@ -83,7 +84,7 @@ export interface Sonos {
 export const SONOS_DISABLED: Sonos = {
   devices: () => Promise.resolve([]),
   services: () => Promise.resolve([]),
-  register: (_: Service) => Promise.resolve(false),
+  register: (_: Service) => Promise.resolve(true),
 };
 
 export const asService = (musicService: MusicService): Service => ({

@@ -7,6 +7,7 @@ import { InMemoryLinkCodes } from "./link_codes";
 import readConfig from "./config";
 import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
+import { SystemClock } from "./clock";
 
 const config = readConfig();
 
@@ -15,7 +16,7 @@ logger.info(`Starting bonob with config ${JSON.stringify(config)}`);
 const bonob = bonobService(
   config.sonos.serviceName,
   config.sonos.sid,
-  config.webAddress,
+  config.bonobUrl,
   "AppLink"
 );
 
@@ -40,15 +41,15 @@ const featureFlagAwareMusicService: MusicService = {
         scrobble: (id: string) => {
           if (config.scrobbleTracks) return library.scrobble(id);
           else {
-            logger.info("Track Scrobbling not enabled")
-            return Promise.resolve(false);
+            logger.info("Track Scrobbling not enabled");
+            return Promise.resolve(true);
           }
         },
         nowPlaying: (id: string) => {
           if (config.reportNowPlaying) return library.nowPlaying(id);
           else {
             logger.info("Reporting track now playing not enabled");
-            return Promise.resolve(false);
+            return Promise.resolve(true);
           }
         },
       };
@@ -58,10 +59,12 @@ const featureFlagAwareMusicService: MusicService = {
 const app = server(
   sonosSystem,
   bonob,
-  config.webAddress,
+  config.bonobUrl,
   featureFlagAwareMusicService,
   new InMemoryLinkCodes(),
-  new InMemoryAccessTokens(sha256(config.secret))
+  new InMemoryAccessTokens(sha256(config.secret)),
+  SystemClock,
+  true,
 );
 
 if (config.sonos.autoRegister) {
@@ -75,7 +78,7 @@ if (config.sonos.autoRegister) {
 }
 
 app.listen(config.port, () => {
-  logger.info(`Listening on ${config.port} available @ ${config.webAddress}`);
+  logger.info(`Listening on ${config.port} available @ ${config.bonobUrl}`);
 });
 
 export default app;

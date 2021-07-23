@@ -25,6 +25,7 @@ import sonos, {
 } from "../src/sonos";
 
 import { aSonosDevice, aService } from "./builders";
+import url from "../src/url_builder";
 
 const mockSonosManagerConstructor = <jest.Mock<SonosManager>>SonosManager;
 
@@ -107,10 +108,10 @@ describe("sonos", () => {
   });
 
   describe("bonobService", () => {
-    describe("when the bonob root does not have a trailing /", () => {
+    describe("when the bonob url does not have a trailing /", () => {
       it("should return a valid bonob service", () => {
         expect(
-          bonobService("some-bonob", 876, "http://bonob.example.com")
+          bonobService("some-bonob", 876, url("http://bonob.example.com"))
         ).toEqual({
           name: "some-bonob",
           sid: 876,
@@ -130,10 +131,10 @@ describe("sonos", () => {
       });
     });
 
-    describe("when the bonob root does have a trailing /", () => {
+    describe("when the bonob url does have a trailing /", () => {
       it("should return a valid bonob service", () => {
         expect(
-          bonobService("some-bonob", 876, "http://bonob.example.com/")
+          bonobService("some-bonob", 876, url("http://bonob.example.com/"))
         ).toEqual({
           name: "some-bonob",
           sid: 876,
@@ -145,6 +146,29 @@ describe("sonos", () => {
           },
           presentation: {
             uri: `http://bonob.example.com/sonos/presentationMap.xml`,
+            version: PRESENTATION_AND_STRINGS_VERSION,
+          },
+          pollInterval: 1200,
+          authType: "AppLink",
+        });
+      });
+    });
+
+    describe("when the bonob url has a context of /some-context", () => {
+      it("should return a valid bonob service", () => {
+        expect(
+          bonobService("some-bonob", 876, url("http://bonob.example.com/some-context"))
+        ).toEqual({
+          name: "some-bonob",
+          sid: 876,
+          uri: `http://bonob.example.com/some-context/ws/sonos`,
+          secureUri: `http://bonob.example.com/some-context/ws/sonos`,
+          strings: {
+            uri: `http://bonob.example.com/some-context/sonos/strings.xml`,
+            version: PRESENTATION_AND_STRINGS_VERSION,
+          },
+          presentation: {
+            uri: `http://bonob.example.com/some-context/sonos/presentationMap.xml`,
             version: PRESENTATION_AND_STRINGS_VERSION,
           },
           pollInterval: 1200,
@@ -156,7 +180,7 @@ describe("sonos", () => {
     describe("when authType is specified", () => {
       it("should return a valid bonob service", () => {
         expect(
-          bonobService("some-bonob", 876, "http://bonob.example.com", 'DeviceLink')
+          bonobService("some-bonob", 876, url("http://bonob.example.com"), 'DeviceLink')
         ).toEqual({
           name: "some-bonob",
           sid: 876,
@@ -242,7 +266,7 @@ describe("sonos", () => {
       expect(disabled).toEqual(SONOS_DISABLED);
       expect(await disabled.devices()).toEqual([]);
       expect(await disabled.services()).toEqual([]);
-      expect(await disabled.register(aService())).toEqual(false);
+      expect(await disabled.register(aService())).toEqual(true);
     });
   });
 
