@@ -389,6 +389,7 @@ export class Navidrome implements MusicService {
   getArtistInfo = (credentials: Credentials, id: string): Promise<ArtistInfo> =>
     this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
       id,
+      count: 50,
     }).then((it) => ({
       image: {
         small: validate(it.artistInfo.smallImageUrl),
