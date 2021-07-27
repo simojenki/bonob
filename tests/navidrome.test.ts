@@ -151,7 +151,7 @@ describe("asURLSearchParams", () => {
 
       expect(asURLSearchParams(q)).toEqual(expected);
     });
-  });  
+  });
 });
 
 const ok = (data: string) => ({
@@ -222,19 +222,18 @@ const albumListXml = (
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                     <albumList>
                       ${albums
-                        .map(([artist, album]) => albumXml(artist, album))
-                        .join("")}
+    .map(([artist, album]) => albumXml(artist, album))
+    .join("")}
                     </albumList>
                   </subsonic-response>`;
 
-const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${
-  artist.name
-}" albumCount="${artist.albums.length}" artistImageUrl="....">
+const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${artist.name
+  }" albumCount="${artist.albums.length}" artistImageUrl="....">
                                         ${artist.albums
-                                          .map((album) =>
-                                            albumXml(artist, album)
-                                          )
-                                          .join("")}
+    .map((album) =>
+      albumXml(artist, album)
+    )
+    .join("")}
                                       </artist>`;
 
 const getArtistXml = (
@@ -260,19 +259,25 @@ const getAlbumXml = (
   tracks: Track[]
 ) => `<subsonic-response status="ok" version="1.8.0">
                                                         ${albumXml(
-                                                          artist,
-                                                          album,
-                                                          tracks
-                                                        )}
+  artist,
+  album,
+  tracks
+)}
                                                       </subsonic-response>`;
 
 const getSongXml = (
   track: Track
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                                                     ${songXml(
-                                                                      track
-                                                                    )}
+  track
+)}
                                                                     </subsonic-response>`;
+
+const similarSongsXml = (tracks: Track[]) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                                                <similarSongs>
+                                                ${tracks.map(songXml).join("")}
+                                                </similarSongs>
+                                              </subsonic-response>`
 
 export type ArtistWithAlbum = {
   artist: Artist;
@@ -291,7 +296,10 @@ const getPlayLists = (
 </subsonic-response>`;
 
 const error = (code: string, message: string) =>
-  `<subsonic-response xmlns="http://subsonic.org/restapi" status="failed" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)"><error code="${code}" message="${message}"></error></subsonic-response>`;
+  `<subsonic-response xmlns="http://subsonic.org/restapi" status="failed" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
+    <error code="${code}" message="${message}">
+    </error>
+  </subsonic-response>`;
 
 const createPlayList = (playlist: PlaylistSummary) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
   ${playlistXml(playlist)}
@@ -300,9 +308,8 @@ const createPlayList = (playlist: PlaylistSummary) => `<subsonic-response xmlns=
 const getPlayList = (
   playlist: Playlist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
-<playlist id="${playlist.id}" name="${playlist.name}" songCount="${
-  playlist.entries.length
-}" duration="627" public="true" owner="bob" created="2021-05-06T02:07:30.460465988Z" changed="2021-05-06T02:40:04Z">
+<playlist id="${playlist.id}" name="${playlist.name}" songCount="${playlist.entries.length
+  }" duration="627" public="true" owner="bob" created="2021-05-06T02:07:30.460465988Z" changed="2021-05-06T02:40:04Z">
   ${playlist.entries
     .map(
       (it) => `<entry 
@@ -536,7 +543,7 @@ describe("Navidrome", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params:asURLSearchParams( {
+            params: asURLSearchParams({
               ...authParams,
               id: artist.id,
             }),
@@ -2014,7 +2021,7 @@ describe("Navidrome", () => {
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-            params:asURLSearchParams( {
+            params: asURLSearchParams({
               ...authParams,
               id: trackId,
               c: clientApplication,
@@ -3270,7 +3277,7 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(error("70", "not there")))
+              Promise.resolve(ok(error("70", "data not found")))
             );
 
           return expect(
@@ -3279,7 +3286,7 @@ describe("Navidrome", () => {
               .then((it) => it as AuthSuccess)
               .then((it) => navidrome.login(it.authToken))
               .then((it) => it.playlist(id))
-          ).rejects.toEqual("not there");
+          ).rejects.toEqual("data not found");
         });
       });
 
@@ -3374,26 +3381,26 @@ describe("Navidrome", () => {
         const id = uuid();
 
         mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(createPlayList({id, name})))
-            );
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(createPlayList({ id, name })))
+          );
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.createPlaylist(name));
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.createPlaylist(name));
 
-          expect(result).toEqual({ id, name });
+        expect(result).toEqual({ id, name });
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/createPlaylist`, {
-            params: asURLSearchParams({
-              ...authParams,
-              name, 
-            }),
-            headers,
-          });
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/createPlaylist`, {
+          params: asURLSearchParams({
+            ...authParams,
+            name,
+          }),
+          headers,
+        });
       });
     });
 
@@ -3402,26 +3409,26 @@ describe("Navidrome", () => {
         const id = "id-to-delete";
 
         mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(EMPTY))
-            );
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(EMPTY))
+          );
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.deletePlaylist(id));
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.deletePlaylist(id));
 
-          expect(result).toEqual(true);
+        expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/deletePlaylist`, {
-            params: asURLSearchParams({
-              ...authParams,
-              id, 
-            }),
-            headers,
-          });
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/deletePlaylist`, {
+          params: asURLSearchParams({
+            ...authParams,
+            id,
+          }),
+          headers,
+        });
       });
     });
 
@@ -3449,7 +3456,7 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               playlistId,
-              songIdToAdd: trackId, 
+              songIdToAdd: trackId,
             }),
             headers,
           });
@@ -3459,7 +3466,7 @@ describe("Navidrome", () => {
       describe("removing a track from a playlist", () => {
         it("should remove it", async () => {
           const playlistId = uuid();
-          const indicies =[6, 100, 33];
+          const indicies = [6, 100, 33];
 
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -3479,12 +3486,178 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               playlistId,
-              songIndexToRemove: indicies, 
+              songIndexToRemove: indicies,
             }),
             headers,
           });
         });
       });
-    });    
+    });
+  });
+
+  describe("similarSongs", () => {
+    describe("when there is one similar songs", () => {
+      it("should return it", async () => {
+        const id = "idWithTracks";
+        const pop = asGenre("Pop");
+
+        const album1 = anAlbum({ id: "album1", name: "Burnin", genre: pop });
+        const artist1 = anArtist({
+          id: "artist1",
+          name: "Bob Marley",
+          albums: [album1],
+        });
+
+        const track1 = aTrack({
+          id: "track1",
+          artist: artistToArtistSummary(artist1),
+          album: albumToAlbumSummary(album1),
+          genre: pop
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(similarSongsXml([track1])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.similarSongs(id));
+
+        expect(result).toEqual([track1]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs`, {
+          params: asURLSearchParams({
+            ...authParams,
+            id,
+            count: 50,
+          }),
+          headers,
+        });
+      });
+    });
+
+    describe("when there are similar songs", () => {
+      it("should return them", async () => {
+        const id = "idWithTracks";
+        const pop = asGenre("Pop");
+
+        const album1 = anAlbum({ id: "album1", name: "Burnin", genre: pop });
+        const artist1 = anArtist({
+          id: "artist1",
+          name: "Bob Marley",
+          albums: [album1],
+        });
+
+        const album2 = anAlbum({ id: "album2", name: "Walking", genre: pop });
+        const artist2 = anArtist({
+          id: "artist2",
+          name: "Bob Jane",
+          albums: [album2],
+        });
+
+        const track1 = aTrack({
+          id: "track1",
+          artist: artistToArtistSummary(artist1),
+          album: albumToAlbumSummary(album1),
+          genre: pop
+        });
+        const track2 = aTrack({
+          id: "track2",
+          artist: artistToArtistSummary(artist2),
+          album: albumToAlbumSummary(album2),
+          genre: pop
+        });
+        const track3 = aTrack({
+          id: "track3",
+          artist: artistToArtistSummary(artist1),
+          album: albumToAlbumSummary(album1),
+          genre: pop
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(similarSongsXml([track1, track2, track3])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist2, album2, [])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.similarSongs(id));
+
+        expect(result).toEqual([track1, track2, track3]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs`, {
+          params: asURLSearchParams({
+            ...authParams,
+            id,
+            count: 50,
+          }),
+          headers,
+        });
+      });
+    });
+
+    describe("when there are no similar songs", () => {
+      it("should return []", async () => {
+        const id = "idWithNoTracks";
+
+        const xml = similarSongsXml([]);
+        console.log(`xml = ${xml}`)
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(xml))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.similarSongs(id));
+
+        expect(result).toEqual([]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs`, {
+          params: asURLSearchParams({
+            ...authParams,
+            id,
+            count: 50,
+          }),
+          headers,
+        });
+      });
+    });
+
+    describe("when there id doesnt exist", () => {
+      it("should fail", async () => {
+        const id = "idThatHasAnError";
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(error("70", "data not found")))
+          );
+
+        return expect(navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.similarSongs(id))).rejects.toEqual("data not found");
+      });
+    });
   });
 });

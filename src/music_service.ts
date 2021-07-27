@@ -179,4 +179,5 @@ export interface MusicLibrary {
   deletePlaylist(id: string): Promise<boolean>
   addToPlaylist(playlistId: string, trackId: string): Promise<boolean>
   removeFromPlaylist(playlistId: string, indicies: number[]): Promise<boolean>
+  similarSongs(id: string): Promise<Track[]>;
 }

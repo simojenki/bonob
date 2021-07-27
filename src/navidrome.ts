@@ -196,6 +196,10 @@ export type GetPlaylistsResponse = {
   playlists: { playlist: playlist[] };
 };
 
+export type GetSimilarSongsResponse = {
+  similarSongs: { song: song[] }
+}
+
 export type GetSongResponse = {
   song: song;
 };
@@ -349,6 +353,7 @@ export class Navidrome implements MusicService {
               "subsonic-response.searchResult3.album",
               "subsonic-response.searchResult3.artist",
               "subsonic-response.searchResult3.song",
+              "subsonic-response.similarSongs.song",
             ],
           }).xml2js(response.data) as SubconicEnvelope
       )
@@ -728,6 +733,14 @@ export class Navidrome implements MusicService {
             songIndexToRemove: indicies,
           })
           .then((_) => true),
+      similarSongs: async (id: string) => navidrome
+        .getJSON<GetSimilarSongsResponse>(credentials, "/rest/getSimilarSongs", { id, count: 50 })
+        .then((it) => (it.similarSongs.song || []))
+        .then(songs =>
+          Promise.all(
+            songs.map((song) => navidrome.getAlbum(credentials, song._albumId).then(album => asTrack(album, song)))
+          )
+        )
     };
 
     return Promise.resolve(musicLibrary);
