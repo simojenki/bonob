@@ -200,6 +200,10 @@ export type GetSimilarSongsResponse = {
   similarSongs: { song: song[] }
 }
 
+export type GetTopSongsResponse = {
+  topSongs: { song: song[] }
+}
+
 export type GetSongResponse = {
   song: song;
 };
@@ -354,6 +358,7 @@ export class Navidrome implements MusicService {
               "subsonic-response.searchResult3.artist",
               "subsonic-response.searchResult3.song",
               "subsonic-response.similarSongs.song",
+              "subsonic-response.topSongs.song",
             ],
           }).xml2js(response.data) as SubconicEnvelope
       )
@@ -740,7 +745,17 @@ export class Navidrome implements MusicService {
           Promise.all(
             songs.map((song) => navidrome.getAlbum(credentials, song._albumId).then(album => asTrack(album, song)))
           )
-        )
+        ),
+      topSongs: async (artistId: string) => navidrome
+        .getArtist(credentials, artistId)
+        .then(({ name }) => navidrome
+          .getJSON<GetTopSongsResponse>(credentials, "/rest/getTopSongs", { artist: name, count: 50 })
+          .then((it) => (it.topSongs.song || []))
+          .then(songs =>
+            Promise.all(
+              songs.map((song) => navidrome.getAlbum(credentials, song._albumId).then(album => asTrack(album, song)))
+            )
+          ))
     };
 
     return Promise.resolve(musicLibrary);

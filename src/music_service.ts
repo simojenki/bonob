@@ -180,4 +180,5 @@ export interface MusicLibrary {
   addToPlaylist(playlistId: string, trackId: string): Promise<boolean>
   removeFromPlaylist(playlistId: string, indicies: number[]): Promise<boolean>
   similarSongs(id: string): Promise<Track[]>;
+  topSongs(artistId: string): Promise<Track[]>;
 }

@@ -279,6 +279,12 @@ const similarSongsXml = (tracks: Track[]) => `<subsonic-response xmlns="http://s
                                                 </similarSongs>
                                               </subsonic-response>`
 
+const topSongsXml = (tracks: Track[]) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                                                <topSongs>
+                                                ${tracks.map(songXml).join("")}
+                                                </topSongs>
+                                              </subsonic-response>`
+
 export type ArtistWithAlbum = {
   artist: Artist;
   album: Album;
@@ -3657,6 +3663,162 @@ describe("Navidrome", () => {
           .then((it) => it as AuthSuccess)
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.similarSongs(id))).rejects.toEqual("data not found");
+      });
+    });
+  });
+
+  describe("topSongs", () => {
+    describe("when there is one top song", () => {
+      it("should return it", async () => {
+        const artistId = "bobMarleyId";
+        const artistName = "Bob Marley";
+        const pop = asGenre("Pop");
+
+        const album1 = anAlbum({ name: "Burnin", genre: pop });
+        const artist = anArtist({
+          id: artistId,
+          name: artistName,
+          albums: [album1],
+        });
+
+        const track1 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album1),
+          genre: pop
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getArtistXml(artist)))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(topSongsXml([track1])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist, album1, [])))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.topSongs(artistId));
+
+        expect(result).toEqual([track1]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
+          params: asURLSearchParams({
+            ...authParams,
+            artist: artistName,
+            count: 50,
+          }),
+          headers,
+        });
+      });
+    });
+
+    describe("when there are many top songs", () => {
+      it("should return them", async () => {
+        const artistId = "bobMarleyId";
+        const artistName = "Bob Marley";
+        const pop = asGenre("Pop");
+
+        const album1 = anAlbum({ name: "Burnin", genre: pop });
+        const album2 = anAlbum({ name: "Churning", genre: pop });
+
+        const artist = anArtist({
+          id: artistId,
+          name: artistName,
+          albums: [album1, album2],
+        });
+
+        const track1 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album1),
+          genre: pop
+        });
+
+        const track2 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album2),
+          genre: pop
+        });
+
+        const track3 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album1),
+          genre: pop
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getArtistXml(artist)))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(topSongsXml([track1, track2, track3])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist, album1, [])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist, album2, [])))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumXml(artist, album1, [])))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.topSongs(artistId));
+
+        expect(result).toEqual([track1, track2, track3]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
+          params: asURLSearchParams({
+            ...authParams,
+            artist: artistName,
+            count: 50,
+          }),
+          headers,
+        });
+      });
+    });
+
+    describe("when there are no similar songs", () => {
+      it("should return []", async () => {
+        const artistId = "bobMarleyId";
+        const artistName = "Bob Marley";
+        const pop = asGenre("Pop");
+
+        const album1 = anAlbum({ name: "Burnin", genre: pop });
+        const artist = anArtist({
+          id: artistId,
+          name: artistName,
+          albums: [album1],
+        });
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getArtistXml(artist)))
+          ).mockImplementationOnce(() =>
+            Promise.resolve(ok(topSongsXml([])))
+          );
+
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.topSongs(artistId));
+
+        expect(result).toEqual([]);
+
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
+          params: asURLSearchParams({
+            ...authParams,
+            artist: artistName,
+            count: 50,
+          }),
+          headers,
+        });
       });
     });
   });
