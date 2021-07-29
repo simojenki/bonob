@@ -34,7 +34,7 @@ import {
   AlbumQuery,
   PlaylistSummary,
   Playlist,
-  ArtistSummary,
+  SimilarArtist,
 } from "../src/music_service";
 import {
   anAlbum,
@@ -159,8 +159,13 @@ const ok = (data: string) => ({
   data,
 });
 
-const similarArtistXml = (artistSummary: ArtistSummary) =>
-  `<similarArtist id="${artistSummary.id}" name="${artistSummary.name}" albumCount="3"></similarArtist>`;
+const similarArtistXml = (similarArtist: SimilarArtist) => {
+  if(similarArtist.inLibrary)
+    return `<similarArtist id="${similarArtist.id}" name="${similarArtist.name}" albumCount="3"></similarArtist>`
+  else
+    return `<similarArtist id="-1" name="${similarArtist.name}" albumCount="3"></similarArtist>`
+}
+  
 
 const getArtistInfoXml = (
   artist: Artist
@@ -513,8 +518,10 @@ describe("Navidrome", () => {
             large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
           similarArtists: [
-            { id: "similar1.id", name: "similar1" },
-            { id: "similar2.id", name: "similar2" },
+            { id: "similar1.id", name: "similar1", inLibrary: true },
+            { id: "-1", name: "similar2", inLibrary: false },
+            { id: "similar3.id", name: "similar3", inLibrary: true },
+            { id: "-1", name: "similar4", inLibrary: false },
           ],
         });
 
@@ -560,14 +567,15 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
-              count: 50
+              count: 50,
+              includeNotPresent: true
             }),
             headers,
           });
         });
       });
 
-      describe("and has one similar artists", () => {
+      describe("and has one similar artist", () => {
         const album1: Album = anAlbum({ genre: asGenre("G1") });
 
         const album2: Album = anAlbum({ genre: asGenre("G2") });
@@ -579,7 +587,7 @@ describe("Navidrome", () => {
             medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
             large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
-          similarArtists: [{ id: "similar1.id", name: "similar1" }],
+          similarArtists: [{ id: "similar1.id", name: "similar1", inLibrary: true }],
         });
 
         beforeEach(() => {
@@ -624,7 +632,8 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
-              count: 50
+              count: 50,
+              includeNotPresent: true
             }),
             headers,
           });
@@ -688,7 +697,8 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
-              count: 50
+              count: 50,
+              includeNotPresent: true
             }),
             headers,
           });
@@ -752,7 +762,8 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
-              count: 50
+              count: 50,
+              includeNotPresent: true
             }),
             headers,
           });
@@ -807,7 +818,8 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
-              count: 50
+              count: 50,
+              includeNotPresent: true
             }),
             headers,
           });
@@ -860,7 +872,8 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
-              count: 50
+              count: 50,
+              includeNotPresent: true
             }),
             headers,
           });
@@ -911,7 +924,8 @@ describe("Navidrome", () => {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
-              count: 50
+              count: 50,
+              includeNotPresent: true
             }),
             headers,
           });
@@ -2171,7 +2185,8 @@ describe("Navidrome", () => {
                 params: asURLSearchParams({
                   ...authParams,
                   id: artistId,
-                  count: 50
+                  count: 50,
+                  includeNotPresent: true
                 }),
                 headers,
               }
@@ -2247,7 +2262,8 @@ describe("Navidrome", () => {
                   params: asURLSearchParams({
                     ...authParams,
                     id: artistId,
-                    count: 50
+                    count: 50,
+                    includeNotPresent: true
                   }),
                   headers,
                 }
@@ -2323,7 +2339,8 @@ describe("Navidrome", () => {
                   params: asURLSearchParams({
                     ...authParams,
                     id: artistId,
-                    count: 50
+                    count: 50,
+                    includeNotPresent: true
                   }),
                   headers,
                 }
@@ -2392,7 +2409,8 @@ describe("Navidrome", () => {
                 params: asURLSearchParams({
                   ...authParams,
                   id: artistId,
-                  count: 50
+                  count: 50,
+                  includeNotPresent: true
                 }),
                 headers,
               }
@@ -2471,7 +2489,8 @@ describe("Navidrome", () => {
                   params: asURLSearchParams({
                     ...authParams,
                     id: artistId,
-                    count: 50
+                    count: 50,
+                    includeNotPresent: true
                   }),
                   headers,
                 }
@@ -2548,7 +2567,8 @@ describe("Navidrome", () => {
                   params: asURLSearchParams({
                     ...authParams,
                     id: artistId,
-                    count: 50
+                    count: 50,
+                    includeNotPresent: true
                   }),
                   headers,
                 }
@@ -2620,7 +2640,8 @@ describe("Navidrome", () => {
                   params: asURLSearchParams({
                     ...authParams,
                     id: artistId,
-                    count: 50
+                    count: 50,
+                    includeNotPresent: true
                   }),
                   headers,
                 }
@@ -2697,7 +2718,8 @@ describe("Navidrome", () => {
                   params: asURLSearchParams({
                     ...authParams,
                     id: artistId,
-                    count: 50
+                    count: 50,
+                    includeNotPresent: true
                   }),
                   headers,
                 }

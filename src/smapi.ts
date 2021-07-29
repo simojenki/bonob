@@ -456,7 +456,7 @@ function bindSmapiSoapServiceToExpress(
                             album(urlWithToken(accessToken), it)
                           ),
                           relatedBrowse:
-                            artist.similarArtists.length > 0
+                            artist.similarArtists.filter(it => it.inLibrary).length > 0
                               ? [
                                   {
                                     id: `relatedArtists:${artist.id}`,
@@ -713,6 +713,7 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary
                       .artist(typeId!)
                       .then((artist) => artist.similarArtists)
+                      .then(similarArtists => similarArtists.filter(it => it.inLibrary))
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({

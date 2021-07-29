@@ -98,8 +98,9 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
       large: `/artist/art/${id}/large`,
     },
     similarArtists: [
-      { id: uuid(), name: "Similar artist1" },
-      { id: uuid(), name: "Similar artist2" },
+      { id: uuid(), name: "Similar artist1", inLibrary: true },
+      { id: uuid(), name: "Similar artist2", inLibrary: true },
+      { id: "-1", name: "Artist not in library", inLibrary: false },
     ],
     ...fields,
   };

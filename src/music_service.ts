@@ -39,10 +39,12 @@ export const NO_IMAGES: Images = {
   large: undefined,
 };
 
+export type SimilarArtist = ArtistSummary & { inLibrary: boolean };
+
 export type Artist = ArtistSummary & {
   image: Images
   albums: AlbumSummary[];
-  similarArtists: ArtistSummary[]
+  similarArtists: SimilarArtist[]
 };
 
 export type AlbumSummary = {

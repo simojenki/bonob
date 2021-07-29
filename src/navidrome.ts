@@ -126,7 +126,7 @@ export type artistInfo = {
 
 export type ArtistInfo = {
   image: Images;
-  similarArtist: { id: string; name: string }[];
+  similarArtist: (ArtistSummary & { inLibrary: boolean })[];
 };
 
 export type GetArtistInfoResponse = SubsonicResponse & {
@@ -248,7 +248,7 @@ const asTrack = (album: Album, song: song) => ({
   album,
   artist: {
     id: song._artistId,
-    name: song._artist,
+    name: song._artist
   },
 });
 
@@ -400,6 +400,7 @@ export class Navidrome implements MusicService {
     this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
       id,
       count: 50,
+      includeNotPresent: true
     }).then((it) => ({
       image: {
         small: validate(it.artistInfo.smallImageUrl),
@@ -409,6 +410,7 @@ export class Navidrome implements MusicService {
       similarArtist: (it.artistInfo.similarArtist || []).map((artist) => ({
         id: artist._id,
         name: artist._name,
+        inLibrary: artist._id != "-1",
       })),
     }));
 
@@ -706,7 +708,7 @@ export class Navidrome implements MusicService {
                 },
                 artist: {
                   id: entry._artistId,
-                  name: entry._artist,
+                  name: entry._artist
                 },
               })),
             };
