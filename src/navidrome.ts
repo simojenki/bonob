@@ -342,6 +342,8 @@ export class Navidrome implements MusicService {
               "subsonic-response.album.song",
               "subsonic-response.albumList.album",
               "subsonic-response.artist.album",
+              "subsonic-response.artists.index",
+              "subsonic-response.artists.index.artist",
               "subsonic-response.artistInfo.similarArtist",
               "subsonic-response.genres.genre",
               "subsonic-response.playlist.entry",
@@ -378,7 +380,7 @@ export class Navidrome implements MusicService {
 
   getArtists = (credentials: Credentials): Promise<IdName[]> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => it.artists.index.flatMap((it) => it.artist || []))
+      .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
       .then((artists) =>
         artists.map((artist) => ({
           id: artist._id,
