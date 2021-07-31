@@ -908,7 +908,7 @@ describe("Navidrome", () => {
   });
 
   describe("getting artists", () => {
-    describe("when there are no results", () => {
+    describe("when there are indexes, but no artists", () => {
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -941,6 +941,79 @@ describe("Navidrome", () => {
         });
       });
     });
+
+    describe("when there no indexes and no artists", () => {
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(`<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+                    <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
+                    </artists>
+                  </subsonic-response>`)
+            )
+          );
+      });
+
+      it("should return empty", async () => {
+        const artists = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.artists({ _index: 0, _count: 100 }));
+
+        expect(artists).toEqual({
+          results: [],
+          total: 0,
+        });
+      });
+    });
+
+    describe("when there is one index and one artist", () => {
+      const artist1 = anArtist();
+
+      const getArtistsXml = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+              <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
+                <index name="#">
+                  <artist id="${artist1.id}" name="${artist1.name}" albumCount="22"></artist>
+                </index>
+              </artists>
+            </subsonic-response>`;
+
+      describe("when it all fits on one page", () => {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(ok(getArtistsXml)));
+        });
+
+        it("should return the single artist", async () => {
+          const artists = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.artists({ _index: 0, _count: 100 }));
+
+          const expectedResults = [artist1].map(
+            (it) => ({
+              id: it.id,
+              name: it.name,
+            })
+          );
+
+          expect(artists).toEqual({
+            results: expectedResults,
+            total: 1,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParams),
+            headers,
+          });
+        });
+      });
+    });    
 
     describe("when there are artists", () => {
       const artist1 = anArtist();
