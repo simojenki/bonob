@@ -509,7 +509,7 @@ describe("api", () => {
                 .catch((e: any) => {
                   expect(e.root.Envelope.Body.Fault).toEqual({
                     faultcode: "Client.NOT_LINKED_RETRY",
-                    faultstring: "Link Code not found retry...",
+                    faultstring: "Link Code not found yet, sonos app will keep polling until you log in to bonob",
                     detail: {
                       ExceptionInfo: "NOT_LINKED_RETRY",
                       SonosError: "5",
