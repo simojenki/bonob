@@ -81,6 +81,44 @@ docker run \
     simojenki/bonob register
 ```
 
+### Running bonob and navidrome using docker-compose
+```yaml
+version: "3"
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    user: 1000:1000 # should be owner of volumes
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+    environment:
+      # Optional: put your config options customization here. Examples:
+      ND_SCANSCHEDULE: 1h
+      ND_LOGLEVEL: info  
+      ND_SESSIONTIMEOUT: 24h
+      ND_BASEURL: ""
+    volumes:
+      - "/tmp/navidrome/data:/data"
+      - "/tmp/navidrome/music:/music:ro"
+  bonob:
+    image: simojenki/bonob:latest
+    user: 1000:1000 # should be owner of volumes
+    ports:
+      - "4534:4534"
+    restart: unless-stopped
+    environment:
+      BONOB_PORT: 4534
+      # ip address of your machine running bonob
+      BONOB_URL: http://192.168.1.111:4534  
+      BONOB_SECRET: changeme
+      BONOB_SONOS_SERVICE_ID: 246 
+      BONOB_SONOS_AUTO_REGISTER: "true"
+      BONOB_SONOS_DEVICE_DISCOVERY: "true"
+      # ip address of one of your sonos devices
+      BONOB_SONOS_SEED_HOST: 192.168.1.121
+      BONOB_NAVIDROME_URL: http://navidrome:4533
+```
+
 ## Configuration
 
 item | default value | description
