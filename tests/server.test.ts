@@ -11,11 +11,12 @@ import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
 import { aDevice, aService } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
-import { ExpiringAccessTokens } from "../src/access_tokens";
-import { InMemoryLinkCodes } from "../src/link_codes";
+import { AccessTokens, ExpiringAccessTokens } from "../src/access_tokens";
+import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import { Response } from "express";
 import { Transform } from "stream";
 import url from "../src/url_builder";
+import i8n, { randomLang } from "../src/i8n";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -163,6 +164,11 @@ describe("server", () => {
   const bonobUrlWithNoContextPath = url("http://bonob.localhost:1234");
   const bonobUrlWithContextPath = url("http://bonob.localhost:1234/aContext");
 
+  const langName = randomLang();
+  const acceptLanguage = `le-ET,${langName};q=0.9,en;q=0.8`;
+  const serviceNameForLang = "Foo Service";
+  const lang = i8n(serviceNameForLang)(langName);
+
   [bonobUrlWithNoContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`a bonobUrl of ${bonobUrl}`, () => {
       describe("/", () => {
@@ -239,9 +245,11 @@ describe("server", () => {
             it("should contain the devices returned from sonos", async () => {
               const res = await request(server)
                 .get(bonobUrl.append({ pathname: "/" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
 
               expect(res.status).toEqual(200);
+              expect(res.text).toMatch(`<h2>${lang("devices")} \(2\)</h2>`);
               expect(res.text).toMatch(/device1\s+\(172.0.0.1:4301\)/);
               expect(res.text).toMatch(/device2\s+\(172.0.0.2:4302\)/);
             });
@@ -251,10 +259,11 @@ describe("server", () => {
             it("should contain a list of services returned from sonos", async () => {
               const res = await request(server)
                 .get(bonobUrl.append({ pathname: "/" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
 
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch(/Services\s+4/);
+              expect(res.text).toMatch(`<h2>${lang("services")} \(4\)</h2>`);
               expect(res.text).toMatch(/s1\s+\(1\)/);
               expect(res.text).toMatch(/s2\s+\(2\)/);
               expect(res.text).toMatch(/s3\s+\(3\)/);
@@ -266,9 +275,13 @@ describe("server", () => {
             it("should be not-registered", async () => {
               const res = await request(server)
                 .get(bonobUrl.append({ pathname: "/" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch(/No existing service registration/);
+              expect(res.text).toMatch(`<input type="submit" value="${lang("register")}">`);
+              expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
+              expect(res.text).toMatch(`<h3>${lang("noExistingServiceRegistration")}</h3>`);
+              expect(res.text).not.toMatch(`<input type="submit" value="${lang("removeRegistration")}">`);
             });
           });
         });
@@ -301,9 +314,13 @@ describe("server", () => {
             it("should be registered", async () => {
               const res = await request(server)
                 .get(bonobUrl.append({ pathname: "/" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch(/Existing service config/);
+              expect(res.text).toMatch(`<input type="submit" value="${lang("register")}">`);
+              expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
+              expect(res.text).toMatch(`<h3>${lang("existingServiceConfig")}</h3>`);
+              expect(res.text).toMatch(`<input type="submit" value="${lang("removeRegistration")}">`);
             });
           });
         });
@@ -334,8 +351,7 @@ describe("server", () => {
             service: {
               name: theService.name,
               sid: theService.sid
-            }
-          });
+            }});
         });
       });
 
@@ -362,10 +378,12 @@ describe("server", () => {
   
               const res = await request(server)
                 .post(bonobUrl.append({ pathname: "/registration/add" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
   
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch("Successfully registered");
+              expect(res.text).toMatch(`<title>${lang("success")}</title>`);
+              expect(res.text).toMatch(lang("successfullyRegistered"));
   
               expect(sonos.register.mock.calls.length).toEqual(1);
               expect(sonos.register.mock.calls[0][0]).toBe(theService);
@@ -375,13 +393,15 @@ describe("server", () => {
           describe("when is unsuccessful", () => {
             it("should return a failure message", async () => {
               sonos.register.mockResolvedValue(false);
-  
+
               const res = await request(server)
                 .post(bonobUrl.append({ pathname: "/registration/add" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
   
               expect(res.status).toEqual(500);
-              expect(res.text).toMatch("Registration failed!");
+              expect(res.text).toMatch(`<title>${lang("failure")}</title>`);
+              expect(res.text).toMatch(lang("registrationFailed"));
   
               expect(sonos.register.mock.calls.length).toEqual(1);
               expect(sonos.register.mock.calls[0][0]).toBe(theService);
@@ -396,10 +416,12 @@ describe("server", () => {
   
               const res = await request(server)
                 .post(bonobUrl.append({ pathname: "/registration/remove" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
   
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch("Successfully removed registration");
+              expect(res.text).toMatch(`<title>${lang("success")}</title>`);
+              expect(res.text).toMatch(lang("successfullyRemovedRegistration"));
   
               expect(sonos.remove.mock.calls.length).toEqual(1);
               expect(sonos.remove.mock.calls[0][0]).toBe(theService.sid);
@@ -412,10 +434,12 @@ describe("server", () => {
   
               const res = await request(server)
                 .post(bonobUrl.append({ pathname: "/registration/remove" }).path())
+                .set("accept-language", acceptLanguage)
                 .send();
   
               expect(res.status).toEqual(500);
-              expect(res.text).toMatch("Failed to remove registration!");
+              expect(res.text).toMatch(`<title>${lang("failure")}</title>`);
+              expect(res.text).toMatch(lang("failedToRemoveRegistration"));
   
               expect(sonos.remove.mock.calls.length).toEqual(1);
               expect(sonos.remove.mock.calls[0][0]).toBe(theService.sid);
@@ -423,6 +447,138 @@ describe("server", () => {
           });
         });
       });
+
+      describe("/login", () => {
+        const sonos = {
+          register: jest.fn(),
+          remove: jest.fn(),
+        };
+        const theService = aService({
+          name: serviceNameForLang
+        });
+
+        const musicService = {
+          generateToken: jest.fn(),
+          login: jest.fn(),
+        };
+        const linkCodes = {
+          mint: jest.fn(),
+          has: jest.fn(),
+          associate: jest.fn(),
+          associationFor: jest.fn(),
+        };
+        const accessTokens = {
+          mint: jest.fn(),
+          authTokenFor: jest.fn(),
+        };
+        const clock = {
+          now: jest.fn(),
+        };
+      
+
+        const server = makeServer(
+          sonos as unknown as Sonos,
+          theService,
+          bonobUrl,
+          musicService as unknown as MusicService,
+          linkCodes as unknown as LinkCodes,
+          accessTokens as unknown as AccessTokens,
+          clock
+        );
+
+        it("should return the login page", async () => {
+          sonos.register.mockResolvedValue(true);
+
+          const res = await request(server)
+            .get(bonobUrl.append({ pathname: "/login" }).path())
+            .set("accept-language", acceptLanguage)
+            .send();
+
+          expect(res.status).toEqual(200);
+          expect(res.text).toMatch(`<title>${lang("login")}</title>`);
+          expect(res.text).toMatch(`<h1 class="login one-word-per-line">${lang("logInToBonob")}</h1>`);
+          expect(res.text).toMatch(`<label for="username">${lang("username")}:</label>`);
+          expect(res.text).toMatch(`<label for="password">${lang("password")}:</label>`);
+          expect(res.text).toMatch(`<input type="submit" value="${lang("login")}" id="submit">`);
+        });
+
+        describe("when the credentials are valid", () => {
+          it("should return 200 ok and have associated linkCode with user", async () => {
+            const username = "jane";
+            const password = "password100";
+            const linkCode = `linkCode-${uuid()}`;
+            const authToken = {
+              authToken: `authtoken-${uuid()}`,
+              userId: `${username}-uid`,
+              nickname: `${username}-nickname`,
+            };
+
+            linkCodes.has.mockReturnValue(true);
+            musicService.generateToken.mockResolvedValue(authToken);
+            linkCodes.associate.mockReturnValue(true);
+
+            const res = await request(server)
+              .post(bonobUrl.append({ pathname: "/login" }).pathname())
+              .set("accept-language", acceptLanguage)
+              .type("form")
+              .send({ username, password, linkCode })
+              .expect(200);
+
+            expect(res.text).toContain(lang("loginSuccessful"));
+
+            expect(musicService.generateToken).toHaveBeenCalledWith({
+              username,
+              password,
+            });
+            expect(linkCodes.has).toHaveBeenCalledWith(linkCode);
+            expect(linkCodes.associate).toHaveBeenCalledWith(
+              linkCode,
+              authToken
+            );
+          });
+        });
+
+        describe("when credentials are invalid", () => {
+          it("should return 403 with message", async () => {
+            const username = "userDoesntExist";
+            const password = "password";
+            const linkCode = uuid();
+            const message = `Invalid user:${username}`;
+
+            linkCodes.has.mockReturnValue(true);
+            musicService.generateToken.mockResolvedValue({ message });
+
+            const res = await request(server)
+              .post(bonobUrl.append({ pathname: "/login" }).pathname())
+              .set("accept-language", acceptLanguage)
+              .type("form")
+              .send({ username, password, linkCode })
+              .expect(403);
+
+            expect(res.text).toContain(lang("loginFailed"));
+            expect(res.text).toContain(message);
+          });
+        });
+
+        describe("when linkCode is invalid", () => {
+          it("should return 400 with message", async () => {
+            const username = "jane";
+            const password = "password100";
+            const linkCode = "someLinkCodeThatDoesntExist";
+
+            linkCodes.has.mockReturnValue(false);
+
+            const res = await request(server)
+              .post(bonobUrl.append({ pathname: "/login" }).pathname())
+              .set("accept-language", acceptLanguage)
+              .type("form")
+              .send({ username, password, linkCode })
+              .expect(400);
+
+            expect(res.text).toContain(lang("invalidLinkCode"));
+          });
+        });
+      });      
 
       describe("/stream", () => {
         const musicService = {

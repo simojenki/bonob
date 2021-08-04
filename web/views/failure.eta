@@ -1,5 +1,6 @@
-<% layout('./layout', { title: "Failure" }) %>
+<% layout('./layout', { title: it.lang("failure") }) %>
 
 <div id="content">
   <h1 class="failure"><%= it.message %></h1>
+  <h1 class="cause"><%= it.cause || "" %></h1>
 </div>
