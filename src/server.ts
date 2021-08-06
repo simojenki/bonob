@@ -101,6 +101,15 @@ function server(
     );
   });
 
+  app.get("/about", (_, res) => {
+    return res.send({
+      service: {
+        name: service.name,
+        sid: service.sid
+      }
+    });
+  });
+
   app.post(REGISTER_ROUTE, (_, res) => {
     sonos.register(service).then((success) => {
       if (success) {

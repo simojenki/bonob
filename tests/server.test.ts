@@ -307,6 +307,36 @@ describe("server", () => {
         });
       });
 
+      describe("/about", () => {
+        const sonos = {
+          register: jest.fn(),
+        };
+        const theService = aService({
+          name: "We can all live a life of service",
+          sid: 999,
+        });
+        const server = makeServer(
+          sonos as unknown as Sonos,
+          theService,
+          bonobUrl,
+          new InMemoryMusicService()
+        );
+
+        it("should report some information about the service", async () => {
+          const res = await request(server)
+          .get(bonobUrl.append({ pathname: "/about" }).path())
+          .send();
+
+          expect(res.status).toEqual(200);
+          expect(res.body).toEqual({
+            service: {
+              name: theService.name,
+              sid: theService.sid
+            }
+          });
+        });
+      });
+
       describe("/register", () => {
         const sonos = {
           register: jest.fn(),
@@ -322,7 +352,7 @@ describe("server", () => {
           new InMemoryMusicService()
         );
 
-        describe("when is succesfull", () => {
+        describe("when is successful", () => {
           it("should return a nice message", async () => {
             sonos.register.mockResolvedValue(true);
 
@@ -338,7 +368,7 @@ describe("server", () => {
           });
         });
 
-        describe("when is unsuccesfull", () => {
+        describe("when is unsuccessful", () => {
           it("should return a failure message", async () => {
             sonos.register.mockResolvedValue(false);
 
