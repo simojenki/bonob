@@ -67,6 +67,10 @@ const app = server(
   true,
 );
 
+app.listen(config.port, () => {
+  logger.info(`Listening on ${config.port} available @ ${config.bonobUrl}`);
+});
+
 if (config.sonos.autoRegister) {
   sonosSystem.register(bonob).then((success) => {
     if (success) {
@@ -75,10 +79,12 @@ if (config.sonos.autoRegister) {
       );
     }
   });
+} else if(config.sonos.deviceDiscovery) {
+  sonosSystem.devices().then(devices => {
+    devices.forEach(d => {
+      logger.info(`Found device ${d.name}(${d.group}) @ ${d.ip}:${d.port}`)
+    })
+  })
 }
-
-app.listen(config.port, () => {
-  logger.info(`Listening on ${config.port} available @ ${config.bonobUrl}`);
-});
 
 export default app;

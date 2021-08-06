@@ -132,7 +132,7 @@ const setupDiscovery = (
   sonosSeedHost?: string
 ): Promise<boolean> => {
   if (sonosSeedHost == undefined || sonosSeedHost == "") {
-    logger.info("Trying to auto discover sonos devices");
+    logger.info("Trying to discover sonos devices");
     return manager.InitializeWithDiscovery(10);
   } else {
     logger.info(`Trying to discover sonos devices using seed ${sonosSeedHost}`);

@@ -1,26 +1,15 @@
-import readConfig from "./config";
-import logger from "./logger";
-import sonos, { bonobService } from "./sonos";
+import registrar from "./registrar";
+import { URLBuilder } from "./url_builder";
 
-const config = readConfig();
+const params = process.argv.slice(2);
 
-const bonob = bonobService(
-    config.sonos.serviceName,
-    config.sonos.sid,
-    config.bonobUrl,
-    "AppLink"
-);
+if (params.length != 1) {
+  console.error("Usage: register [URL to bonob]");
+  process.exit(1);
+}
 
-const sonosSystem = sonos(config.sonos.deviceDiscovery, config.sonos.seedHost);
-
-sonosSystem.register(bonob).then((success) => {
-    if (success) {
-        logger.info(
-            `Successfully registered ${bonob.name}(SID:${bonob.sid}) with sonos`
-        );
-        process.exit(0);
-    } else {
-        logger.error(`Failed to register ${bonob.name}(SID:${bonob.sid}) with sonos!!`)
-        process.exit(1);
-    }
+const bonobUrl = new URLBuilder(params[0]!);
+registrar(bonobUrl)().then((success) => {
+  if (success) console.log(`Successfully registered bonob @ ${bonobUrl} with sonos`);
+  else console.error(`Failed registering bonob @ ${bonobUrl} with sonos`);
 });
