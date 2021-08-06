@@ -9,7 +9,17 @@ if (params.length != 1) {
 }
 
 const bonobUrl = new URLBuilder(params[0]!);
-registrar(bonobUrl)().then((success) => {
-  if (success) console.log(`Successfully registered bonob @ ${bonobUrl} with sonos`);
-  else console.error(`Failed registering bonob @ ${bonobUrl} with sonos`);
-});
+registrar(bonobUrl)()
+  .then((success) => {
+    if (success) {
+      console.log(`Successfully registered bonob @ ${bonobUrl} with sonos`);
+      process.exit(0);
+    } else {
+      console.error(`Failed registering bonob @ ${bonobUrl} with sonos`);
+      process.exit(1);
+    }
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

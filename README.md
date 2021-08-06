@@ -77,6 +77,7 @@ Now within the LAN that contains the sonos devices run bonob the registration pr
 
 ```bash
 docker run \
+    --rm \
     --network host \
     simojenki/bonob register https://my-server.example.com/bonob
 ```
