@@ -181,6 +181,7 @@ class SonosSoap {
         },
       };
     } else {
+      logger.info("Client not linked, awaiting user to associate account with link code by logging in.")
       throw {
         Fault: {
           faultcode: "Client.NOT_LINKED_RETRY",
