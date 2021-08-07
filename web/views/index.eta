@@ -10,7 +10,8 @@
   <% } else { %>
   <h3>No existing service registration</h3>
   <% } %>
-  <form action="<%= it.registerRoute %>" method="POST"><button>Re-register</button></form>
+  <form action="<%= it.createRegistrationRoute %>" method="POST"><button>Register</button></form>
+  <form action="<%= it.removeRegistrationRoute %>" method="POST"><button>Remove Registration</button></form>
   <h2>Devices</h2>
   <ul>
     <% it.devices.forEach(function(d){ %>
