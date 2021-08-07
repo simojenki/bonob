@@ -48,7 +48,7 @@
   "scripts": {
     "clean": "rm -Rf build",
     "build": "tsc",
-    "dev": "BONOB_PORT=4000 BONOB_URL=http://$(hostname):4000 BONOB_SONOS_SERVICE_NAME=bonobDev BONOB_SONOS_DEVICE_DISCOVERY=false BONOB_SONOS_AUTO_REGISTER=false nodemon ./src/app.ts",
+    "dev": "BONOB_PORT=4000 BONOB_URL=http://$(hostname):4000 BONOB_SONOS_SERVICE_NAME=bonobDev BONOB_SONOS_DEVICE_DISCOVERY=true BONOB_SONOS_AUTO_REGISTER=false nodemon ./src/app.ts",
     "register-dev": "ts-node ./src/register.ts http://$(hostname):4000",
     "test": "jest"
   }

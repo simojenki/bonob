@@ -224,6 +224,7 @@ describe("server", () => {
             devices: () => Promise.resolve([device1, device2]),
             services: () =>
               Promise.resolve([service1, service2, service3, service4]),
+            remove: () => Promise.resolve(false),
             register: () => Promise.resolve(false),
           };
 
@@ -285,6 +286,7 @@ describe("server", () => {
           const fakeSonos: Sonos = {
             devices: () => Promise.resolve([]),
             services: () => Promise.resolve([service1, service2, bonobService]),
+            remove: () => Promise.resolve(false),
             register: () => Promise.resolve(false),
           };
 
@@ -340,6 +342,7 @@ describe("server", () => {
       describe("/register", () => {
         const sonos = {
           register: jest.fn(),
+          remove: jest.fn(),
         };
         const theService = aService({
           name: "We can all live a life of service",
@@ -352,35 +355,71 @@ describe("server", () => {
           new InMemoryMusicService()
         );
 
-        describe("when is successful", () => {
-          it("should return a nice message", async () => {
-            sonos.register.mockResolvedValue(true);
-
-            const res = await request(server)
-              .post(bonobUrl.append({ pathname: "/register" }).path())
-              .send();
-
-            expect(res.status).toEqual(200);
-            expect(res.text).toMatch("Successfully registered");
-
-            expect(sonos.register.mock.calls.length).toEqual(1);
-            expect(sonos.register.mock.calls[0][0]).toBe(theService);
+        describe("registering", () => {
+          describe("when is successful", () => {
+            it("should return a nice message", async () => {
+              sonos.register.mockResolvedValue(true);
+  
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/registration/add" }).path())
+                .send();
+  
+              expect(res.status).toEqual(200);
+              expect(res.text).toMatch("Successfully registered");
+  
+              expect(sonos.register.mock.calls.length).toEqual(1);
+              expect(sonos.register.mock.calls[0][0]).toBe(theService);
+            });
+          });
+  
+          describe("when is unsuccessful", () => {
+            it("should return a failure message", async () => {
+              sonos.register.mockResolvedValue(false);
+  
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/registration/add" }).path())
+                .send();
+  
+              expect(res.status).toEqual(500);
+              expect(res.text).toMatch("Registration failed!");
+  
+              expect(sonos.register.mock.calls.length).toEqual(1);
+              expect(sonos.register.mock.calls[0][0]).toBe(theService);
+            });
           });
         });
 
-        describe("when is unsuccessful", () => {
-          it("should return a failure message", async () => {
-            sonos.register.mockResolvedValue(false);
-
-            const res = await request(server)
-              .post(bonobUrl.append({ pathname: "/register" }).path())
-              .send();
-
-            expect(res.status).toEqual(500);
-            expect(res.text).toMatch("Registration failed!");
-
-            expect(sonos.register.mock.calls.length).toEqual(1);
-            expect(sonos.register.mock.calls[0][0]).toBe(theService);
+        describe("removing a registration", () => {
+          describe("when is successful", () => {
+            it("should return a nice message", async () => {
+              sonos.remove.mockResolvedValue(true);
+  
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/registration/remove" }).path())
+                .send();
+  
+              expect(res.status).toEqual(200);
+              expect(res.text).toMatch("Successfully removed registration");
+  
+              expect(sonos.remove.mock.calls.length).toEqual(1);
+              expect(sonos.remove.mock.calls[0][0]).toBe(theService.sid);
+            });
+          });
+  
+          describe("when is unsuccessful", () => {
+            it("should return a failure message", async () => {
+              sonos.remove.mockResolvedValue(false);
+  
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/registration/remove" }).path())
+                .send();
+  
+              expect(res.status).toEqual(500);
+              expect(res.text).toMatch("Failed to remove registration!");
+  
+              expect(sonos.remove.mock.calls.length).toEqual(1);
+              expect(sonos.remove.mock.calls[0][0]).toBe(theService.sid);
+            });
           });
         });
       });
