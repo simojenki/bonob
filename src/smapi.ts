@@ -23,7 +23,8 @@ import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
 
 export const LOGIN_ROUTE = "/login";
-export const REGISTER_ROUTE = "/register";
+export const CREATE_REGISTRATION_ROUTE = "/registration/add";
+export const REMOVE_REGISTRATION_ROUTE = "/registration/remove";
 export const SOAP_PATH = "/ws/sonos";
 export const STRINGS_ROUTE = "/sonos/strings.xml";
 export const PRESENTATION_MAP_ROUTE = "/sonos/presentationMap.xml";

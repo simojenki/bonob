@@ -61,14 +61,14 @@ export const bonobService = (
 ): Service => ({
   name,
   sid,
-  uri: bonobUrl.append({pathname: SOAP_PATH }).href(),
-  secureUri: bonobUrl.append({pathname: SOAP_PATH }).href(),
+  uri: bonobUrl.append({ pathname: SOAP_PATH }).href(),
+  secureUri: bonobUrl.append({ pathname: SOAP_PATH }).href(),
   strings: {
-    uri: bonobUrl.append({pathname: STRINGS_ROUTE }).href(),
+    uri: bonobUrl.append({ pathname: STRINGS_ROUTE }).href(),
     version: PRESENTATION_AND_STRINGS_VERSION,
   },
   presentation: {
-    uri: bonobUrl.append({pathname: PRESENTATION_MAP_ROUTE }).href(),
+    uri: bonobUrl.append({ pathname: PRESENTATION_MAP_ROUTE }).href(),
     version: PRESENTATION_AND_STRINGS_VERSION,
   },
   pollInterval: 1200,
@@ -78,12 +78,14 @@ export const bonobService = (
 export interface Sonos {
   devices: () => Promise<Device[]>;
   services: () => Promise<Service[]>;
+  remove: (sid: number) => Promise<boolean>;
   register: (service: Service) => Promise<boolean>;
 }
 
 export const SONOS_DISABLED: Sonos = {
   devices: () => Promise.resolve([]),
   services: () => Promise.resolve([]),
+  remove: (_: number) => Promise.resolve(true),
   register: (_: Service) => Promise.resolve(true),
 };
 
@@ -109,6 +111,11 @@ export const asDevice = (sonosDevice: SonosDevice): Device => ({
   group: sonosDevice.GroupName || "",
   ip: sonosDevice.Host,
   port: sonosDevice.Port,
+});
+
+export const asRemoveCustomdForm = (csrfToken: string, sid: number) => ({
+  csrfToken,
+  sid: `${sid}`
 });
 
 export const asCustomdForm = (csrfToken: string, service: Service) => ({
@@ -158,6 +165,44 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
       });
   };
 
+  const post = async (action: string, customdForm: (csrfToken: string) => any) => {
+    const anyDevice = await sonosDevices().then((devices) => head(devices));
+
+    if (!anyDevice) {
+      logger.warn("Failed to find a device to register with...");
+      return false;
+    }
+
+    logger.info(
+      `${action} using sonos device ${anyDevice.Name} @ ${anyDevice.Host}`
+    );
+
+    const customd = `http://${anyDevice.Host}:${anyDevice.Port}/customsd`;
+
+    const csrfToken = await axios.get(customd).then((response) =>
+      parse(response.data)
+        .querySelectorAll("input")
+        .find((it) => it.getAttribute("name") == "csrfToken")
+        ?.getAttribute("value")
+    );
+
+    if (!csrfToken) {
+      logger.warn(
+        `Failed to find csrfToken at GET -> ${customd}, cannot ${action} service`
+      );
+      return false;
+    }
+    const form = customdForm(csrfToken)
+    logger.info(`${action} with sonos @ ${customd}`, { form });
+    return axios
+      .post(customd, new URLSearchParams(qs.stringify(form)), {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      })
+      .then((response) => response.status == 200);
+  };
+
   return {
     devices: async () => sonosDevices().then((it) => it.map(asDevice)),
 
@@ -170,43 +215,9 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
         )
         .then((it) => it.map(asService)),
 
-    register: async (service: Service) => {
-      const anyDevice = await sonosDevices().then((devices) => head(devices));
+    remove: async (sid: number) => post("remove", (csrfToken) => asRemoveCustomdForm(csrfToken, sid)),
 
-      if (!anyDevice) {
-        logger.warn("Failed to find a device to register with...");
-        return false;
-      }
-
-      logger.info(
-        `Registering ${service.name}(SID:${service.sid}) with sonos device ${anyDevice.Name} @ ${anyDevice.Host}`
-      );
-
-      const customd = `http://${anyDevice.Host}:${anyDevice.Port}/customsd`;
-
-      const csrfToken = await axios.get(customd).then((response) =>
-        parse(response.data)
-          .querySelectorAll("input")
-          .find((it) => it.getAttribute("name") == "csrfToken")
-          ?.getAttribute("value")
-      );
-
-      if (!csrfToken) {
-        logger.warn(
-          `Failed to find csrfToken at GET -> ${customd}, cannot register service`
-        );
-        return false;
-      }
-      const customdForm = asCustomdForm(csrfToken, service);
-      logger.info(`Registering with sonos @ ${customd}`, { customdForm });
-      return axios
-        .post(customd, new URLSearchParams(qs.stringify(customdForm)), {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-        })
-        .then((response) => response.status == 200);
-    },
+    register: async (service: Service) => post("register", (csrfToken) => asCustomdForm(csrfToken, service)),
   };
 }
 

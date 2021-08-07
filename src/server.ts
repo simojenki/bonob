@@ -12,7 +12,8 @@ import {
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
   LOGIN_ROUTE,
-  REGISTER_ROUTE,
+  CREATE_REGISTRATION_ROUTE,
+  REMOVE_REGISTRATION_ROUTE
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
@@ -95,7 +96,8 @@ function server(
           services,
           bonobService: service,
           registeredBonobService,
-          registerRoute: bonobUrl.append({ pathname: REGISTER_ROUTE }).pathname(),
+          createRegistrationRoute: bonobUrl.append({ pathname: CREATE_REGISTRATION_ROUTE }).pathname(),
+          removeRegistrationRoute: bonobUrl.append({ pathname: REMOVE_REGISTRATION_ROUTE }).pathname(),
         });
       }
     );
@@ -110,7 +112,7 @@ function server(
     });
   });
 
-  app.post(REGISTER_ROUTE, (_, res) => {
+  app.post(CREATE_REGISTRATION_ROUTE, (_, res) => {
     sonos.register(service).then((success) => {
       if (success) {
         res.render("success", {
@@ -119,6 +121,20 @@ function server(
       } else {
         res.status(500).render("failure", {
           message: `Registration failed!`,
+        });
+      }
+    });
+  });
+
+  app.post(REMOVE_REGISTRATION_ROUTE, (_, res) => {
+    sonos.remove(service.sid).then((success) => {
+      if (success) {
+        res.render("success", {
+          message: `Successfully removed registration`,
+        });
+      } else {
+        res.status(500).render("failure", {
+          message: `Failed to remove registration!`,
         });
       }
     });

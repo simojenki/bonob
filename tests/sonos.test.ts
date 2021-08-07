@@ -22,6 +22,7 @@ import sonos, {
   Service,
   PRESENTATION_AND_STRINGS_VERSION,
   BONOB_CAPABILITIES,
+  asRemoveCustomdForm,
 } from "../src/sonos";
 
 import { aSonosDevice, aService } from "./builders";
@@ -255,6 +256,18 @@ describe("sonos", () => {
         expect(form.stringsVersion).toEqual("0");
         expect(form.presentationMapUri).toEqual("");
         expect(form.presentationMapVersion).toEqual("0");
+      });
+    });
+  });
+
+  describe("asRemoveCustomdForm", () => {
+    it("should return a form", () => {
+      const csrfToken = uuid();
+      const sid = 123;
+
+      expect(asRemoveCustomdForm(csrfToken, sid)).toEqual({
+        csrfToken,
+        sid: "123"
       });
     });
   });
@@ -679,6 +692,172 @@ describe("sonos", () => {
         mockPost.mockResolvedValue({ status: 500, data: "" });
 
         const result = await sonos().register(serviceToAdd);
+
+        expect(result).toEqual(false);
+      });
+    });
+  });
+
+  describe("removing a service", () => {
+    const device1 = aSonosDevice({
+      Name: "d1",
+      Host: "127.0.0.11",
+      Port: 111,
+    });
+
+    const device2 = aSonosDevice({
+      Name: "d2",
+    });
+
+    const POST_CONFIG = {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    };
+
+    const sidToRemove = 333;
+
+    const mockGet = jest.fn();
+    const mockPost = jest.fn();
+
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockPost.mockClear();
+
+      axios.get = mockGet;
+      axios.post = mockPost;
+    });
+
+    describe("when successful", () => {
+      it("should post the remove into the first found sonos device, returning true", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [device1, device2],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+        const csrfToken = `csrfToken-${uuid()}`;
+
+        mockGet.mockResolvedValue({
+          status: 200,
+          data: `<html><input name='csrfToken' value='${csrfToken}'></html>`,
+        });
+        mockPost.mockResolvedValue({ status: 200, data: "" });
+
+        const result = await sonos().remove(sidToRemove);
+
+        expect(mockGet).toHaveBeenCalledWith(
+          `http://${device1.Host}:${device1.Port}/customsd`
+        );
+
+        expect(mockPost).toHaveBeenCalledWith(
+          `http://${device1.Host}:${device1.Port}/customsd`,
+          new URLSearchParams(qs.stringify(asRemoveCustomdForm(csrfToken, sidToRemove))),
+          POST_CONFIG
+        );
+
+        expect(result).toEqual(true);
+      });
+    });
+
+    describe("when cannot find any devices", () => {
+      it("should return false", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+        const result = await sonos().remove(sidToRemove);
+
+        expect(mockGet).not.toHaveBeenCalled();
+        expect(mockPost).not.toHaveBeenCalled();
+
+        expect(result).toEqual(false);
+      });
+    });
+
+    describe("when cannot get csrfToken", () => {
+      describe("when the token is missing", () => {
+        it("should return false", async () => {
+          const sonosManager = {
+            InitializeWithDiscovery: jest.fn(),
+            Devices: [device1, device2],
+          };
+
+          mockSonosManagerConstructor.mockReturnValue(
+            (sonosManager as unknown) as SonosManager
+          );
+          sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+          mockGet.mockResolvedValue({
+            status: 200,
+            data: `<html></html>`,
+          });
+
+          const result = await sonos().remove(sidToRemove);
+
+          expect(mockPost).not.toHaveBeenCalled();
+
+          expect(result).toEqual(false);
+        });
+      });
+
+      describe("when the token call returns a non 200", () => {
+        it("should return false", async () => {
+          const sonosManager = {
+            InitializeWithDiscovery: jest.fn(),
+            Devices: [device1, device2],
+          };
+
+          mockSonosManagerConstructor.mockReturnValue(
+            (sonosManager as unknown) as SonosManager
+          );
+          sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+          mockGet.mockResolvedValue({
+            status: 400,
+            data: `<html></html>`,
+          });
+
+          const result = await sonos().remove(sidToRemove);
+
+          expect(mockPost).not.toHaveBeenCalled();
+
+          expect(result).toEqual(false);
+        });
+      });
+    });
+
+    describe("when posting in the sid to delete fails", () => {
+      it("should return false", async () => {
+        const sonosManager = {
+          InitializeWithDiscovery: jest.fn(),
+          Devices: [device1, device2],
+        };
+
+        mockSonosManagerConstructor.mockReturnValue(
+          (sonosManager as unknown) as SonosManager
+        );
+        sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
+
+        const csrfToken = `csrfToken-${uuid()}`;
+
+        mockGet.mockResolvedValue({
+          status: 200,
+          data: `<html><input name='csrfToken' value='${csrfToken}'></html>`,
+        });
+        mockPost.mockResolvedValue({ status: 500, data: "" });
+
+        const result = await sonos().remove(sidToRemove);
 
         expect(result).toEqual(false);
       });
