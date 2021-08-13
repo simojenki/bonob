@@ -1132,18 +1132,22 @@ describe("api", () => {
             });
 
             describe("asking for relatedArtists", () => {
-              describe("when the artist has many", () => {
+              describe("when the artist has many, some in the library and some not", () => {
                 const relatedArtist1 = anArtist();
                 const relatedArtist2 = anArtist();
                 const relatedArtist3 = anArtist();
                 const relatedArtist4 = anArtist();
+                const relatedArtist5 = anArtist();
+                const relatedArtist6 = anArtist();
 
                 const artist = anArtist({
                   similarArtists: [
-                    relatedArtist1,
-                    relatedArtist2,
-                    relatedArtist3,
-                    relatedArtist4,
+                    { ...relatedArtist1, inLibrary: true },
+                    { ...relatedArtist2, inLibrary: true },
+                    { ...relatedArtist3, inLibrary: false },
+                    { ...relatedArtist4, inLibrary: true },
+                    { ...relatedArtist5, inLibrary: false },
+                    { ...relatedArtist6, inLibrary: true },
                   ],
                 });
 
@@ -1163,8 +1167,8 @@ describe("api", () => {
                         mediaCollection: [
                           relatedArtist1,
                           relatedArtist2,
-                          relatedArtist3,
                           relatedArtist4,
+                          relatedArtist6,
                         ].map((it) => ({
                           itemType: "artist",
                           id: `artist:${it.id}`,
@@ -1193,7 +1197,7 @@ describe("api", () => {
                     });
                     expect(result[0]).toEqual(
                       getMetadataResult({
-                        mediaCollection: [relatedArtist2, relatedArtist3].map(
+                        mediaCollection: [relatedArtist2, relatedArtist4].map(
                           (it) => ({
                             itemType: "artist",
                             id: `artist:${it.id}`,
@@ -1217,6 +1221,44 @@ describe("api", () => {
 
               describe("when the artist has none", () => {
                 const artist = anArtist({ similarArtists: [] });
+
+                beforeEach(() => {
+                  musicLibrary.artist.mockResolvedValue(artist);
+                });
+
+                it("should return an empty list", async () => {
+                  const result = await ws.getMetadataAsync({
+                    id: `relatedArtists:${artist.id}`,
+                    index: 0,
+                    count: 100,
+                  });
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      index: 0,
+                      total: 0,
+                    })
+                  );
+                  expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
+                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                });
+              });
+
+              describe("when the artist some however none are in the library", () => {
+                const relatedArtist1 = anArtist();
+                const relatedArtist2 = anArtist();
+
+                const artist = anArtist({
+                  similarArtists: [
+                    {
+                      ...relatedArtist1,
+                      inLibrary: false,
+                    },
+                    {
+                      ...relatedArtist2,
+                      inLibrary: false,
+                    },
+                  ],
+                });
 
                 beforeEach(() => {
                   musicLibrary.artist.mockResolvedValue(artist);
@@ -1947,12 +1989,19 @@ describe("api", () => {
                 });
               });
 
-              describe("when it has similar artists", () => {
+              describe("when it has similar artists, some in the library and some not", () => {
                 const similar1 = anArtist();
                 const similar2 = anArtist();
+                const similar3 = anArtist();
+                const similar4 = anArtist();
 
                 const artist = anArtist({
-                  similarArtists: [similar1, similar2],
+                  similarArtists: [
+                    { ...similar1, inLibrary: true },
+                    { ...similar2, inLibrary: false },
+                    { ...similar3, inLibrary: false },
+                    { ...similar4, inLibrary: true },
+                  ],
                   albums: [],
                 });
 
@@ -1991,6 +2040,38 @@ describe("api", () => {
               describe("when it has no similar artists", () => {
                 const artist = anArtist({
                   similarArtists: [],
+                  albums: [],
+                });
+
+                beforeEach(() => {
+                  musicLibrary.artist.mockResolvedValue(artist);
+                });
+
+                it("should not return a RELATED_ARTISTS browse option", async () => {
+                  const root = await ws.getExtendedMetadataAsync({
+                    id: `artist:${artist.id}`,
+                    index: 0,
+                    count: 100,
+                  });
+                  expect(root[0]).toEqual({
+                    getExtendedMetadataResult: {
+                      // artist has no albums
+                      count: "0",
+                      index: "0",
+                      total: "0",
+                    },
+                  });
+                });
+              });
+
+              describe("when none of the similar artists are in the library", () => {
+                const relatedArtist1 = anArtist();
+                const relatedArtist2 = anArtist();
+                const artist = anArtist({
+                  similarArtists: [
+                    { ...relatedArtist1, inLibrary: false },
+                    { ...relatedArtist2, inLibrary: false },
+                  ],
                   albums: [],
                 });
 
