@@ -1,4 +1,4 @@
-FROM node:14.15-alpine as build
+FROM node:16.6-alpine as build
 
 WORKDIR /bonob
 
@@ -10,14 +10,21 @@ COPY package.json .
 COPY register.js .
 COPY tsconfig.json .
 COPY yarn.lock .
+COPY .yarnrc.yml .
+COPY .yarn/releases ./.yarn/releases
 
-RUN yarn install && \
+RUN apk add --no-cache --update --virtual .gyp \
+        vips-dev \
+        python3 \
+        make \
+        g++ && \
+    yarn install --immutable && \
     yarn test --no-cache && \
     yarn build
 
 
 
-FROM node:14.15-alpine
+FROM node:16.6-alpine
 
 ENV BONOB_PORT=4534
 
@@ -28,10 +35,11 @@ WORKDIR /bonob
 COPY package.json .
 COPY yarn.lock .
 COPY --from=build /bonob/build/src/* ./
+COPY --from=build /bonob/node_modules ./node_modules
 COPY web web
 COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl /bonob/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
 
-RUN yarn install --prod
+RUN apk add --no-cache --update vips
 
 USER nobody 
 
