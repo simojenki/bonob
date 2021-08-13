@@ -126,7 +126,7 @@ export type artistInfo = {
 
 export type ArtistInfo = {
   image: Images;
-  similarArtist: { id: string; name: string }[];
+  similarArtist: (ArtistSummary & { inLibrary: boolean })[];
 };
 
 export type GetArtistInfoResponse = SubsonicResponse & {
@@ -196,6 +196,14 @@ export type GetPlaylistsResponse = {
   playlists: { playlist: playlist[] };
 };
 
+export type GetSimilarSongsResponse = {
+  similarSongs: { song: song[] }
+}
+
+export type GetTopSongsResponse = {
+  topSongs: { song: song[] }
+}
+
 export type GetSongResponse = {
   song: song;
 };
@@ -240,7 +248,7 @@ const asTrack = (album: Album, song: song) => ({
   album,
   artist: {
     id: song._artistId,
-    name: song._artist,
+    name: song._artist
   },
 });
 
@@ -351,6 +359,8 @@ export class Navidrome implements MusicService {
               "subsonic-response.searchResult3.album",
               "subsonic-response.searchResult3.artist",
               "subsonic-response.searchResult3.song",
+              "subsonic-response.similarSongs.song",
+              "subsonic-response.topSongs.song",
             ],
           }).xml2js(response.data) as SubconicEnvelope
       )
@@ -392,6 +402,7 @@ export class Navidrome implements MusicService {
     this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
       id,
       count: 50,
+      includeNotPresent: true
     }).then((it) => ({
       image: {
         small: validate(it.artistInfo.smallImageUrl),
@@ -401,6 +412,7 @@ export class Navidrome implements MusicService {
       similarArtist: (it.artistInfo.similarArtist || []).map((artist) => ({
         id: artist._id,
         name: artist._name,
+        inLibrary: artist._id != "-1",
       })),
     }));
 
@@ -698,7 +710,7 @@ export class Navidrome implements MusicService {
                 },
                 artist: {
                   id: entry._artistId,
-                  name: entry._artist,
+                  name: entry._artist
                 },
               })),
             };
@@ -730,6 +742,24 @@ export class Navidrome implements MusicService {
             songIndexToRemove: indicies,
           })
           .then((_) => true),
+      similarSongs: async (id: string) => navidrome
+        .getJSON<GetSimilarSongsResponse>(credentials, "/rest/getSimilarSongs", { id, count: 50 })
+        .then((it) => (it.similarSongs.song || []))
+        .then(songs =>
+          Promise.all(
+            songs.map((song) => navidrome.getAlbum(credentials, song._albumId).then(album => asTrack(album, song)))
+          )
+        ),
+      topSongs: async (artistId: string) => navidrome
+        .getArtist(credentials, artistId)
+        .then(({ name }) => navidrome
+          .getJSON<GetTopSongsResponse>(credentials, "/rest/getTopSongs", { artist: name, count: 50 })
+          .then((it) => (it.topSongs.song || []))
+          .then(songs =>
+            Promise.all(
+              songs.map((song) => navidrome.getAlbum(credentials, song._albumId).then(album => asTrack(album, song)))
+            )
+          ))
     };
 
     return Promise.resolve(musicLibrary);
