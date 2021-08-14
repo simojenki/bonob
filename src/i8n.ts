@@ -107,7 +107,7 @@ export const randomLang = () => _.shuffle(["en-US", "nl-NL"])[0]!;
 
 export const asLANGs = (acceptLanguageHeader: string | undefined) => {
   const z = acceptLanguageHeader?.split(";")[0];
-  return z && z != "" ? z.split(",") : [];
+  return z && z != "" ? z.split(",").map(it => it.trim()) : [];
 };
 
 export type I8N = (...langs: string[]) => Lang;

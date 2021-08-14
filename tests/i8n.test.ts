@@ -21,6 +21,15 @@ describe("i8n", () => {
         ]);
       });
     });
+    describe("when there are multiple in the accept-langauge header with spaces", () => {
+      it("should split them out and return them", () => {
+        expect(asLANGs("es-ES, es, en-US;q=0.9, en;q=0.8")).toEqual([
+          "es-ES",
+          "es",
+          "en-US",
+        ]);
+      });
+    });
   });
 
   describe("langs", () => {
