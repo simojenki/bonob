@@ -1,3 +1,6 @@
+import * as A from "fp-ts/Array";
+import { pipe } from "fp-ts/lib/function";
+import { option as O } from "fp-ts";
 import _ from "underscore";
 
 export type LANG = "en-US" | "nl-NL";
@@ -105,10 +108,21 @@ const translations: Record<LANG, Record<KEY, string>> = {
 
 export const randomLang = () => _.shuffle(["en-US", "nl-NL"])[0]!;
 
-export const asLANGs = (acceptLanguageHeader: string | undefined) => {
-  const z = acceptLanguageHeader?.split(";")[0];
-  return z && z != "" ? z.split(",").map(it => it.trim()) : [];
-};
+export const asLANGs = (acceptLanguageHeader: string | undefined) =>
+  pipe(
+    acceptLanguageHeader,
+    O.fromNullable,
+    O.map((it) => it.split(";")),
+    O.map((it) => it.shift() || ""),
+    O.map((it) =>
+      pipe(
+        it.split(","),
+        A.map((it) => it.trim()),
+        A.filter((it) => it != "")
+      )
+    ),
+    O.getOrElseW(() => [])
+  );
 
 export type I8N = (...langs: string[]) => Lang;
 
