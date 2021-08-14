@@ -325,6 +325,12 @@ function server(
     }
   });
 
+  app.get("/stream/artistRadio/:id", async (req, res) => {
+    const id = req.params["id"]!;
+    console.log(`----------> Streaming artist radio!! ${id}`)
+    res.status(404).send()
+  });
+
   app.get("/:type/:id/art/size/:size", (req, res) => {
     const authToken = accessTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string

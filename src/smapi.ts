@@ -333,7 +333,7 @@ function bindSmapiSoapServiceToExpress(
   i8n: I8N
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes);
-  
+
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
       searchParams: {
@@ -385,13 +385,30 @@ function bindSmapiSoapServiceToExpress(
           ) =>
             auth(musicService, accessTokens, soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(async ({ musicLibrary, accessToken, typeId }) =>
-                musicLibrary.track(typeId!).then((it) => ({
-                  getMediaMetadataResult: track(
-                    urlWithToken(accessToken),
-                    it
-                  ),
-                }))
+              .then(async ({ musicLibrary, accessToken, type, typeId }) => {
+                console.log(`!!! getMediaMetadata->${id}`)
+                switch (type) {
+                  case "track": return musicLibrary.track(typeId!).then((it) => ({
+                    getMediaMetadataResult: track(
+                      urlWithToken(accessToken),
+                      it,
+                    ),
+                  }));
+                  case "artistRadio": return {
+                    getMediaMetadataResult: {
+                      id,
+                      itemType: "stream",
+                      title: "Foobar100",
+                      mimeType: 'audio/x-scpls',
+                      // streamMetadata: {
+                      //   logo: "??"
+                      // }
+                    }
+                  }
+                  default:
+                    throw `Unsupported search by:${id}`;
+                }
+              }
               ),
           search: async (
             { id, term }: { id: string; term: string },
@@ -439,7 +456,7 @@ function bindSmapiSoapServiceToExpress(
               index,
               count,
             }: // recursive,
-            { id: string; index: number; count: number; recursive: boolean },
+              { id: string; index: number; count: number; recursive: boolean },
             _,
             soapyHeaders: SoapyHeaders,
           ) =>
@@ -464,12 +481,18 @@ function bindSmapiSoapServiceToExpress(
                           relatedBrowse:
                             artist.similarArtists.filter(it => it.inLibrary).length > 0
                               ? [
-                                  {
-                                    id: `relatedArtists:${artist.id}`,
-                                    type: "RELATED_ARTISTS",
-                                  },
-                                ]
+                                {
+                                  id: `relatedArtists:${artist.id}`,
+                                  type: "RELATED_ARTISTS",
+                                },
+                              ]
                               : [],
+                          relatedPlay: {
+                            id: `artistRadio:${artist.id}`,
+                            itemType: "stream",
+                            title: "Foobar radio",
+                            canPlay: true
+                          }
                         },
                       };
                     });
@@ -527,7 +550,7 @@ function bindSmapiSoapServiceToExpress(
               index,
               count,
             }: // recursive,
-            { id: string; index: number; count: number; recursive: boolean },
+              { id: string; index: number; count: number; recursive: boolean },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, 'headers'>
@@ -538,7 +561,7 @@ function bindSmapiSoapServiceToExpress(
                 const paging = { _index: index, _count: count };
                 const lang = i8n((headers["accept-language"] || "en-US") as LANG);
                 logger.debug(
-                  `Fetching metadata type=${type}, typeId=${typeId}, lang=${lang}`
+                  `Fetching metadata type=${type}, typeId=${typeId}`
                 );
 
                 const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
