@@ -268,7 +268,8 @@ export const asGenre = (genreName: string) => ({
 
 const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
   pipe(
-    O.fromNullable(genreName),
+    genreName,
+    O.fromNullable,
     O.map(asGenre),
     O.getOrElseW(() => undefined)
   );
