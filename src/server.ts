@@ -1,11 +1,11 @@
 import { option as O } from "fp-ts";
-import express, { Express } from "express";
+import express, { Express, Request } from "express";
 import * as Eta from "eta";
 import morgan from "morgan";
 
 import { PassThrough, Transform, TransformCallback } from "stream";
 
-import { Sonos, Service } from "./sonos";
+import { Sonos, Service, SONOS_LANG } from "./sonos";
 import {
   SOAP_PATH,
   STRINGS_ROUTE,
@@ -23,6 +23,7 @@ import logger from "./logger";
 import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
+import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -74,6 +75,7 @@ function server(
   applyContextPath = true
 ): Express {
   const app = express();
+  const i8n = makeI8N(service.name);
 
   app.use(morgan("combined"));
   app.use(express.urlencoded({ extended: false }));
@@ -85,13 +87,17 @@ function server(
   app.set("view engine", "eta");
   app.set("views", "./web/views");
 
-  app.get("/", (_, res) => {
+  const langFor = (req: Request) => i8n(...asLANGs(req.headers["accept-language"]))
+
+  app.get("/", (req, res) => {
+    const lang = langFor(req);
     Promise.all([sonos.devices(), sonos.services()]).then(
       ([devices, services]) => {
         const registeredBonobService = services.find(
           (it) => it.sid == service.sid
         );
         res.render("index", {
+          lang,
           devices,
           services,
           bonobService: service,
@@ -112,47 +118,56 @@ function server(
     });
   });
 
-  app.post(CREATE_REGISTRATION_ROUTE, (_, res) => {
+  app.post(CREATE_REGISTRATION_ROUTE, (req, res) => {
+    const lang = langFor(req);
     sonos.register(service).then((success) => {
       if (success) {
         res.render("success", {
-          message: `Successfully registered`,
+          lang,
+          message: lang("successfullyRegistered"),
         });
       } else {
         res.status(500).render("failure", {
-          message: `Registration failed!`,
+          lang,
+          message: lang("registrationFailed"),
         });
       }
     });
   });
 
-  app.post(REMOVE_REGISTRATION_ROUTE, (_, res) => {
+  app.post(REMOVE_REGISTRATION_ROUTE, (req, res) => {
+    const lang = langFor(req);
     sonos.remove(service.sid).then((success) => {
       if (success) {
         res.render("success", {
-          message: `Successfully removed registration`,
+          lang,
+          message: lang("successfullyRemovedRegistration"),
         });
       } else {
         res.status(500).render("failure", {
-          message: `Failed to remove registration!`,
+          lang,
+          message: lang("failedToRemoveRegistration"),
         });
       }
     });
   });
 
   app.get(LOGIN_ROUTE, (req, res) => {
+    const lang = langFor(req);
     res.render("login", {
-      bonobService: service,
+      lang,
       linkCode: req.query.linkCode,
       loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
     });
   });
 
   app.post(LOGIN_ROUTE, async (req, res) => {
+    const lang = langFor(req);
     const { username, password, linkCode } = req.body;
     if (!linkCodes.has(linkCode)) {
       res.status(400).render("failure", {
-        message: `Invalid linkCode!`,
+        lang,
+        message: lang("invalidLinkCode"),
       });
     } else {
       const authResult = await musicService.generateToken({
@@ -162,25 +177,26 @@ function server(
       if (isSuccess(authResult)) {
         linkCodes.associate(linkCode, authResult);
         res.render("success", {
-          message: `Login successful!`,
+          lang,
+          message: lang("loginSuccessful"),
         });
       } else {
         res.status(403).render("failure", {
-          message: `Login failed! ${authResult.message}!`,
+          lang,
+          message: lang("loginFailed"),
+          cause: authResult.message
         });
       }
     }
   });
 
   app.get(STRINGS_ROUTE, (_, res) => {
+    const stringNode = (id: string, value: string) => `<string stringId="${id}"><![CDATA[${value}]]></string>`
+    const stringtableNode = (langName: string) => `<stringtable rev="1" xml:lang="${langName}">${i8nKeys().map(key => stringNode(key, i8n(langName as LANG)(key as KEY))).join("")}</stringtable>`
+
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
 <stringtables xmlns="http://sonos.com/sonosapi">
-    <stringtable rev="1" xml:lang="en-US">
-        <string stringId="AppLinkMessage">Linking sonos with ${service.name}</string>
-    </stringtable>
-    <stringtable rev="1" xml:lang="fr-FR">
-        <string stringId="AppLinkMessage">Lier les sonos à la ${service.name}</string>
-    </stringtable>    
+    ${SONOS_LANG.map(stringtableNode).join("")}
 </stringtables>
 `);
   });
@@ -192,9 +208,9 @@ function server(
         <Match>
           <imageSizeMap>
             ${SONOS_RECOMMENDED_IMAGE_SIZES.map(
-              (size) =>
-                `<sizeEntry size="${size}" substitution="/art/size/${size}"/>`
-            ).join("")}
+      (size) =>
+        `<sizeEntry size="${size}" substitution="/art/size/${size}"/>`
+    ).join("")}
           </imageSizeMap>
         </Match>
       </PresentationMap>
@@ -236,8 +252,7 @@ function server(
         )
         .then(({ musicLibrary, stream }) => {
           logger.info(
-            `stream response from music service for ${id}, status=${
-              stream.status
+            `stream response from music service for ${id}, status=${stream.status
             }, headers=(${JSON.stringify(stream.headers)})`
           );
 
@@ -351,7 +366,8 @@ function server(
     linkCodes,
     musicService,
     accessTokens,
-    clock
+    clock,
+    i8n
   );
 
   if (applyContextPath) {

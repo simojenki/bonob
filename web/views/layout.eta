@@ -28,6 +28,20 @@ input {
 input#submit {
   margin-top: 100px
 }
+
+.one-word-per-line {
+    word-spacing: 100000px; 
+}
+
+.login{
+    width: min-intrinsic;
+    width: -webkit-min-content;
+    width: -moz-min-content;
+    width: min-content;
+    display: table-caption;
+    display: -ms-grid;
+    -ms-grid-columns: min-content;
+}
     </style>
   </head>
   <body>
