@@ -2,23 +2,35 @@
 
 <div id="content">
   <h1><%= it.bonobService.name %> (<%= it.bonobService.sid %>)</h1>
-  <h3>Expected config</h3>
+  <h3><%= it.lang("expectedConfig") %></h3>
   <div><%= JSON.stringify(it.bonobService) %></div>
+  <br/>
+  <form action="<%= it.createRegistrationRoute %>" method="POST">
+    <input type="submit" value="<%= it.lang("register") %>">
+  </form>
+  <br/>
+
   <% if(it.registeredBonobService) { %>
-  <h3>Existing service config</h3>
-  <div><%= JSON.stringify(it.registeredBonobService) %></div>
+    <h3><%= it.lang("existingServiceConfig") %></h3>
+    <div><%= JSON.stringify(it.registeredBonobService) %></div>
   <% } else { %>
-  <h3>No existing service registration</h3>
+    <h3><%= it.lang("noExistingServiceRegistration") %></h3>
   <% } %>
-  <form action="<%= it.createRegistrationRoute %>" method="POST"><button>Register</button></form>
-  <form action="<%= it.removeRegistrationRoute %>" method="POST"><button>Remove Registration</button></form>
-  <h2>Devices</h2>
+  <% if(it.registeredBonobService) { %>
+    <br/>
+    <form action="<%= it.removeRegistrationRoute %>" method="POST">
+      <input type="submit" value="<%= it.lang("removeRegistration") %>">
+    </form>
+  <% } %>
+
+  <br/>
+  <h2><%= it.lang("devices") %> (<%= it.devices.length %>)</h2>
   <ul>
     <% it.devices.forEach(function(d){ %>
       <li><%= d.name %> (<%= d.ip %>:<%= d.port %>)</li>
     <% }) %>
   </ul>
-  <h2>Services <%= it.services.length %></h2>
+  <h2><%= it.lang("services") %> (<%= it.services.length %>)</h2>
   <ul>
     <% it.services.forEach(function(s){ %>
       <li><%= s.name %> (<%= s.sid %>)</li>

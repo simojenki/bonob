@@ -9,10 +9,9 @@ import { randomInt } from "crypto";
 
 import { LinkCodes } from "../src/link_codes";
 import makeServer from "../src/server";
-import { bonobService, SONOS_DISABLED } from "../src/sonos";
+import { bonobService, SONOS_DISABLED, SONOS_LANG } from "../src/sonos";
 import {
   STRINGS_ROUTE,
-  LOGIN_ROUTE,
   getMetadataResult,
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
@@ -68,15 +67,19 @@ describe("service config", () => {
     });
 
     describe(`${stringsUrl}`, () => {
-      it("should return xml for the strings", async () => {
+      async function fetchStringsXml() {
         const res = await request(server).get(stringsUrl.path()).send();
 
         expect(res.status).toEqual(200);
 
         // removing the sonos xml ns as makes xpath queries with xpath-ts painful
-        const xml = parseXML(
+        return parseXML(
           res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
         );
+      }
+
+      it("should return xml for the strings", async () => {
+        const xml = await fetchStringsXml();
 
         const sonosString = (id: string, lang: string) =>
           xpath.select(
@@ -87,9 +90,24 @@ describe("service config", () => {
         expect(sonosString("AppLinkMessage", "en-US")).toEqual(
           "Linking sonos with music land"
         );
-        expect(sonosString("AppLinkMessage", "fr-FR")).toEqual(
-          "Lier les sonos à la music land"
+        expect(sonosString("AppLinkMessage", "nl-NL")).toEqual(
+          "Sonos koppelen aan music land"
         );
+
+        // no fr-FR translation, so use en-US
+        expect(sonosString("AppLinkMessage", "fr-FR")).toEqual(
+          "Linking sonos with music land"
+        );
+      });
+
+      it("should return a section for all sonos supported languages", async () => {
+        const xml = await fetchStringsXml();
+        SONOS_LANG.forEach(lang => {
+          expect(xpath.select(
+            `string(/stringtables/stringtable[@xml:lang="${lang}"]/string[@stringId="AppLinkMessage"])`,
+            xml
+          )).toBeDefined();
+        });
       });
     });
 
@@ -343,83 +361,6 @@ describe("api", () => {
       beforeEach(() => {
         jest.clearAllMocks();
         jest.resetAllMocks();
-      });
-
-      describe("pages", () => {
-        describe(bonobUrl.append({ pathname: LOGIN_ROUTE }).href(), () => {
-          describe("when the credentials are valid", () => {
-            it("should return 200 ok and have associated linkCode with user", async () => {
-              const username = "jane";
-              const password = "password100";
-              const linkCode = `linkCode-${uuid()}`;
-              const authToken = {
-                authToken: `authtoken-${uuid()}`,
-                userId: `${username}-uid`,
-                nickname: `${username}-nickname`,
-              };
-
-              linkCodes.has.mockReturnValue(true);
-              musicService.generateToken.mockResolvedValue(authToken);
-              linkCodes.associate.mockReturnValue(true);
-
-              const res = await request(server)
-                .post(bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname())
-                .type("form")
-                .send({ username, password, linkCode })
-                .expect(200);
-
-              expect(res.text).toContain("Login successful");
-
-              expect(musicService.generateToken).toHaveBeenCalledWith({
-                username,
-                password,
-              });
-              expect(linkCodes.has).toHaveBeenCalledWith(linkCode);
-              expect(linkCodes.associate).toHaveBeenCalledWith(
-                linkCode,
-                authToken
-              );
-            });
-          });
-
-          describe("when credentials are invalid", () => {
-            it("should return 403 with message", async () => {
-              const username = "userDoesntExist";
-              const password = "password";
-              const linkCode = uuid();
-              const message = `Invalid user:${username}`;
-
-              linkCodes.has.mockReturnValue(true);
-              musicService.generateToken.mockResolvedValue({ message });
-
-              const res = await request(server)
-                .post(bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname())
-                .type("form")
-                .send({ username, password, linkCode })
-                .expect(403);
-
-              expect(res.text).toContain(`Login failed! ${message}`);
-            });
-          });
-
-          describe("when linkCode is invalid", () => {
-            it("should return 400 with message", async () => {
-              const username = "jane";
-              const password = "password100";
-              const linkCode = "someLinkCodeThatDoesntExist";
-
-              linkCodes.has.mockReturnValue(false);
-
-              const res = await request(server)
-                .post(bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname())
-                .type("form")
-                .send({ username, password, linkCode })
-                .expect(400);
-
-              expect(res.text).toContain("Invalid linkCode!");
-            });
-          });
-        });
       });
 
       describe("soap api", () => {
@@ -755,62 +696,125 @@ describe("api", () => {
             });
 
             describe("asking for the root container", () => {
-              it("should return it", async () => {
-                const root = await ws.getMetadataAsync({
-                  id: "root",
-                  index: 0,
-                  count: 100,
-                });
-                expect(root[0]).toEqual(
-                  getMetadataResult({
-                    mediaCollection: [
-                      {
-                        itemType: "container",
-                        id: "artists",
-                        title: "Artists",
-                      },
-                      { itemType: "albumList", id: "albums", title: "Albums" },
-                      {
-                        itemType: "playlist",
-                        id: "playlists",
-                        title: "Playlists",
-                        attributes: {
-                          readOnly: "false",
-                          renameable: "false",
-                          userContent: "true",
-                        },
-                      },
-                      { itemType: "container", id: "genres", title: "Genres" },
-                      {
-                        itemType: "albumList",
-                        id: "randomAlbums",
-                        title: "Random",
-                      },
-                      {
-                        itemType: "albumList",
-                        id: "starredAlbums",
-                        title: "Starred",
-                      },
-                      {
-                        itemType: "albumList",
-                        id: "recentlyAdded",
-                        title: "Recently Added",
-                      },
-                      {
-                        itemType: "albumList",
-                        id: "recentlyPlayed",
-                        title: "Recently Played",
-                      },
-                      {
-                        itemType: "albumList",
-                        id: "mostPlayed",
-                        title: "Most Played",
-                      },
-                    ],
+              describe("when no accept-language header is present", () => {
+                it("should return en-US", async () => {
+                  const root = await ws.getMetadataAsync({
+                    id: "root",
                     index: 0,
-                    total: 9,
-                  })
-                );
+                    count: 100,
+                  });
+                  expect(root[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: [
+                        {
+                          itemType: "container",
+                          id: "artists",
+                          title: "Artists",
+                        },
+                        { itemType: "albumList", id: "albums", title: "Albums" },
+                        {
+                          itemType: "playlist",
+                          id: "playlists",
+                          title: "Playlists",
+                          attributes: {
+                            readOnly: "false",
+                            renameable: "false",
+                            userContent: "true",
+                          },
+                        },
+                        { itemType: "container", id: "genres", title: "Genres" },
+                        {
+                          itemType: "albumList",
+                          id: "randomAlbums",
+                          title: "Random",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "starredAlbums",
+                          title: "Starred",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "recentlyAdded",
+                          title: "Recently added",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "recentlyPlayed",
+                          title: "Recently played",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "mostPlayed",
+                          title: "Most played",
+                        },
+                      ],
+                      index: 0,
+                      total: 9,
+                    })
+                  );
+                });
+              });
+
+              describe("when an accept-language header is present with value nl-NL", () => {
+                it("should return nl-NL", async () => {
+                  ws.addHttpHeader("accept-language", "nl-NL")
+                  const root = await ws.getMetadataAsync({
+                    id: "root",
+                    index: 0,
+                    count: 100,
+                  });
+                  expect(root[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: [
+                        {
+                          itemType: "container",
+                          id: "artists",
+                          title: "Artiesten",
+                        },
+                        { itemType: "albumList", id: "albums", title: "Albums" },
+                        {
+                          itemType: "playlist",
+                          id: "playlists",
+                          title: "Afspeellijsten",
+                          attributes: {
+                            readOnly: "false",
+                            renameable: "false",
+                            userContent: "true",
+                          },
+                        },
+                        { itemType: "container", id: "genres", title: "Genres" },
+                        {
+                          itemType: "albumList",
+                          id: "randomAlbums",
+                          title: "Willekeurig",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "starredAlbums",
+                          title: "Favorieten",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "recentlyAdded",
+                          title: "Onlangs toegevoegd",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "recentlyPlayed",
+                          title: "Onlangs afgespeeld",
+                        },
+                        {
+                          itemType: "albumList",
+                          id: "mostPlayed",
+                          title: "Meest afgespeeld",
+                        },
+                      ],
+                      index: 0,
+                      total: 9,
+                    })
+                  );
+                });
               });
             });
 
