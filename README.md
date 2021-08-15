@@ -23,12 +23,13 @@ Currently only a single integration allowing Navidrome to be registered with son
 - Ability to play a playlist
 - Ability to add/remove playlists
 - Ability to add/remove tracks from a playlist
+- Localization (only en-US & nl-NL supported currently, require translations for other languages).  ![Sonos localization and supported languages](https://developer.sonos.com/build/content-service-add-features/strings-and-localization/)
 
 ## Running
 
 bonob is ditributed via docker and can be run in a number of ways
 
-### Full sonos device auto-discovery by using docker --network host
+### Full sonos device auto-discovery and auto-registration using docker --network host
 
 ```bash
 docker run \
@@ -37,14 +38,13 @@ docker run \
     simojenki/bonob
 ```
 
-Now open http://localhost:4534 in your browser, you should see sonos devices, and service configuration.  By pressing 'Re-register' bonob will register itself in your sonos system, and should then show up in the "Services" list.
+Now open http://localhost:4534 in your browser, you should see sonos devices, and service configuration.  Bonob will auto-register itself with your sonos system on startup.
 
 ### Full sonos device auto-discovery and auto-registration on custom port by using a sonos seed device, without requiring docker host networking
 
 ```bash
 docker run \
     -e BONOB_PORT=3000 \
-    -e BONOB_SONOS_AUTO_REGISTER=true \
     -e BONOB_SONOS_SEED_HOST=192.168.1.123 \
     -p 3000:3000 \
     simojenki/bonob
@@ -114,8 +114,6 @@ services:
       BONOB_URL: http://192.168.1.111:4534  
       BONOB_SECRET: changeme
       BONOB_SONOS_SERVICE_ID: 246 
-      BONOB_SONOS_AUTO_REGISTER: "true"
-      BONOB_SONOS_DEVICE_DISCOVERY: "true"
       # ip address of one of your sonos devices
       BONOB_SONOS_SEED_HOST: 192.168.1.121
       BONOB_NAVIDROME_URL: http://navidrome:4533
@@ -128,7 +126,7 @@ item | default value | description
 BONOB_PORT | 4534 | Default http port for bonob to listen on
 BONOB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
 BONOB_SECRET | bonob | secret used for encrypting credentials
-BONOB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
+BONOB_SONOS_AUTO_REGISTER | true | Whether or not to try and auto-register on startup
 BONOB_SONOS_DEVICE_DISCOVERY | true | whether or not sonos device discovery should be enabled
 BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommitted for for auto-discovery
 BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
