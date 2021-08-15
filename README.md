@@ -33,6 +33,8 @@ bonob is ditributed via docker and can be run in a number of ways
 
 ```bash
 docker run \
+    -e BONOB_SONOS_AUTO_REGISTER=true \
+    -e BONOB_SONOS_DEVICE_DISCOVERY=true \
     -p 4534:4534 \
     --network host \
     simojenki/bonob
@@ -46,6 +48,8 @@ Now open http://localhost:4534 in your browser, you should see sonos devices, an
 docker run \
     -e BONOB_PORT=3000 \
     -e BONOB_SONOS_SEED_HOST=192.168.1.123 \
+    -e BONOB_SONOS_AUTO_REGISTER=true \
+    -e BONOB_SONOS_DEVICE_DISCOVERY=true \
     -p 3000:3000 \
     simojenki/bonob
 ```
@@ -113,7 +117,9 @@ services:
       # ip address of your machine running bonob
       BONOB_URL: http://192.168.1.111:4534  
       BONOB_SECRET: changeme
-      BONOB_SONOS_SERVICE_ID: 246 
+      BONOB_SONOS_AUTO_REGISTER: true
+      BONOB_SONOS_DEVICE_DISCOVERY: true
+      BONOB_SONOS_SERVICE_ID: 246
       # ip address of one of your sonos devices
       BONOB_SONOS_SEED_HOST: 192.168.1.121
       BONOB_NAVIDROME_URL: http://navidrome:4533
@@ -126,7 +132,7 @@ item | default value | description
 BONOB_PORT | 4534 | Default http port for bonob to listen on
 BONOB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
 BONOB_SECRET | bonob | secret used for encrypting credentials
-BONOB_SONOS_AUTO_REGISTER | true | Whether or not to try and auto-register on startup
+BONOB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
 BONOB_SONOS_DEVICE_DISCOVERY | true | whether or not sonos device discovery should be enabled
 BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommitted for for auto-discovery
 BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos

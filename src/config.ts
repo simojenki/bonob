@@ -26,7 +26,7 @@ export default function () {
         (process.env["BONOB_SONOS_DEVICE_DISCOVERY"] || "true") == "true",
       seedHost: process.env["BONOB_SONOS_SEED_HOST"],
       autoRegister:
-        (process.env["BONOB_SONOS_AUTO_REGISTER"] || "true") == "true",
+        (process.env["BONOB_SONOS_AUTO_REGISTER"] || "false") == "true",
       sid: Number(process.env["BONOB_SONOS_SERVICE_ID"] || "246"),
     },
     navidrome: {

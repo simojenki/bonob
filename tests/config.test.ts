@@ -151,7 +151,7 @@ describe("config", () => {
     describeBooleanConfigValue(
       "autoRegister",
       "BONOB_SONOS_AUTO_REGISTER",
-      true,
+      false,
       (config) => config.sonos.autoRegister
     );
 
