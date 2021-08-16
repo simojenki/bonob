@@ -138,8 +138,6 @@ class SonosDriver {
               return m![1]!;
             });
 
-          console.log(`posting to action ${action}`);
-
           return request(this.server)
             .post(action)
             .type("form")

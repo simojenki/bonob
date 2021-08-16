@@ -159,6 +159,10 @@ BONOB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
 - Implement the MusicService/MusicLibrary interface
 - Startup bonob with your new implementation.
 
+## Credits
+
+- Icons courtesy of: ![Navidrome](https://www.navidrome.org/), ![Vectornator](https://www.vectornator.io/), and @jicho
+
 ## TODO
 
 - Artist Radio

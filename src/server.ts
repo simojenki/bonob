@@ -2,6 +2,10 @@ import { option as O } from "fp-ts";
 import express, { Express, Request } from "express";
 import * as Eta from "eta";
 import morgan from "morgan";
+import path from "path";
+import scale from "scale-that-svg";
+import sharp from "sharp";
+import fs from "fs";
 
 import { PassThrough, Transform, TransformCallback } from "stream";
 
@@ -13,7 +17,8 @@ import {
   SONOS_RECOMMENDED_IMAGE_SIZES,
   LOGIN_ROUTE,
   CREATE_REGISTRATION_ROUTE,
-  REMOVE_REGISTRATION_ROUTE
+  REMOVE_REGISTRATION_ROUTE,
+  ICON,
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
@@ -26,6 +31,26 @@ import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
+
+const icon = (name: string) =>
+  fs
+    .readFileSync(path.resolve(__dirname, "..", "web", "icons", name))
+    .toString();
+
+export type Icon = { svg: string; size: number };
+
+export const ICONS: Record<ICON, Icon> = {
+  artists: { svg: icon("navidrome-artists.svg"), size: 24 },
+  albums: { svg: icon("navidrome-all.svg"), size: 24 },
+  playlists: { svg: icon("navidrome-playlists.svg"), size: 24 },
+  genres: { svg: icon("Theatre-Mask-111172.svg"), size: 128 },
+  random: { svg: icon("navidrome-random.svg"), size: 24 },
+  starred: { svg: icon("navidrome-topRated.svg"), size: 24 },
+  recentlyAdded: { svg: icon("navidrome-recentlyAdded.svg"), size: 24 },
+  recentlyPlayed: { svg: icon("navidrome-recentlyPlayed.svg"), size: 24 },
+  mostPlayed: { svg: icon("navidrome-mostPlayed.svg"), size: 24 },
+  discover: { svg: icon("Binoculars-14310.svg"), size: 32 },
+};
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;
@@ -88,9 +113,11 @@ function server(
   app.set("views", "./web/views");
 
   const langFor = (req: Request) => {
-    logger.debug(`${req.path} (req[accept-language]=${req.headers["accept-language"]})`);
+    logger.debug(
+      `${req.path} (req[accept-language]=${req.headers["accept-language"]})`
+    );
     return i8n(...asLANGs(req.headers["accept-language"]));
-  }
+  };
 
   app.get("/", (req, res) => {
     const lang = langFor(req);
@@ -105,8 +132,12 @@ function server(
           services,
           bonobService: service,
           registeredBonobService,
-          createRegistrationRoute: bonobUrl.append({ pathname: CREATE_REGISTRATION_ROUTE }).pathname(),
-          removeRegistrationRoute: bonobUrl.append({ pathname: REMOVE_REGISTRATION_ROUTE }).pathname(),
+          createRegistrationRoute: bonobUrl
+            .append({ pathname: CREATE_REGISTRATION_ROUTE })
+            .pathname(),
+          removeRegistrationRoute: bonobUrl
+            .append({ pathname: REMOVE_REGISTRATION_ROUTE })
+            .pathname(),
         });
       }
     );
@@ -116,8 +147,8 @@ function server(
     return res.send({
       service: {
         name: service.name,
-        sid: service.sid
-      }
+        sid: service.sid,
+      },
     });
   });
 
@@ -187,15 +218,19 @@ function server(
         res.status(403).render("failure", {
           lang,
           message: lang("loginFailed"),
-          cause: authResult.message
+          cause: authResult.message,
         });
       }
     }
   });
 
   app.get(STRINGS_ROUTE, (_, res) => {
-    const stringNode = (id: string, value: string) => `<string stringId="${id}"><![CDATA[${value}]]></string>`
-    const stringtableNode = (langName: string) => `<stringtable rev="1" xml:lang="${langName}">${i8nKeys().map(key => stringNode(key, i8n(langName as LANG)(key as KEY))).join("")}</stringtable>`
+    const stringNode = (id: string, value: string) =>
+      `<string stringId="${id}"><![CDATA[${value}]]></string>`;
+    const stringtableNode = (langName: string) =>
+      `<stringtable rev="1" xml:lang="${langName}">${i8nKeys()
+        .map((key) => stringNode(key, i8n(langName as LANG)(key as KEY)))
+        .join("")}</stringtable>`;
 
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
 <stringtables xmlns="http://sonos.com/sonosapi">
@@ -211,10 +246,21 @@ function server(
         <Match>
           <imageSizeMap>
             ${SONOS_RECOMMENDED_IMAGE_SIZES.map(
-      (size) =>
-        `<sizeEntry size="${size}" substitution="/art/size/${size}"/>`
-    ).join("")}
+              (size) =>
+                `<sizeEntry size="${size}" substitution="/size/${size}"/>`
+            ).join("")}
           </imageSizeMap>
+        </Match>
+      </PresentationMap>
+      <PresentationMap type="BrowseIconSizeMap">
+        <Match>
+          <browseIconSizeMap>
+              <sizeEntry size="0" substitution="/size/legacy"/>
+              ${SONOS_RECOMMENDED_IMAGE_SIZES.map(
+                (size) =>
+                  `<sizeEntry size="${size}" substitution="/size/${size}"/>`
+              ).join("")}
+            </browseIconSizeMap>
         </Match>
       </PresentationMap>
       <PresentationMap type="Search">
@@ -255,7 +301,8 @@ function server(
         )
         .then(({ musicLibrary, stream }) => {
           logger.info(
-            `stream response from music service for ${id}, status=${stream.status
+            `stream response from music service for ${id}, status=${
+              stream.status
             }, headers=(${JSON.stringify(stream.headers)})`
           );
 
@@ -328,28 +375,65 @@ function server(
     }
   });
 
-  app.get("/:type/:id/art/size/:size", (req, res) => {
+  app.get("/icon/:type/size/:size", (req, res) => {
+    const type = req.params["type"]!;
+    const size = req.params["size"]!;
+
+    if (!Object.keys(ICONS).includes(type)) {
+      return res.status(404).send();
+    } else if (
+      size != "legacy" &&
+      !SONOS_RECOMMENDED_IMAGE_SIZES.includes(size)
+    ) {
+      return res.status(400).send();
+    } else {
+      const icon = (ICONS as any)[type]! as Icon;
+      const spec =
+        size == "legacy"
+          ? {
+              outputSize: 80,
+              mimeType: "image/png",
+              responseFormatter: (svg: string): Promise<Buffer | string> =>
+                sharp(Buffer.from(svg)).png().toBuffer(),
+            }
+          : {
+              outputSize: Number.parseInt(size),
+              mimeType: "image/svg+xml",
+              responseFormatter: (svg: string): Promise<Buffer | string> =>
+                Promise.resolve(svg),
+            };
+
+      return Promise.resolve(icon.svg)
+        .then((svg) => scale(svg, { scale: spec.outputSize / icon.size }))
+        .then(spec.responseFormatter)
+        .then((data) => res.status(200).type(spec.mimeType).send(data));
+    }
+  });
+
+  app.get("/art/:type/:id/size/:size", (req, res) => {
     const authToken = accessTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
     const type = req.params["type"]!;
     const id = req.params["id"]!;
-    const size = Number.parseInt(req.params["size"]!);
+    const size = req.params["size"]!;
     if (!authToken) {
       return res.status(401).send();
     } else if (type != "artist" && type != "album") {
       return res.status(400).send();
+    } else if (!(size.match(/^\d+$/) && Number.parseInt(size) > 0)) {
+      return res.status(400).send();
     } else {
       return musicService
         .login(authToken)
-        .then((it) => it.coverArt(id, type, size))
+        .then((it) => it.coverArt(id, type, Number.parseInt(size)))
         .then((coverArt) => {
           if (coverArt) {
             res.status(200);
             res.setHeader("content-type", coverArt.contentType);
-            res.send(coverArt.data);
+            return res.send(coverArt.data);
           } else {
-            res.status(404).send();
+            return res.status(404).send();
           }
         })
         .catch((e: Error) => {
@@ -357,7 +441,7 @@ function server(
             `Failed fetching image ${type}/${id}/size/${size}: ${e.message}`,
             e
           );
-          res.status(500).send();
+          return res.status(500).send();
         });
     }
   });

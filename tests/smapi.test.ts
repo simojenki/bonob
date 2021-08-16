@@ -21,6 +21,7 @@ import {
   defaultAlbumArtURI,
   defaultArtistArtURI,
   searchResult,
+  iconArtURI,
 } from "../src/smapi";
 
 import {
@@ -54,83 +55,109 @@ describe("service config", () => {
   const bonobWithContextPath = url("http://localhost:5678/some-context-path");
 
   [bonobWithNoContextPath, bonobWithContextPath].forEach((bonobUrl) => {
-    const server = makeServer(
-      SONOS_DISABLED,
-      aService({ name: "music land" }),
-      bonobUrl,
-      new InMemoryMusicService()
-    );
+    describe(bonobUrl.href(), () => {
+      const server = makeServer(
+        SONOS_DISABLED,
+        aService({ name: "music land" }),
+        bonobUrl,
+        new InMemoryMusicService()
+      );
 
-    const stringsUrl = bonobUrl.append({ pathname: STRINGS_ROUTE });
-    const presentationUrl = bonobUrl.append({
-      pathname: PRESENTATION_MAP_ROUTE,
-    });
-
-    describe(`${stringsUrl}`, () => {
-      async function fetchStringsXml() {
-        const res = await request(server).get(stringsUrl.path()).send();
-
-        expect(res.status).toEqual(200);
-
-        // removing the sonos xml ns as makes xpath queries with xpath-ts painful
-        return parseXML(
-          res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
-        );
-      }
-
-      it("should return xml for the strings", async () => {
-        const xml = await fetchStringsXml();
-
-        const sonosString = (id: string, lang: string) =>
-          xpath.select(
-            `string(/stringtables/stringtable[@xml:lang="${lang}"]/string[@stringId="${id}"])`,
-            xml
-          );
-
-        expect(sonosString("AppLinkMessage", "en-US")).toEqual(
-          "Linking sonos with music land"
-        );
-        expect(sonosString("AppLinkMessage", "nl-NL")).toEqual(
-          "Sonos koppelen aan music land"
-        );
-
-        // no fr-FR translation, so use en-US
-        expect(sonosString("AppLinkMessage", "fr-FR")).toEqual(
-          "Linking sonos with music land"
-        );
+      const stringsUrl = bonobUrl.append({ pathname: STRINGS_ROUTE });
+      const presentationUrl = bonobUrl.append({
+        pathname: PRESENTATION_MAP_ROUTE,
       });
 
-      it("should return a section for all sonos supported languages", async () => {
-        const xml = await fetchStringsXml();
-        SONOS_LANG.forEach(lang => {
-          expect(xpath.select(
-            `string(/stringtables/stringtable[@xml:lang="${lang}"]/string[@stringId="AppLinkMessage"])`,
-            xml
-          )).toBeDefined();
-        });
-      });
-    });
+      describe(STRINGS_ROUTE, () => {
+        async function fetchStringsXml() {
+          const res = await request(server).get(stringsUrl.path()).send();
 
-    describe(`${presentationUrl}`, () => {
-      it("should have an ArtWorkSizeMap for all sizes recommended by sonos", async () => {
-        const res = await request(server).get(presentationUrl.path()).send();
+          expect(res.status).toEqual(200);
 
-        expect(res.status).toEqual(200);
+          // removing the sonos xml ns as makes xpath queries with xpath-ts painful
+          return parseXML(
+            res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
+          );
+        }
 
-        // removing the sonos xml ns as makes xpath queries with xpath-ts painful
-        const xml = parseXML(
-          res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
-        );
+        it("should return xml for the strings", async () => {
+          const xml = await fetchStringsXml();
 
-        const imageSizeMap = (size: string) =>
-          xpath.select(
-            `string(/Presentation/PresentationMap[@type="ArtWorkSizeMap"]/Match/imageSizeMap/sizeEntry[@size="${size}"]/@substitution)`,
-            xml
+          const sonosString = (id: string, lang: string) =>
+            xpath.select(
+              `string(/stringtables/stringtable[@xml:lang="${lang}"]/string[@stringId="${id}"])`,
+              xml
+            );
+
+          expect(sonosString("AppLinkMessage", "en-US")).toEqual(
+            "Linking sonos with music land"
+          );
+          expect(sonosString("AppLinkMessage", "nl-NL")).toEqual(
+            "Sonos koppelen aan music land"
           );
 
-        SONOS_RECOMMENDED_IMAGE_SIZES.forEach((size) => {
-          expect(imageSizeMap(size)).toEqual(`/art/size/${size}`);
+          // no fr-FR translation, so use en-US
+          expect(sonosString("AppLinkMessage", "fr-FR")).toEqual(
+            "Linking sonos with music land"
+          );
         });
+
+        it("should return a section for all sonos supported languages", async () => {
+          const xml = await fetchStringsXml();
+          SONOS_LANG.forEach((lang) => {
+            expect(
+              xpath.select(
+                `string(/stringtables/stringtable[@xml:lang="${lang}"]/string[@stringId="AppLinkMessage"])`,
+                xml
+              )
+            ).toBeDefined();
+          });
+        });
+      });
+
+      describe(PRESENTATION_MAP_ROUTE, () => {
+        it("should have an ArtWorkSizeMap for all sizes recommended by sonos", async () => {
+          const res = await request(server).get(presentationUrl.path()).send();
+
+          expect(res.status).toEqual(200);
+
+          // removing the sonos xml ns as makes xpath queries with xpath-ts painful
+          const xml = parseXML(
+            res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
+          );
+
+          const imageSizeMap = (size: string) =>
+            xpath.select(
+              `string(/Presentation/PresentationMap[@type="ArtWorkSizeMap"]/Match/imageSizeMap/sizeEntry[@size="${size}"]/@substitution)`,
+              xml
+            );
+
+          SONOS_RECOMMENDED_IMAGE_SIZES.forEach((size) => {
+            expect(imageSizeMap(size)).toEqual(`/size/${size}`);
+          });
+        });
+
+        it("should have an BrowseIconSizeMap for all sizes recommended by sonos", async () => {
+          const res = await request(server).get(presentationUrl.path()).send();
+
+          expect(res.status).toEqual(200);
+
+          // removing the sonos xml ns as makes xpath queries with xpath-ts painful
+          const xml = parseXML(
+            res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
+          );
+
+          const imageSizeMap = (size: string) =>
+            xpath.select(
+              `string(/Presentation/PresentationMap[@type="BrowseIconSizeMap"]/Match/browseIconSizeMap/sizeEntry[@size="${size}"]/@substitution)`,
+              xml
+            );
+
+          SONOS_RECOMMENDED_IMAGE_SIZES.forEach((size) => {
+            expect(imageSizeMap(size)).toEqual(`/size/${size}`);
+          });
+        });
+
       });
     });
   });
@@ -246,7 +273,7 @@ describe("track", () => {
         albumId: someTrack.album.id,
         albumArtist: someTrack.artist.name,
         albumArtistId: someTrack.artist.id,
-        albumArtURI: `http://localhost:4567/foo/album/${someTrack.album.id}/art/size/180?access-token=1234`,
+        albumArtURI: `http://localhost:4567/foo/art/album/${someTrack.album.id}/size/180?access-token=1234`,
         artist: someTrack.artist.name,
         artistId: someTrack.artist.id,
         duration: someTrack.duration,
@@ -281,7 +308,7 @@ describe("defaultAlbumArtURI", () => {
     const album = anAlbum();
 
     expect(defaultAlbumArtURI(bonobUrl, album).href()).toEqual(
-      `http://localhost:1234/context-path/album/${album.id}/art/size/180?search=yes`
+      `http://localhost:1234/context-path/art/album/${album.id}/size/180?search=yes`
     );
   });
 });
@@ -292,7 +319,7 @@ describe("defaultArtistArtURI", () => {
     const artist = anArtist();
 
     expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-      `http://localhost:1234/something/artist/${artist.id}/art/size/180?s=123`
+      `http://localhost:1234/something/art/artist/${artist.id}/size/180?s=123`
     );
   });
 });
@@ -450,7 +477,8 @@ describe("api", () => {
                 .catch((e: any) => {
                   expect(e.root.Envelope.Body.Fault).toEqual({
                     faultcode: "Client.NOT_LINKED_RETRY",
-                    faultstring: "Link Code not found yet, sonos app will keep polling until you log in to bonob",
+                    faultstring:
+                      "Link Code not found yet, sonos app will keep polling until you log in to bonob",
                     detail: {
                       ExceptionInfo: "NOT_LINKED_RETRY",
                       SonosError: "5",
@@ -707,46 +735,72 @@ describe("api", () => {
                     getMetadataResult({
                       mediaCollection: [
                         {
-                          itemType: "container",
                           id: "artists",
                           title: "Artists",
+                          albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                          itemType: "container",
                         },
-                        { itemType: "albumList", id: "albums", title: "Albums" },
                         {
-                          itemType: "playlist",
+                          id: "albums",
+                          title: "Albums",
+                          albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                          itemType: "albumList",
+                        },
+                        {
                           id: "playlists",
                           title: "Playlists",
+                          albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                          itemType: "playlist",
                           attributes: {
                             readOnly: "false",
                             renameable: "false",
                             userContent: "true",
                           },
                         },
-                        { itemType: "container", id: "genres", title: "Genres" },
                         {
-                          itemType: "albumList",
+                          id: "genres",
+                          title: "Genres",
+                          albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                          itemType: "container",
+                        },
+                        {
                           id: "randomAlbums",
                           title: "Random",
+                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "starredAlbums",
                           title: "Starred",
+                          albumArtURI: iconArtURI(bonobUrl, "starred").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "recentlyAdded",
                           title: "Recently added",
+                          albumArtURI: iconArtURI(
+                            bonobUrl,
+                            "recentlyAdded"
+                          ).href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "recentlyPlayed",
                           title: "Recently played",
+                          albumArtURI: iconArtURI(
+                            bonobUrl,
+                            "recentlyPlayed"
+                          ).href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "mostPlayed",
                           title: "Most played",
+                          albumArtURI: iconArtURI(
+                            bonobUrl,
+                            "mostPlayed"
+                          ).href(),
+                          itemType: "albumList",
                         },
                       ],
                       index: 0,
@@ -758,7 +812,7 @@ describe("api", () => {
 
               describe("when an accept-language header is present with value nl-NL", () => {
                 it("should return nl-NL", async () => {
-                  ws.addHttpHeader("accept-language", "nl-NL, en-US;q=0.9")
+                  ws.addHttpHeader("accept-language", "nl-NL, en-US;q=0.9");
                   const root = await ws.getMetadataAsync({
                     id: "root",
                     index: 0,
@@ -768,46 +822,72 @@ describe("api", () => {
                     getMetadataResult({
                       mediaCollection: [
                         {
-                          itemType: "container",
                           id: "artists",
                           title: "Artiesten",
+                          albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                          itemType: "container",
                         },
-                        { itemType: "albumList", id: "albums", title: "Albums" },
                         {
-                          itemType: "playlist",
+                          id: "albums",
+                          title: "Albums",
+                          albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                          itemType: "albumList",
+                        },
+                        {
                           id: "playlists",
                           title: "Afspeellijsten",
+                          albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                          itemType: "playlist",
                           attributes: {
                             readOnly: "false",
                             renameable: "false",
                             userContent: "true",
                           },
                         },
-                        { itemType: "container", id: "genres", title: "Genres" },
                         {
-                          itemType: "albumList",
+                          id: "genres",
+                          title: "Genres",
+                          albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                          itemType: "container",
+                        },
+                        {
                           id: "randomAlbums",
                           title: "Willekeurig",
+                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "starredAlbums",
                           title: "Favorieten",
+                          albumArtURI: iconArtURI(bonobUrl, "starred").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "recentlyAdded",
                           title: "Onlangs toegevoegd",
+                          albumArtURI: iconArtURI(
+                            bonobUrl,
+                            "recentlyAdded"
+                          ).href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "recentlyPlayed",
                           title: "Onlangs afgespeeld",
+                          albumArtURI: iconArtURI(
+                            bonobUrl,
+                            "recentlyPlayed"
+                          ).href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "mostPlayed",
                           title: "Meest afgespeeld",
+                          albumArtURI: iconArtURI(
+                            bonobUrl,
+                            "mostPlayed"
+                          ).href(),
+                          itemType: "albumList",
                         },
                       ],
                       index: 0,

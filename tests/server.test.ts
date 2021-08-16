@@ -1,12 +1,16 @@
 import { v4 as uuid } from "uuid";
 import dayjs from "dayjs";
 import request from "supertest";
+import Image from "image-js";
+
 import { MusicService } from "../src/music_service";
 import makeServer, {
   BONOB_ACCESS_TOKEN_HEADER,
+  ICONS,
   RangeBytesFromFilter,
   rangeFilterFor,
 } from "../src/server";
+
 import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
 import { aDevice, aService } from "./builders";
@@ -17,6 +21,9 @@ import { Response } from "express";
 import { Transform } from "stream";
 import url from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
+import {
+  SONOS_RECOMMENDED_IMAGE_SIZES,
+} from "../src/smapi";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -278,10 +285,16 @@ describe("server", () => {
                 .set("accept-language", acceptLanguage)
                 .send();
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch(`<input type="submit" value="${lang("register")}">`);
+              expect(res.text).toMatch(
+                `<input type="submit" value="${lang("register")}">`
+              );
               expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
-              expect(res.text).toMatch(`<h3>${lang("noExistingServiceRegistration")}</h3>`);
-              expect(res.text).not.toMatch(`<input type="submit" value="${lang("removeRegistration")}">`);
+              expect(res.text).toMatch(
+                `<h3>${lang("noExistingServiceRegistration")}</h3>`
+              );
+              expect(res.text).not.toMatch(
+                `<input type="submit" value="${lang("removeRegistration")}">`
+              );
             });
           });
         });
@@ -317,10 +330,16 @@ describe("server", () => {
                 .set("accept-language", acceptLanguage)
                 .send();
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch(`<input type="submit" value="${lang("register")}">`);
+              expect(res.text).toMatch(
+                `<input type="submit" value="${lang("register")}">`
+              );
               expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
-              expect(res.text).toMatch(`<h3>${lang("existingServiceConfig")}</h3>`);
-              expect(res.text).toMatch(`<input type="submit" value="${lang("removeRegistration")}">`);
+              expect(res.text).toMatch(
+                `<h3>${lang("existingServiceConfig")}</h3>`
+              );
+              expect(res.text).toMatch(
+                `<input type="submit" value="${lang("removeRegistration")}">`
+              );
             });
           });
         });
@@ -343,15 +362,16 @@ describe("server", () => {
 
         it("should report some information about the service", async () => {
           const res = await request(server)
-          .get(bonobUrl.append({ pathname: "/about" }).path())
-          .send();
+            .get(bonobUrl.append({ pathname: "/about" }).path())
+            .send();
 
           expect(res.status).toEqual(200);
           expect(res.body).toEqual({
             service: {
               name: theService.name,
-              sid: theService.sid
-            }});
+              sid: theService.sid,
+            },
+          });
         });
       });
 
@@ -375,21 +395,21 @@ describe("server", () => {
           describe("when is successful", () => {
             it("should return a nice message", async () => {
               sonos.register.mockResolvedValue(true);
-  
+
               const res = await request(server)
                 .post(bonobUrl.append({ pathname: "/registration/add" }).path())
                 .set("accept-language", acceptLanguage)
                 .send();
-  
+
               expect(res.status).toEqual(200);
               expect(res.text).toMatch(`<title>${lang("success")}</title>`);
               expect(res.text).toMatch(lang("successfullyRegistered"));
-  
+
               expect(sonos.register.mock.calls.length).toEqual(1);
               expect(sonos.register.mock.calls[0][0]).toBe(theService);
             });
           });
-  
+
           describe("when is unsuccessful", () => {
             it("should return a failure message", async () => {
               sonos.register.mockResolvedValue(false);
@@ -398,11 +418,11 @@ describe("server", () => {
                 .post(bonobUrl.append({ pathname: "/registration/add" }).path())
                 .set("accept-language", acceptLanguage)
                 .send();
-  
+
               expect(res.status).toEqual(500);
               expect(res.text).toMatch(`<title>${lang("failure")}</title>`);
               expect(res.text).toMatch(lang("registrationFailed"));
-  
+
               expect(sonos.register.mock.calls.length).toEqual(1);
               expect(sonos.register.mock.calls[0][0]).toBe(theService);
             });
@@ -413,34 +433,38 @@ describe("server", () => {
           describe("when is successful", () => {
             it("should return a nice message", async () => {
               sonos.remove.mockResolvedValue(true);
-  
+
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/registration/remove" }).path())
+                .post(
+                  bonobUrl.append({ pathname: "/registration/remove" }).path()
+                )
                 .set("accept-language", acceptLanguage)
                 .send();
-  
+
               expect(res.status).toEqual(200);
               expect(res.text).toMatch(`<title>${lang("success")}</title>`);
               expect(res.text).toMatch(lang("successfullyRemovedRegistration"));
-  
+
               expect(sonos.remove.mock.calls.length).toEqual(1);
               expect(sonos.remove.mock.calls[0][0]).toBe(theService.sid);
             });
           });
-  
+
           describe("when is unsuccessful", () => {
             it("should return a failure message", async () => {
               sonos.remove.mockResolvedValue(false);
-  
+
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/registration/remove" }).path())
+                .post(
+                  bonobUrl.append({ pathname: "/registration/remove" }).path()
+                )
                 .set("accept-language", acceptLanguage)
                 .send();
-  
+
               expect(res.status).toEqual(500);
               expect(res.text).toMatch(`<title>${lang("failure")}</title>`);
               expect(res.text).toMatch(lang("failedToRemoveRegistration"));
-  
+
               expect(sonos.remove.mock.calls.length).toEqual(1);
               expect(sonos.remove.mock.calls[0][0]).toBe(theService.sid);
             });
@@ -454,7 +478,7 @@ describe("server", () => {
           remove: jest.fn(),
         };
         const theService = aService({
-          name: serviceNameForLang
+          name: serviceNameForLang,
         });
 
         const musicService = {
@@ -474,7 +498,6 @@ describe("server", () => {
         const clock = {
           now: jest.fn(),
         };
-      
 
         const server = makeServer(
           sonos as unknown as Sonos,
@@ -496,10 +519,18 @@ describe("server", () => {
 
           expect(res.status).toEqual(200);
           expect(res.text).toMatch(`<title>${lang("login")}</title>`);
-          expect(res.text).toMatch(`<h1 class="login one-word-per-line">${lang("logInToBonob")}</h1>`);
-          expect(res.text).toMatch(`<label for="username">${lang("username")}:</label>`);
-          expect(res.text).toMatch(`<label for="password">${lang("password")}:</label>`);
-          expect(res.text).toMatch(`<input type="submit" value="${lang("login")}" id="submit">`);
+          expect(res.text).toMatch(
+            `<h1 class="login one-word-per-line">${lang("logInToBonob")}</h1>`
+          );
+          expect(res.text).toMatch(
+            `<label for="username">${lang("username")}:</label>`
+          );
+          expect(res.text).toMatch(
+            `<label for="password">${lang("password")}:</label>`
+          );
+          expect(res.text).toMatch(
+            `<input type="submit" value="${lang("login")}" id="submit">`
+          );
         });
 
         describe("when the credentials are valid", () => {
@@ -578,7 +609,7 @@ describe("server", () => {
             expect(res.text).toContain(lang("invalidLinkCode"));
           });
         });
-      });      
+      });
 
       describe("/stream", () => {
         const musicService = {
@@ -1011,7 +1042,7 @@ describe("server", () => {
         });
       });
 
-      describe("art", () => {
+      describe("/art", () => {
         const musicService = {
           login: jest.fn(),
         };
@@ -1040,7 +1071,7 @@ describe("server", () => {
 
         describe("when there is no access-token", () => {
           it("should return a 401", async () => {
-            const res = await request(server).get(`/album/123/art/size/180`);
+            const res = await request(server).get(`/art/album/123/size/180`);
 
             expect(res.status).toEqual(401);
           });
@@ -1051,7 +1082,7 @@ describe("server", () => {
             now = now.add(1, "day");
 
             const res = await request(server).get(
-              `/album/123/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+              `/art/album/123/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
             );
 
             expect(res.status).toEqual(401);
@@ -1063,7 +1094,7 @@ describe("server", () => {
             it("should return a 400", async () => {
               const res = await request(server)
                 .get(
-                  `/foo/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                  `/art/foo/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                 )
                 .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1072,6 +1103,21 @@ describe("server", () => {
           });
 
           describe("artist art", () => {
+            ["0", "-1", "foo"].forEach((size) => {
+              describe(`when the size is ${size}`, () => {
+                it(`should return a 400`, async () => {
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${albumId}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(400);
+                });
+              });
+            });
+
             describe("when there is some", () => {
               it("should return the image and a 200", async () => {
                 const coverArt = {
@@ -1086,7 +1132,7 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/artist/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1112,7 +1158,7 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/artist/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1128,7 +1174,7 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/artist/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1138,6 +1184,21 @@ describe("server", () => {
           });
 
           describe("album art", () => {
+            ["0", "-1", "foo"].forEach((size) => {
+              describe(`when the size is ${size}`, () => {
+                it(`should return a 400`, async () => {
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  const res = await request(server)
+                    .get(
+                      `/art/album/${albumId}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(400);
+                });
+              });
+            });
+
             describe("when there is some", () => {
               it("should return the image and a 200", async () => {
                 const coverArt = {
@@ -1151,7 +1212,7 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    `/art/album/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1176,7 +1237,7 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    `/art/album/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1191,11 +1252,99 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/album/${albumId}/art/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    `/art/album/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
                 expect(res.status).toEqual(500);
+              });
+            });
+          });
+        });
+      });
+
+      describe("/icon", () => {
+        const server = makeServer(
+          jest.fn() as unknown as Sonos,
+          aService(),
+          url("http://localhost:1234"),
+          jest.fn() as unknown as MusicService,
+          new InMemoryLinkCodes(),
+          jest.fn() as unknown as AccessTokens
+        );
+
+        describe("invalid icon names", () => {
+          [
+            "..%2F..%2Ffoo",
+            "%2Fetc%2Fpasswd",
+            ".%2Fbob.js",
+            ".",
+            "..",
+            "1",
+            "%23%24",
+            "notAValidIcon",
+          ].forEach((type) => {
+            describe(`trying to retrieve an icon with name ${type}`, () => {
+              it(`should fail`, async () => {
+                const response = await request(server).get(
+                  `/icon/${type}/size/legacy`
+                );
+
+                expect(response.status).toEqual(404);
+              });
+            });
+          });
+        });
+
+        describe("invalid size", () => {
+          ["-1", "0", "59", "foo"].forEach((size) => {
+            describe(`trying to retrieve an icon with size ${size}`, () => {
+              it(`should fail`, async () => {
+                const response = await request(server).get(
+                  `/icon/artists/size/${size}`
+                );
+
+                expect(response.status).toEqual(400);
+              });
+            });
+          });
+        });
+
+        describe("fetching", () => {
+          Object.keys(ICONS).forEach((type) => {
+            describe(`type=${type}`, () => {
+              describe(`legacy icon`, () => {
+                it("should return the png image", async () => {
+                  const response = await request(server).get(
+                    `/icon/${type}/size/legacy`
+                  );
+
+                  expect(response.status).toEqual(200);
+                  expect(response.header["content-type"]).toEqual("image/png");
+                  const image = await Image.load(response.body);
+                  expect(image.width).toEqual(80);
+                  expect(image.height).toEqual(80);
+                });
+              });
+
+              describe("svg icon", () => {
+                SONOS_RECOMMENDED_IMAGE_SIZES.forEach((size) => {
+                  it(`should return an svg image for size = ${size}`, async () => {
+                    const response = await request(server).get(
+                      `/icon/${type}/size/${size}`
+                    );
+
+                    expect(response.status).toEqual(200);
+                    expect(response.header["content-type"]).toEqual(
+                      "image/svg+xml; charset=utf-8"
+                    );
+                    const svg = Buffer.from(response.body).toString();
+                    expect(svg).toContain(`viewBox="0 0 ${size} ${size}"`);
+                    expect(svg).toContain(
+                      ` xmlns="http://www.w3.org/2000/svg" `
+                    );
+                  });
+                });
               });
             });
           });

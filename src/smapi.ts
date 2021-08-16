@@ -46,6 +46,8 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "1500",
 ];
 
+export type ICON = "artists" | "albums" | "playlists" | "genres" | "random" | "starred" | "recentlyAdded" | "recentlyPlayed" | "mostPlayed" | "discover"
+
 const WSDL_FILE = path.resolve(
   __dirname,
   "Sonoswsdl-1.19.4-20190411.142401-3.wsdl"
@@ -226,12 +228,15 @@ const playlist = (playlist: PlaylistSummary) => ({
 });
 
 export const defaultAlbumArtURI = (bonobUrl: URLBuilder, album: AlbumSummary) =>
-  bonobUrl.append({ pathname: `/album/${album.id}/art/size/180` });
+  bonobUrl.append({ pathname: `/art/album/${album.id}/size/180` });
+
+export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) => 
+  bonobUrl.append({ pathname: `/icon/${icon}/size/legacy` });
 
 export const defaultArtistArtURI = (
   bonobUrl: URLBuilder,
   artist: ArtistSummary
-) => bonobUrl.append({ pathname: `/artist/${artist.id}/art/size/180` });
+) => bonobUrl.append({ pathname: `/art/artist/${artist.id}/size/180` });
 
 export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   itemType: "album",
@@ -558,19 +563,22 @@ function bindSmapiSoapServiceToExpress(
                     return getMetadataResult({
                       mediaCollection: [
                         {
-                          itemType: "container",
                           id: "artists",
                           title: lang("artists"),
+                          albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                          itemType: "container",
                         },
                         {
-                          itemType: "albumList",
                           id: "albums",
                           title: lang("albums"),
+                          albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "playlist",
                           id: "playlists",
                           title: lang("playlists"),
+                          albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                          itemType: "playlist",
                           attributes: {
                             readOnly: false,
                             userContent: true,
@@ -578,34 +586,40 @@ function bindSmapiSoapServiceToExpress(
                           },
                         },
                         {
-                          itemType: "container",
                           id: "genres",
                           title: lang("genres"),
+                          albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                          itemType: "container",
                         },
                         {
-                          itemType: "albumList",
                           id: "randomAlbums",
                           title: lang("random"),
+                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "starredAlbums",
                           title: lang("starred"),
+                          albumArtURI: iconArtURI(bonobUrl, "starred").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "recentlyAdded",
                           title: lang("recentlyAdded"),
+                          albumArtURI: iconArtURI(bonobUrl, "recentlyAdded").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "recentlyPlayed",
                           title: lang("recentlyPlayed"),
+                          albumArtURI: iconArtURI(bonobUrl, "recentlyPlayed").href(),
+                          itemType: "albumList",
                         },
                         {
-                          itemType: "albumList",
                           id: "mostPlayed",
                           title: lang("mostPlayed"),
+                          albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
+                          itemType: "albumList",
                         },
                       ],
                       index: 0,
