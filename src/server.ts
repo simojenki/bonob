@@ -87,7 +87,10 @@ function server(
   app.set("view engine", "eta");
   app.set("views", "./web/views");
 
-  const langFor = (req: Request) => i8n(...asLANGs(req.headers["accept-language"]))
+  const langFor = (req: Request) => {
+    logger.debug(`${req.path} (req[accept-language]=${req.headers["accept-language"]})`);
+    return i8n(...asLANGs(req.headers["accept-language"]));
+  }
 
   app.get("/", (req, res) => {
     const lang = langFor(req);
