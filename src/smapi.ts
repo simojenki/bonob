@@ -536,9 +536,10 @@ function bindSmapiSoapServiceToExpress(
               .then(splitId(id))
               .then(({ musicLibrary, accessToken, type, typeId }) => {
                 const paging = { _index: index, _count: count };
-                const lang = i8n((headers["accept-language"] || "en-US") as LANG);
+                const acceptLanguage = headers["accept-language"];
+                const lang = i8n((acceptLanguage || "en-US") as LANG);
                 logger.debug(
-                  `Fetching metadata type=${type}, typeId=${typeId}, lang=${lang}`
+                  `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
                 );
 
                 const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>

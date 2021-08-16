@@ -106,6 +106,13 @@ const translations: Record<LANG, Record<KEY, string>> = {
   },
 };
 
+const translationsLookup = Object.keys(translations).reduce((lookups, lang) => {
+  lookups.set(lang, translations[lang as LANG]);
+  lookups.set(lang.toLocaleLowerCase(), translations[lang as LANG]);
+  lookups.set(lang.toLocaleLowerCase().split("-")[0]!, translations[lang as LANG]);
+  return lookups;
+}, new Map<string, Record<KEY, string>>())
+
 export const randomLang = () => _.shuffle(["en-US", "nl-NL"])[0]!;
 
 export const asLANGs = (acceptLanguageHeader: string | undefined) =>
@@ -134,8 +141,8 @@ export const keys = (lang: LANG = "en-US") => Object.keys(translations[lang]);
 
 export default (serviceName: string): I8N =>
   (...langs: string[]): Lang => {
-    const langToUse =
-      langs.map((l) => translations[l as LANG]).find((it) => it) ||
+    const langToUse = 
+      langs.map((l) => translationsLookup.get(l as LANG)).find((it) => it) ||
       translations["en-US"];
     return (key: KEY) => {
       const value = langToUse[key]?.replace(
