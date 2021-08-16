@@ -10,6 +10,7 @@
       "strict": true,
       "noImplicitAny": false,
       "typeRoots" : [
+        "../typings",
         "../node_modules/@types"
       ]
     },

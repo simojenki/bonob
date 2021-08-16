@@ -3717,7 +3717,6 @@ describe("Navidrome", () => {
         const id = "idWithNoTracks";
 
         const xml = similarSongsXml([]);
-        console.log(`xml = ${xml}`)
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>

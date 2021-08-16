@@ -10,7 +10,7 @@ import { URLBuilder } from "./url_builder";
 
 export const SONOS_LANG = ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "ja-JP", "nb-NO", "nl-NL", "pt-BR", "sv-SE", "zh-CN"]
 
-export const PRESENTATION_AND_STRINGS_VERSION = "19";
+export const PRESENTATION_AND_STRINGS_VERSION = "21";
 
 // NOTE: manifest requires https for the URL,
 // otherwise you will get an error trying to register
