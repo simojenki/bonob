@@ -16,6 +16,7 @@ import {
   HIP_HOP,
   SKA,
 } from "./builders";
+import _ from "underscore";
 
 describe("InMemoryMusicService", () => {
   const service = new InMemoryMusicService();
@@ -210,6 +211,7 @@ describe("InMemoryMusicService", () => {
       const artist3_album2 = anAlbum({ genre: POP });
 
       const artist1 = anArtist({
+        name: "artist1",
         albums: [
           artist1_album1,
           artist1_album2,
@@ -218,8 +220,8 @@ describe("InMemoryMusicService", () => {
           artist1_album5,
         ],
       });
-      const artist2 = anArtist({ albums: [artist2_album1] });
-      const artist3 = anArtist({ albums: [artist3_album1, artist3_album2] });
+      const artist2 = anArtist({ name: "artist2", albums: [artist2_album1] });
+      const artist3 = anArtist({ name: "artist3", albums: [artist3_album1, artist3_album2] });
       const artistWithNoAlbums = anArtist({ albums: [] });
 
       const allAlbums = [artist1, artist2, artist3, artistWithNoAlbums].flatMap(
@@ -265,29 +267,48 @@ describe("InMemoryMusicService", () => {
       describe("fetching multiple albums", () => {
         describe("with no filtering", () => {
           describe("fetching all on one page", () => {
-            it("should return all the albums for all the artists", async () => {
-              expect(
-                await musicLibrary.albums({
-                  _index: 0,
-                  _count: 100,
-                  type: "alphabeticalByArtist",
-                })
-              ).toEqual({
-                results: [
-                  albumToAlbumSummary(artist1_album1),
-                  albumToAlbumSummary(artist1_album2),
-                  albumToAlbumSummary(artist1_album3),
-                  albumToAlbumSummary(artist1_album4),
-                  albumToAlbumSummary(artist1_album5),
-
-                  albumToAlbumSummary(artist2_album1),
-
-                  albumToAlbumSummary(artist3_album1),
-                  albumToAlbumSummary(artist3_album2),
-                ],
-                total: totalAlbumCount,
+            describe("alphabeticalByArtist", () => {
+              it("should return all the albums for all the artists", async () => {
+                expect(
+                  await musicLibrary.albums({
+                    _index: 0,
+                    _count: 100,
+                    type: "alphabeticalByArtist",
+                  })
+                ).toEqual({
+                  results: [
+                    albumToAlbumSummary(artist1_album1),
+                    albumToAlbumSummary(artist1_album2),
+                    albumToAlbumSummary(artist1_album3),
+                    albumToAlbumSummary(artist1_album4),
+                    albumToAlbumSummary(artist1_album5),
+  
+                    albumToAlbumSummary(artist2_album1),
+  
+                    albumToAlbumSummary(artist3_album1),
+                    albumToAlbumSummary(artist3_album2),
+                  ],
+                  total: totalAlbumCount,
+                });
               });
             });
+
+            describe("alphabeticalByName", () => {
+              it("should return all the albums for all the artists", async () => {
+                expect(
+                  await musicLibrary.albums({
+                    _index: 0,
+                    _count: 100,
+                    type: "alphabeticalByName",
+                  })
+                ).toEqual({
+                  results:                   
+                  _.sortBy(allAlbums, 'name').map(albumToAlbumSummary),
+                  total: totalAlbumCount,
+                });
+              });
+            });
+
           });
 
           describe("fetching a page", () => {
