@@ -758,7 +758,7 @@ describe("api", () => {
 
               describe("when an accept-language header is present with value nl-NL", () => {
                 it("should return nl-NL", async () => {
-                  ws.addHttpHeader("accept-language", "nl-NL")
+                  ws.addHttpHeader("accept-language", "nl-NL, en-US;q=0.9")
                   const root = await ws.getMetadataAsync({
                     id: "root",
                     index: 0,
