@@ -88,7 +88,7 @@ const translations: Record<LANG, Record<KEY, string>> = {
     expectedConfig: "Verwachte configuratie",
     existingServiceConfig: "Bestaande serviceconfiguratie",
     noExistingServiceRegistration: "Geen bestaande serviceregistratie",
-    register: "Register",
+    register: "Registreren",
     removeRegistration: "Verwijder registratie",
     devices: "Apparaten",
     services: "Services",
