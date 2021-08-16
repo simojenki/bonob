@@ -632,7 +632,7 @@ function bindSmapiSoapServiceToExpress(
                     });
                   case "albums": {
                     return albums({
-                      type: "alphabeticalByArtist",
+                      type: "alphabeticalByName",
                       ...paging,
                     });
                   }

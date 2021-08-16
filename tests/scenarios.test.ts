@@ -245,7 +245,7 @@ describe("scenarios", () => {
                   ...BLONDIE.albums,
                   ...BOB_MARLEY.albums,
                   ...MADONNA.albums,
-                ].map((it) => it.name)
+                ].map((it) => it.name).sort()
               )
             );
         });

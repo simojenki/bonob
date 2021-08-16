@@ -1576,7 +1576,7 @@ describe("api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
-                    type: "alphabeticalByArtist",
+                    type: "alphabeticalByName",
                     _index: paging.index,
                     _count: paging.count,
                   });
@@ -1622,7 +1622,7 @@ describe("api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
-                    type: "alphabeticalByArtist",
+                    type: "alphabeticalByName",
                     _index: paging.index,
                     _count: paging.count,
                   });

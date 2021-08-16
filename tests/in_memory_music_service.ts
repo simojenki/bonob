@@ -77,7 +77,9 @@ export class InMemoryMusicService implements MusicService {
             switch (q.type) {
               case "alphabeticalByArtist":
                 return artist2Album;
-              case "byGenre":
+                case "alphabeticalByName":
+                  return artist2Album.sort((a, b) => a.album.name.localeCompare(b.album.name));
+                case "byGenre":
                 return artist2Album.filter(
                   (it) => it.album.genre?.id === q.genre
                 );
