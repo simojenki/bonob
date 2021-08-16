@@ -22,7 +22,7 @@ import { AccessTokens } from "./access_tokens";
 import { BONOB_ACCESS_TOKEN_HEADER } from "./server";
 import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
-import { I8N, LANG } from "./i8n";
+import { asLANGs, I8N } from "./i8n";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -537,10 +537,10 @@ function bindSmapiSoapServiceToExpress(
               .then(({ musicLibrary, accessToken, type, typeId }) => {
                 const paging = { _index: index, _count: count };
                 const acceptLanguage = headers["accept-language"];
-                const lang = i8n((acceptLanguage || "en-US") as LANG);
                 logger.debug(
                   `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
                 );
+                const lang = i8n(...asLANGs(acceptLanguage));
 
                 const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
                   musicLibrary.albums(q).then((result) => {
