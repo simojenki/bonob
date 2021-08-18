@@ -3,6 +3,7 @@ FROM node:16.6-alpine as build
 WORKDIR /bonob
 
 COPY src ./src
+COPY typings ./typings
 COPY web ./web
 COPY tests ./tests
 COPY jest.config.js .
