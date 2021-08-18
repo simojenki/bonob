@@ -34,7 +34,7 @@ export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
 const icon = (name: string) =>
   fs
-    .readFileSync(path.resolve(__dirname, "..", "web", "icons", name))
+    .readFileSync(path.resolve(".", "web", "icons", name))
     .toString();
 
 export type Icon = { svg: string; size: number };
