@@ -162,7 +162,7 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
         }
       })
       .catch((e) => {
-        logger.error(`Failed looking for sonos devices ${e}`);
+        logger.error(`Failed looking for sonos devices`, { cause: e });
         return [];
       });
   };
