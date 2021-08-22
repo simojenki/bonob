@@ -367,7 +367,7 @@ export class Navidrome implements MusicService {
       )
       .then((json) => json["subsonic-response"])
       .then((json) => {
-        if (isError(json)) throw json.error._message;
+        if (isError(json)) throw `Navidrome error:${json.error._message}`;
         else return json as unknown as T;
       });
 

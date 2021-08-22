@@ -447,7 +447,7 @@ describe("Navidrome", () => {
         });
 
         const token = await navidrome.generateToken({ username, password });
-        expect(token).toEqual({ message: "Wrong username or password" });
+        expect(token).toEqual({ message: "Navidrome error:Wrong username or password" });
       });
     });
   });
@@ -3387,7 +3387,7 @@ describe("Navidrome", () => {
               .then((it) => it as AuthSuccess)
               .then((it) => navidrome.login(it.authToken))
               .then((it) => it.playlist(id))
-          ).rejects.toEqual("data not found");
+          ).rejects.toEqual("Navidrome error:data not found");
         });
       });
 
@@ -3742,7 +3742,7 @@ describe("Navidrome", () => {
       });
     });
 
-    describe("when there id doesnt exist", () => {
+    describe("when the id doesnt exist", () => {
       it("should fail", async () => {
         const id = "idThatHasAnError";
 
@@ -3756,7 +3756,7 @@ describe("Navidrome", () => {
           .generateToken({ username, password })
           .then((it) => it as AuthSuccess)
           .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.similarSongs(id))).rejects.toEqual("data not found");
+          .then((it) => it.similarSongs(id))).rejects.toEqual("Navidrome error:data not found");
       });
     });
   });

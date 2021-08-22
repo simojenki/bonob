@@ -438,8 +438,7 @@ function server(
         })
         .catch((e: Error) => {
           logger.error(
-            `Failed fetching image ${type}/${id}/size/${size}: ${e.message}`,
-            e
+            `Failed fetching image ${type}/${id}/size/${size}`, { cause: e }
           );
           return res.status(500).send();
         });
