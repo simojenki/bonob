@@ -1,25 +1,33 @@
-name: Build
+name: ci
 
 on:
   push:
-    branches: [ master ]
-  # pull_request:
-  #   branches: [ master ]
+    branches:
+      - 'master'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - 'master'
 
 jobs:
 
   build_and_test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - 
+        uses: actions/checkout@v2
+      - 
+        uses: actions/setup-node@v1
         with:
-          node-version: 14.x
-      - run: yarn install
-      - run: yarn test
+          node-version: 16.x
+      - 
+        run: yarn install
+      - 
+        run: yarn test
+
 
   push_to_registry:
-    needs: build_and_test
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
@@ -46,5 +54,4 @@ jobs:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: latest
-
+          labels: ${{ steps.meta.outputs.labels }}
