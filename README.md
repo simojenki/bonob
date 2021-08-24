@@ -23,7 +23,7 @@ Currently only a single integration allowing Navidrome to be registered with son
 - Ability to play a playlist
 - Ability to add/remove playlists
 - Ability to add/remove tracks from a playlist
-- Localization (only en-US & nl-NL supported currently, require translations for other languages).  ![Sonos localization and supported languages](https://developer.sonos.com/build/content-service-add-features/strings-and-localization/)
+- Localization (only en-US & nl-NL supported currently, require translations for other languages).  [Sonos localization and supported languages](https://developer.sonos.com/build/content-service-add-features/strings-and-localization/)
 
 ## Running
 
@@ -161,7 +161,7 @@ BONOB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
 
 ## Credits
 
-- Icons courtesy of: ![Navidrome](https://www.navidrome.org/), ![Vectornator](https://www.vectornator.io/), and @jicho
+- Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/), and @jicho
 
 ## TODO
 
