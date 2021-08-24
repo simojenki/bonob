@@ -7,8 +7,9 @@ import logger from "./logger";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
 import qs from "querystring";
 import { URLBuilder } from "./url_builder";
+import { LANG } from "./i8n";
 
-export const SONOS_LANG = ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "ja-JP", "nb-NO", "nl-NL", "pt-BR", "sv-SE", "zh-CN"]
+export const SONOS_LANG: LANG[] = ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "ja-JP", "nb-NO", "nl-NL", "pt-BR", "sv-SE", "zh-CN"]
 
 export const PRESENTATION_AND_STRINGS_VERSION = "21";
 

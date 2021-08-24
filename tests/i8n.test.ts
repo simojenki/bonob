@@ -1,4 +1,4 @@
-import i8n, { langs, LANG, KEY, keys, asLANGs } from "../src/i8n";
+import i8n, { langs, LANG, KEY, keys, asLANGs, SUPPORTED_LANG } from "../src/i8n";
 
 describe("i8n", () => {
   describe("asLANGs", () => {
@@ -41,7 +41,7 @@ describe("i8n", () => {
   describe("validity of translations", () => {
     it("all langs should have same keys as US", () => {
       langs().forEach((l) => {
-        expect(keys(l as LANG)).toEqual(keys("en-US"));
+        expect(keys(l as SUPPORTED_LANG)).toEqual(keys("en-US"));
       });
     });
   });

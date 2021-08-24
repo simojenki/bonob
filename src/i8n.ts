@@ -3,7 +3,8 @@ import { pipe } from "fp-ts/lib/function";
 import { option as O } from "fp-ts";
 import _ from "underscore";
 
-export type LANG = "en-US" | "nl-NL";
+export type LANG = "en-US" | "da-DK" | "de-DE" | "es-ES" | "fr-FR" | "it-IT" | "ja-JP" | "nb-NO" | "nl-NL" | "pt-BR" | "sv-SE" | "zh-CN"
+export type SUPPORTED_LANG = "en-US" | "nl-NL";
 export type KEY =
   | "AppLinkMessage"
   | "artists"
@@ -37,7 +38,7 @@ export type KEY =
   | "loginSuccessful"
   | "loginFailed";
 
-const translations: Record<LANG, Record<KEY, string>> = {
+const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
   "en-US": {
     AppLinkMessage: "Linking sonos with $BONOB_SONOS_SERVICE_NAME",
     artists: "Artists",
@@ -107,15 +108,15 @@ const translations: Record<LANG, Record<KEY, string>> = {
 };
 
 const translationsLookup = Object.keys(translations).reduce((lookups, lang) => {
-  lookups.set(lang, translations[lang as LANG]);
-  lookups.set(lang.toLocaleLowerCase(), translations[lang as LANG]);
-  lookups.set(lang.toLocaleLowerCase().split("-")[0]!, translations[lang as LANG]);
+  lookups.set(lang, translations[lang as SUPPORTED_LANG]);
+  lookups.set(lang.toLocaleLowerCase(), translations[lang as SUPPORTED_LANG]);
+  lookups.set(lang.toLocaleLowerCase().split("-")[0]!, translations[lang as SUPPORTED_LANG]);
   return lookups;
 }, new Map<string, Record<KEY, string>>())
 
 export const randomLang = () => _.shuffle(["en-US", "nl-NL"])[0]!;
 
-export const asLANGs = (acceptLanguageHeader: string | undefined) =>
+export const asLANGs = (acceptLanguageHeader: string | undefined): LANG[] =>
   pipe(
     acceptLanguageHeader,
     O.fromNullable,
@@ -125,7 +126,8 @@ export const asLANGs = (acceptLanguageHeader: string | undefined) =>
       pipe(
         it.split(","),
         A.map((it) => it.trim()),
-        A.filter((it) => it != "")
+        A.filter((it) => it != ""),
+        A.map(it => it as LANG)
       )
     ),
     O.getOrElseW(() => [])
@@ -137,12 +139,12 @@ export type Lang = (key: KEY) => string;
 
 export const langs = () => Object.keys(translations);
 
-export const keys = (lang: LANG = "en-US") => Object.keys(translations[lang]);
+export const keys = (lang: SUPPORTED_LANG = "en-US") => Object.keys(translations[lang]);
 
 export default (serviceName: string): I8N =>
   (...langs: string[]): Lang => {
-    const langToUse = 
-      langs.map((l) => translationsLookup.get(l as LANG)).find((it) => it) ||
+    const langToUse =
+      langs.map((l) => translationsLookup.get(l as SUPPORTED_LANG)).find((it) => it) ||
       translations["en-US"];
     return (key: KEY) => {
       const value = langToUse[key]?.replace(
