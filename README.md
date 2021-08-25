@@ -141,6 +141,8 @@ BONOB_NAVIDROME_URL | http://$(hostname):4533 | URL for navidrome
 BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom navidrome clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
 BONOB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it has been played for >30s
 BONOB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
+BONOB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in sonos app, must be a valid [web color](https://www.december.com/html/spec/colorsvg.html)
+BONOB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must be a valid [web color](https://www.december.com/html/spec/colorsvg.html)
 
 ## Initialising service within sonos app
 
