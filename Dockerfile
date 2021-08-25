@@ -35,13 +35,14 @@ WORKDIR /bonob
 
 COPY package.json .
 COPY yarn.lock .
-COPY --from=build /bonob/build/src/* ./
+
+COPY --from=build /bonob/build/src ./src
 COPY --from=build /bonob/node_modules ./node_modules
-COPY web web
-COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl /bonob/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
+COPY web ./web
+COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl ./src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
 
 RUN apk add --no-cache --update vips
 
 USER nobody 
 
-CMD ["node", "./app.js"]
+CMD ["node", "/bonob/src/app.js"]
