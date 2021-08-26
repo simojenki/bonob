@@ -6,7 +6,6 @@ import Image from "image-js";
 import { MusicService } from "../src/music_service";
 import makeServer, {
   BONOB_ACCESS_TOKEN_HEADER,
-  ICONS,
   RangeBytesFromFilter,
   rangeFilterFor,
 } from "../src/server";
@@ -21,9 +20,8 @@ import { Response } from "express";
 import { Transform } from "stream";
 import url from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
-import {
-  SONOS_RECOMMENDED_IMAGE_SIZES,
-} from "../src/smapi";
+import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
+import { Clock, SystemClock } from "../src/clock";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -1264,14 +1262,23 @@ describe("server", () => {
       });
 
       describe("/icon", () => {
-        const server = makeServer(
-          jest.fn() as unknown as Sonos,
-          aService(),
-          url("http://localhost:1234"),
-          jest.fn() as unknown as MusicService,
-          new InMemoryLinkCodes(),
-          jest.fn() as unknown as AccessTokens
-        );
+        const server = (
+          clock: Clock = SystemClock, 
+          iconColors: {
+            foregroundColor: string | undefined;
+            backgroundColor: string | undefined;
+          } = { foregroundColor: undefined, backgroundColor: undefined }
+        ) =>
+          makeServer(
+            jest.fn() as unknown as Sonos,
+            aService(),
+            url("http://localhost:1234"),
+            jest.fn() as unknown as MusicService,
+            new InMemoryLinkCodes(),
+            jest.fn() as unknown as AccessTokens,
+            clock,
+            iconColors
+          );
 
         describe("invalid icon names", () => {
           [
@@ -1286,7 +1293,7 @@ describe("server", () => {
           ].forEach((type) => {
             describe(`trying to retrieve an icon with name ${type}`, () => {
               it(`should fail`, async () => {
-                const response = await request(server).get(
+                const response = await request(server()).get(
                   `/icon/${type}/size/legacy`
                 );
 
@@ -1300,7 +1307,7 @@ describe("server", () => {
           ["-1", "0", "59", "foo"].forEach((size) => {
             describe(`trying to retrieve an icon with size ${size}`, () => {
               it(`should fail`, async () => {
-                const response = await request(server).get(
+                const response = await request(server()).get(
                   `/icon/artists/size/${size}`
                 );
 
@@ -1311,11 +1318,22 @@ describe("server", () => {
         });
 
         describe("fetching", () => {
-          Object.keys(ICONS).forEach((type) => {
+          [
+            "artists",
+            "albums",
+            "playlists",
+            "genres",
+            "random",
+            "starred",
+            "recentlyAdded",
+            "recentlyPlayed",
+            "mostPlayed",
+            "discover",
+          ].forEach((type) => {
             describe(`type=${type}`, () => {
               describe(`legacy icon`, () => {
                 it("should return the png image", async () => {
-                  const response = await request(server).get(
+                  const response = await request(server()).get(
                     `/icon/${type}/size/legacy`
                   );
 
@@ -1330,7 +1348,7 @@ describe("server", () => {
               describe("svg icon", () => {
                 SONOS_RECOMMENDED_IMAGE_SIZES.forEach((size) => {
                   it(`should return an svg image for size = ${size}`, async () => {
-                    const response = await request(server).get(
+                    const response = await request(server()).get(
                       `/icon/${type}/size/${size}`
                     );
 
@@ -1339,11 +1357,32 @@ describe("server", () => {
                       "image/svg+xml; charset=utf-8"
                     );
                     const svg = Buffer.from(response.body).toString();
-                    expect(svg).toContain(`viewBox="0 0 ${size} ${size}"`);
                     expect(svg).toContain(
                       ` xmlns="http://www.w3.org/2000/svg" `
                     );
                   });
+                });
+
+                it("should return icon colors as per config if overriden", async () => {
+                  const response = await request(server(SystemClock, { foregroundColor: 'brightblue', backgroundColor: 'brightpink' })).get(
+                    `/icon/${type}/size/180`
+                  );
+
+                  expect(response.status).toEqual(200);
+                  const svg = Buffer.from(response.body).toString();
+                  expect(svg).toContain(`fill:brightblue`);
+                  expect(svg).toContain(`fill:brightpink`);
+                });
+
+                it("should return a christmas icon on christmas day", async () => {
+                  const response = await request(server({ now: () => dayjs("2022/12/25") })).get(
+                    `/icon/${type}/size/180`
+                  );
+
+                  expect(response.status).toEqual(200);
+                  const svg = Buffer.from(response.body).toString();
+                  expect(svg).toContain(`fill:red`);
+                  expect(svg).toContain(`fill:green`);
                 });
               });
             });

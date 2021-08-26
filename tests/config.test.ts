@@ -107,6 +107,66 @@ describe("config", () => {
     });
   });
 
+  describe("icons", () => {
+    describe("foregroundColor", () => {
+      describe("when BONOB_ICON_FOREGROUND_COLOR is not specified", () => {
+        it(`should default to undefined`, () => {
+          expect(config().icons.foregroundColor).toEqual(undefined);
+        });
+      });
+
+      describe("when BONOB_ICON_FOREGROUND_COLOR is ''", () => {
+        it(`should default to undefined`, () => {
+          process.env["BONOB_ICON_FOREGROUND_COLOR"] = "";
+          expect(config().icons.foregroundColor).toEqual(undefined);
+        });
+      });
+
+      describe("when BONOB_ICON_FOREGROUND_COLOR is specified", () => {
+        it(`should use it`, () => {
+          process.env["BONOB_ICON_FOREGROUND_COLOR"] = "pink";
+          expect(config().icons.foregroundColor).toEqual("pink");
+        });
+      });
+
+      describe("when BONOB_ICON_FOREGROUND_COLOR is an invalid string", () => {
+        it(`should blow up`, () => {
+          process.env["BONOB_ICON_FOREGROUND_COLOR"] = "#dfasd";
+          expect(() => config()).toThrow("Invalid color specified for BONOB_ICON_FOREGROUND_COLOR")
+        });
+      });
+    });
+
+    describe("backgroundColor", () => {
+      describe("when BONOB_ICON_BACKGROUND_COLOR is not specified", () => {
+        it(`should default to undefined`, () => {
+          expect(config().icons.backgroundColor).toEqual(undefined);
+        });
+      });
+
+      describe("when BONOB_ICON_BACKGROUND_COLOR is ''", () => {
+        it(`should default to undefined`, () => {
+          process.env["BONOB_ICON_BACKGROUND_COLOR"] = "";
+          expect(config().icons.backgroundColor).toEqual(undefined);
+        });
+      });
+
+      describe("when BONOB_ICON_BACKGROUND_COLOR is specified", () => {
+        it(`should use it`, () => {
+          process.env["BONOB_ICON_BACKGROUND_COLOR"] = "blue";
+          expect(config().icons.backgroundColor).toEqual("blue");
+        });
+      });
+
+      describe("when BONOB_ICON_BACKGROUND_COLOR is an invalid string", () => {
+        it(`should blow up`, () => {
+          process.env["BONOB_ICON_BACKGROUND_COLOR"] = "#red";
+          expect(() => config()).toThrow("Invalid color specified for BONOB_ICON_BACKGROUND_COLOR")
+        });
+      });
+    });
+});
+
   describe("secret", () => {
     it("should default to bonob", () => {
       expect(config().secret).toEqual("bonob");

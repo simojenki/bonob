@@ -16,10 +16,24 @@ export default function () {
     process.exit(1);
   }
 
+  const colorFrom = (envVar: string) => {
+    const value = process.env[envVar];
+    if (value && value != "") {
+      if (value.match(/^\w+$/)) return value;
+      else throw `Invalid color specified for ${envVar}`;
+    } else {
+      return undefined;
+    }
+  };
+
   return {
     port,
     bonobUrl: url(bonobUrl),
     secret: process.env["BONOB_SECRET"] || "bonob",
+    icons: {
+      foregroundColor: colorFrom("BONOB_ICON_FOREGROUND_COLOR"),
+      backgroundColor: colorFrom("BONOB_ICON_BACKGROUND_COLOR"),
+    },
     sonos: {
       serviceName: process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
       deviceDiscovery:

@@ -64,6 +64,7 @@ const app = server(
   new InMemoryLinkCodes(),
   new InMemoryAccessTokens(sha256(config.secret)),
   SystemClock,
+  config.icons,
   true,
 );
 
