@@ -3,7 +3,6 @@ import express, { Express, Request } from "express";
 import * as Eta from "eta";
 import morgan from "morgan";
 import path from "path";
-import scale from "scale-that-svg";
 import sharp from "sharp";
 import fs from "fs";
 
@@ -29,28 +28,9 @@ import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
+import { SvgIcon, Icon, makeFestive } from "./icon";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
-
-const icon = (name: string) =>
-  fs
-    .readFileSync(path.resolve(__dirname, "..", "web", "icons", name))
-    .toString();
-
-export type Icon = { svg: string; size: number };
-
-export const ICONS: Record<ICON, Icon> = {
-  artists: { svg: icon("navidrome-artists.svg"), size: 24 },
-  albums: { svg: icon("navidrome-all.svg"), size: 24 },
-  playlists: { svg: icon("navidrome-playlists.svg"), size: 24 },
-  genres: { svg: icon("Theatre-Mask-111172.svg"), size: 128 },
-  random: { svg: icon("navidrome-random.svg"), size: 24 },
-  starred: { svg: icon("navidrome-topRated.svg"), size: 24 },
-  recentlyAdded: { svg: icon("navidrome-recentlyAdded.svg"), size: 24 },
-  recentlyPlayed: { svg: icon("navidrome-recentlyPlayed.svg"), size: 24 },
-  mostPlayed: { svg: icon("navidrome-mostPlayed.svg"), size: 24 },
-  discover: { svg: icon("Binoculars-14310.svg"), size: 32 },
-};
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;
@@ -97,6 +77,10 @@ function server(
   linkCodes: LinkCodes = new InMemoryLinkCodes(),
   accessTokens: AccessTokens = new AccessTokenPerAuthToken(),
   clock: Clock = SystemClock,
+  iconColors: {
+    foregroundColor: string | undefined;
+    backgroundColor: string | undefined;
+  } = { foregroundColor: undefined, backgroundColor: undefined },
   applyContextPath = true
 ): Express {
   const app = express();
@@ -117,6 +101,27 @@ function server(
       `${req.path} (req[accept-language]=${req.headers["accept-language"]})`
     );
     return i8n(...asLANGs(req.headers["accept-language"]));
+  };
+
+  const iconFrom = (name: string) =>
+    makeFestive(
+      new SvgIcon(
+        fs.readFileSync(path.resolve(__dirname, "..", "web", "icons", name)).toString()
+      ).with({ viewPortIncreasePercent: 50, ...iconColors }),
+      clock
+    );
+
+  const ICONS: Record<ICON, Icon> = {
+    artists: iconFrom("navidrome-artists.svg"),
+    albums: iconFrom("navidrome-all.svg"),
+    playlists: iconFrom("navidrome-playlists.svg"),
+    genres: iconFrom("Theatre-Mask-111172.svg"),
+    random: iconFrom("navidrome-random.svg"),
+    starred: iconFrom("navidrome-topRated.svg"),
+    recentlyAdded: iconFrom("navidrome-recentlyAdded.svg"),
+    recentlyPlayed: iconFrom("navidrome-recentlyPlayed.svg"),
+    mostPlayed: iconFrom("navidrome-mostPlayed.svg"),
+    discover: iconFrom("Binoculars-14310.svg"),
   };
 
   app.get("/", (req, res) => {
@@ -391,20 +396,17 @@ function server(
       const spec =
         size == "legacy"
           ? {
-              outputSize: 80,
               mimeType: "image/png",
               responseFormatter: (svg: string): Promise<Buffer | string> =>
-                sharp(Buffer.from(svg)).png().toBuffer(),
+                sharp(Buffer.from(svg)).resize(80).png().toBuffer(),
             }
           : {
-              outputSize: Number.parseInt(size),
               mimeType: "image/svg+xml",
               responseFormatter: (svg: string): Promise<Buffer | string> =>
                 Promise.resolve(svg),
             };
 
-      return Promise.resolve(icon.svg)
-        .then((svg) => scale(svg, { scale: spec.outputSize / icon.size }))
+      return Promise.resolve(icon.toString())
         .then(spec.responseFormatter)
         .then((data) => res.status(200).type(spec.mimeType).send(data));
     }
@@ -437,9 +439,9 @@ function server(
           }
         })
         .catch((e: Error) => {
-          logger.error(
-            `Failed fetching image ${type}/${id}/size/${size}`, { cause: e }
-          );
+          logger.error(`Failed fetching image ${type}/${id}/size/${size}`, {
+            cause: e,
+          });
           return res.status(500).send();
         });
     }
