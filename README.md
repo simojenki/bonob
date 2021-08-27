@@ -163,6 +163,22 @@ BONOB_ICON_FONT_FAMILY | undefined | Icon font family in sonos app
 - Implement the MusicService/MusicLibrary interface
 - Startup bonob with your new implementation.
 
+## Sample Icon colors
+
+```
+-e BONOB_ICON_FOREGROUND_COLOR=white \
+-e BONOB_ICON_BACKGROUND_COLOR=darkgrey
+```
+![White & Dark Grey](https://github.com/simojenki/bonob/blob/master/docs/images/whiteDarkGrey.png?raw=true)
+
+
+```
+-e BONOB_ICON_FOREGROUND_COLOR=chartreuse \
+-e BONOB_ICON_BACKGROUND_COLOR=fuchsia
+```
+![Chartreuse & Fuchsia](https://github.com/simojenki/bonob/blob/master/docs/images/chartreuseFuchsia.png?raw=true)
+
+
 ## Credits
 
 - Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and @jicho
