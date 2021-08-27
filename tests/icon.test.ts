@@ -5,6 +5,7 @@ import {
   ColorOverridingIcon,
   HOLI_COLORS,
   Icon,
+  iconForGenre,
   makeFestive,
   SvgIcon,
   Transformation,
@@ -16,17 +17,17 @@ describe("SvgIcon", () => {
 
   const svgIcon24 = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path d="something1"/>
-  <path d="something2"/>
-  <path d="something3"/>
+  <path d="path1"/>
+  <path d="path2" fill="none" stroke="#000"/>
+  <path d="path3"/>
 </svg>
 `;
 
   const svgIcon128 = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <path d="something1"/>
-  <path d="something2"/>
-  <path d="something3"/>
+  <path d="path1"/>
+  <path d="path2" fill="none" stroke="#000"/>
+  <path d="path3"/>
 </svg>
 `;
 
@@ -47,9 +48,9 @@ describe("SvgIcon", () => {
           ).toEqual(
             xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 32 32">
-              <path d="something1"/>
-              <path d="something2"/>
-              <path d="something3"/>
+              <path d="path1"/>
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3"/>
             </svg>
           `)
           );
@@ -64,9 +65,9 @@ describe("SvgIcon", () => {
           ).toEqual(
             xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="-21 -21 170 170">
-              <path d="something1"/>
-              <path d="something2"/>
-              <path d="something3"/>
+              <path d="path1"/>
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3"/>
             </svg>
           `)
           );
@@ -91,10 +92,10 @@ describe("SvgIcon", () => {
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <rect x="0" y="0" width="24" height="24" style="fill:red"/>
-              <path d="something1"/>
-              <path d="something2"/>
-              <path d="something3"/>
+              <rect x="0" y="0" width="24" height="24" fill="red"/>
+              <path d="path1"/>
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3"/>
             </svg>
         `)
         );
@@ -110,10 +111,10 @@ describe("SvgIcon", () => {
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 32 32">
-              <rect x="-4" y="-4" width="36" height="36" style="fill:pink"/>
-              <path d="something1"/>
-              <path d="something2"/>
-              <path d="something3"/>
+              <rect x="-4" y="-4" width="36" height="36" fill="pink"/>
+              <path d="path1"/>
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3"/>
             </svg>
         `)
         );
@@ -123,15 +124,13 @@ describe("SvgIcon", () => {
     describe("of undefined", () => {
       it("should not do anything", () => {
         expect(
-          new SvgIcon(svgIcon24)
-            .with({ backgroundColor: undefined })
-            .toString()
+          new SvgIcon(svgIcon24).with({ backgroundColor: undefined }).toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="something1"/>
-              <path d="something2"/>
-              <path d="something3"/>
+              <path d="path1"/>
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3"/>
             </svg>
         `)
         );
@@ -148,10 +147,10 @@ describe("SvgIcon", () => {
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <rect x="0" y="0" width="24" height="24" style="fill:red"/>
-              <path d="something1"/>
-              <path d="something2"/>
-              <path d="something3"/>
+              <rect x="0" y="0" width="24" height="24" fill="red"/>
+              <path d="path1"/>
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3"/>
             </svg>
         `)
         );
@@ -167,9 +166,9 @@ describe("SvgIcon", () => {
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="something1" style="fill:red"/>
-              <path d="something2" style="fill:red"/>
-              <path d="something3" style="fill:red"/>
+              <path d="path1" fill="red"/>
+              <path d="path2" fill="none" stroke="red"/>
+              <path d="path3" fill="red"/>
             </svg>
         `)
         );
@@ -185,9 +184,9 @@ describe("SvgIcon", () => {
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 32 32">
-              <path d="something1" style="fill:pink"/>
-              <path d="something2" style="fill:pink"/>
-              <path d="something3" style="fill:pink"/>
+              <path d="path1" fill="pink"/>
+              <path d="path2" fill="none" stroke="pink"/>
+              <path d="path3" fill="pink"/>
             </svg>
         `)
         );
@@ -197,15 +196,13 @@ describe("SvgIcon", () => {
     describe("of undefined", () => {
       it("should not do anything", () => {
         expect(
-          new SvgIcon(svgIcon24)
-            .with({ foregroundColor: undefined })
-            .toString()
+          new SvgIcon(svgIcon24).with({ foregroundColor: undefined }).toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="something1"/>
-              <path d="something2"/>
-              <path d="something3"/>
+              <path d="path1"/>
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3"/>
             </svg>
         `)
         );
@@ -222,9 +219,78 @@ describe("SvgIcon", () => {
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="something1" style="fill:red"/>
-              <path d="something2" style="fill:red"/>
-              <path d="something3" style="fill:red"/>
+              <path d="path1" fill="red"/>
+              <path d="path2" fill="none" stroke="red"/>
+              <path d="path3" fill="red"/>
+            </svg>
+        `)
+        );
+      });
+    });
+  });
+
+  describe("with some text", () => {
+    describe("with no font color or style", () => {
+      describe("with no viewPort increase", () => {
+        it("should render the line", () => {
+          expect(
+            new SvgIcon(svgIcon24).with({ text: "hello" }).toString()
+          ).toEqual(
+            xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="path1" />
+                <path d="path2" fill="none" stroke="#000"/>
+                <path d="path3" />
+                <g font-size="6" font-weight="bold">
+                  <text x="2" y="19">hello</text>
+                </g>           
+              </svg>
+          `)
+          );
+        });
+      });
+
+      describe("with a viewPort increase", () => {
+        it("should render the line", () => {
+          expect(
+            new SvgIcon(svgIcon24)
+              .with({ viewPortIncreasePercent: 50, text: "hello" })
+              .toString()
+          ).toEqual(
+            xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 32 32">
+                <path d="path1" />
+                <path d="path2" fill="none" stroke="#000"/>
+                <path d="path3" />
+                <g font-size="9" font-weight="bold">
+                  <text x="-1" y="24">hello</text>
+                </g>           
+              </svg>
+          `)
+          );
+        });
+      });
+    });
+
+    describe("with no font color and style", () => {
+      it("should render the line", () => {
+        expect(
+          new SvgIcon(svgIcon24)
+            .with({
+              text: "hello world",
+              fontColor: "red",
+              fontFamily: "helvetica",
+            })
+            .toString()
+        ).toEqual(
+          xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="path1" />
+              <path d="path2" fill="none" stroke="#000"/>
+              <path d="path3" />
+              <g font-size="6" font-weight="bold" font-family="helvetica" style="fill:red">
+                <text x="2" y="19">hello world</text>
+              </g>           
             </svg>
         `)
         );
@@ -249,37 +315,92 @@ describe("ColorOverridingIcon", () => {
     const icon = new DummyIcon({
       backgroundColor: "black",
       foregroundColor: "black",
+      fontColor: "black",
+      fontFamily: "plain",
     });
-    const overriding = new ColorOverridingIcon(
-      icon,
-      () => true,
-      () => ({ backgroundColor: "blue", foregroundColor: "red" })
-    );
 
-    describe("with", () => {
-      it("should be the with of the underlieing icon with the overriden colors", () => {
-        const result = overriding.with({
-          viewPortIncreasePercent: 99,
-          backgroundColor: "shouldBeIgnored",
-          foregroundColor: "shouldBeIgnored",
-        }) as DummyIcon;
+    describe("overriding some options", () => {
+      const overriding = new ColorOverridingIcon(
+        icon,
+        () => true,
+        () => ({ backgroundColor: "blue", foregroundColor: "red" })
+      );
 
-        expect(result.transformation).toEqual({
-          viewPortIncreasePercent: 99,
-          backgroundColor: "blue",
-          foregroundColor: "red",
+      describe("with", () => {
+        it("should be the with of the underlieing icon with the overriden colors", () => {
+          const result = overriding.with({
+            viewPortIncreasePercent: 99,
+            backgroundColor: "shouldBeIgnored",
+            foregroundColor: "shouldBeIgnored",
+          }) as DummyIcon;
+
+          expect(result.transformation).toEqual({
+            viewPortIncreasePercent: 99,
+            backgroundColor: "blue",
+            foregroundColor: "red",
+            fontColor: "black",
+            fontFamily: "plain",
+          });
+        });
+      });
+
+      describe("toString", () => {
+        it("should be the toString of the underlieing icon with the overriden colors", () => {
+          expect(overriding.toString()).toEqual(
+            new DummyIcon({
+              backgroundColor: "blue",
+              foregroundColor: "red",
+              fontColor: "black",
+              fontFamily: "plain",
+            }).toString()
+          );
         });
       });
     });
 
-    describe("toString", () => {
-      it("should be the toString of the underlieing icon with the overriden colors", () => {
-        expect(overriding.toString()).toEqual(
-          new DummyIcon({
+    describe("overriding all options", () => {
+      const overriding = new ColorOverridingIcon(
+        icon,
+        () => true,
+        () => ({
+          backgroundColor: "blue",
+          foregroundColor: "red",
+          fontColor: "pink",
+          fontFamily: "fancy",
+        })
+      );
+
+      describe("with", () => {
+        it("should be the with of the underlieing icon with the overriden colors", () => {
+          const result = overriding.with({
+            viewPortIncreasePercent: 99,
+            backgroundColor: "shouldBeIgnored",
+            foregroundColor: "shouldBeIgnored",
+            fontColor: "shouldBeIgnored",
+            fontFamily: "shouldBeIgnored",
+          }) as DummyIcon;
+
+          expect(result.transformation).toEqual({
+            viewPortIncreasePercent: 99,
             backgroundColor: "blue",
             foregroundColor: "red",
-          }).toString()
-        );
+            fontColor: "pink",
+            fontFamily: "fancy",
+          });
+        });
+      });
+
+      describe("toString", () => {
+        it("should be the toString of the underlieing icon with the overriden colors", () => {
+          expect(overriding.toString()).toEqual(
+            new DummyIcon({
+              backgroundColor: "blue",
+              foregroundColor: "red",
+              fontColor: "pink",
+              fontFamily: "fancy",
+            }).toString()
+          );
+        });
       });
     });
   });
@@ -323,12 +444,13 @@ describe("makeFestive", () => {
   const icon = new DummyIcon({
     backgroundColor: "black",
     foregroundColor: "black",
+    fontColor: "black",
   });
   let now = dayjs();
 
-  const festiveIcon = makeFestive(icon, { now: () => now })
-  
-  describe("on a non special day", () => {
+  const festiveIcon = makeFestive(icon, { now: () => now });
+
+  describe("on a day that isn't festive", () => {
     beforeEach(() => {
       now = dayjs("2022/10/12");
     });
@@ -338,12 +460,14 @@ describe("makeFestive", () => {
         viewPortIncreasePercent: 88,
         backgroundColor: "shouldBeUsed",
         foregroundColor: "shouldBeUsed",
+        fontColor: "shouldBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 88,
         backgroundColor: "shouldBeUsed",
         foregroundColor: "shouldBeUsed",
+        fontColor: "shouldBeUsed",
       });
     });
   });
@@ -352,18 +476,20 @@ describe("makeFestive", () => {
     beforeEach(() => {
       now = dayjs("2022/12/25");
     });
-    
-    it("should use the given colors", () => {
+
+    it("should use the christmas theme colors", () => {
       const result = festiveIcon.with({
         viewPortIncreasePercent: 25,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
+        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 25,
         backgroundColor: "green",
         foregroundColor: "red",
+        fontColor: "white",
       });
     });
   });
@@ -372,18 +498,20 @@ describe("makeFestive", () => {
     beforeEach(() => {
       now = dayjs("2022/10/31");
     });
-    
+
     it("should use the given colors", () => {
       const result = festiveIcon.with({
         viewPortIncreasePercent: 12,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
+        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 12,
         backgroundColor: "orange",
         foregroundColor: "black",
+        fontColor: "orangered",
       });
     });
   });
@@ -392,18 +520,20 @@ describe("makeFestive", () => {
     beforeEach(() => {
       now = dayjs("2022/02/01");
     });
-    
+
     it("should use the given colors", () => {
       const result = festiveIcon.with({
         viewPortIncreasePercent: 12,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
+        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 12,
         backgroundColor: "red",
         foregroundColor: "yellow",
+        fontColor: "crimson",
       });
     });
   });
@@ -412,18 +542,64 @@ describe("makeFestive", () => {
     beforeEach(() => {
       now = dayjs("2022/03/18");
     });
-    
+
     it("should use the given colors", () => {
       const result = festiveIcon.with({
         viewPortIncreasePercent: 12,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
+        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation.viewPortIncreasePercent).toEqual(12);
-      expect(HOLI_COLORS.includes(result.transformation.backgroundColor!)).toEqual(true);
-      expect(HOLI_COLORS.includes(result.transformation.foregroundColor!)).toEqual(true);
-      expect(result.transformation.backgroundColor).not.toEqual(result.transformation.foregroundColor);
+      expect(
+        HOLI_COLORS.includes(result.transformation.backgroundColor!)
+      ).toEqual(true);
+      expect(
+        HOLI_COLORS.includes(result.transformation.foregroundColor!)
+      ).toEqual(true);
+      expect(HOLI_COLORS.includes(result.transformation.fontColor!)).toEqual(
+        true
+      );
+      expect(result.transformation.backgroundColor).not.toEqual(
+        result.transformation.foregroundColor
+      );
+      expect(result.transformation.backgroundColor).not.toEqual(
+        result.transformation.fontColor
+      );
+    });
+  });
+});
+
+describe("iconForGenre", () => {
+  [
+    ["Acid House", "mushroom"],
+    ["African", "african"],
+    ["Alternative Rock", "rock"],
+    ["Americana", "americana"],
+    ["Anti-Folk", "guitar"],
+    ["Audio-Book", "book"],
+    ["Australian Hip Hop", "oz"],
+    ["Rap", "rap"],
+    ["Hip Hop", "hipHop"],
+    ["Hip-Hop", "hipHop"],
+    ["Metal", "metal"],
+    ["Horrorcore", "horror"],
+    ["Punk", "punk"],
+    ["blah", "music"],
+  ].forEach(([genre, expected]) => {
+    describe(`a genre of ${genre}`, () => {
+      it(`should have an icon of ${expected}`, () => {
+        const name = iconForGenre(genre!)!;
+        expect(name).toEqual(expected);
+      });
+    });
+
+    describe(`a genre of ${genre!.toLowerCase()}`, () => {
+      it(`should have an icon of ${expected}`, () => {
+        const name = iconForGenre(genre!)!;
+        expect(name).toEqual(expected);
+      });
     });
   });
 });

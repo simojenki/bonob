@@ -16,7 +16,7 @@ export default function () {
     process.exit(1);
   }
 
-  const colorFrom = (envVar: string) => {
+  const wordFrom = (envVar: string) => {
     const value = process.env[envVar];
     if (value && value != "") {
       if (value.match(/^\w+$/)) return value;
@@ -31,8 +31,10 @@ export default function () {
     bonobUrl: url(bonobUrl),
     secret: process.env["BONOB_SECRET"] || "bonob",
     icons: {
-      foregroundColor: colorFrom("BONOB_ICON_FOREGROUND_COLOR"),
-      backgroundColor: colorFrom("BONOB_ICON_BACKGROUND_COLOR"),
+      foregroundColor: wordFrom("BONOB_ICON_FOREGROUND_COLOR"),
+      backgroundColor: wordFrom("BONOB_ICON_BACKGROUND_COLOR"),
+      fontColor: wordFrom("BONOB_ICON_FONT_COLOR"),
+      fontFamily: wordFrom("BONOB_ICON_FONT_FAMILY")
     },
     sonos: {
       serviceName: process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
