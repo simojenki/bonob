@@ -4,7 +4,6 @@ import * as Eta from "eta";
 import morgan from "morgan";
 import path from "path";
 import sharp from "sharp";
-import fs from "fs";
 
 import { PassThrough, Transform, TransformCallback } from "stream";
 
@@ -17,7 +16,6 @@ import {
   LOGIN_ROUTE,
   CREATE_REGISTRATION_ROUTE,
   REMOVE_REGISTRATION_ROUTE,
-  ICON,
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
@@ -28,7 +26,7 @@ import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
-import { SvgIcon, Icon, makeFestive } from "./icon";
+import { Icon, makeFestive, ICONS } from "./icon";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -101,27 +99,6 @@ function server(
       `${req.path} (req[accept-language]=${req.headers["accept-language"]})`
     );
     return i8n(...asLANGs(req.headers["accept-language"]));
-  };
-
-  const iconFrom = (name: string) =>
-    makeFestive(
-      new SvgIcon(
-        fs.readFileSync(path.resolve(__dirname, "..", "web", "icons", name)).toString()
-      ).with({ viewPortIncreasePercent: 50, ...iconColors }),
-      clock
-    );
-
-  const ICONS: Record<ICON, Icon> = {
-    artists: iconFrom("navidrome-artists.svg"),
-    albums: iconFrom("navidrome-all.svg"),
-    playlists: iconFrom("navidrome-playlists.svg"),
-    genres: iconFrom("Theatre-Mask-111172.svg"),
-    random: iconFrom("navidrome-random.svg"),
-    starred: iconFrom("navidrome-topRated.svg"),
-    recentlyAdded: iconFrom("navidrome-recentlyAdded.svg"),
-    recentlyPlayed: iconFrom("navidrome-recentlyPlayed.svg"),
-    mostPlayed: iconFrom("navidrome-mostPlayed.svg"),
-    discover: iconFrom("Binoculars-14310.svg"),
   };
 
   app.get("/", (req, res) => {
@@ -383,6 +360,9 @@ function server(
   app.get("/icon/:type/size/:size", (req, res) => {
     const type = req.params["type"]!;
     const size = req.params["size"]!;
+    const text: string | undefined = req.query.text
+      ? (req.query.text as string)
+      : undefined;
 
     if (!Object.keys(ICONS).includes(type)) {
       return res.status(404).send();
@@ -392,7 +372,7 @@ function server(
     ) {
       return res.status(400).send();
     } else {
-      const icon = (ICONS as any)[type]! as Icon;
+      let icon = (ICONS as any)[type]! as Icon;
       const spec =
         size == "legacy"
           ? {
@@ -406,7 +386,9 @@ function server(
                 Promise.resolve(svg),
             };
 
-      return Promise.resolve(icon.toString())
+      return Promise.resolve(
+        makeFestive(icon.with({ text, ...iconColors }), clock).toString()
+      )
         .then(spec.responseFormatter)
         .then((data) => res.status(200).type(spec.mimeType).send(data));
     }

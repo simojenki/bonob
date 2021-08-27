@@ -23,6 +23,7 @@ import { BONOB_ACCESS_TOKEN_HEADER } from "./server";
 import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
+import { ICON, iconForGenre } from "./icon";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -45,8 +46,6 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "1242",
   "1500",
 ];
-
-export type ICON = "artists" | "albums" | "playlists" | "genres" | "random" | "starred" | "recentlyAdded" | "recentlyPlayed" | "mostPlayed" | "discover"
 
 const WSDL_FILE = path.resolve(
   __dirname,
@@ -209,10 +208,11 @@ export type Container = {
   displayType: string | undefined;
 };
 
-const genre = (genre: Genre) => ({
+const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
   itemType: "container",
   id: `genre:${genre.id}`,
   title: genre.name,
+  albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name), genre.name).href(),
 });
 
 const playlist = (playlist: PlaylistSummary) => ({
@@ -230,8 +230,8 @@ const playlist = (playlist: PlaylistSummary) => ({
 export const defaultAlbumArtURI = (bonobUrl: URLBuilder, album: AlbumSummary) =>
   bonobUrl.append({ pathname: `/art/album/${album.id}/size/180` });
 
-export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) => 
-  bonobUrl.append({ pathname: `/icon/${icon}/size/legacy` });
+export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON, text: string | undefined = undefined) => 
+  bonobUrl.append({ pathname: `/icon/${icon}/size/legacy`, searchParams: text ? { text } : {} });
 
 export const defaultArtistArtURI = (
   bonobUrl: URLBuilder,
@@ -688,7 +688,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(slice2(paging))
                       .then(([page, total]) =>
                         getMetadataResult({
-                          mediaCollection: page.map(genre),
+                          mediaCollection: page.map(it => genre(bonobUrl, it)),
                           index: paging._index,
                           total,
                         })

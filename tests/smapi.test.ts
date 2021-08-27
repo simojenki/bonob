@@ -47,6 +47,7 @@ import {
 import { AccessTokens } from "../src/access_tokens";
 import dayjs from "dayjs";
 import url from "../src/url_builder";
+import { iconForGenre } from "../src/icon";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
@@ -939,6 +940,7 @@ describe("api", () => {
                         itemType: "container",
                         id: `genre:${genre.id}`,
                         title: genre.name,
+                        albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name), genre.name).href(),
                       })),
                       index: 0,
                       total: expectedGenres.length,
@@ -960,6 +962,7 @@ describe("api", () => {
                         itemType: "container",
                         id: `genre:${genre.id}`,
                         title: genre.name,
+                        albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name), genre.name).href(),
                       })),
                       index: 1,
                       total: expectedGenres.length,
