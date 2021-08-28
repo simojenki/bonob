@@ -453,6 +453,29 @@ describe("Navidrome", () => {
   });
 
   describe("getting genres", () => {
+    describe("when there are none", () => {
+      beforeEach(() => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() => Promise.resolve(ok(genresXml([]))));
+      });
+
+      it("should return them alphabetically sorted", async () => {
+        const result = await navidrome
+          .generateToken({ username, password })
+          .then((it) => it as AuthSuccess)
+          .then((it) => navidrome.login(it.authToken))
+          .then((it) => it.genres());
+
+        expect(result).toEqual([]);
+
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
+          params: asURLSearchParams(authParams),
+          headers,
+        });
+      });
+    });
+
     describe("when there is only 1", () => {
       const genres = ["genre1"];
 

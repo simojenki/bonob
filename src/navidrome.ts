@@ -537,7 +537,7 @@ export class Navidrome implements MusicService {
           .getJSON<GenGenresResponse>(credentials, "/rest/getGenres")
           .then((it) =>
             pipe(
-              it.genres.genre,
+              it.genres.genre || [],
               A.map((it) => it.__text),
               A.sort(ordString),
               A.map((it) => ({ id: it, name: it }))
