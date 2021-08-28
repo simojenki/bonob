@@ -1,7 +1,7 @@
 import { option as O } from "fp-ts";
 import express, { Express, Request } from "express";
 import * as Eta from "eta";
-import morgan from "morgan";
+// import morgan from "morgan";
 import path from "path";
 import sharp from "sharp";
 
@@ -27,6 +27,9 @@ import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, makeFestive, ICONS } from "./icon";
+import _, { shuffle } from "underscore";
+import morgan from "morgan";
+import { takeWithRepeats } from "./utils";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
 
@@ -67,24 +70,46 @@ export class RangeBytesFromFilter extends Transform {
   range = (number: number) => `${this.from}-${number - 1}/${number}`;
 }
 
+export type ServerOpts = {
+  linkCodes: () => LinkCodes;
+  accessTokens: () => AccessTokens;
+  clock: Clock;
+  iconColors: {
+    foregroundColor: string | undefined;
+    backgroundColor: string | undefined;
+  };
+  applyContextPath: boolean;
+  logRequests: boolean;
+};
+
+const DEFAULT_SERVER_OPTS: ServerOpts = {
+  linkCodes: () => new InMemoryLinkCodes(),
+  accessTokens: () => new AccessTokenPerAuthToken(),
+  clock: SystemClock,
+  iconColors: { foregroundColor: undefined, backgroundColor: undefined },
+  applyContextPath: true,
+  logRequests: false,
+};
+
 function server(
   sonos: Sonos,
   service: Service,
   bonobUrl: URLBuilder,
   musicService: MusicService,
-  linkCodes: LinkCodes = new InMemoryLinkCodes(),
-  accessTokens: AccessTokens = new AccessTokenPerAuthToken(),
-  clock: Clock = SystemClock,
-  iconColors: {
-    foregroundColor: string | undefined;
-    backgroundColor: string | undefined;
-  } = { foregroundColor: undefined, backgroundColor: undefined },
-  applyContextPath = true
+  opts: Partial<ServerOpts> = {}
 ): Express {
+  const serverOpts = { ...DEFAULT_SERVER_OPTS, ...opts };
+
+  const linkCodes = serverOpts.linkCodes();
+  const accessTokens = serverOpts.accessTokens();
+  const clock = serverOpts.clock;
+
   const app = express();
   const i8n = makeI8N(service.name);
 
-  app.use(morgan("combined"));
+  if (serverOpts.logRequests) {
+    app.use(morgan("combined"));
+  }
   app.use(express.urlencoded({ extended: false }));
 
   // todo: pass options in here?
@@ -93,6 +118,8 @@ function server(
 
   app.set("view engine", "eta");
   app.set("views", path.resolve(__dirname, "..", "web", "views"));
+
+  app.set("query parser", "simple");
 
   const langFor = (req: Request) => {
     logger.debug(
@@ -387,46 +414,92 @@ function server(
             };
 
       return Promise.resolve(
-        makeFestive(icon.with({ text, ...iconColors }), clock).toString()
+        makeFestive(
+          icon.with({ text, ...serverOpts.iconColors }),
+          clock
+        ).toString()
       )
         .then(spec.responseFormatter)
         .then((data) => res.status(200).type(spec.mimeType).send(data));
     }
   });
+  
+  const GRAVITY_9 = [
+    "north",
+    "northeast",
+    "east",
+    "southeast",
+    "south",
+    "southwest",
+    "west",
+    "northwest",
+    "centre",
+  ];
 
-  app.get("/art/:type/:id/size/:size", (req, res) => {
+  app.get("/art/:type/:ids/size/:size", (req, res) => {
     const authToken = accessTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
     const type = req.params["type"]!;
-    const id = req.params["id"]!;
-    const size = req.params["size"]!;
+    const ids = req.params["ids"]!.split("&");
+    const size = Number.parseInt(req.params["size"]!);
+
     if (!authToken) {
       return res.status(401).send();
     } else if (type != "artist" && type != "album") {
       return res.status(400).send();
-    } else if (!(size.match(/^\d+$/) && Number.parseInt(size) > 0)) {
+    } else if (!(size > 0)) {
       return res.status(400).send();
-    } else {
-      return musicService
-        .login(authToken)
-        .then((it) => it.coverArt(id, type, Number.parseInt(size)))
-        .then((coverArt) => {
-          if (coverArt) {
-            res.status(200);
-            res.setHeader("content-type", coverArt.contentType);
-            return res.send(coverArt.data);
-          } else {
-            return res.status(404).send();
-          }
-        })
-        .catch((e: Error) => {
-          logger.error(`Failed fetching image ${type}/${id}/size/${size}`, {
-            cause: e,
-          });
-          return res.status(500).send();
-        });
     }
+
+    return musicService
+      .login(authToken)
+      .then((it) => Promise.all(ids.map((id) => it.coverArt(id, type, size))))
+      .then((coverArts) => coverArts.filter((it) => it))
+      .then(shuffle)
+      .then((coverArts) => {
+        if (coverArts.length == 1) {
+          const coverArt = coverArts[0]!;
+          res.status(200);
+          res.setHeader("content-type", coverArt.contentType);
+          return res.send(coverArt.data);
+        } else if (coverArts.length > 1) {
+          const gravity = [...GRAVITY_9];
+          return sharp({
+            create: {
+              width: size * 3,
+              height: size * 3,
+              channels: 3,
+              background: { r: 255, g: 255, b: 255 },
+            },
+          })
+            .composite(
+              takeWithRepeats(coverArts, 9).map((art) => ({
+                input: art?.data,
+                gravity: gravity.pop(),
+              }))
+            )
+            .png()
+            .toBuffer()
+            .then((image) => sharp(image).resize(size).png().toBuffer())
+            .then((image) => {
+              res.status(200);
+              res.setHeader("content-type", "image/png");
+              return res.send(image);
+            });
+        } else {
+          return res.status(404).send();
+        }
+      })
+      .catch((e: Error) => {
+        logger.error(
+          `Failed fetching image ${type}/${ids.join("&")}/size/${size}`,
+          {
+            cause: e,
+          }
+        );
+        return res.status(500).send();
+      });
   });
 
   bindSmapiSoapServiceToExpress(
@@ -440,7 +513,7 @@ function server(
     i8n
   );
 
-  if (applyContextPath) {
+  if (serverOpts.applyContextPath) {
     const container = express();
     container.use(bonobUrl.path(), app);
     return container;

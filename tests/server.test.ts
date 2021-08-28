@@ -2,6 +2,8 @@ import { v4 as uuid } from "uuid";
 import dayjs from "dayjs";
 import request from "supertest";
 import Image from "image-js";
+import fs from "fs";
+import path from "path";
 
 import { MusicService } from "../src/music_service";
 import makeServer, {
@@ -502,9 +504,11 @@ describe("server", () => {
           theService,
           bonobUrl,
           musicService as unknown as MusicService,
-          linkCodes as unknown as LinkCodes,
-          accessTokens as unknown as AccessTokens,
-          clock
+          {
+            linkCodes: () => linkCodes as unknown as LinkCodes,
+            accessTokens: () => accessTokens as unknown as AccessTokens,
+            clock,
+          }
         );
 
         it("should return the login page", async () => {
@@ -626,8 +630,10 @@ describe("server", () => {
           aService(),
           bonobUrl,
           musicService as unknown as MusicService,
-          new InMemoryLinkCodes(),
-          accessTokens
+          {
+            linkCodes: () => new InMemoryLinkCodes(),
+            accessTokens: () => accessTokens,
+          }
         );
 
         const authToken = uuid();
@@ -1055,13 +1061,24 @@ describe("server", () => {
           aService(),
           url("http://localhost:1234"),
           musicService as unknown as MusicService,
-          new InMemoryLinkCodes(),
-          accessTokens
+          {
+            linkCodes: () => new InMemoryLinkCodes(),
+            accessTokens: () => accessTokens,
+          }
         );
 
         const authToken = uuid();
         const albumId = uuid();
         let accessToken: string;
+
+        const coverArtResponse = (
+          opt: Partial<{ status: number; contentType: string; data: Buffer }>
+        ) => ({
+          status: 200,
+          contentType: "image/jpeg",
+          data: Buffer.from(uuid(), "ascii"),
+          ...opt,
+        });
 
         beforeEach(() => {
           accessToken = accessTokens.mint(authToken);
@@ -1102,7 +1119,7 @@ describe("server", () => {
 
           describe("artist art", () => {
             ["0", "-1", "foo"].forEach((size) => {
-              describe(`when the size is ${size}`, () => {
+              describe(`invalid size of ${size}`, () => {
                 it(`should return a 400`, async () => {
                   musicService.login.mockResolvedValue(musicLibrary);
                   const res = await request(server)
@@ -1116,51 +1133,290 @@ describe("server", () => {
               });
             });
 
-            describe("when there is some", () => {
-              it("should return the image and a 200", async () => {
-                const coverArt = {
-                  status: 200,
-                  contentType: "image/jpeg",
-                  data: Buffer.from("some image", "ascii"),
-                };
+            describe("fetching a single image", () => {
+              describe("when the images is available", () => {
+                it("should return the image and a 200", async () => {
+                  const coverArt = coverArtResponse({});
 
-                musicService.login.mockResolvedValue(musicLibrary);
+                  musicService.login.mockResolvedValue(musicLibrary);
 
-                musicLibrary.coverArt.mockResolvedValue(coverArt);
+                  musicLibrary.coverArt.mockResolvedValue(coverArt);
 
-                const res = await request(server)
-                  .get(
-                    `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
-                expect(res.status).toEqual(coverArt.status);
-                expect(res.header["content-type"]).toEqual(
-                  coverArt.contentType
-                );
+                  expect(res.status).toEqual(coverArt.status);
+                  expect(res.header["content-type"]).toEqual(
+                    coverArt.contentType
+                  );
 
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                  albumId,
-                  "artist",
-                  180
-                );
+                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+                    albumId,
+                    "artist",
+                    180
+                  );
+                });
+              });
+
+              describe("when the image is not available", () => {
+                it("should return a 404", async () => {
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  musicLibrary.coverArt.mockResolvedValue(undefined);
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(404);
+                });
               });
             });
 
-            describe("when there isn't one", () => {
-              it("should return a 404", async () => {
-                musicService.login.mockResolvedValue(musicLibrary);
+            describe("fetching multiple images as a collage", () => {
+              const png = fs.readFileSync(path.join(__dirname, '..', 'docs', 'images', 'chartreuseFuchsia.png'));
 
-                musicLibrary.coverArt.mockResolvedValue(undefined);
+              describe("fetching a collage of 4 when all are available", () => {
+                it("should return the image and a 200", async () => {
+                  const ids = ["1", "2", "3", "4"];
 
-                const res = await request(server)
-                  .get(
-                    `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  musicService.login.mockResolvedValue(musicLibrary);
 
-                expect(res.status).toEqual(404);
+                  ids.forEach((_) => {
+                    musicLibrary.coverArt.mockResolvedValueOnce(
+                      coverArtResponse({
+                        data: png,
+                      })
+                    );
+                  });
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${ids.join(
+                        "&"
+                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(200);
+                  expect(res.header["content-type"]).toEqual("image/png");
+
+                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  ids.forEach((id) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+                      id,
+                      "artist",
+                      200
+                    );
+                  });
+
+                  const image = await Image.load(res.body);
+                  expect(image.width).toEqual(200);
+                  expect(image.height).toEqual(200);
+                });
+              });
+
+              describe("fetching a collage of 4, however only 1 is available", () => {
+                it("should return the single image", async () => {
+                  const ids = ["1", "2", "3", "4"];
+
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(
+                    coverArtResponse({
+                      data: png,
+                      contentType: "image/some-mime-type"
+                    })
+                  );
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${ids.join(
+                        "&"
+                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(200);
+                  expect(res.header["content-type"]).toEqual("image/some-mime-type");
+                });
+              });
+              
+              describe("fetching a collage of 4 and all are missing", () => {
+                it("should return a 404", async () => {
+                  const ids = ["1", "2", "3", "4"];
+
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  ids.forEach((_) => {
+                    musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  });
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${ids.join(
+                        "&"
+                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(404);
+                });
+              });
+
+              describe("fetching a collage of 9 when all are available", () => {
+                it("should return the image and a 200", async () => {
+                  const ids = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  ids.forEach((_) => {
+                    musicLibrary.coverArt.mockResolvedValueOnce(
+                      coverArtResponse({
+                        data: png,
+                      })
+                    );
+                  });
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${ids.join(
+                        "&"
+                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(200);
+                  expect(res.header["content-type"]).toEqual("image/png");
+
+                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  ids.forEach((id) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+                      id,
+                      "artist",
+                      180
+                    );
+                  });
+
+                  const image = await Image.load(res.body);
+                  expect(image.width).toEqual(180);
+                  expect(image.height).toEqual(180);
+                });
+              });
+
+              describe("fetching a collage of 9 when only 2 are available", () => {
+                it("should still return an image and a 200", async () => {
+                  const ids = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  musicLibrary.coverArt.mockResolvedValueOnce(
+                    coverArtResponse({
+                      data: png,
+                    })
+                  );
+                  musicLibrary.coverArt.mockResolvedValueOnce(
+                    coverArtResponse({
+                      data: png,
+                    })
+                  );
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+                  musicLibrary.coverArt.mockResolvedValueOnce(undefined);
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${ids.join(
+                        "&"
+                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(200);
+                  expect(res.header["content-type"]).toEqual("image/png");
+
+                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  ids.forEach((id) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+                      id,
+                      "artist",
+                      180
+                    );
+                  });
+
+                  const image = await Image.load(res.body);
+                  expect(image.width).toEqual(180);
+                  expect(image.height).toEqual(180);
+                });
+              });       
+              
+              describe("fetching a collage of 11", () => {
+                it("should still return an image and a 200, though will only display 9", async () => {
+                  const ids = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"];
+
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  ids.forEach((_) => {
+                    musicLibrary.coverArt.mockResolvedValueOnce(
+                      coverArtResponse({
+                        data: png,
+                      })
+                    );
+                  });
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${ids.join(
+                        "&"
+                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(200);
+                  expect(res.header["content-type"]).toEqual("image/png");
+
+                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  ids.forEach((id) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+                      id,
+                      "artist",
+                      180
+                    );
+                  });
+
+                  const image = await Image.load(res.body);
+                  expect(image.width).toEqual(180);
+                  expect(image.height).toEqual(180);
+                });
+              });              
+
+              describe("when the image is not available", () => {
+                it("should return a 404", async () => {
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  musicLibrary.coverArt.mockResolvedValue(undefined);
+
+                  const res = await request(server)
+                    .get(
+                      `/art/artist/${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+
+                  expect(res.status).toEqual(404);
+                });
               });
             });
 
@@ -1263,7 +1519,7 @@ describe("server", () => {
 
       describe("/icon", () => {
         const server = (
-          clock: Clock = SystemClock, 
+          clock: Clock = SystemClock,
           iconColors: {
             foregroundColor: string | undefined;
             backgroundColor: string | undefined;
@@ -1274,10 +1530,12 @@ describe("server", () => {
             aService(),
             url("http://localhost:1234"),
             jest.fn() as unknown as MusicService,
-            new InMemoryLinkCodes(),
-            jest.fn() as unknown as AccessTokens,
-            clock,
-            iconColors
+            {
+              linkCodes: () => new InMemoryLinkCodes(),
+              accessTokens: () => jest.fn() as unknown as AccessTokens,
+              clock,
+              iconColors,
+            }
           );
 
         describe("invalid icon names", () => {
@@ -1329,6 +1587,7 @@ describe("server", () => {
             "recentlyPlayed",
             "mostPlayed",
             "discover",
+            "error",
           ].forEach((type) => {
             describe(`type=${type}`, () => {
               describe(`legacy icon`, () => {
@@ -1364,9 +1623,12 @@ describe("server", () => {
                 });
 
                 it("should return icon colors as per config if overriden", async () => {
-                  const response = await request(server(SystemClock, { foregroundColor: 'brightblue', backgroundColor: 'brightpink' })).get(
-                    `/icon/${type}/size/180`
-                  );
+                  const response = await request(
+                    server(SystemClock, {
+                      foregroundColor: "brightblue",
+                      backgroundColor: "brightpink",
+                    })
+                  ).get(`/icon/${type}/size/180`);
 
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();
@@ -1382,12 +1644,12 @@ describe("server", () => {
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();
                   expect(svg).toContain(`foobar1000`);
-                });                
+                });
 
                 it("should return a christmas icon on christmas day", async () => {
-                  const response = await request(server({ now: () => dayjs("2022/12/25") })).get(
-                    `/icon/${type}/size/180`
-                  );
+                  const response = await request(
+                    server({ now: () => dayjs("2022/12/25") })
+                  ).get(`/icon/${type}/size/180`);
 
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();

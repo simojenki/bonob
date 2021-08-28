@@ -53,6 +53,6 @@
     "dev": "BONOB_SONOS_SERVICE_NAME=bonobDev BONOB_SONOS_DEVICE_DISCOVERY=true nodemon -V ./src/app.ts",
     "devr": "BONOB_SONOS_SERVICE_NAME=bonobDev BONOB_SONOS_DEVICE_DISCOVERY=true BONOB_SONOS_AUTO_REGISTER=true nodemon -V ./src/app.ts",
     "register-dev": "ts-node ./src/register.ts http://$(hostname):4534",
-    "test": "jest --testPathIgnorePatterns=build"
+    "test": "jest"
   }
 }
