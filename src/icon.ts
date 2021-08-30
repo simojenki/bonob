@@ -16,9 +16,6 @@ export type Transformation = {
   viewPortIncreasePercent: number | undefined;
   backgroundColor: string | undefined;
   foregroundColor: string | undefined;
-  text: string | undefined;
-  fontColor: string | undefined;
-  fontFamily: string | undefined;
 };
 
 const SVG_NS = {
@@ -59,7 +56,7 @@ export class ColorOverridingIcon implements Icon {
   newColors: () => Partial<
     Pick<
       Transformation,
-      "backgroundColor" | "foregroundColor" | "fontColor" | "fontFamily"
+      "backgroundColor" | "foregroundColor"
     >
   >;
   icon: Icon;
@@ -70,7 +67,7 @@ export class ColorOverridingIcon implements Icon {
     newColors: () => Partial<
       Pick<
         Transformation,
-        "backgroundColor" | "foregroundColor" | "fontColor" | "fontFamily"
+        "backgroundColor" | "foregroundColor"
       >
     >
   ) {
@@ -97,9 +94,6 @@ export class SvgIcon implements Icon {
       viewPortIncreasePercent: undefined,
       backgroundColor: undefined,
       foregroundColor: undefined,
-      text: undefined,
-      fontColor: undefined,
-      fontFamily: undefined,
     }
   ) {
     this.svg = svg;
@@ -143,31 +137,6 @@ export class SvgIcon implements Icon {
         else path.attr({ fill: this.transformation.foregroundColor! });
       });
     }
-    if (this.transformation.text) {
-      const w = Math.abs(viewBox.minX) + Math.abs(viewBox.width);
-      const h = Math.abs(viewBox.minY) + Math.abs(viewBox.height);
-      const i = Math.floor(0.1 * w);
-      let attr: any = {
-        "font-size": `${Math.floor(h / 4)}`,
-        "font-weight": "bold",
-      };
-      if (this.transformation.fontFamily)
-        attr = { ...attr, "font-family": this.transformation.fontFamily };
-      if (this.transformation.fontColor)
-        attr = { ...attr, style: `fill:${this.transformation.fontColor}` };
-      const g = new Element(xml, "g");
-      g.attr(attr);
-      (xml.get("//svg:svg", SVG_NS) as Element).addChild(
-        g.addChild(
-          new Element(xml, "text")
-            .attr({
-              x: `${viewBox.minX + i}`,
-              y: `${viewBox.minY + Math.floor(0.8 * h)}`,
-            })
-            .text(this.transformation.text)
-        )
-      );
-    }
     return xml.toString();
   };
 }
@@ -186,7 +155,7 @@ export const makeFestive = (icon: Icon, clock: Clock = SystemClock): Icon => {
     rule: (clock: Clock) => boolean,
     colors: Pick<
       Transformation,
-      "backgroundColor" | "foregroundColor" | "fontColor"
+      "backgroundColor" | "foregroundColor"
     >
   ) =>
     new ColorOverridingIcon(
@@ -201,33 +170,29 @@ export const makeFestive = (icon: Icon, clock: Clock = SystemClock): Icon => {
     rule: (clock: Clock) => boolean,
     colors: Pick<
       Transformation,
-      "backgroundColor" | "foregroundColor" | "fontColor"
+      "backgroundColor" | "foregroundColor"
     >
   ) => (result = wrap(result, rule, colors));
 
   apply(isChristmas, {
     backgroundColor: "green",
     foregroundColor: "red",
-    fontColor: "white",
   });
 
   const randomHoliColors = _.shuffle([...HOLI_COLORS]);
   apply(isHoli, {
     backgroundColor: randomHoliColors.pop(),
     foregroundColor: randomHoliColors.pop(),
-    fontColor: randomHoliColors.pop(),
   });
 
   apply(isCNY, {
     backgroundColor: "red",
     foregroundColor: "yellow",
-    fontColor: "crimson",
   });
 
   apply(isHalloween, {
     backgroundColor: "orange",
     foregroundColor: "black",
-    fontColor: "orangered",
   });
 
   return result;

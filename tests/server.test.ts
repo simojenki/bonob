@@ -1636,16 +1636,6 @@ describe("server", () => {
                   expect(svg).toContain(`fill="brightpink"`);
                 });
 
-                it("should return an icon with text if requested", async () => {
-                  const response = await request(server(SystemClock)).get(
-                    `/icon/${type}/size/180?text=foobar1000`
-                  );
-
-                  expect(response.status).toEqual(200);
-                  const svg = Buffer.from(response.body).toString();
-                  expect(svg).toContain(`foobar1000`);
-                });
-
                 it("should return a christmas icon on christmas day", async () => {
                   const response = await request(
                     server({ now: () => dayjs("2022/12/25") })

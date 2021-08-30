@@ -387,9 +387,6 @@ function server(
   app.get("/icon/:type/size/:size", (req, res) => {
     const type = req.params["type"]!;
     const size = req.params["size"]!;
-    const text: string | undefined = req.query.text
-      ? (req.query.text as string)
-      : undefined;
 
     if (!Object.keys(ICONS).includes(type)) {
       return res.status(404).send();
@@ -415,7 +412,7 @@ function server(
 
       return Promise.resolve(
         makeFestive(
-          icon.with({ text, ...serverOpts.iconColors }),
+          icon.with(serverOpts.iconColors),
           clock
         ).toString()
       )

@@ -228,75 +228,6 @@ describe("SvgIcon", () => {
       });
     });
   });
-
-  describe("with some text", () => {
-    describe("with no font color or style", () => {
-      describe("with no viewPort increase", () => {
-        it("should render the line", () => {
-          expect(
-            new SvgIcon(svgIcon24).with({ text: "hello" }).toString()
-          ).toEqual(
-            xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                <path d="path1" />
-                <path d="path2" fill="none" stroke="#000"/>
-                <path d="path3" />
-                <g font-size="6" font-weight="bold">
-                  <text x="2" y="19">hello</text>
-                </g>           
-              </svg>
-          `)
-          );
-        });
-      });
-
-      describe("with a viewPort increase", () => {
-        it("should render the line", () => {
-          expect(
-            new SvgIcon(svgIcon24)
-              .with({ viewPortIncreasePercent: 50, text: "hello" })
-              .toString()
-          ).toEqual(
-            xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 32 32">
-                <path d="path1" />
-                <path d="path2" fill="none" stroke="#000"/>
-                <path d="path3" />
-                <g font-size="9" font-weight="bold">
-                  <text x="-1" y="24">hello</text>
-                </g>           
-              </svg>
-          `)
-          );
-        });
-      });
-    });
-
-    describe("with no font color and style", () => {
-      it("should render the line", () => {
-        expect(
-          new SvgIcon(svgIcon24)
-            .with({
-              text: "hello world",
-              fontColor: "red",
-              fontFamily: "helvetica",
-            })
-            .toString()
-        ).toEqual(
-          xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="path1" />
-              <path d="path2" fill="none" stroke="#000"/>
-              <path d="path3" />
-              <g font-size="6" font-weight="bold" font-family="helvetica" style="fill:red">
-                <text x="2" y="19">hello world</text>
-              </g>           
-            </svg>
-        `)
-        );
-      });
-    });
-  });
 });
 
 class DummyIcon implements Icon {
@@ -315,8 +246,6 @@ describe("ColorOverridingIcon", () => {
     const icon = new DummyIcon({
       backgroundColor: "black",
       foregroundColor: "black",
-      fontColor: "black",
-      fontFamily: "plain",
     });
 
     describe("overriding some options", () => {
@@ -338,8 +267,6 @@ describe("ColorOverridingIcon", () => {
             viewPortIncreasePercent: 99,
             backgroundColor: "blue",
             foregroundColor: "red",
-            fontColor: "black",
-            fontFamily: "plain",
           });
         });
       });
@@ -350,8 +277,6 @@ describe("ColorOverridingIcon", () => {
             new DummyIcon({
               backgroundColor: "blue",
               foregroundColor: "red",
-              fontColor: "black",
-              fontFamily: "plain",
             }).toString()
           );
         });
@@ -365,8 +290,6 @@ describe("ColorOverridingIcon", () => {
         () => ({
           backgroundColor: "blue",
           foregroundColor: "red",
-          fontColor: "pink",
-          fontFamily: "fancy",
         })
       );
 
@@ -376,16 +299,12 @@ describe("ColorOverridingIcon", () => {
             viewPortIncreasePercent: 99,
             backgroundColor: "shouldBeIgnored",
             foregroundColor: "shouldBeIgnored",
-            fontColor: "shouldBeIgnored",
-            fontFamily: "shouldBeIgnored",
           }) as DummyIcon;
 
           expect(result.transformation).toEqual({
             viewPortIncreasePercent: 99,
             backgroundColor: "blue",
             foregroundColor: "red",
-            fontColor: "pink",
-            fontFamily: "fancy",
           });
         });
       });
@@ -396,8 +315,6 @@ describe("ColorOverridingIcon", () => {
             new DummyIcon({
               backgroundColor: "blue",
               foregroundColor: "red",
-              fontColor: "pink",
-              fontFamily: "fancy",
             }).toString()
           );
         });
@@ -444,7 +361,6 @@ describe("makeFestive", () => {
   const icon = new DummyIcon({
     backgroundColor: "black",
     foregroundColor: "black",
-    fontColor: "black",
   });
   let now = dayjs();
 
@@ -460,14 +376,12 @@ describe("makeFestive", () => {
         viewPortIncreasePercent: 88,
         backgroundColor: "shouldBeUsed",
         foregroundColor: "shouldBeUsed",
-        fontColor: "shouldBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 88,
         backgroundColor: "shouldBeUsed",
         foregroundColor: "shouldBeUsed",
-        fontColor: "shouldBeUsed",
       });
     });
   });
@@ -482,14 +396,12 @@ describe("makeFestive", () => {
         viewPortIncreasePercent: 25,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
-        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 25,
         backgroundColor: "green",
         foregroundColor: "red",
-        fontColor: "white",
       });
     });
   });
@@ -504,14 +416,12 @@ describe("makeFestive", () => {
         viewPortIncreasePercent: 12,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
-        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 12,
         backgroundColor: "orange",
         foregroundColor: "black",
-        fontColor: "orangered",
       });
     });
   });
@@ -526,14 +436,12 @@ describe("makeFestive", () => {
         viewPortIncreasePercent: 12,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
-        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation).toEqual({
         viewPortIncreasePercent: 12,
         backgroundColor: "red",
         foregroundColor: "yellow",
-        fontColor: "crimson",
       });
     });
   });
@@ -548,7 +456,6 @@ describe("makeFestive", () => {
         viewPortIncreasePercent: 12,
         backgroundColor: "shouldNotBeUsed",
         foregroundColor: "shouldNotBeUsed",
-        fontColor: "shouldNotBeUsed",
       }) as DummyIcon;
 
       expect(result.transformation.viewPortIncreasePercent).toEqual(12);
@@ -558,14 +465,8 @@ describe("makeFestive", () => {
       expect(
         HOLI_COLORS.includes(result.transformation.foregroundColor!)
       ).toEqual(true);
-      expect(HOLI_COLORS.includes(result.transformation.fontColor!)).toEqual(
-        true
-      );
       expect(result.transformation.backgroundColor).not.toEqual(
         result.transformation.foregroundColor
-      );
-      expect(result.transformation.backgroundColor).not.toEqual(
-        result.transformation.fontColor
       );
     });
   });

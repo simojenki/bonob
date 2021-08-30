@@ -1021,7 +1021,6 @@ describe("api", () => {
                         albumArtURI: iconArtURI(
                           bonobUrl,
                           iconForGenre(genre.name),
-                          genre.name
                         ).href(),
                       })),
                       index: 0,
@@ -1047,7 +1046,6 @@ describe("api", () => {
                         albumArtURI: iconArtURI(
                           bonobUrl,
                           iconForGenre(genre.name),
-                          genre.name
                         ).href(),
                       })),
                       index: 1,

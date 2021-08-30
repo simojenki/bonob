@@ -217,8 +217,7 @@ const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
   title: genre.name,
   albumArtURI: iconArtURI(
     bonobUrl,
-    iconForGenre(genre.name),
-    genre.name
+    iconForGenre(genre.name)
   ).href(),
 });
 
@@ -254,12 +253,10 @@ export const defaultAlbumArtURI = (bonobUrl: URLBuilder, album: AlbumSummary) =>
 
 export const iconArtURI = (
   bonobUrl: URLBuilder,
-  icon: ICON,
-  text: string | undefined = undefined
+  icon: ICON
 ) =>
   bonobUrl.append({
-    pathname: `/icon/${icon}/size/legacy`,
-    searchParams: text ? { text } : {},
+    pathname: `/icon/${icon}/size/legacy`
   });
 
 export const defaultArtistArtURI = (
