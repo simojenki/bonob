@@ -169,68 +169,6 @@ describe("config", () => {
         });
       });
     });
-
-    describe("fontColor", () => {
-      describe("when BONOB_ICON_FONT_COLOR is not specified", () => {
-        it(`should default to undefined`, () => {
-          expect(config().icons.fontColor).toEqual(undefined);
-        });
-      });
-
-      describe("when BONOB_ICON_FONT_COLOR is ''", () => {
-        it(`should default to undefined`, () => {
-          process.env["BONOB_ICON_FONT_COLOR"] = "";
-          expect(config().icons.fontColor).toEqual(undefined);
-        });
-      });
-
-      describe("when BONOB_ICON_FONT_COLOR is specified", () => {
-        it(`should use it`, () => {
-          process.env["BONOB_ICON_FONT_COLOR"] = "pink";
-          expect(config().icons.fontColor).toEqual("pink");
-        });
-      });
-
-      describe("when BONOB_ICON_FONT_COLOR is an invalid string", () => {
-        it(`should blow up`, () => {
-          process.env["BONOB_ICON_FONT_COLOR"] = "#dfasd";
-          expect(() => config()).toThrow(
-            "Invalid color specified for BONOB_ICON_FONT_COLOR"
-          );
-        });
-      });
-    });
-
-    describe("fontFamily", () => {
-      describe("when BONOB_ICON_FONT_FAMILY is not specified", () => {
-        it(`should default to undefined`, () => {
-          expect(config().icons.fontFamily).toEqual(undefined);
-        });
-      });
-
-      describe("when BONOB_ICON_FONT_FAMILY is ''", () => {
-        it(`should default to undefined`, () => {
-          process.env["BONOB_ICON_FONT_FAMILY"] = "";
-          expect(config().icons.fontFamily).toEqual(undefined);
-        });
-      });
-
-      describe("when BONOB_ICON_FONT_FAMILY is specified", () => {
-        it(`should use it`, () => {
-          process.env["BONOB_ICON_FONT_FAMILY"] = "helveta";
-          expect(config().icons.fontFamily).toEqual("helveta");
-        });
-      });
-
-      describe("when BONOB_ICON_FONT_FAMILY is an invalid string", () => {
-        it(`should blow up`, () => {
-          process.env["BONOB_ICON_FONT_FAMILY"] = "#dfasd";
-          expect(() => config()).toThrow(
-            "Invalid color specified for BONOB_ICON_FONT_FAMILY"
-          );
-        });
-      });
-    });
   });
 
   describe("secret", () => {

@@ -33,8 +33,6 @@ export default function () {
     icons: {
       foregroundColor: wordFrom("BONOB_ICON_FOREGROUND_COLOR"),
       backgroundColor: wordFrom("BONOB_ICON_BACKGROUND_COLOR"),
-      fontColor: wordFrom("BONOB_ICON_FONT_COLOR"),
-      fontFamily: wordFrom("BONOB_ICON_FONT_FAMILY")
     },
     sonos: {
       serviceName: process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
