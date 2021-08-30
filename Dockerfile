@@ -2,6 +2,7 @@ FROM node:16.6-alpine as build
 
 WORKDIR /bonob
 
+COPY .git ./.git
 COPY src ./src
 COPY docs ./docs
 COPY typings ./typings
@@ -19,8 +20,10 @@ RUN apk add --no-cache --update --virtual .gyp \
         vips-dev \
         python3 \
         make \
+        git \
         g++ && \
     yarn install --immutable && \
+    yarn gitinfo && \
     yarn test --no-cache && \
     yarn build
 
@@ -39,6 +42,7 @@ COPY yarn.lock .
 
 COPY --from=build /bonob/build/src ./src
 COPY --from=build /bonob/node_modules ./node_modules
+COPY --from=build /bonob/.gitinfo ./
 COPY web ./web
 COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl ./src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
 

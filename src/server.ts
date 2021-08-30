@@ -79,6 +79,7 @@ export type ServerOpts = {
   };
   applyContextPath: boolean;
   logRequests: boolean;
+  version: string
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -88,6 +89,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   iconColors: { foregroundColor: undefined, backgroundColor: undefined },
   applyContextPath: true,
   logRequests: false,
+  version: "v?"
 };
 
 function server(
@@ -146,6 +148,7 @@ function server(
           removeRegistrationRoute: bonobUrl
             .append({ pathname: REMOVE_REGISTRATION_ROUTE })
             .pathname(),
+          version: opts.version
         });
       }
     );
