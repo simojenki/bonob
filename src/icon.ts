@@ -236,7 +236,8 @@ export type ICON =
   | "violin"
   | "celtic"
   | "children"
-  | "chillout";
+  | "chillout"
+  | "progressiveRock";
 
 const iconFrom = (name: string) =>
   new SvgIcon(
@@ -260,6 +261,7 @@ export const ICONS: Record<ICON, Icon> = {
   mushroom: iconFrom("Mushroom-63864.svg"),
   african: iconFrom("Africa-48087.svg"),
   rock: iconFrom("Rock-Music-11007.svg"),
+  progressiveRock: iconFrom("Progressive-Rock-24862.svg"),
   metal: iconFrom("Metal-Music-17763.svg"),
   punk: iconFrom("Punk-40450.svg"),
   americana: iconFrom("US-Capitol-104805.svg"),
@@ -329,6 +331,7 @@ const GENRE_RULES: [RULE, ICON][] = [
   [eq("Stoner Rock"), "cannabis"],
   [eq("Turntablism"), "vinyl"],
   [eq("Celtic"), "celtic"],
+  [eq("Progressive Rock"), "progressiveRock"],
   [containsWord("Country"), "country"],
   [containsWord("Rock"), "rock"],
   [containsWord("Folk"), "guitar"],
