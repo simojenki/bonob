@@ -143,8 +143,6 @@ BONOB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it 
 BONOB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
 BONOB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
 BONOB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
-BONOB_ICON_FONT_COLOR | undefined | Icon font color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
-BONOB_ICON_FONT_FAMILY | undefined | Icon font family in sonos app
 
 ## Initialising service within sonos app
 
