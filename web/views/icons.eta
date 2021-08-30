@@ -1,0 +1,9 @@
+<% layout('./layout') %>
+<div id="content">
+  <% it.icons.forEach(function(icon) { %>
+    <%= icon[0] %>
+    <div style="width:100px; height:100px; border: 1px; border-style: solid;">
+      <%~ icon[1] %>
+    </div><br><br>
+  <% }) %>
+</div>

@@ -1,7 +1,6 @@
 import { option as O } from "fp-ts";
 import express, { Express, Request } from "express";
 import * as Eta from "eta";
-// import morgan from "morgan";
 import path from "path";
 import sharp from "sharp";
 
@@ -412,7 +411,7 @@ function server(
 
       return Promise.resolve(
         makeFestive(
-          icon.with(serverOpts.iconColors),
+          icon.with({ viewPortIncreasePercent: 80, ...serverOpts.iconColors }),
           clock
         ).toString()
       )
@@ -420,7 +419,19 @@ function server(
         .then((data) => res.status(200).type(spec.mimeType).send(data));
     }
   });
-  
+
+  app.get("/icons", (_, res) => {
+    res.render("icons", {
+      icons: Object.keys(ICONS).map((k) => [
+        k,
+        ((ICONS as any)[k] as Icon)
+          .with({ viewPortIncreasePercent: 80, ...serverOpts.iconColors })
+          .toString()
+          .replace('<?xml version="1.0" encoding="UTF-8"?>', ""),
+      ]),
+    });
+  });
+
   const GRAVITY_9 = [
     "north",
     "northeast",

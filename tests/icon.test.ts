@@ -3,6 +3,9 @@ import libxmljs from "libxmljs2";
 
 import {
   ColorOverridingIcon,
+  contains,
+  containsWord,
+  eq,
   HOLI_COLORS,
   Icon,
   iconForGenre,
@@ -471,6 +474,41 @@ describe("makeFestive", () => {
     });
   });
 });
+
+describe("eq", () => {
+  it("should be true when ===", () => {
+    expect(eq("Foo")("foo")).toEqual(true);
+  });
+
+  it("should be false when not ===", () => {
+    expect(eq("Foo")("bar")).toEqual(false);
+  });
+});
+
+describe("contains", () => {
+  it("should be true word is a substring", () => {
+    expect(contains("Foo")("some foo bar")).toEqual(true);
+  });
+
+  it("should be false when not ===", () => {
+    expect(contains("Foo")("some bar")).toEqual(false);
+  });
+});
+
+describe("containsWord", () => {
+  it("should be true word is a substring with space delim", () => {
+    expect(containsWord("Foo")("some   foo   bar")).toEqual(true);
+  });
+  
+  it("should be true word is a substring with hyphen delim", () => {
+    expect(containsWord("Foo")("some----foo-bar")).toEqual(true);
+  });
+
+  it("should be false when not ===", () => {
+    expect(containsWord("Foo")("somefoobar")).toEqual(false);
+  });
+});
+
 
 describe("iconForGenre", () => {
   [
