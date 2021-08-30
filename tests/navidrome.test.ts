@@ -9,7 +9,7 @@ import {
   DODGY_IMAGE_NAME,
   asGenre,
   appendMimeTypeToClientFor,
-  asURLSearchParams
+  asURLSearchParams,
 } from "../src/navidrome";
 import encryption from "../src/encryption";
 
@@ -123,7 +123,7 @@ describe("asURLSearchParams", () => {
         a: 1,
         b: "bee",
         c: false,
-        d: true
+        d: true,
       };
       const expected = new URLSearchParams();
       expected.append("a", "1");
@@ -139,7 +139,7 @@ describe("asURLSearchParams", () => {
     it("should append each", () => {
       const q = {
         a: [1, "two", false, true],
-        b: "yippee"
+        b: "yippee",
       };
 
       const expected = new URLSearchParams();
@@ -160,12 +160,11 @@ const ok = (data: string) => ({
 });
 
 const similarArtistXml = (similarArtist: SimilarArtist) => {
-  if(similarArtist.inLibrary)
-    return `<similarArtist id="${similarArtist.id}" name="${similarArtist.name}" albumCount="3"></similarArtist>`
+  if (similarArtist.inLibrary)
+    return `<similarArtist id="${similarArtist.id}" name="${similarArtist.name}" albumCount="3"></similarArtist>`;
   else
-    return `<similarArtist id="-1" name="${similarArtist.name}" albumCount="3"></similarArtist>`
-}
-  
+    return `<similarArtist id="-1" name="${similarArtist.name}" albumCount="3"></similarArtist>`;
+};
 
 const getArtistInfoXml = (
   artist: Artist
@@ -227,18 +226,19 @@ const albumListXml = (
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                     <albumList>
                       ${albums
-    .map(([artist, album]) => albumXml(artist, album))
-    .join("")}
+                        .map(([artist, album]) => albumXml(artist, album))
+                        .join("")}
                     </albumList>
                   </subsonic-response>`;
 
-const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${artist.name
-  }" albumCount="${artist.albums.length}" artistImageUrl="....">
+const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${
+  artist.name
+}" albumCount="${artist.albums.length}" artistImageUrl="....">
                                         ${artist.albums
-    .map((album) =>
-      albumXml(artist, album)
-    )
-    .join("")}
+                                          .map((album) =>
+                                            albumXml(artist, album)
+                                          )
+                                          .join("")}
                                       </artist>`;
 
 const getArtistXml = (
@@ -247,11 +247,11 @@ const getArtistXml = (
           ${artistXml(artist)}
         </subsonic-response>`;
 
-const genreXml = (genre: string) =>
-  `<genre songCount="1475" albumCount="86">${genre}</genre>`;
+const genreXml = (genre: { name: string; albumCount: number }) =>
+  `<genre songCount="1475" albumCount="${genre.albumCount}">${genre.name}</genre>`;
 
 const genresXml = (
-  genres: string[]
+  genres: { name: string; albumCount: number }[]
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                           <genres>
                                             ${genres.map(genreXml).join("")}
@@ -264,31 +264,35 @@ const getAlbumXml = (
   tracks: Track[]
 ) => `<subsonic-response status="ok" version="1.8.0">
                                                         ${albumXml(
-  artist,
-  album,
-  tracks
-)}
+                                                          artist,
+                                                          album,
+                                                          tracks
+                                                        )}
                                                       </subsonic-response>`;
 
 const getSongXml = (
   track: Track
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                                                     ${songXml(
-  track
-)}
+                                                                      track
+                                                                    )}
                                                                     </subsonic-response>`;
 
-const similarSongsXml = (tracks: Track[]) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+const similarSongsXml = (
+  tracks: Track[]
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                                 <similarSongs>
                                                 ${tracks.map(songXml).join("")}
                                                 </similarSongs>
-                                              </subsonic-response>`
+                                              </subsonic-response>`;
 
-const topSongsXml = (tracks: Track[]) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+const topSongsXml = (
+  tracks: Track[]
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
                                                 <topSongs>
                                                 ${tracks.map(songXml).join("")}
                                                 </topSongs>
-                                              </subsonic-response>`
+                                              </subsonic-response>`;
 
 export type ArtistWithAlbum = {
   artist: Artist;
@@ -312,15 +316,18 @@ const error = (code: string, message: string) =>
     </error>
   </subsonic-response>`;
 
-const createPlayList = (playlist: PlaylistSummary) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
+const createPlayList = (
+  playlist: PlaylistSummary
+) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
   ${playlistXml(playlist)}
-  </subsonic-response>`
+  </subsonic-response>`;
 
 const getPlayList = (
   playlist: Playlist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
-<playlist id="${playlist.id}" name="${playlist.name}" songCount="${playlist.entries.length
-  }" duration="627" public="true" owner="bob" created="2021-05-06T02:07:30.460465988Z" changed="2021-05-06T02:40:04Z">
+<playlist id="${playlist.id}" name="${playlist.name}" songCount="${
+  playlist.entries.length
+}" duration="627" public="true" owner="bob" created="2021-05-06T02:07:30.460465988Z" changed="2021-05-06T02:40:04Z">
   ${playlist.entries
     .map(
       (it) => `<entry 
@@ -391,7 +398,7 @@ describe("Navidrome", () => {
     streamClientApplication
   );
 
-  const mockedRandomString = (randomString as unknown) as jest.Mock;
+  const mockedRandomString = randomString as unknown as jest.Mock;
   const mockGET = jest.fn();
   const mockPOST = jest.fn();
 
@@ -447,7 +454,9 @@ describe("Navidrome", () => {
         });
 
         const token = await navidrome.generateToken({ username, password });
-        expect(token).toEqual({ message: "Navidrome error:Wrong username or password" });
+        expect(token).toEqual({
+          message: "Navidrome error:Wrong username or password",
+        });
       });
     });
   });
@@ -460,7 +469,7 @@ describe("Navidrome", () => {
           .mockImplementationOnce(() => Promise.resolve(ok(genresXml([]))));
       });
 
-      it("should return them alphabetically sorted", async () => {
+      it("should return empty array", async () => {
         const result = await navidrome
           .generateToken({ username, password })
           .then((it) => it as AuthSuccess)
@@ -476,8 +485,11 @@ describe("Navidrome", () => {
       });
     });
 
-    describe("when there is only 1", () => {
-      const genres = ["genre1"];
+    describe("when there is only 1 that has an albumCount > 0", () => {
+      const genres = [
+        { name: "genre1", albumCount: 1 },
+        { name: "genreWithNoAlbums", albumCount: 0 },
+      ];
 
       beforeEach(() => {
         mockGET
@@ -492,7 +504,7 @@ describe("Navidrome", () => {
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.genres());
 
-        expect(result).toEqual(genres.map(asGenre));
+        expect(result).toEqual([{ id: "genre1", name: "genre1" }]);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
           params: asURLSearchParams(authParams),
@@ -501,8 +513,15 @@ describe("Navidrome", () => {
       });
     });
 
-    describe("when there are many", () => {
-      const genres = ["g1", "g2", "g3", "g3"];
+    describe("when there are many that have an albumCount > 0", () => {
+      const genres = [
+        { name: "g1", albumCount: 1 },
+        { name: "g2", albumCount: 1 },
+        { name: "g3", albumCount: 1 },
+        { name: "g4", albumCount: 1 },
+        { name: "someGenreWithNoAlbums", albumCount: 0 },
+      ];
+
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
@@ -516,7 +535,12 @@ describe("Navidrome", () => {
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.genres());
 
-        expect(result).toEqual(genres.map(asGenre));
+        expect(result).toEqual([
+          { id: "g1", name: "g1" },
+          { id: "g2", name: "g2" },
+          { id: "g3", name: "g3" },
+          { id: "g4", name: "g4" },
+        ]);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
           params: asURLSearchParams(authParams),
@@ -591,7 +615,7 @@ describe("Navidrome", () => {
               ...authParams,
               id: artist.id,
               count: 50,
-              includeNotPresent: true
+              includeNotPresent: true,
             }),
             headers,
           });
@@ -610,7 +634,9 @@ describe("Navidrome", () => {
             medium: `http://localhost:80/${DODGY_IMAGE_NAME}`,
             large: `http://localhost:80/${DODGY_IMAGE_NAME}`,
           },
-          similarArtists: [{ id: "similar1.id", name: "similar1", inLibrary: true }],
+          similarArtists: [
+            { id: "similar1.id", name: "similar1", inLibrary: true },
+          ],
         });
 
         beforeEach(() => {
@@ -656,7 +682,7 @@ describe("Navidrome", () => {
               ...authParams,
               id: artist.id,
               count: 50,
-              includeNotPresent: true
+              includeNotPresent: true,
             }),
             headers,
           });
@@ -721,7 +747,7 @@ describe("Navidrome", () => {
               ...authParams,
               id: artist.id,
               count: 50,
-              includeNotPresent: true
+              includeNotPresent: true,
             }),
             headers,
           });
@@ -786,7 +812,7 @@ describe("Navidrome", () => {
               ...authParams,
               id: artist.id,
               count: 50,
-              includeNotPresent: true
+              includeNotPresent: true,
             }),
             headers,
           });
@@ -842,7 +868,7 @@ describe("Navidrome", () => {
               ...authParams,
               id: artist.id,
               count: 50,
-              includeNotPresent: true
+              includeNotPresent: true,
             }),
             headers,
           });
@@ -896,7 +922,7 @@ describe("Navidrome", () => {
               ...authParams,
               id: artist.id,
               count: 50,
-              includeNotPresent: true
+              includeNotPresent: true,
             }),
             headers,
           });
@@ -948,7 +974,7 @@ describe("Navidrome", () => {
               ...authParams,
               id: artist.id,
               count: 50,
-              includeNotPresent: true
+              includeNotPresent: true,
             }),
             headers,
           });
@@ -1045,12 +1071,10 @@ describe("Navidrome", () => {
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.artists({ _index: 0, _count: 100 }));
 
-          const expectedResults = [artist1].map(
-            (it) => ({
-              id: it.id,
-              name: it.name,
-            })
-          );
+          const expectedResults = [artist1].map((it) => ({
+            id: it.id,
+            name: it.name,
+          }));
 
           expect(artists).toEqual({
             results: expectedResults,
@@ -1063,7 +1087,7 @@ describe("Navidrome", () => {
           });
         });
       });
-    });    
+    });
 
     describe("when there are artists", () => {
       const artist1 = anArtist();
@@ -2184,7 +2208,7 @@ describe("Navidrome", () => {
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
             params: asURLSearchParams({
               ...authParams,
-              id: coverArtId
+              id: coverArtId,
             }),
             headers,
             responseType: "arraybuffer",
@@ -2282,7 +2306,7 @@ describe("Navidrome", () => {
                   ...authParams,
                   id: artistId,
                   count: 50,
-                  includeNotPresent: true
+                  includeNotPresent: true,
                 }),
                 headers,
               }
@@ -2359,7 +2383,7 @@ describe("Navidrome", () => {
                     ...authParams,
                     id: artistId,
                     count: 50,
-                    includeNotPresent: true
+                    includeNotPresent: true,
                   }),
                   headers,
                 }
@@ -2436,7 +2460,7 @@ describe("Navidrome", () => {
                     ...authParams,
                     id: artistId,
                     count: 50,
-                    includeNotPresent: true
+                    includeNotPresent: true,
                   }),
                   headers,
                 }
@@ -2483,7 +2507,7 @@ describe("Navidrome", () => {
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
             const resize = jest.fn();
-            ((sharp as unknown) as jest.Mock).mockReturnValue({ resize });
+            (sharp as unknown as jest.Mock).mockReturnValue({ resize });
             resize.mockReturnValue({
               toBuffer: () => Promise.resolve(resizedImage),
             });
@@ -2506,7 +2530,7 @@ describe("Navidrome", () => {
                   ...authParams,
                   id: artistId,
                   count: 50,
-                  includeNotPresent: true
+                  includeNotPresent: true,
                 }),
                 headers,
               }
@@ -2586,7 +2610,7 @@ describe("Navidrome", () => {
                     ...authParams,
                     id: artistId,
                     count: 50,
-                    includeNotPresent: true
+                    includeNotPresent: true,
                   }),
                   headers,
                 }
@@ -2664,7 +2688,7 @@ describe("Navidrome", () => {
                     ...authParams,
                     id: artistId,
                     count: 50,
-                    includeNotPresent: true
+                    includeNotPresent: true,
                   }),
                   headers,
                 }
@@ -2737,7 +2761,7 @@ describe("Navidrome", () => {
                     ...authParams,
                     id: artistId,
                     count: 50,
-                    includeNotPresent: true
+                    includeNotPresent: true,
                   }),
                   headers,
                 }
@@ -2815,7 +2839,7 @@ describe("Navidrome", () => {
                     ...authParams,
                     id: artistId,
                     count: 50,
-                    includeNotPresent: true
+                    includeNotPresent: true,
                   }),
                   headers,
                 }
@@ -3534,9 +3558,7 @@ describe("Navidrome", () => {
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(EMPTY))
-          );
+          .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
         const result = await navidrome
           .generateToken({ username, password })
@@ -3564,9 +3586,7 @@ describe("Navidrome", () => {
 
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(EMPTY))
-            );
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
           const result = await navidrome
             .generateToken({ username, password })
@@ -3594,9 +3614,7 @@ describe("Navidrome", () => {
 
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(EMPTY))
-            );
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
           const result = await navidrome
             .generateToken({ username, password })
@@ -3636,14 +3654,15 @@ describe("Navidrome", () => {
           id: "track1",
           artist: artistToArtistSummary(artist1),
           album: albumToAlbumSummary(album1),
-          genre: pop
+          genre: pop,
         });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(similarSongsXml([track1])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
           );
 
@@ -3689,30 +3708,33 @@ describe("Navidrome", () => {
           id: "track1",
           artist: artistToArtistSummary(artist1),
           album: albumToAlbumSummary(album1),
-          genre: pop
+          genre: pop,
         });
         const track2 = aTrack({
           id: "track2",
           artist: artistToArtistSummary(artist2),
           album: albumToAlbumSummary(album2),
-          genre: pop
+          genre: pop,
         });
         const track3 = aTrack({
           id: "track3",
           artist: artistToArtistSummary(artist1),
           album: albumToAlbumSummary(album1),
-          genre: pop
+          genre: pop,
         });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(similarSongsXml([track1, track2, track3])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist2, album2, [])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
           );
 
@@ -3742,9 +3764,7 @@ describe("Navidrome", () => {
         const xml = similarSongsXml([]);
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(xml))
-          );
+          .mockImplementationOnce(() => Promise.resolve(ok(xml)));
 
         const result = await navidrome
           .generateToken({ username, password })
@@ -3775,11 +3795,13 @@ describe("Navidrome", () => {
             Promise.resolve(ok(error("70", "data not found")))
           );
 
-        return expect(navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.similarSongs(id))).rejects.toEqual("Navidrome error:data not found");
+        return expect(
+          navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.similarSongs(id))
+        ).rejects.toEqual("Navidrome error:data not found");
       });
     });
   });
@@ -3801,16 +3823,18 @@ describe("Navidrome", () => {
         const track1 = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album1),
-          genre: pop
+          genre: pop,
         });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistXml(artist)))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(topSongsXml([track1])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist, album1, [])))
           );
 
@@ -3851,32 +3875,36 @@ describe("Navidrome", () => {
         const track1 = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album1),
-          genre: pop
+          genre: pop,
         });
 
         const track2 = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album2),
-          genre: pop
+          genre: pop,
         });
 
         const track3 = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album1),
-          genre: pop
+          genre: pop,
         });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistXml(artist)))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(topSongsXml([track1, track2, track3])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist, album1, [])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist, album2, [])))
-          ).mockImplementationOnce(() =>
+          )
+          .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumXml(artist, album1, [])))
           );
 
@@ -3916,9 +3944,8 @@ describe("Navidrome", () => {
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistXml(artist)))
-          ).mockImplementationOnce(() =>
-            Promise.resolve(ok(topSongsXml([])))
-          );
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(topSongsXml([]))));
 
         const result = await navidrome
           .generateToken({ username, password })

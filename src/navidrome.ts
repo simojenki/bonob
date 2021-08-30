@@ -101,7 +101,7 @@ export type genre = {
   __text: string;
 };
 
-export type GenGenresResponse = SubsonicResponse & {
+export type GetGenresResponse = SubsonicResponse & {
   genres: {
     genre: genre[];
   };
@@ -534,10 +534,11 @@ export class Navidrome implements MusicService {
         navidrome.getAlbum(credentials, id),
       genres: () =>
         navidrome
-          .getJSON<GenGenresResponse>(credentials, "/rest/getGenres")
+          .getJSON<GetGenresResponse>(credentials, "/rest/getGenres")
           .then((it) =>
             pipe(
               it.genres.genre || [],
+              A.filter(it => Number.parseInt(it._albumCount) > 0),
               A.map((it) => it.__text),
               A.sort(ordString),
               A.map((it) => ({ id: it, name: it }))
