@@ -61,11 +61,14 @@ const app = server(
   bonob,
   config.bonobUrl,
   featureFlagAwareMusicService,
-  new InMemoryLinkCodes(),
-  new InMemoryAccessTokens(sha256(config.secret)),
-  SystemClock,
-  config.icons,
-  true,
+  {
+    linkCodes: () => new InMemoryLinkCodes(),
+    accessTokens: () =>  new InMemoryAccessTokens(sha256(config.secret)),
+    clock: SystemClock,
+    iconColors: config.icons,
+    applyContextPath: true,
+    logRequests: true
+  }
 );
 
 app.listen(config.port, () => {

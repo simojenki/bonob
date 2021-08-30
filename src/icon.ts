@@ -267,7 +267,8 @@ export type ICON =
   | "trumpet"
   | "conductor"
   | "reggae"
-  | "music";
+  | "music"
+  | "error";
 
 const iconFrom = (name: string) =>
   new SvgIcon(
@@ -310,7 +311,8 @@ export const ICONS: Record<ICON, Icon> = {
   trumpet: iconFrom("Trumpet-17823.svg"),
   conductor: iconFrom("Music-Conductor-225.svg"),
   reggae: iconFrom("Reggae-24843.svg"),
-  music: iconFrom("Music-14097.svg")
+  music: iconFrom("Music-14097.svg"),
+  error: iconFrom("Error-82783.svg"),
 };
 
 export type RULE = (genre: string) => boolean;

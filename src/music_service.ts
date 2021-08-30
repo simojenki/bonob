@@ -120,6 +120,11 @@ export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
   artistId: it.artistId,
 });
 
+export const playlistToPlaylistSummary = (it: Playlist): PlaylistSummary => ({
+  id: it.id,
+  name: it.name
+})
+
 export type StreamingHeader = "content-type" | "content-length" | "content-range" | "accept-ranges";
 
 export type TrackStream = {

@@ -138,15 +138,19 @@ describe("URLBuilder", () => {
       describe("with URLSearchParams", () => {
         it("should return a new URLBuilder with the new search params appended", () => {
           const original = url("https://example.com/some-path?a=b&c=d");
+          const searchParams = new URLSearchParams({ x: "y" });
+          searchParams.append("z", "1");
+          searchParams.append("z", "2");
+
           const updated = original.append({
-            searchParams: new URLSearchParams({ x: "y", z: "1" }),
+            searchParams,
           });
     
           expect(original.href()).toEqual("https://example.com/some-path?a=b&c=d");
           expect(`${original.searchParams()}`).toEqual("a=b&c=d")
     
-          expect(updated.href()).toEqual("https://example.com/some-path?a=b&c=d&x=y&z=1");
-          expect(`${updated.searchParams()}`).toEqual("a=b&c=d&x=y&z=1")
+          expect(updated.href()).toEqual("https://example.com/some-path?a=b&c=d&x=y&z=1&z=2");
+          expect(`${updated.searchParams()}`).toEqual("a=b&c=d&x=y&z=1&z=2")
         });
       });
     });
@@ -168,15 +172,19 @@ describe("URLBuilder", () => {
     
         it("should return a new URLBuilder with the new search params", () => {
           const original = url("https://example.com/some-path?a=b&c=d");
+          const searchParams = new URLSearchParams({ x: "y" });
+          searchParams.append("z", "1");
+          searchParams.append("z", "2");
+
           const updated = original.with({
-            searchParams: { x: "y", z: "1" },
+            searchParams,
           });
     
           expect(original.href()).toEqual("https://example.com/some-path?a=b&c=d");
           expect(`${original.searchParams()}`).toEqual("a=b&c=d")
     
-          expect(updated.href()).toEqual("https://example.com/some-path?x=y&z=1");
-          expect(`${updated.searchParams()}`).toEqual("x=y&z=1")
+          expect(updated.href()).toEqual("https://example.com/some-path?x=y&z=1&z=2");
+          expect(`${updated.searchParams()}`).toEqual("x=y&z=1&z=2")
         });
       });
 
@@ -196,15 +204,19 @@ describe("URLBuilder", () => {
     
         it("should return a new URLBuilder with the new search params", () => {
           const original = url("https://example.com/some-path?a=b&c=d");
+          const searchParams = new URLSearchParams({ x: "y" });
+          searchParams.append("z", "1");
+          searchParams.append("z", "2");
+
           const updated = original.with({
-            searchParams: new URLSearchParams({ x: "y", z: "1" }),
+            searchParams,
           });
     
           expect(original.href()).toEqual("https://example.com/some-path?a=b&c=d");
           expect(`${original.searchParams()}`).toEqual("a=b&c=d")
     
-          expect(updated.href()).toEqual("https://example.com/some-path?x=y&z=1");
-          expect(`${updated.searchParams()}`).toEqual("x=y&z=1")
+          expect(updated.href()).toEqual("https://example.com/some-path?x=y&z=1&z=2");
+          expect(`${updated.searchParams()}`).toEqual("x=y&z=1&z=2")
         });
       });
     });

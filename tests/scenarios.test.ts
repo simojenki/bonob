@@ -259,7 +259,9 @@ describe("scenarios", () => {
       bonob,
       bonobUrl,
       musicService,
-      linkCodes
+      {
+        linkCodes: () => linkCodes
+      }
     );
 
     const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
@@ -275,7 +277,9 @@ describe("scenarios", () => {
       bonob,
       bonobUrl,
       musicService,
-      linkCodes
+      {
+        linkCodes: () => linkCodes
+      }
     );
 
     const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
@@ -291,7 +295,9 @@ describe("scenarios", () => {
       bonob,
       bonobUrl,
       musicService,
-      linkCodes
+      {
+        linkCodes: () => linkCodes
+      }
     );
 
     const sonosDriver = new SonosDriver(server, bonobUrl, bonob);

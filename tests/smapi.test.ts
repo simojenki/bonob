@@ -22,6 +22,7 @@ import {
   defaultArtistArtURI,
   searchResult,
   iconArtURI,
+  playlistAlbumArtURL,
 } from "../src/smapi";
 
 import {
@@ -43,6 +44,7 @@ import {
   albumToAlbumSummary,
   artistToArtistSummary,
   MusicService,
+  playlistToPlaylistSummary,
 } from "../src/music_service";
 import { AccessTokens } from "../src/access_tokens";
 import dayjs from "dayjs";
@@ -158,7 +160,6 @@ describe("service config", () => {
             expect(imageSizeMap(size)).toEqual(`/size/${size}`);
           });
         });
-
       });
     });
   });
@@ -303,6 +304,81 @@ describe("album", () => {
   });
 });
 
+describe("playlistAlbumArtURL", () => {
+  describe("when the playlist has no albumIds", () => {
+    it("should return question mark icon", () => {
+      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const playlist = aPlaylist({
+        entries: [aTrack({ album: undefined }), aTrack({ album: undefined })],
+      });
+
+      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+        `http://localhost:1234/context-path/icon/error/size/legacy?search=yes`
+      );
+    });
+  });
+
+  describe("when the playlist has 2 distinct albumIds", () => {
+    it("should return them on the url to the image", () => {
+      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const playlist = aPlaylist({
+        entries: [
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
+        ],
+      });
+
+      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+        `http://localhost:1234/context-path/art/album/1&2/size/180?search=yes`
+      );
+    });
+  });
+
+  describe("when the playlist has 4 distinct albumIds", () => {
+    it("should return them on the url to the image", () => {
+      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const playlist = aPlaylist({
+        entries: [
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "3" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "4" })) }),
+        ],
+      });
+
+      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+        `http://localhost:1234/context-path/art/album/1&2&3&4/size/180?search=yes`
+      );
+    });
+  });
+
+  describe("when the playlist has 9 distinct albumIds", () => {
+    it("should return 9 of the ids on the url", () => {
+      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const playlist = aPlaylist({
+        entries: [
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "3" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "4" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "5" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "6" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "7" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "8" })) }),
+          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "9" })) }),
+        ],
+      });
+
+      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+        `http://localhost:1234/context-path/art/album/1&2&3&4&5&6&7&8&9/size/180?search=yes`
+      );
+    });
+  });
+});
+
 describe("defaultAlbumArtURI", () => {
   it("should create the correct URI", () => {
     const bonobUrl = url("http://localhost:1234/context-path?search=yes");
@@ -381,9 +457,11 @@ describe("api", () => {
         service,
         bonobUrl,
         musicService as unknown as MusicService,
-        linkCodes as unknown as LinkCodes,
-        accessTokens as unknown as AccessTokens,
-        clock
+        {
+          linkCodes: () => linkCodes as unknown as LinkCodes,
+          accessTokens: () => accessTokens as unknown as AccessTokens,
+          clock,
+        }
       );
 
       beforeEach(() => {
@@ -940,7 +1018,11 @@ describe("api", () => {
                         itemType: "container",
                         id: `genre:${genre.id}`,
                         title: genre.name,
-                        albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name), genre.name).href(),
+                        albumArtURI: iconArtURI(
+                          bonobUrl,
+                          iconForGenre(genre.name),
+                          genre.name
+                        ).href(),
                       })),
                       index: 0,
                       total: expectedGenres.length,
@@ -962,7 +1044,11 @@ describe("api", () => {
                         itemType: "container",
                         id: `genre:${genre.id}`,
                         title: genre.name,
-                        albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name), genre.name).href(),
+                        albumArtURI: iconArtURI(
+                          bonobUrl,
+                          iconForGenre(genre.name),
+                          genre.name
+                        ).href(),
                       })),
                       index: 1,
                       total: expectedGenres.length,
@@ -973,30 +1059,40 @@ describe("api", () => {
             });
 
             describe("asking for playlists", () => {
-              const expectedPlayLists = [
-                { id: "1", name: "pl1" },
-                { id: "2", name: "pl2" },
-                { id: "3", name: "pl3" },
-                { id: "4", name: "pl4" },
-              ];
+              const playlist1 = aPlaylist({ id: "1", name: "pl1" });
+              const playlist2 = aPlaylist({ id: "2", name: "pl2" });
+              const playlist3 = aPlaylist({ id: "3", name: "pl3" });
+              const playlist4 = aPlaylist({ id: "4", name: "pl4" });
+
+              const playlists = [playlist1, playlist2, playlist3, playlist4];
 
               beforeEach(() => {
-                musicLibrary.playlists.mockResolvedValue(expectedPlayLists);
+                musicLibrary.playlists.mockResolvedValue(
+                  playlists.map(playlistToPlaylistSummary)
+                );
+                musicLibrary.playlist.mockResolvedValueOnce(playlist1);
+                musicLibrary.playlist.mockResolvedValueOnce(playlist2);
+                musicLibrary.playlist.mockResolvedValueOnce(playlist3);
+                musicLibrary.playlist.mockResolvedValueOnce(playlist4);
               });
 
               describe("asking for all playlists", () => {
                 it("should return a collection of playlists", async () => {
                   const result = await ws.getMetadataAsync({
-                    id: `playlists`,
+                    id: "playlists",
                     index: 0,
                     count: 100,
                   });
                   expect(result[0]).toEqual(
                     getMetadataResult({
-                      mediaCollection: expectedPlayLists.map((playlist) => ({
+                      mediaCollection: playlists.map((playlist) => ({
                         itemType: "playlist",
                         id: `playlist:${playlist.id}`,
                         title: playlist.name,
+                        albumArtURI: playlistAlbumArtURL(
+                          bonobUrlWithAccessToken,
+                          playlist
+                        ).href(),
                         canPlay: true,
                         attributes: {
                           readOnly: "false",
@@ -1005,7 +1101,7 @@ describe("api", () => {
                         },
                       })),
                       index: 0,
-                      total: expectedPlayLists.length,
+                      total: playlists.length,
                     })
                   );
                 });
@@ -1020,22 +1116,25 @@ describe("api", () => {
                   });
                   expect(result[0]).toEqual(
                     getMetadataResult({
-                      mediaCollection: [
-                        expectedPlayLists[1]!,
-                        expectedPlayLists[2]!,
-                      ].map((playlist) => ({
-                        itemType: "playlist",
-                        id: `playlist:${playlist.id}`,
-                        title: playlist.name,
-                        canPlay: true,
-                        attributes: {
-                          readOnly: "false",
-                          userContent: "false",
-                          renameable: "false",
-                        },
-                      })),
+                      mediaCollection: [playlists[1]!, playlists[2]!].map(
+                        (playlist) => ({
+                          itemType: "playlist",
+                          id: `playlist:${playlist.id}`,
+                          title: playlist.name,
+                          albumArtURI: playlistAlbumArtURL(
+                            bonobUrlWithAccessToken,
+                            playlist
+                          ).href(),
+                          canPlay: true,
+                          attributes: {
+                            readOnly: "false",
+                            userContent: "false",
+                            renameable: "false",
+                          },
+                        })
+                      ),
                       index: 1,
-                      total: expectedPlayLists.length,
+                      total: playlists.length,
                     })
                   );
                 });
