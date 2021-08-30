@@ -179,6 +179,27 @@ describe("server", () => {
   [bonobUrlWithNoContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`a bonobUrl of ${bonobUrl}`, () => {
       describe("/", () => {
+        describe("displaying of version", () => {
+          const server = makeServer(
+            SONOS_DISABLED,
+            aService(),
+            bonobUrl,
+            new InMemoryMusicService(),
+            {
+              version: "v123.456"  
+            }
+          );
+
+          it("should display it", async () => {
+            const res = await request(server)
+              .get(bonobUrl.append({ pathname: "/" }).pathname())
+              .send();
+
+            expect(res.status).toEqual(200);
+            expect(res.text).toMatch(/v123\.456/);
+          });
+        });
+
         describe("when sonos integration is disabled", () => {
           const server = makeServer(
             SONOS_DISABLED,

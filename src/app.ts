@@ -1,3 +1,5 @@
+import path from "path";
+import fs from "fs";
 import server from "./server";
 import logger from "./logger";
 import { appendMimeTypeToClientFor, DEFAULT, Navidrome } from "./navidrome";
@@ -56,6 +58,10 @@ const featureFlagAwareMusicService: MusicService = {
     }),
 };
 
+export const GIT_INFO = path.join(__dirname, "..", ".gitinfo");
+
+const version = fs.existsSync(GIT_INFO) ? fs.readFileSync(GIT_INFO).toString().trim() : "v??"
+
 const app = server(
   sonosSystem,
   bonob,
@@ -67,7 +73,8 @@ const app = server(
     clock: SystemClock,
     iconColors: config.icons,
     applyContextPath: true,
-    logRequests: true
+    logRequests: true,
+    version
   }
 );
 

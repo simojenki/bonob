@@ -1,6 +1,7 @@
 <% layout('./layout') %>
 
 <div id="content">
+  <div width="100%" style="text-align:right;color:grey"><%= it.version %></div>
   <h1><%= it.bonobService.name %> (<%= it.bonobService.sid %>)</h1>
   <h3><%= it.lang("expectedConfig") %></h3>
   <div><%= JSON.stringify(it.bonobService) %></div>
