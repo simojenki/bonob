@@ -54,10 +54,7 @@ export interface Icon {
 export class ColorOverridingIcon implements Icon {
   rule: () => Boolean;
   newColors: () => Partial<
-    Pick<
-      Transformation,
-      "backgroundColor" | "foregroundColor"
-    >
+    Pick<Transformation, "backgroundColor" | "foregroundColor">
   >;
   icon: Icon;
 
@@ -65,10 +62,7 @@ export class ColorOverridingIcon implements Icon {
     icon: Icon,
     rule: () => Boolean,
     newColors: () => Partial<
-      Pick<
-        Transformation,
-        "backgroundColor" | "foregroundColor"
-      >
+      Pick<Transformation, "backgroundColor" | "foregroundColor">
     >
   ) {
     this.icon = icon;
@@ -153,10 +147,7 @@ export const makeFestive = (icon: Icon, clock: Clock = SystemClock): Icon => {
   const wrap = (
     icon: Icon,
     rule: (clock: Clock) => boolean,
-    colors: Pick<
-      Transformation,
-      "backgroundColor" | "foregroundColor"
-    >
+    colors: Pick<Transformation, "backgroundColor" | "foregroundColor">
   ) =>
     new ColorOverridingIcon(
       icon,
@@ -168,10 +159,7 @@ export const makeFestive = (icon: Icon, clock: Clock = SystemClock): Icon => {
 
   const apply = (
     rule: (clock: Clock) => boolean,
-    colors: Pick<
-      Transformation,
-      "backgroundColor" | "foregroundColor"
-    >
+    colors: Pick<Transformation, "backgroundColor" | "foregroundColor">
   ) => (result = wrap(result, rule, colors));
 
   apply(isChristmas, {
@@ -233,14 +221,29 @@ export type ICON =
   | "conductor"
   | "reggae"
   | "music"
-  | "error";
+  | "error"
+  | "chill"
+  | "country"
+  | "dance"
+  | "disco"
+  | "film"
+  | "new"
+  | "old"
+  | "cannabis"
+  | "trip"
+  | "opera"
+  | "world"
+  | "violin"
+  | "celtic"
+  | "children"
+  | "chillout";
 
 const iconFrom = (name: string) =>
   new SvgIcon(
     fs
       .readFileSync(path.resolve(__dirname, "..", "web", "icons", name))
       .toString()
-  ).with({ viewPortIncreasePercent: 50 });
+  );
 
 export const ICONS: Record<ICON, Icon> = {
   artists: iconFrom("navidrome-artists.svg"),
@@ -253,7 +256,7 @@ export const ICONS: Record<ICON, Icon> = {
   recentlyAdded: iconFrom("navidrome-recentlyAdded.svg"),
   recentlyPlayed: iconFrom("navidrome-recentlyPlayed.svg"),
   mostPlayed: iconFrom("navidrome-mostPlayed.svg"),
-  discover: iconFrom("Binoculars-14310.svg"),
+  discover: iconFrom("Opera-Glasses-102740.svg"),
   mushroom: iconFrom("Mushroom-63864.svg"),
   african: iconFrom("Africa-48087.svg"),
   rock: iconFrom("Rock-Music-11007.svg"),
@@ -261,36 +264,56 @@ export const ICONS: Record<ICON, Icon> = {
   punk: iconFrom("Punk-40450.svg"),
   americana: iconFrom("US-Capitol-104805.svg"),
   guitar: iconFrom("Guitar-110433.svg"),
-  book: iconFrom("Book-453.svg"),
+  book: iconFrom("Book-22940.svg"),
   oz: iconFrom("Kangaroo-16730.svg"),
   hipHop: iconFrom("Hip-Hop Music-17757.svg"),
   rap: iconFrom("Rap-24851.svg"),
-  horror: iconFrom("Horror-4387.svg"),
+  horror: iconFrom("Horror-88855.svg"),
   pop: iconFrom("Ice-Pop Yellow-94532.svg"),
   blues: iconFrom("Blues-113548.svg"),
-  classical: iconFrom("Classic-Music-11646.svg"),
-  comedy: iconFrom("Comedy-2-599.svg"),
+  classical: iconFrom("Classic-Music-17728.svg"),
+  comedy: iconFrom("Comedy-5937.svg"),
   vinyl: iconFrom("Music-Record-102104.svg"),
   electronic: iconFrom("Electronic-Music-17745.svg"),
-  pills: iconFrom("Pills-112386.svg"),
+  pills: iconFrom("Pills-92954.svg"),
   trumpet: iconFrom("Trumpet-17823.svg"),
   conductor: iconFrom("Music-Conductor-225.svg"),
   reggae: iconFrom("Reggae-24843.svg"),
   music: iconFrom("Music-14097.svg"),
   error: iconFrom("Error-82783.svg"),
+  chill: iconFrom("Fridge-282.svg"),
+  country: iconFrom("Country-Music-113286.svg"),
+  dance: iconFrom("Tango-25015.svg"),
+  disco: iconFrom("Disco-Ball-25777.svg"),
+  film: iconFrom("Film-Reel-3230.svg"),
+  new: iconFrom("New-47652.svg"),
+  old: iconFrom("Old-Woman-77881.svg"),
+  cannabis: iconFrom("Cannabis-33270.svg"),
+  trip: iconFrom("TripAdvisor-44407.svg"),
+  opera: iconFrom("Sydney-Opera House-59090.svg"),
+  world: iconFrom("Globe-1301.svg"),
+  violin: iconFrom("Violin-3421.svg"),
+  celtic: iconFrom("Scottish-Thistle-108212.svg"),
+  children: iconFrom("Children-78186.svg"),
+  chillout: iconFrom("Sleeping-in Bed-14385.svg"),
 };
 
 export type RULE = (genre: string) => boolean;
 
-const eq =
+export const eq =
   (expected: string): RULE =>
   (value: string) =>
     expected.toLowerCase() === value.toLowerCase();
 
-const contains =
+export const contains =
   (expected: string): RULE =>
   (value: string) =>
     value.toLowerCase().includes(expected.toLowerCase());
+
+export const containsWord =
+  (expected: string): RULE =>
+  (value: string) =>
+    value.toLowerCase().split(/\W/).includes(expected.toLowerCase());
 
 const containsWithAllTheNonWordCharsRemoved =
   (expected: string): RULE =>
@@ -299,33 +322,55 @@ const containsWithAllTheNonWordCharsRemoved =
 
 const GENRE_RULES: [RULE, ICON][] = [
   [eq("Acid House"), "mushroom"],
-  [contains("Goa"), "mushroom"],
-  [contains("Psy"), "mushroom"],
   [eq("African"), "african"],
   [eq("Americana"), "americana"],
-  [contains("Rock"), "rock"],
-  [contains("Folk"), "guitar"],
-  [contains("Book"), "book"],
-  [contains("Australian"), "oz"],
-  [contains("Rap"), "rap"],
+  [eq("Film Score"), "film"],
+  [eq("Soundtrack"), "film"],
+  [eq("Stoner Rock"), "cannabis"],
+  [eq("Turntablism"), "vinyl"],
+  [eq("Celtic"), "celtic"],
+  [containsWord("Country"), "country"],
+  [containsWord("Rock"), "rock"],
+  [containsWord("Folk"), "guitar"],
+  [containsWord("Book"), "book"],
+  [containsWord("Australian"), "oz"],
+  [containsWord("Baroque"), "violin"],
+  [containsWord("Rap"), "rap"],
   [containsWithAllTheNonWordCharsRemoved("Hip Hop"), "hipHop"],
-  [contains("Horror"), "horror"],
-  [contains("Metal"), "metal"],
-  [contains("Punk"), "punk"],
-  [contains("Pop"), "pop"],
-  [contains("Blues"), "blues"],
-  [contains("Classical"), "classical"],
-  [contains("Comedy"), "comedy"],
-  [contains("Dub"), "vinyl"],
-  [contains("Turntable"), "vinyl"],
+  [containsWithAllTheNonWordCharsRemoved("Trip Hop"), "trip"],
+  [containsWord("Metal"), "metal"],
+  [containsWord("Punk"), "punk"],
+  [containsWord("Blues"), "blues"],
+  [eq("Classic"), "classical"],
+  [containsWord("Classical"), "classical"],
+  [containsWord("Comedy"), "comedy"],
+  [containsWord("Turntable"), "vinyl"],
+  [containsWord("Dub"), "electronic"],
+  [eq("Dubstep"), "electronic"],
+  [eq("Drum And Bass"), "electronic"],
+  [contains("Goa"), "mushroom"],
+  [contains("Psy"), "mushroom"],
+  [containsWord("Trance"), "pills"],
+  [containsWord("Techno"), "pills"],
+  [containsWord("House"), "pills"],
+  [containsWord("Rave"), "pills"],
+  [containsWord("Jazz"), "trumpet"],
+  [containsWord("Orchestra"), "conductor"],
+  [containsWord("Reggae"), "reggae"],
+  [containsWord("Disco"), "disco"],
+  [containsWord("New"), "new"],
+  [containsWord("Opera"), "opera"],
+  [containsWord("Vocal"), "opera"],
+  [containsWord("Ballad"), "opera"],
+  [containsWord("Western"), "country"],
+  [containsWord("World"), "world"],
   [contains("Electro"), "electronic"],
-  [contains("Trance"), "pills"],
-  [contains("Techno"), "pills"],
-  [contains("House"), "pills"],
-  [contains("Rave"), "pills"],
-  [contains("Jazz"), "trumpet"],
-  [contains("Orchestra"), "conductor"],
-  [contains("Reggae"), "reggae"],
+  [contains("Dance"), "dance"],
+  [contains("Pop"), "pop"],
+  [contains("Horror"), "horror"],
+  [contains("Children"), "children"],
+  [contains("Chill"), "chill"],
+  [contains("Old"), "old"],
 ];
 
 export function iconForGenre(genre: string): ICON {
