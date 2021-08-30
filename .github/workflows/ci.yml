@@ -36,6 +36,8 @@ jobs:
       - 
         name: Check out the repo
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       -
         name: Docker meta
         id: meta
