@@ -193,6 +193,7 @@ describe("server", () => {
           it("should display it", async () => {
             const res = await request(server)
               .get(bonobUrl.append({ pathname: "/" }).pathname())
+              .set("accept-language", acceptLanguage)
               .send();
 
             expect(res.status).toEqual(200);
@@ -212,155 +213,220 @@ describe("server", () => {
             it("should be empty", async () => {
               const res = await request(server)
                 .get(bonobUrl.append({ pathname: "/" }).pathname())
+                .set("accept-language", acceptLanguage)
                 .send();
 
               expect(res.status).toEqual(200);
+              expect(res.text).toMatch(`<h2>${lang("devices")} \(0\)</h2>`);
               expect(res.text).not.toMatch(/class=device/);
+              expect(res.text).toContain(lang("noSonosDevices"));
             });
           });
         });
 
-        describe("when there are 2 devices and bonob is not registered", () => {
-          const service1 = aService({
-            name: "s1",
-            sid: 1,
-          });
-          const service2 = aService({
-            name: "s2",
-            sid: 2,
-          });
-          const service3 = aService({
-            name: "s3",
-            sid: 3,
-          });
-          const service4 = aService({
-            name: "s4",
-            sid: 4,
-          });
-          const missingBonobService = aService({
-            name: "bonobMissing",
-            sid: 88,
-          });
-
-          const device1: Device = aDevice({
-            name: "device1",
-            ip: "172.0.0.1",
-            port: 4301,
-          });
-
-          const device2: Device = aDevice({
-            name: "device2",
-            ip: "172.0.0.2",
-            port: 4302,
-          });
-
-          const fakeSonos: Sonos = {
-            devices: () => Promise.resolve([device1, device2]),
-            services: () =>
-              Promise.resolve([service1, service2, service3, service4]),
-            remove: () => Promise.resolve(false),
-            register: () => Promise.resolve(false),
-          };
-
-          const server = makeServer(
-            fakeSonos,
-            missingBonobService,
-            bonobUrl,
-            new InMemoryMusicService()
-          );
-
-          describe("devices list", () => {
-            it("should contain the devices returned from sonos", async () => {
-              const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/" }).path())
-                .set("accept-language", acceptLanguage)
-                .send();
-
-              expect(res.status).toEqual(200);
-              expect(res.text).toMatch(`<h2>${lang("devices")} \(2\)</h2>`);
-              expect(res.text).toMatch(/device1\s+\(172.0.0.1:4301\)/);
-              expect(res.text).toMatch(/device2\s+\(172.0.0.2:4302\)/);
+        describe("when sonos integration is enabled", () => {
+          describe("there are no devices and bonob is not registered", () => {
+            const missingBonobService = aService({
+              name: "bonobMissing",
+              sid: 88,
+            });
+  
+            const fakeSonos: Sonos = {
+              devices: () => Promise.resolve([]),
+              services: () =>
+                Promise.resolve([]),
+              remove: () => Promise.resolve(false),
+              register: () => Promise.resolve(false),
+            };
+  
+            const server = makeServer(
+              fakeSonos,
+              missingBonobService,
+              bonobUrl,
+              new InMemoryMusicService()
+            );
+  
+            describe("devices list", () => {
+              it("should be empty", async () => {
+                const res = await request(server)
+                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .set("accept-language", acceptLanguage)
+                  .send();
+  
+                expect(res.status).toEqual(200);
+                expect(res.text).toMatch(`<h2>${lang("devices")} \(0\)</h2>`);
+                expect(res.text).not.toMatch(/class=device/);
+                expect(res.text).toContain(lang("noSonosDevices"));                
+              });
+            });
+  
+            describe("services", () => {
+              it("should be empty", async () => {
+                const res = await request(server)
+                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .set("accept-language", acceptLanguage)
+                  .send();
+  
+                expect(res.status).toEqual(200);
+                expect(res.text).toMatch(`<h2>${lang("services")} \(0\)</h2>`);
+              });
             });
           });
-
-          describe("services", () => {
-            it("should contain a list of services returned from sonos", async () => {
-              const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/" }).path())
-                .set("accept-language", acceptLanguage)
-                .send();
-
-              expect(res.status).toEqual(200);
-              expect(res.text).toMatch(`<h2>${lang("services")} \(4\)</h2>`);
-              expect(res.text).toMatch(/s1\s+\(1\)/);
-              expect(res.text).toMatch(/s2\s+\(2\)/);
-              expect(res.text).toMatch(/s3\s+\(3\)/);
-              expect(res.text).toMatch(/s4\s+\(4\)/);
+          
+          describe("there are 2 devices and bonob is not registered", () => {
+            const service1 = aService({
+              name: "s1",
+              sid: 1,
+            });
+            const service2 = aService({
+              name: "s2",
+              sid: 2,
+            });
+            const service3 = aService({
+              name: "s3",
+              sid: 3,
+            });
+            const service4 = aService({
+              name: "s4",
+              sid: 4,
+            });
+            const missingBonobService = aService({
+              name: "bonobMissing",
+              sid: 88,
+            });
+  
+            const device1: Device = aDevice({
+              name: "device1",
+              ip: "172.0.0.1",
+              port: 4301,
+            });
+  
+            const device2: Device = aDevice({
+              name: "device2",
+              ip: "172.0.0.2",
+              port: 4302,
+            });
+  
+            const fakeSonos: Sonos = {
+              devices: () => Promise.resolve([device1, device2]),
+              services: () =>
+                Promise.resolve([service1, service2, service3, service4]),
+              remove: () => Promise.resolve(false),
+              register: () => Promise.resolve(false),
+            };
+  
+            const server = makeServer(
+              fakeSonos,
+              missingBonobService,
+              bonobUrl,
+              new InMemoryMusicService()
+            );
+  
+            describe("devices list", () => {
+              it("should contain the devices returned from sonos", async () => {
+                const res = await request(server)
+                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .set("accept-language", acceptLanguage)
+                  .send();
+  
+                expect(res.status).toEqual(200);
+                expect(res.text).toMatch(`<h2>${lang("devices")} \(2\)</h2>`);
+                expect(res.text).toMatch(/device1\s+\(172.0.0.1:4301\)/);
+                expect(res.text).toMatch(/device2\s+\(172.0.0.2:4302\)/);
+              });
+            });
+  
+            describe("services", () => {
+              it("should contain a list of services returned from sonos", async () => {
+                const res = await request(server)
+                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .set("accept-language", acceptLanguage)
+                  .send();
+  
+                expect(res.status).toEqual(200);
+                expect(res.text).toMatch(`<h2>${lang("services")} \(4\)</h2>`);
+                expect(res.text).toMatch(/s1\s+\(1\)/);
+                expect(res.text).toMatch(/s2\s+\(2\)/);
+                expect(res.text).toMatch(/s3\s+\(3\)/);
+                expect(res.text).toMatch(/s4\s+\(4\)/);
+              });
+            });
+  
+            describe("registration status", () => {
+              it("should be not-registered", async () => {
+                const res = await request(server)
+                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .set("accept-language", acceptLanguage)
+                  .send();
+                expect(res.status).toEqual(200);
+                expect(res.text).toMatch(
+                  `<input type="submit" value="${lang("register")}">`
+                );
+                expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
+                expect(res.text).toMatch(
+                  `<h3>${lang("noExistingServiceRegistration")}</h3>`
+                );
+                expect(res.text).not.toMatch(
+                  `<input type="submit" value="${lang("removeRegistration")}">`
+                );
+              });
             });
           });
+  
+          describe("there are 2 devices and bonob is registered", () => {
+            const service1 = aService();
+  
+            const service2 = aService();
 
-          describe("registration status", () => {
-            it("should be not-registered", async () => {
-              const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/" }).path())
-                .set("accept-language", acceptLanguage)
-                .send();
-              expect(res.status).toEqual(200);
-              expect(res.text).toMatch(
-                `<input type="submit" value="${lang("register")}">`
-              );
-              expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
-              expect(res.text).toMatch(
-                `<h3>${lang("noExistingServiceRegistration")}</h3>`
-              );
-              expect(res.text).not.toMatch(
-                `<input type="submit" value="${lang("removeRegistration")}">`
-              );
+            const device1: Device = aDevice({
+              name: "device1",
+              ip: "172.0.0.1",
+              port: 4301,
             });
-          });
-        });
-
-        describe("when there are 2 devices and bonob is registered", () => {
-          const service1 = aService();
-
-          const service2 = aService();
-
-          const bonobService = aService({
-            name: "bonobNotMissing",
-            sid: 99,
-          });
-
-          const fakeSonos: Sonos = {
-            devices: () => Promise.resolve([]),
-            services: () => Promise.resolve([service1, service2, bonobService]),
-            remove: () => Promise.resolve(false),
-            register: () => Promise.resolve(false),
-          };
-
-          const server = makeServer(
-            fakeSonos,
-            bonobService,
-            bonobUrl,
-            new InMemoryMusicService()
-          );
-
-          describe("registration status", () => {
-            it("should be registered", async () => {
-              const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/" }).path())
-                .set("accept-language", acceptLanguage)
-                .send();
-              expect(res.status).toEqual(200);
-              expect(res.text).toMatch(
-                `<input type="submit" value="${lang("register")}">`
-              );
-              expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
-              expect(res.text).toMatch(
-                `<h3>${lang("existingServiceConfig")}</h3>`
-              );
-              expect(res.text).toMatch(
-                `<input type="submit" value="${lang("removeRegistration")}">`
-              );
+  
+            const device2: Device = aDevice({
+              name: "device2",
+              ip: "172.0.0.2",
+              port: 4302,
+            });
+  
+            const bonobService = aService({
+              name: "bonobNotMissing",
+              sid: 99,
+            });
+  
+            const fakeSonos: Sonos = {
+              devices: () => Promise.resolve([device1, device2]),
+              services: () => Promise.resolve([service1, service2, bonobService]),
+              remove: () => Promise.resolve(false),
+              register: () => Promise.resolve(false),
+            };
+  
+            const server = makeServer(
+              fakeSonos,
+              bonobService,
+              bonobUrl,
+              new InMemoryMusicService()
+            );
+  
+            describe("registration status", () => {
+              it("should be registered", async () => {
+                const res = await request(server)
+                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .set("accept-language", acceptLanguage)
+                  .send();
+                expect(res.status).toEqual(200);
+                expect(res.text).toMatch(
+                  `<input type="submit" value="${lang("register")}">`
+                );
+                expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
+                expect(res.text).toMatch(
+                  `<h3>${lang("existingServiceConfig")}</h3>`
+                );
+                expect(res.text).toMatch(
+                  `<input type="submit" value="${lang("removeRegistration")}">`
+                );
+              });
             });
           });
         });
