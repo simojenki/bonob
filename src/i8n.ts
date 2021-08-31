@@ -36,7 +36,8 @@ export type KEY =
   | "failedToRemoveRegistration"
   | "invalidLinkCode"
   | "loginSuccessful"
-  | "loginFailed";
+  | "loginFailed" 
+  | "noSonosDevices";
 
 const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
   "en-US": {
@@ -71,6 +72,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     invalidLinkCode: "Invalid linkCode!",
     loginSuccessful: "Login successful!",
     loginFailed: "Login failed!",
+    noSonosDevices: "No sonos devices",
   },
   "nl-NL": {
     AppLinkMessage: "Sonos koppelen aan $BONOB_SONOS_SERVICE_NAME",
@@ -104,6 +106,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     invalidLinkCode: "Ongeldige linkcode!",
     loginSuccessful: "Inloggen gelukt!",
     loginFailed: "Inloggen mislukt!",
+    noSonosDevices: "Geen Sonos-apparaten",
   },
 };
 

@@ -6,10 +6,15 @@
   <h3><%= it.lang("expectedConfig") %></h3>
   <div><%= JSON.stringify(it.bonobService) %></div>
   <br/>
+  <% if(it.devices.length > 0) { %>
   <form action="<%= it.createRegistrationRoute %>" method="POST">
     <input type="submit" value="<%= it.lang("register") %>">
   </form>
   <br/>
+  <% } else { %>
+  <h3><%= it.lang("noSonosDevices") %></h3>
+  <br/>
+  <% } %>
 
   <% if(it.registeredBonobService) { %>
     <h3><%= it.lang("existingServiceConfig") %></h3>

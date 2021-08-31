@@ -9,6 +9,7 @@ import {
   GetMetadataResponse,
 } from "../src/smapi";
 import {
+  aDevice,
   BLONDIE,
   BOB_MARLEY,
   getAppLinkMessage,
@@ -19,7 +20,7 @@ import { InMemoryMusicService } from "./in_memory_music_service";
 import { InMemoryLinkCodes } from "../src/link_codes";
 import { Credentials } from "../src/music_service";
 import makeServer from "../src/server";
-import { Service, bonobService, SONOS_DISABLED } from "../src/sonos";
+import { Service, bonobService, Sonos } from "../src/sonos";
 import supersoap from "./supersoap";
 import url, { URLBuilder } from "../src/url_builder";
 
@@ -171,6 +172,17 @@ describe("scenarios", () => {
   );
   const linkCodes = new InMemoryLinkCodes();
 
+  const fakeSonos: Sonos = {
+    devices: () => Promise.resolve([aDevice({
+      name: "device1",
+      ip: "172.0.0.1",
+      port: 4301,
+    })]),
+    services: () => Promise.resolve([]),
+    remove: () => Promise.resolve(true),
+    register: () => Promise.resolve(true),
+  };
+
   beforeEach(() => {
     musicService.clear();
     linkCodes.clear();
@@ -255,7 +267,7 @@ describe("scenarios", () => {
     const bonobUrl = url("http://localhost:1234");
     const bonob = bonobService("bonob", 123, bonobUrl);
     const server = makeServer(
-      SONOS_DISABLED,
+      fakeSonos,
       bonob,
       bonobUrl,
       musicService,
@@ -273,7 +285,7 @@ describe("scenarios", () => {
     const bonobUrl = url("http://localhost:1234/");
     const bonob = bonobService("bonob", 123, bonobUrl);
     const server = makeServer(
-      SONOS_DISABLED,
+      fakeSonos,
       bonob,
       bonobUrl,
       musicService,
@@ -291,7 +303,7 @@ describe("scenarios", () => {
     const bonobUrl = url("http://localhost:1234/context-for-bonob");
     const bonob = bonobService("bonob", 123, bonobUrl);
     const server = makeServer(
-      SONOS_DISABLED,
+      fakeSonos,
       bonob,
       bonobUrl,
       musicService,
