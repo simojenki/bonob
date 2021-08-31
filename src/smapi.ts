@@ -368,7 +368,7 @@ function bindSmapiSoapServiceToExpress(
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
       searchParams: {
-        "bonob-access-token": accessToken,
+        "bat": accessToken,
       },
     });
 
