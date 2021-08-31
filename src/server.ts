@@ -30,7 +30,7 @@ import _, { shuffle } from "underscore";
 import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
 
-export const BONOB_ACCESS_TOKEN_HEADER = "bonob-access-token";
+export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;

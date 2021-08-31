@@ -448,7 +448,7 @@ describe("api", () => {
       const accessToken = `accessToken-${uuid()}`;
 
       const bonobUrlWithAccessToken = bonobUrl.append({
-        searchParams: { "bonob-access-token": accessToken },
+        searchParams: { "bat": accessToken },
       });
 
       const service = bonobService("test-api", 133, bonobUrl, "AppLink");
@@ -2428,7 +2428,7 @@ describe("api", () => {
                     })
                     .href(),
                   httpHeaders: {
-                    header: "bonob-access-token",
+                    header: "bat",
                     value: accessToken,
                   },
                 });
@@ -2510,7 +2510,7 @@ describe("api", () => {
                 expect(root[0]).toEqual({
                   getMediaMetadataResult: track(
                     bonobUrl.with({
-                      searchParams: { "bonob-access-token": accessToken },
+                      searchParams: { "bat": accessToken },
                     }),
                     someTrack
                   ),
