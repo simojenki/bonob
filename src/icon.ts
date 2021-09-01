@@ -5,18 +5,14 @@ import fs from "fs";
 import {
   Clock,
   isChristmas,
-  isCNY,
+  isCNY_2022,
+  isCNY_2023,
+  isCNY_2024,
   isHalloween,
   isHoli,
   SystemClock,
 } from "./clock";
 import path from "path";
-
-export type Transformation = {
-  viewPortIncreasePercent: number | undefined;
-  backgroundColor: string | undefined;
-  foregroundColor: string | undefined;
-};
 
 const SVG_NS = {
   svg: "http://www.w3.org/2000/svg",
@@ -47,55 +43,77 @@ class ViewBox {
     `${this.minX} ${this.minY} ${this.width} ${this.height}`;
 }
 
+export type IconFeatures = {
+  viewPortIncreasePercent: number | undefined;
+  backgroundColor: string | undefined;
+  foregroundColor: string | undefined;
+};
+
+export type IconSpec = {
+  svg: string | undefined;
+  features: Partial<IconFeatures> | undefined;
+};
+
 export interface Icon {
-  with(newTransformation: Partial<Transformation>): Icon;
+  with(spec: Partial<IconSpec>): Icon;
+  apply(transformer: Transformer): Icon;
 }
 
-export class ColorOverridingIcon implements Icon {
-  rule: () => Boolean;
-  newColors: () => Partial<
-    Pick<Transformation, "backgroundColor" | "foregroundColor">
-  >;
-  icon: Icon;
+export type Transformer = (icon: Icon) => Icon;
 
-  constructor(
-    icon: Icon,
-    rule: () => Boolean,
-    newColors: () => Partial<
-      Pick<Transformation, "backgroundColor" | "foregroundColor">
-    >
-  ) {
-    this.icon = icon;
-    this.rule = rule;
-    this.newColors = newColors;
-  }
+export function transform(spec: Partial<IconSpec>): Transformer {
+  return (icon: Icon) =>
+    icon.with({
+      ...spec,
+      features: { ...spec.features },
+    });
+}
 
-  public with = (transformation: Partial<Transformation>) =>
-    this.rule()
-      ? this.icon.with({ ...transformation, ...this.newColors() })
-      : this.icon.with(transformation);
+export function features(features: Partial<IconFeatures>): Transformer {
+  return (icon: Icon) => icon.with({ features });
+}
 
-  public toString = () => this.with({}).toString();
+export function maybeTransform(rule: () => Boolean, transformer: Transformer) {
+  return (icon: Icon) => (rule() ? transformer(icon) : icon);
+}
+
+export function allOf(...transformers: Transformer[]): Transformer {
+  return (icon: Icon): Icon =>
+    _.inject(
+      transformers,
+      (current: Icon, transformer: Transformer) => transformer(current),
+      icon
+    );
 }
 
 export class SvgIcon implements Icon {
-  private svg: string;
-  private transformation: Transformation;
+  svg: string;
+  features: IconFeatures;
 
   constructor(
     svg: string,
-    transformation: Transformation = {
+    features: Partial<IconFeatures> = {
       viewPortIncreasePercent: undefined,
       backgroundColor: undefined,
       foregroundColor: undefined,
     }
   ) {
     this.svg = svg;
-    this.transformation = transformation;
+    this.features = {
+      viewPortIncreasePercent: undefined,
+      backgroundColor: undefined,
+      foregroundColor: undefined,
+      ...features,
+    };
   }
 
-  public with = (newTransformation: Partial<Transformation>) =>
-    new SvgIcon(this.svg, { ...this.transformation, ...newTransformation });
+  public apply = (transformer: Transformer): Icon => transformer(this);
+
+  public with = (spec: Partial<IconSpec>) =>
+    new SvgIcon(spec.svg || this.svg, {
+      ...this.features,
+      ...spec.features,
+    });
 
   public toString = () => {
     const xml = libxmljs.parseXmlString(this.svg, {
@@ -105,30 +123,28 @@ export class SvgIcon implements Icon {
     const viewBoxAttr = xml.get("//svg:svg/@viewBox", SVG_NS) as Attribute;
     let viewBox = new ViewBox(viewBoxAttr.value());
     if (
-      this.transformation.viewPortIncreasePercent &&
-      this.transformation.viewPortIncreasePercent > 0
+      this.features.viewPortIncreasePercent &&
+      this.features.viewPortIncreasePercent > 0
     ) {
-      viewBox = viewBox.increasePercent(
-        this.transformation.viewPortIncreasePercent
-      );
+      viewBox = viewBox.increasePercent(this.features.viewPortIncreasePercent);
       viewBoxAttr.value(viewBox.toString());
     }
-    if (this.transformation.backgroundColor) {
+    if (this.features.backgroundColor) {
       (xml.get("//svg:svg/*[1]", SVG_NS) as Element).addPrevSibling(
         new Element(xml, "rect").attr({
           x: `${viewBox.minX}`,
           y: `${viewBox.minY}`,
           width: `${Math.abs(viewBox.minX) + viewBox.width}`,
           height: `${Math.abs(viewBox.minY) + viewBox.height}`,
-          fill: this.transformation.backgroundColor,
+          fill: this.features.backgroundColor,
         })
       );
     }
-    if (this.transformation.foregroundColor) {
+    if (this.features.foregroundColor) {
       (xml.find("//svg:path", SVG_NS) as Element[]).forEach((path) => {
         if (path.attr("fill"))
-          path.attr({ stroke: this.transformation.foregroundColor! });
-        else path.attr({ fill: this.transformation.foregroundColor! });
+          path.attr({ stroke: this.features.foregroundColor! });
+        else path.attr({ fill: this.features.foregroundColor! });
       });
     }
     return xml.toString();
@@ -142,49 +158,6 @@ export const HOLI_COLORS = [
   "#f00b9a",
   "#fa9705",
 ];
-
-export const makeFestive = (icon: Icon, clock: Clock = SystemClock): Icon => {
-  const wrap = (
-    icon: Icon,
-    rule: (clock: Clock) => boolean,
-    colors: Pick<Transformation, "backgroundColor" | "foregroundColor">
-  ) =>
-    new ColorOverridingIcon(
-      icon,
-      () => rule(clock),
-      () => colors
-    );
-
-  let result = icon;
-
-  const apply = (
-    rule: (clock: Clock) => boolean,
-    colors: Pick<Transformation, "backgroundColor" | "foregroundColor">
-  ) => (result = wrap(result, rule, colors));
-
-  apply(isChristmas, {
-    backgroundColor: "green",
-    foregroundColor: "red",
-  });
-
-  const randomHoliColors = _.shuffle([...HOLI_COLORS]);
-  apply(isHoli, {
-    backgroundColor: randomHoliColors.pop(),
-    foregroundColor: randomHoliColors.pop(),
-  });
-
-  apply(isCNY, {
-    backgroundColor: "red",
-    foregroundColor: "yellow",
-  });
-
-  apply(isHalloween, {
-    backgroundColor: "orange",
-    foregroundColor: "black",
-  });
-
-  return result;
-};
 
 export type ICON =
   | "artists"
@@ -237,7 +210,14 @@ export type ICON =
   | "celtic"
   | "children"
   | "chillout"
-  | "progressiveRock";
+  | "progressiveRock"
+  | "christmas"
+  | "halloween"
+  | "yoDragon"
+  | "yoRabbit"
+  | "yoTiger"
+  | "chapel"
+  | "audioWave";
 
 const iconFrom = (name: string) =>
   new SvgIcon(
@@ -246,7 +226,7 @@ const iconFrom = (name: string) =>
       .toString()
   );
 
-export const ICONS: Record<ICON, Icon> = {
+export const ICONS: Record<ICON, SvgIcon> = {
   artists: iconFrom("navidrome-artists.svg"),
   albums: iconFrom("navidrome-all.svg"),
   blank: iconFrom("blank.svg"),
@@ -298,6 +278,13 @@ export const ICONS: Record<ICON, Icon> = {
   celtic: iconFrom("Scottish-Thistle-108212.svg"),
   children: iconFrom("Children-78186.svg"),
   chillout: iconFrom("Sleeping-in Bed-14385.svg"),
+  christmas: iconFrom("Christmas-Tree-66793.svg"),
+  halloween: iconFrom("Jack-o' Lantern-66580.svg"),
+  yoDragon: iconFrom("Year-of Dragon-4537.svg"),
+  yoRabbit: iconFrom("Year-of Rabbit-6313.svg"),
+  yoTiger: iconFrom("Year-of Tiger-22776.svg"),
+  chapel: iconFrom("Chapel-69791.svg"),
+  audioWave: iconFrom("Audio-Wave-1892.svg"),
 };
 
 export type RULE = (genre: string) => boolean;
@@ -332,6 +319,8 @@ const GENRE_RULES: [RULE, ICON][] = [
   [eq("Turntablism"), "vinyl"],
   [eq("Celtic"), "celtic"],
   [eq("Progressive Rock"), "progressiveRock"],
+  [containsWord("Christmas"), "christmas"],
+  [containsWord("Kerst"), "christmas"], // christmas in dutch
   [containsWord("Country"), "country"],
   [containsWord("Rock"), "rock"],
   [containsWord("Folk"), "guitar"],
@@ -347,6 +336,7 @@ const GENRE_RULES: [RULE, ICON][] = [
   [eq("Classic"), "classical"],
   [containsWord("Classical"), "classical"],
   [containsWord("Comedy"), "comedy"],
+  [containsWord("Komedie"), "comedy"], // dutch for Comedy
   [containsWord("Turntable"), "vinyl"],
   [containsWord("Dub"), "electronic"],
   [eq("Dubstep"), "electronic"],
@@ -374,6 +364,9 @@ const GENRE_RULES: [RULE, ICON][] = [
   [contains("Children"), "children"],
   [contains("Chill"), "chill"],
   [contains("Old"), "old"],
+  [containsWord("Christian"), "chapel"],
+  [containsWord("Religious"), "chapel"],
+  [containsWord("Spoken"), "audioWave"],
 ];
 
 export function iconForGenre(genre: string): ICON {
@@ -383,3 +376,68 @@ export function iconForGenre(genre: string): ICON {
   ];
   return name! as ICON;
 }
+
+export const festivals = (clock: Clock = SystemClock): Transformer => {
+  const randomHoliColors = _.shuffle([...HOLI_COLORS]);
+  return allOf(
+    maybeTransform(
+      () => isChristmas(clock),
+      transform({
+        svg: ICONS.christmas.svg,
+        features: {
+          backgroundColor: "green",
+          foregroundColor: "red",
+        },
+      })
+    ),
+    maybeTransform(
+      () => isHoli(clock),
+      transform({
+        features: {
+          backgroundColor: randomHoliColors.pop(),
+          foregroundColor: randomHoliColors.pop(),
+        },
+      })
+    ),
+    maybeTransform(
+      () => isCNY_2022(clock),
+      transform({
+        svg: ICONS.yoTiger.svg,
+        features: {
+          backgroundColor: "red",
+          foregroundColor: "yellow",
+        },
+      })
+    ),
+    maybeTransform(
+      () => isCNY_2023(clock),
+      transform({
+        svg: ICONS.yoRabbit.svg,
+        features: {
+          backgroundColor: "red",
+          foregroundColor: "yellow",
+        },
+      })
+    ),
+    maybeTransform(
+      () => isCNY_2024(clock),
+      transform({
+        svg: ICONS.yoDragon.svg,
+        features: {
+          backgroundColor: "red",
+          foregroundColor: "yellow",
+        },
+      })
+    ),
+    maybeTransform(
+      () => isHalloween(clock),
+      transform({
+        svg: ICONS.halloween.svg,
+        features: {
+          backgroundColor: "black",
+          foregroundColor: "orange",
+        },
+      })
+    )
+  );
+};

@@ -25,7 +25,7 @@ import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
-import { Icon, makeFestive, ICONS } from "./icon";
+import { Icon, ICONS, festivals, features } from "./icon";
 import _, { shuffle } from "underscore";
 import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
@@ -79,7 +79,7 @@ export type ServerOpts = {
   };
   applyContextPath: boolean;
   logRequests: boolean;
-  version: string
+  version: string;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -89,7 +89,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   iconColors: { foregroundColor: undefined, backgroundColor: undefined },
   applyContextPath: true,
   logRequests: false,
-  version: "v?"
+  version: "v?",
 };
 
 function server(
@@ -148,7 +148,7 @@ function server(
           removeRegistrationRoute: bonobUrl
             .append({ pathname: REMOVE_REGISTRATION_ROUTE })
             .pathname(),
-          version: opts.version
+          version: opts.version,
         });
       }
     );
@@ -413,10 +413,15 @@ function server(
             };
 
       return Promise.resolve(
-        makeFestive(
-          icon.with({ viewPortIncreasePercent: 80, ...serverOpts.iconColors }),
-          clock
-        ).toString()
+        icon
+          .apply(
+            features({
+              viewPortIncreasePercent: 80,
+              ...serverOpts.iconColors,
+            })
+          )
+          .apply(festivals(clock))
+          .toString()
       )
         .then(spec.responseFormatter)
         .then((data) => res.status(200).type(spec.mimeType).send(data));
@@ -428,7 +433,12 @@ function server(
       icons: Object.keys(ICONS).map((k) => [
         k,
         ((ICONS as any)[k] as Icon)
-          .with({ viewPortIncreasePercent: 80, ...serverOpts.iconColors })
+          .apply(
+            features({
+              viewPortIncreasePercent: 80,
+              ...serverOpts.iconColors,
+            })
+          )
           .toString()
           .replace('<?xml version="1.0" encoding="UTF-8"?>', ""),
       ]),

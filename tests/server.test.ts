@@ -1723,16 +1723,28 @@ describe("server", () => {
                   expect(svg).toContain(`fill="brightpink"`);
                 });
 
-                it("should return a christmas icon on christmas day", async () => {
-                  const response = await request(
-                    server({ now: () => dayjs("2022/12/25") })
-                  ).get(`/icon/${type}/size/180`);
+                function itShouldBeFestive(theme: string, date: string, id: string, color1: string, color2: string) {
+                  it(`should return a ${theme} icon on ${date}`, async () => {
+                    const response = await request(
+                      server({ now: () => dayjs(date) })
+                    ).get(`/icon/${type}/size/180`);
+  
+                    expect(response.status).toEqual(200);
+                    const svg = Buffer.from(response.body).toString();
+                    expect(svg).toContain(`id="${id}"`);
+                    expect(svg).toContain(`fill="${color1}"`);
+                    expect(svg).toContain(`fill="${color2}"`);
+                  });
+                }
 
-                  expect(response.status).toEqual(200);
-                  const svg = Buffer.from(response.body).toString();
-                  expect(svg).toContain(`fill="red"`);
-                  expect(svg).toContain(`fill="green"`);
-                });
+                itShouldBeFestive("christmas '22", "2022/12/25", "christmas", "red", "green")
+                itShouldBeFestive("christmas '23", "2023/12/25", "christmas", "red", "green")
+
+                itShouldBeFestive("halloween", "2022/10/31", "halloween", "black", "orange")
+                itShouldBeFestive("halloween", "2023/10/31", "halloween", "black", "orange")
+
+                itShouldBeFestive("cny '22", "2022/02/01", "yoTiger", "red", "yellow")
+                itShouldBeFestive("cny '23", "2023/01/22", "yoRabbit", "red", "yellow")
               });
             });
           });
