@@ -90,7 +90,7 @@ export type GetArtistsResponse = SubsonicResponse & {
 };
 
 export type GetAlbumListResponse = SubsonicResponse & {
-  albumList: {
+  albumList2: {
     album: album[];
   };
 };
@@ -130,7 +130,7 @@ export type ArtistInfo = {
 };
 
 export type GetArtistInfoResponse = SubsonicResponse & {
-  artistInfo: artistInfo;
+  artistInfo2: artistInfo;
 };
 
 export type GetArtistResponse = SubsonicResponse & {
@@ -197,7 +197,7 @@ export type GetPlaylistsResponse = {
 };
 
 export type GetSimilarSongsResponse = {
-  similarSongs: { song: song[] };
+  similarSongs2: { song: song[] };
 };
 
 export type GetTopSongsResponse = {
@@ -349,18 +349,18 @@ export class Navidrome implements MusicService {
           new X2JS({
             arrayAccessFormPaths: [
               "subsonic-response.album.song",
-              "subsonic-response.albumList.album",
+              "subsonic-response.albumList2.album",
               "subsonic-response.artist.album",
               "subsonic-response.artists.index",
               "subsonic-response.artists.index.artist",
-              "subsonic-response.artistInfo.similarArtist",
+              "subsonic-response.artistInfo2.similarArtist",
               "subsonic-response.genres.genre",
               "subsonic-response.playlist.entry",
               "subsonic-response.playlists.playlist",
               "subsonic-response.searchResult3.album",
               "subsonic-response.searchResult3.artist",
               "subsonic-response.searchResult3.song",
-              "subsonic-response.similarSongs.song",
+              "subsonic-response.similarSongs2.song",
               "subsonic-response.topSongs.song",
             ],
           }).xml2js(response.data) as SubconicEnvelope
@@ -403,17 +403,17 @@ export class Navidrome implements MusicService {
       );
 
   getArtistInfo = (credentials: Credentials, id: string): Promise<ArtistInfo> =>
-    this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
+    this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo2", {
       id,
       count: 50,
       includeNotPresent: true,
     }).then((it) => ({
       image: {
-        small: validate(it.artistInfo.smallImageUrl),
-        medium: validate(it.artistInfo.mediumImageUrl),
-        large: validate(it.artistInfo.largeImageUrl),
+        small: validate(it.artistInfo2.smallImageUrl),
+        medium: validate(it.artistInfo2.mediumImageUrl),
+        large: validate(it.artistInfo2.largeImageUrl),
       },
-      similarArtist: (it.artistInfo.similarArtist || []).map((artist) => ({
+      similarArtist: (it.artistInfo2.similarArtist || []).map((artist) => ({
         id: artist._id,
         name: artist._name,
         inLibrary: artist._id != "-1",
@@ -519,7 +519,7 @@ export class Navidrome implements MusicService {
           })),
       artist: async (id: string): Promise<Artist> =>
         navidrome.getArtistWithInfo(credentials, id),
-      albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
+      albums: async (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
         return Promise.all([
           navidrome
             .getArtists(credentials)
@@ -527,12 +527,12 @@ export class Navidrome implements MusicService {
               _.inject(it, (total, artist) => total + artist.albumCount, 0)
             ),
           navidrome
-            .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
+            .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
               ...pick(q, "type", "genre"),
               size: 500,
               offset: q._index,
             })
-            .then((response) => response.albumList.album || [])
+            .then((response) => response.albumList2.album || [])
             .then(navidrome.toAlbumSummary),
         ]).then(([total, albums]) => ({
           results: albums.slice(0, q._count),
@@ -760,10 +760,10 @@ export class Navidrome implements MusicService {
         navidrome
           .getJSON<GetSimilarSongsResponse>(
             credentials,
-            "/rest/getSimilarSongs",
+            "/rest/getSimilarSongs2",
             { id, count: 50 }
           )
-          .then((it) => it.similarSongs.song || [])
+          .then((it) => it.similarSongs2.song || [])
           .then((songs) =>
             Promise.all(
               songs.map((song) =>

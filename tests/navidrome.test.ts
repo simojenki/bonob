@@ -168,7 +168,7 @@ const similarArtistXml = (similarArtist: SimilarArtist) => {
 const getArtistInfoXml = (
   artist: Artist
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-          <artistInfo>
+          <artistInfo2>
               <biography></biography>
               <musicBrainzId></musicBrainzId>
               <lastFmUrl></lastFmUrl>
@@ -176,7 +176,7 @@ const getArtistInfoXml = (
               <mediumImageUrl>${artist.image.medium || ""}</mediumImageUrl>
               <largeImageUrl>${artist.image.large || ""}</largeImageUrl>
               ${artist.similarArtists.map(similarArtistXml).join("")}
-          </artistInfo>
+          </artistInfo2>
         </subsonic-response>`;
 
 const albumXml = (
@@ -223,11 +223,11 @@ const songXml = (track: Track) => `<song
 const albumListXml = (
   albums: [Artist, Album][]
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                    <albumList>
+                    <albumList2>
                       ${albums
                         .map(([artist, album]) => albumXml(artist, album))
                         .join("")}
-                    </albumList>
+                    </albumList2>
                   </subsonic-response>`;
 
 const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${
@@ -280,9 +280,9 @@ const getSongXml = (
 const similarSongsXml = (
   tracks: Track[]
 ) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                                                <similarSongs>
+                                                <similarSongs2>
                                                 ${tracks.map(songXml).join("")}
-                                                </similarSongs>
+                                                </similarSongs2>
                                               </subsonic-response>`;
 
 const topSongsXml = (
@@ -653,7 +653,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
@@ -720,7 +720,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
@@ -785,7 +785,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
@@ -850,7 +850,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
@@ -906,7 +906,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
@@ -960,7 +960,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
@@ -1012,7 +1012,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
               ...authParams,
               id: artist.id,
@@ -1257,7 +1257,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
               ...authParams,
               type: "byGenre",
@@ -1308,7 +1308,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
               ...authParams,
               type: "newest",
@@ -1358,7 +1358,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
               ...authParams,
               type: "recent",
@@ -1403,7 +1403,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
               ...authParams,
               type: "frequent",
@@ -1457,7 +1457,7 @@ describe("Navidrome", () => {
           headers,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
           params: asURLSearchParams({
             ...authParams,
             type: "alphabeticalByArtist",
@@ -1510,7 +1510,7 @@ describe("Navidrome", () => {
           headers,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
           params: asURLSearchParams({
             ...authParams,
             type: "alphabeticalByArtist",
@@ -1578,7 +1578,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
               ...authParams,
               type: "alphabeticalByArtist",
@@ -1632,7 +1632,7 @@ describe("Navidrome", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
               ...authParams,
               type: "alphabeticalByArtist",
@@ -1720,7 +1720,7 @@ describe("Navidrome", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
               params: asURLSearchParams({
                 ...authParams,
                 type: "alphabeticalByArtist",
@@ -1780,7 +1780,7 @@ describe("Navidrome", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
               params: asURLSearchParams({
                 ...authParams,
                 type: "alphabeticalByArtist",
@@ -1839,7 +1839,7 @@ describe("Navidrome", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
               params: asURLSearchParams({
                 ...authParams,
                 type: "alphabeticalByArtist",
@@ -1907,7 +1907,7 @@ describe("Navidrome", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
               params: asURLSearchParams({
                 ...authParams,
                 type: "alphabeticalByArtist",
@@ -1970,7 +1970,7 @@ describe("Navidrome", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
               params: asURLSearchParams({
                 ...authParams,
                 type: "alphabeticalByArtist",
@@ -2032,7 +2032,7 @@ describe("Navidrome", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
               params: asURLSearchParams({
                 ...authParams,
                 type: "alphabeticalByArtist",
@@ -2760,7 +2760,7 @@ describe("Navidrome", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getArtistInfo`,
+              `${url}/rest/getArtistInfo2`,
               {
                 params: asURLSearchParams({
                   ...authParams,
@@ -2837,7 +2837,7 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(
-                `${url}/rest/getArtistInfo`,
+                `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
                     ...authParams,
@@ -2914,7 +2914,7 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(
-                `${url}/rest/getArtistInfo`,
+                `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
                     ...authParams,
@@ -2984,7 +2984,7 @@ describe("Navidrome", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getArtistInfo`,
+              `${url}/rest/getArtistInfo2`,
               {
                 params: asURLSearchParams({
                   ...authParams,
@@ -3064,7 +3064,7 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(
-                `${url}/rest/getArtistInfo`,
+                `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
                     ...authParams,
@@ -3142,7 +3142,7 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(
-                `${url}/rest/getArtistInfo`,
+                `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
                     ...authParams,
@@ -3215,7 +3215,7 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(
-                `${url}/rest/getArtistInfo`,
+                `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
                     ...authParams,
@@ -3293,7 +3293,7 @@ describe("Navidrome", () => {
               });
 
               expect(axios.get).toHaveBeenCalledWith(
-                `${url}/rest/getArtistInfo`,
+                `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
                     ...authParams,
@@ -4134,7 +4134,7 @@ describe("Navidrome", () => {
 
         expect(result).toEqual([track1]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs`, {
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
           params: asURLSearchParams({
             ...authParams,
             id,
@@ -4206,7 +4206,7 @@ describe("Navidrome", () => {
 
         expect(result).toEqual([track1, track2, track3]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs`, {
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
           params: asURLSearchParams({
             ...authParams,
             id,
@@ -4234,7 +4234,7 @@ describe("Navidrome", () => {
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs`, {
+        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
           params: asURLSearchParams({
             ...authParams,
             id,
