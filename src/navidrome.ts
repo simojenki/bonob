@@ -197,12 +197,12 @@ export type GetPlaylistsResponse = {
 };
 
 export type GetSimilarSongsResponse = {
-  similarSongs: { song: song[] }
-}
+  similarSongs: { song: song[] };
+};
 
 export type GetTopSongsResponse = {
-  topSongs: { song: song[] }
-}
+  topSongs: { song: song[] };
+};
 
 export type GetSongResponse = {
   song: song;
@@ -236,7 +236,7 @@ export type getAlbumListParams = {
   genre?: string;
 };
 
-const MAX_ALBUM_LIST = 500;
+export const MAX_ALBUM_LIST = 500;
 
 const asTrack = (album: Album, song: song) => ({
   id: song._id,
@@ -248,7 +248,7 @@ const asTrack = (album: Album, song: song) => ({
   album,
   artist: {
     id: song._artistId,
-    name: song._artist
+    name: song._artist,
   },
 });
 
@@ -389,13 +389,16 @@ export class Navidrome implements MusicService {
       )
     );
 
-  getArtists = (credentials: Credentials): Promise<IdName[]> =>
+  getArtists = (
+    credentials: Credentials
+  ): Promise<(IdName & { albumCount: number })[]> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
       .then((artists) =>
         artists.map((artist) => ({
           id: artist._id,
           name: artist._name,
+          albumCount: Number.parseInt(artist._albumCount),
         }))
       );
 
@@ -403,7 +406,7 @@ export class Navidrome implements MusicService {
     this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo", {
       id,
       count: 50,
-      includeNotPresent: true
+      includeNotPresent: true,
     }).then((it) => ({
       image: {
         small: validate(it.artistInfo.smallImageUrl),
@@ -516,20 +519,29 @@ export class Navidrome implements MusicService {
           })),
       artist: async (id: string): Promise<Artist> =>
         navidrome.getArtistWithInfo(credentials, id),
-      albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
-        navidrome
-          .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
-            ...pick(q, "type", "genre"),
-            size: Math.min(MAX_ALBUM_LIST, q._count),
-            offset: q._index,
-          })
-          .then((response) => response.albumList.album || [])
-          .then(navidrome.toAlbumSummary)
-          .then(slice2(q))
-          .then(([page, total]) => ({
-            results: page,
-            total: Math.min(MAX_ALBUM_LIST, total),
-          })),
+      albums: (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
+        return Promise.all([
+          navidrome
+            .getArtists(credentials)
+            .then((it) =>
+              _.inject(it, (total, artist) => total + artist.albumCount, 0)
+            ),
+          navidrome
+            .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList", {
+              ...pick(q, "type", "genre"),
+              size: 500,
+              offset: q._index,
+            })
+            .then((response) => response.albumList.album || [])
+            .then(navidrome.toAlbumSummary),
+        ]).then(([total, albums]) => ({
+          results: albums.slice(0, q._count),
+          total:
+            albums.length == 500
+              ? total
+              : q._index + albums.length,
+        }));
+      },
       album: (id: string): Promise<Album> =>
         navidrome.getAlbum(credentials, id),
       genres: () =>
@@ -538,7 +550,7 @@ export class Navidrome implements MusicService {
           .then((it) =>
             pipe(
               it.genres.genre || [],
-              A.filter(it => Number.parseInt(it._albumCount) > 0),
+              A.filter((it) => Number.parseInt(it._albumCount) > 0),
               A.map((it) => it.__text),
               A.sort(ordString),
               A.map((it) => ({ id: it, name: it }))
@@ -712,7 +724,7 @@ export class Navidrome implements MusicService {
                 },
                 artist: {
                   id: entry._artistId,
-                  name: entry._artist
+                  name: entry._artist,
                 },
               })),
             };
@@ -744,24 +756,41 @@ export class Navidrome implements MusicService {
             songIndexToRemove: indicies,
           })
           .then((_) => true),
-      similarSongs: async (id: string) => navidrome
-        .getJSON<GetSimilarSongsResponse>(credentials, "/rest/getSimilarSongs", { id, count: 50 })
-        .then((it) => (it.similarSongs.song || []))
-        .then(songs =>
-          Promise.all(
-            songs.map((song) => navidrome.getAlbum(credentials, song._albumId).then(album => asTrack(album, song)))
+      similarSongs: async (id: string) =>
+        navidrome
+          .getJSON<GetSimilarSongsResponse>(
+            credentials,
+            "/rest/getSimilarSongs",
+            { id, count: 50 }
           )
-        ),
-      topSongs: async (artistId: string) => navidrome
-        .getArtist(credentials, artistId)
-        .then(({ name }) => navidrome
-          .getJSON<GetTopSongsResponse>(credentials, "/rest/getTopSongs", { artist: name, count: 50 })
-          .then((it) => (it.topSongs.song || []))
-          .then(songs =>
+          .then((it) => it.similarSongs.song || [])
+          .then((songs) =>
             Promise.all(
-              songs.map((song) => navidrome.getAlbum(credentials, song._albumId).then(album => asTrack(album, song)))
+              songs.map((song) =>
+                navidrome
+                  .getAlbum(credentials, song._albumId)
+                  .then((album) => asTrack(album, song))
+              )
             )
-          ))
+          ),
+      topSongs: async (artistId: string) =>
+        navidrome.getArtist(credentials, artistId).then(({ name }) =>
+          navidrome
+            .getJSON<GetTopSongsResponse>(credentials, "/rest/getTopSongs", {
+              artist: name,
+              count: 50,
+            })
+            .then((it) => it.topSongs.song || [])
+            .then((songs) =>
+              Promise.all(
+                songs.map((song) =>
+                  navidrome
+                    .getAlbum(credentials, song._albumId)
+                    .then((album) => asTrack(album, song))
+                )
+              )
+            )
+        ),
     };
 
     return Promise.resolve(musicLibrary);
