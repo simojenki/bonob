@@ -18,6 +18,7 @@ import {
   festivals,
   allOf,
   features,
+  STAR_WARS,
 } from "../src/icon";
 
 describe("SvgIcon", () => {
@@ -631,6 +632,31 @@ describe("festivals", () => {
         viewPortIncreasePercent: 12,
         backgroundColor: "black",
         foregroundColor: "orange",
+      });
+    });
+  });
+
+  describe("on may 4", () => {
+    beforeEach(() => {
+      now = dayjs("2022/5/4");
+    });
+
+    it("should use the undefined colors, so no color", () => {
+      const result = original
+        .apply(
+          features({
+            viewPortIncreasePercent: 12,
+            backgroundColor: "shouldNotBeUsed",
+            foregroundColor: "shouldNotBeUsed",
+          })
+        )
+        .apply(festivals(clock)) as DummyIcon;
+
+      expect(STAR_WARS.map(it => it.svg)).toContain(result.svg);
+      expect(result.features).toEqual({
+        viewPortIncreasePercent: 12,
+        backgroundColor: undefined,
+        foregroundColor: undefined,
       });
     });
   });

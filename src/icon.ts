@@ -10,6 +10,7 @@ import {
   isCNY_2024,
   isHalloween,
   isHoli,
+  isMay4,
   SystemClock,
 } from "./clock";
 import path from "path";
@@ -217,7 +218,14 @@ export type ICON =
   | "yoRabbit"
   | "yoTiger"
   | "chapel"
-  | "audioWave";
+  | "audioWave"
+  | "c3po"
+  | "chewy"
+  | "darth"
+  | "skywalker"
+  | "leia"
+  | "r2d2"
+  | "yoda";
 
 const iconFrom = (name: string) =>
   new SvgIcon(
@@ -285,7 +293,16 @@ export const ICONS: Record<ICON, SvgIcon> = {
   yoTiger: iconFrom("Year-of Tiger-22776.svg"),
   chapel: iconFrom("Chapel-69791.svg"),
   audioWave: iconFrom("Audio-Wave-1892.svg"),
+  c3po: iconFrom("C-3PO-31823.svg"),
+  chewy: iconFrom("Chewbacca-89771.svg"),
+  darth: iconFrom("Darth-Vader-35734.svg"),
+  skywalker: iconFrom("Luke-Skywalker-39424.svg"),
+  leia: iconFrom("Princess-Leia-68568.svg"),
+  r2d2: iconFrom("R2-D2-39423.svg"),
+  yoda: iconFrom("Yoda-68107.svg"),
 };
+
+export const STAR_WARS = [ICONS.c3po, ICONS.chewy, ICONS.darth, ICONS.skywalker, ICONS.leia, ICONS.r2d2, ICONS.yoda];
 
 export type RULE = (genre: string) => boolean;
 
@@ -436,6 +453,16 @@ export const festivals = (clock: Clock = SystemClock): Transformer => {
         features: {
           backgroundColor: "black",
           foregroundColor: "orange",
+        },
+      })
+    ),
+    maybeTransform(
+      () => isMay4(clock),
+      transform({
+        svg: STAR_WARS[_.random(STAR_WARS.length - 1)]!.svg,
+        features: {
+          backgroundColor: undefined,
+          foregroundColor: undefined,
         },
       })
     )
