@@ -26,7 +26,6 @@ import {
   AuthSuccess,
   Images,
   albumToAlbumSummary,
-  range,
   asArtistAlbumPairs,
   Track,
   AlbumSummary,
@@ -380,6 +379,50 @@ const searchResult3 = ({
   ${(tracks || []).map((it) => songXml(it)).join("")}
 </searchResult3>
 </subsonic-response>`;
+
+const getArtistsXml = (artists: Artist[]) => {
+  const as: Artist[] = [];
+  const bs: Artist[] = [];
+  const cs: Artist[] = [];
+  const rest: Artist[] = [];
+  artists.forEach((it) => {
+    const firstChar = it.name.toLowerCase()[0];
+    switch (firstChar) {
+      case "a":
+        as.push(it);
+        break;
+      case "b":
+        bs.push(it);
+        break;
+      case "c":
+        cs.push(it);
+        break;
+      default:
+        rest.push(it);
+        break;
+    }
+  });
+
+  const artistSummaryXml = (artist: Artist) =>
+    `<artist id="${artist.id}" name="${artist.name}" albumCount="${artist.albums.length}"></artist>`;
+
+  return `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
+  <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
+    <index name="A">
+      ${as.map(artistSummaryXml).join("")}
+    </index>
+    <index name="B">
+      ${bs.map(artistSummaryXml).join("")}
+    </index>
+    <index name="C">
+      ${cs.map(artistSummaryXml).join("")}
+    </index>
+    <index name="D-Z">
+      ${rest.map(artistSummaryXml).join("")}
+    </index>
+  </artists>
+  </subsonic-response>`;
+};
 
 const EMPTY = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
 
@@ -1090,34 +1133,19 @@ describe("Navidrome", () => {
     });
 
     describe("when there are artists", () => {
-      const artist1 = anArtist();
-      const artist2 = anArtist();
-      const artist3 = anArtist();
-      const artist4 = anArtist();
-
-      const getArtistsXml = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-              <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
-                <index name="#">
-                  <artist id="${artist1.id}" name="${artist1.name}" albumCount="22"></artist>
-                  <artist id="${artist2.id}" name="${artist2.name}" albumCount="9"></artist>
-                </index>
-                <index name="A">
-                  <artist id="${artist3.id}" name="${artist3.name}" albumCount="2"></artist>
-                </index>
-                <index name="B">
-                  <artist id="${artist4.id}" name="${artist4.name}" albumCount="2"></artist>
-                </index>
-                <index name="C">
-                  <!-- intentionally no artists -->
-                </index>
-              </artists>
-            </subsonic-response>`;
+      const artist1 = anArtist({ name: "A Artist" });
+      const artist2 = anArtist({ name: "B Artist" });
+      const artist3 = anArtist({ name: "C Artist" });
+      const artist4 = anArtist({ name: "D Artist" });
+      const artists = [artist1, artist2, artist3, artist4];
 
       describe("when no paging is in effect", () => {
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() => Promise.resolve(ok(getArtistsXml)));
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml(artists)))
+            );
         });
 
         it("should return all the artists", async () => {
@@ -1150,7 +1178,9 @@ describe("Navidrome", () => {
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() => Promise.resolve(ok(getArtistsXml)));
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml(artists)))
+            );
         });
 
         it("should return only the correct page of artists", async () => {
@@ -1189,10 +1219,14 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml([artist])))
+            )
+            .mockImplementationOnce(() =>
               Promise.resolve(
                 ok(
                   albumListXml([
                     [artist, album1],
+                    // album2 is not Pop
                     [artist, album3],
                   ])
                 )
@@ -1203,7 +1237,7 @@ describe("Navidrome", () => {
         it("should pass the filter to navidrome", async () => {
           const q: AlbumQuery = {
             _index: 0,
-            _count: 500,
+            _count: 100,
             genre: "Pop",
             type: "byGenre",
           };
@@ -1216,6 +1250,11 @@ describe("Navidrome", () => {
           expect(result).toEqual({
             results: [album1, album3].map(albumToAlbumSummary),
             total: 2,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParams),
+            headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
@@ -1236,11 +1275,15 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml([artist])))
+            )
+            .mockImplementationOnce(() =>
               Promise.resolve(
                 ok(
                   albumListXml([
                     [artist, album3],
                     [artist, album2],
+                    [artist, album1],
                   ])
                 )
               )
@@ -1248,7 +1291,7 @@ describe("Navidrome", () => {
         });
 
         it("should pass the filter to navidrome", async () => {
-          const q: AlbumQuery = { _index: 0, _count: 500, type: "newest" };
+          const q: AlbumQuery = { _index: 0, _count: 100, type: "newest" };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
@@ -1256,8 +1299,13 @@ describe("Navidrome", () => {
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
-            results: [album3, album2].map(albumToAlbumSummary),
-            total: 2,
+            results: [album3, album2, album1].map(albumToAlbumSummary),
+            total: 3,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParams),
+            headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
@@ -1277,11 +1325,15 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml([artist])))
+            )
+            .mockImplementationOnce(() =>
               Promise.resolve(
                 ok(
                   albumListXml([
                     [artist, album3],
                     [artist, album2],
+                    // album1 never played
                   ])
                 )
               )
@@ -1289,7 +1341,7 @@ describe("Navidrome", () => {
         });
 
         it("should pass the filter to navidrome", async () => {
-          const q: AlbumQuery = { _index: 0, _count: 500, type: "recent" };
+          const q: AlbumQuery = { _index: 0, _count: 100, type: "recent" };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
@@ -1299,6 +1351,11 @@ describe("Navidrome", () => {
           expect(result).toEqual({
             results: [album3, album2].map(albumToAlbumSummary),
             total: 2,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParams),
+            headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
@@ -1318,12 +1375,18 @@ describe("Navidrome", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(albumListXml([[artist, album2]])))
+              Promise.resolve(ok(getArtistsXml([artist])))
+            )
+            .mockImplementationOnce(
+              () =>
+                // album1 never played
+                Promise.resolve(ok(albumListXml([[artist, album2]])))
+              // album3 never played
             );
         });
 
         it("should pass the filter to navidrome", async () => {
-          const q: AlbumQuery = { _index: 0, _count: 500, type: "frequent" };
+          const q: AlbumQuery = { _index: 0, _count: 100, type: "frequent" };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
@@ -1333,6 +1396,11 @@ describe("Navidrome", () => {
           expect(result).toEqual({
             results: [album2].map(albumToAlbumSummary),
             total: 1,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParams),
+            headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
@@ -1349,16 +1417,19 @@ describe("Navidrome", () => {
     });
 
     describe("when the artist has only 1 album", () => {
-      const artist1 = anArtist({
+      const artist = anArtist({
         name: "one hit wonder",
         albums: [anAlbum({ genre: asGenre("Pop") })],
       });
-      const artists = [artist1];
+      const artists = [artist];
       const albums = artists.flatMap((artist) => artist.albums);
 
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getArtistsXml(artists)))
+          )
           .mockImplementationOnce(() =>
             Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
           );
@@ -1367,7 +1438,7 @@ describe("Navidrome", () => {
       it("should return the album", async () => {
         const q: AlbumQuery = {
           _index: 0,
-          _count: 500,
+          _count: 100,
           type: "alphabeticalByArtist",
         };
         const result = await navidrome
@@ -1381,6 +1452,11 @@ describe("Navidrome", () => {
           total: 1,
         });
 
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          params: asURLSearchParams(authParams),
+          headers,
+        });
+
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
           params: asURLSearchParams({
             ...authParams,
@@ -1393,17 +1469,20 @@ describe("Navidrome", () => {
       });
     });
 
-    describe("when the artist has only no albums", () => {
-      const artist1 = anArtist({
-        name: "one hit wonder",
+    describe("when the only artist has no albums", () => {
+      const artist = anArtist({
+        name: "no hit wonder",
         albums: [],
       });
-      const artists = [artist1];
+      const artists = [artist];
       const albums = artists.flatMap((artist) => artist.albums);
 
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getArtistsXml(artists)))
+          )
           .mockImplementationOnce(() =>
             Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
           );
@@ -1412,7 +1491,7 @@ describe("Navidrome", () => {
       it("should return the album", async () => {
         const q: AlbumQuery = {
           _index: 0,
-          _count: 500,
+          _count: 100,
           type: "alphabeticalByArtist",
         };
         const result = await navidrome
@@ -1426,6 +1505,11 @@ describe("Navidrome", () => {
           total: 0,
         });
 
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          params: asURLSearchParams(authParams),
+          headers,
+        });
+
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
           params: asURLSearchParams({
             ...authParams,
@@ -1438,7 +1522,7 @@ describe("Navidrome", () => {
       });
     });
 
-    describe("when there are less than 500 albums", () => {
+    describe("when there are 6 albums in total", () => {
       const genre1 = asGenre("genre1");
       const genre2 = asGenre("genre2");
       const genre3 = asGenre("genre3");
@@ -1446,35 +1530,36 @@ describe("Navidrome", () => {
       const artist1 = anArtist({
         name: "abba",
         albums: [
-          anAlbum({ genre: genre1 }),
-          anAlbum({ genre: genre2 }),
-          anAlbum({ genre: genre3 }),
+          anAlbum({ name: "album1", genre: genre1 }),
+          anAlbum({ name: "album2", genre: genre2 }),
+          anAlbum({ name: "album3", genre: genre3 }),
         ],
       });
       const artist2 = anArtist({
         name: "babba",
         albums: [
-          anAlbum({ genre: genre1 }),
-          anAlbum({ genre: genre2 }),
-          anAlbum({ genre: genre3 }),
+          anAlbum({ name: "album4", genre: genre1 }),
+          anAlbum({ name: "album5", genre: genre2 }),
+          anAlbum({ name: "album6", genre: genre3 }),
         ],
       });
       const artists = [artist1, artist2];
       const albums = artists.flatMap((artist) => artist.albums);
 
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
-          );
-      });
-
       describe("querying for all of them", () => {
         it("should return all of them with corrent paging information", async () => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml(artists)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
+            );
+
           const q: AlbumQuery = {
             _index: 0,
-            _count: 500,
+            _count: 100,
             type: "alphabeticalByArtist",
           };
           const result = await navidrome
@@ -1486,6 +1571,11 @@ describe("Navidrome", () => {
           expect(result).toEqual({
             results: albums,
             total: 6,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParams),
+            headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
@@ -1502,6 +1592,25 @@ describe("Navidrome", () => {
 
       describe("querying for a page of them", () => {
         it("should return the page with the corrent paging information", async () => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml(artists)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(
+                ok(
+                  albumListXml([
+                    [artist1, artist1.albums[2]!],
+                    [artist2, artist2.albums[0]!],
+                    // due to pre-fetch will get next 2 albums also
+                    [artist2, artist2.albums[1]!],
+                    [artist2, artist2.albums[2]!],
+                  ])
+                )
+              )
+            );
+
           const q: AlbumQuery = {
             _index: 2,
             _count: 2,
@@ -1514,15 +1623,20 @@ describe("Navidrome", () => {
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
-            results: [albums[2], albums[3]],
+            results: [artist1.albums[2], artist2.albums[0]],
             total: 6,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParams),
+            headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
             params: asURLSearchParams({
               ...authParams,
               type: "alphabeticalByArtist",
-              size: 2,
+              size: 500,
               offset: 2,
             }),
             headers,
@@ -1531,60 +1645,406 @@ describe("Navidrome", () => {
       });
     });
 
-    describe("when there are more than 500 albums", () => {
-      const first500Albums = range(500).map((i) =>
-        anAlbum({ name: `album ${i}`, genre: asGenre(`genre ${i}`) })
-      );
-      const artist = anArtist({
-        name: "> 500 albums",
-        albums: [...first500Albums, anAlbum(), anAlbum(), anAlbum()],
-      });
+    describe("when the number of albums reported by getArtists does not match that of getAlbums", () => {
+      const genre = asGenre("lofi");
 
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(
-                albumListXml(
-                  first500Albums.map(
-                    (album) => [artist, album] as [Artist, Album]
+      const album1 = anAlbum({ name: "album1", genre });
+      const album2 = anAlbum({ name: "album2", genre });
+      const album3 = anAlbum({ name: "album3", genre });
+      const album4 = anAlbum({ name: "album4", genre });
+      const album5 = anAlbum({ name: "album5", genre });
+
+      // the artists have 5 albums in the getArtists endpoint
+      const artist1 = anArtist({
+        albums: [
+          album1,
+          album2,
+          album3,
+          album4,
+        ],
+      });
+      const artist2 = anArtist({
+        albums: [
+          album5,
+        ],
+      });
+      const artists = [artist1, artist2];
+
+      describe("when the number of albums returned from getAlbums is less the number of albums in the getArtists endpoint", () => {
+        describe("when the query comes back on 1 page", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistsXml(artists)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    albumListXml([
+                      [artist1, album1],
+                      [artist1, album2],
+                      [artist1, album3],
+                      // album4 is missing from the albums end point for some reason
+                      [artist2, album5],
+                    ])
                   )
                 )
-              )
-            )
-          );
-      });
-
-      describe("querying for all of them", () => {
-        it("will return only the first 500 with the correct paging information", async () => {
-          const q: AlbumQuery = {
-            _index: 0,
-            _count: 1000,
-            type: "alphabeticalByArtist",
-          };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.albums(q));
-
-          expect(result).toEqual({
-            results: first500Albums.map(albumToAlbumSummary),
-            total: 500,
+              );
           });
-
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
-            params: asURLSearchParams({
-              ...authParams,
+  
+          it("should return the page of albums, updating the total to be accurate", async () => {
+            const q: AlbumQuery = {
+              _index: 0,
+              _count: 100,
               type: "alphabeticalByArtist",
-              size: 500,
-              offset: 0,
-            }),
-            headers,
+            };
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.albums(q));
+
+            expect(result).toEqual({
+              results: [
+                album1,
+                album2,
+                album3,
+                album5,
+              ],
+              total: 4,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParams),
+              headers,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+              params: asURLSearchParams({
+                ...authParams,
+                type: "alphabeticalByArtist",
+                size: 500,
+                offset: q._index,
+              }),
+              headers,
+            });
           });
         });
+
+        describe("when the query is for the first page", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistsXml(artists)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    albumListXml([
+                      [artist1, album1],
+                      [artist1, album2],
+                      // album3 & album5 is returned due to the prefetch
+                      [artist1, album3],
+                      // album4 is missing from the albums end point for some reason
+                      [artist2, album5],
+                    ])
+                  )
+                )
+              );
+          });
+  
+          it("should filter out the pre-fetched albums", async () => {
+            const q: AlbumQuery = {
+              _index: 0,
+              _count: 2,
+              type: "alphabeticalByArtist",
+            };
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.albums(q));
+
+            expect(result).toEqual({
+              results: [
+                album1,
+                album2,
+              ],
+              total: 4,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParams),
+              headers,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+              params: asURLSearchParams({
+                ...authParams,
+                type: "alphabeticalByArtist",
+                size: 500,
+                offset: q._index,
+              }),
+              headers,
+            });
+          });
+        });   
+
+        describe("when the query is for the last page only", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistsXml(artists)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    albumListXml([
+                      // album1 is on the first page
+                      // album2 is on the first page
+                      [artist1, album3],
+                      // album4 is missing from the albums end point for some reason
+                      [artist2, album5],
+                    ])
+                  )
+                )
+              );
+          });
+  
+          it("should return the last page of albums, updating the total to be accurate", async () => {
+            const q: AlbumQuery = {
+              _index: 2,
+              _count: 100,
+              type: "alphabeticalByArtist",
+            };
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.albums(q));
+
+            expect(result).toEqual({
+              results: [
+                album3,
+                album5,
+              ],
+              total: 4,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParams),
+              headers,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+              params: asURLSearchParams({
+                ...authParams,
+                type: "alphabeticalByArtist",
+                size: 500,
+                offset: q._index,
+              }),
+              headers,
+            });
+          });
+        });        
       });
+
+      describe("when the number of albums returned from getAlbums is more than the number of albums in the getArtists endpoint", () => {
+        describe("when the query comes back on 1 page", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistsXml([
+                  // artist1 has lost 2 albums on the getArtists end point
+                  { ...artist1, albums: [album1, album2] },
+                  artist2,
+                ])))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    albumListXml([
+                      [artist1, album1],
+                      [artist1, album2],
+                      [artist1, album3],
+                      [artist1, album4],
+                      [artist2, album5],
+                    ])
+                  )
+                )
+              );
+          });
+  
+          it("should return the page of albums, updating the total to be accurate", async () => {
+            const q: AlbumQuery = {
+              _index: 0,
+              _count: 100,
+              type: "alphabeticalByArtist",
+            };
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.albums(q));
+
+            expect(result).toEqual({
+              results: [
+                album1,
+                album2,
+                album3,
+                album4,
+                album5,
+              ],
+              total: 5,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParams),
+              headers,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+              params: asURLSearchParams({
+                ...authParams,
+                type: "alphabeticalByArtist",
+                size: 500,
+                offset: q._index,
+              }),
+              headers,
+            });
+          });
+        });
+
+        describe("when the query is for the first page", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml([
+                // artist1 has lost 2 albums on the getArtists end point
+                { ...artist1, albums: [album1, album2] },
+                artist2,
+              ])))
+            )
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    albumListXml([
+                      [artist1, album1],
+                      [artist1, album2],
+                      [artist1, album3],
+                      [artist1, album4],
+                      [artist2, album5],
+                    ])
+                  )
+                )
+              );
+          });
+  
+          it("should filter out the pre-fetched albums", async () => {
+            const q: AlbumQuery = {
+              _index: 0,
+              _count: 2,
+              type: "alphabeticalByArtist",
+            };
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.albums(q));
+
+            expect(result).toEqual({
+              results: [
+                album1,
+                album2,
+              ],
+              total: 5,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParams),
+              headers,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+              params: asURLSearchParams({
+                ...authParams,
+                type: "alphabeticalByArtist",
+                size: 500,
+                offset: q._index,
+              }),
+              headers,
+            });
+          });
+        });   
+
+        describe("when the query is for the last page only", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+              Promise.resolve(ok(getArtistsXml([
+                // artist1 has lost 2 albums on the getArtists end point
+                { ...artist1, albums: [album1, album2] },
+                artist2,
+              ])))
+            )
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    albumListXml([
+                      [artist1, album3],
+                      [artist1, album4],
+                      [artist2, album5],
+                    ])
+                  )
+                )
+              );
+          });
+
+          it("should return the last page of albums, updating the total to be accurate", async () => {
+            const q: AlbumQuery = {
+              _index: 2,
+              _count: 100,
+              type: "alphabeticalByArtist",
+            };
+            const result = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken))
+              .then((it) => it.albums(q));
+
+            expect(result).toEqual({
+              results: [
+                album3,
+                album4,
+                album5,
+              ],
+              total: 5,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParams),
+              headers,
+            });
+
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList`, {
+              params: asURLSearchParams({
+                ...authParams,
+                type: "alphabeticalByArtist",
+                size: 500,
+                offset: q._index,
+              }),
+              headers,
+            });
+          });
+        });        
+      });
+
     });
   });
 
