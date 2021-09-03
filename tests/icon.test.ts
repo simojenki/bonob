@@ -2,16 +2,22 @@ import dayjs from "dayjs";
 import libxmljs from "libxmljs2";
 
 import {
-  ColorOverridingIcon,
   contains,
   containsWord,
   eq,
   HOLI_COLORS,
   Icon,
   iconForGenre,
-  makeFestive,
   SvgIcon,
-  Transformation,
+  IconFeatures,
+  IconSpec,
+  ICONS,
+  Transformer,
+  transform,
+  maybeTransform,
+  festivals,
+  allOf,
+  features,
 } from "../src/icon";
 
 describe("SvgIcon", () => {
@@ -34,7 +40,7 @@ describe("SvgIcon", () => {
 </svg>
 `;
 
-  describe("with no transformation", () => {
+  describe("with no features", () => {
     it("should be the same", () => {
       expect(new SvgIcon(svgIcon24).toString()).toEqual(xmlTidy(svgIcon24));
     });
@@ -46,7 +52,7 @@ describe("SvgIcon", () => {
         it("should resize the viewPort", () => {
           expect(
             new SvgIcon(svgIcon24)
-              .with({ viewPortIncreasePercent: 50 })
+              .with({ features: { viewPortIncreasePercent: 50 } })
               .toString()
           ).toEqual(
             xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
@@ -63,7 +69,7 @@ describe("SvgIcon", () => {
         it("should resize the viewPort", () => {
           expect(
             new SvgIcon(svgIcon128)
-              .with({ viewPortIncreasePercent: 50 })
+              .with({ features: { viewPortIncreasePercent: 50 } })
               .toString()
           ).toEqual(
             xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
@@ -81,7 +87,9 @@ describe("SvgIcon", () => {
     describe("of 0%", () => {
       it("should do nothing", () => {
         expect(
-          new SvgIcon(svgIcon24).with({ viewPortIncreasePercent: 0 }).toString()
+          new SvgIcon(svgIcon24)
+            .with({ features: { viewPortIncreasePercent: 0 } })
+            .toString()
         ).toEqual(xmlTidy(svgIcon24));
       });
     });
@@ -91,7 +99,9 @@ describe("SvgIcon", () => {
     describe("with no viewPort increase", () => {
       it("should add a rectangle the same size as the original viewPort", () => {
         expect(
-          new SvgIcon(svgIcon24).with({ backgroundColor: "red" }).toString()
+          new SvgIcon(svgIcon24)
+            .with({ features: { backgroundColor: "red" } })
+            .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -109,7 +119,12 @@ describe("SvgIcon", () => {
       it("should add a rectangle the same size as the original viewPort", () => {
         expect(
           new SvgIcon(svgIcon24)
-            .with({ backgroundColor: "pink", viewPortIncreasePercent: 50 })
+            .with({
+              features: {
+                backgroundColor: "pink",
+                viewPortIncreasePercent: 50,
+              },
+            })
             .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
@@ -127,7 +142,9 @@ describe("SvgIcon", () => {
     describe("of undefined", () => {
       it("should not do anything", () => {
         expect(
-          new SvgIcon(svgIcon24).with({ backgroundColor: undefined }).toString()
+          new SvgIcon(svgIcon24)
+            .with({ features: { backgroundColor: undefined } })
+            .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -144,8 +161,8 @@ describe("SvgIcon", () => {
       it("should use the most recent", () => {
         expect(
           new SvgIcon(svgIcon24)
-            .with({ backgroundColor: "green" })
-            .with({ backgroundColor: "red" })
+            .with({ features: { backgroundColor: "green" } })
+            .with({ features: { backgroundColor: "red" } })
             .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
@@ -165,7 +182,9 @@ describe("SvgIcon", () => {
     describe("with no viewPort increase", () => {
       it("should add a rectangle the same size as the original viewPort", () => {
         expect(
-          new SvgIcon(svgIcon24).with({ foregroundColor: "red" }).toString()
+          new SvgIcon(svgIcon24)
+            .with({ features: { foregroundColor: "red" } })
+            .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -182,7 +201,12 @@ describe("SvgIcon", () => {
       it("should add a rectangle the same size as the original viewPort", () => {
         expect(
           new SvgIcon(svgIcon24)
-            .with({ foregroundColor: "pink", viewPortIncreasePercent: 50 })
+            .with({
+              features: {
+                foregroundColor: "pink",
+                viewPortIncreasePercent: 50,
+              },
+            })
             .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
@@ -199,7 +223,9 @@ describe("SvgIcon", () => {
     describe("of undefined", () => {
       it("should not do anything", () => {
         expect(
-          new SvgIcon(svgIcon24).with({ foregroundColor: undefined }).toString()
+          new SvgIcon(svgIcon24)
+            .with({ features: { foregroundColor: undefined } })
+            .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -216,8 +242,8 @@ describe("SvgIcon", () => {
       it("should use the most recent", () => {
         expect(
           new SvgIcon(svgIcon24)
-            .with({ foregroundColor: "blue" })
-            .with({ foregroundColor: "red" })
+            .with({ features: { foregroundColor: "blue" } })
+            .with({ features: { foregroundColor: "red" } })
             .toString()
         ).toEqual(
           xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
@@ -231,143 +257,306 @@ describe("SvgIcon", () => {
       });
     });
   });
+
+  describe("swapping the svg", () => {
+    describe("with no other changes", () => {
+      it("should swap out the svg, but maintain the IconFeatures", () => {
+        expect(
+          new SvgIcon(svgIcon24, {
+            foregroundColor: "blue",
+            backgroundColor: "green",
+            viewPortIncreasePercent: 50,
+          })
+            .with({ svg: svgIcon128 })
+            .toString()
+        ).toEqual(
+          xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="-21 -21 170 170">
+            <rect x="-21" y="-21" width="191" height="191" fill="green"/>
+            <path d="path1" fill="blue"/>
+            <path d="path2" fill="none" stroke="blue"/>
+            <path d="path3" fill="blue"/>
+          </svg>
+        `)
+        );
+      });
+    });
+
+    describe("with no other changes", () => {
+      it("should swap out the svg, but maintain the IconFeatures", () => {
+        expect(
+          new SvgIcon(svgIcon24, {
+            foregroundColor: "blue",
+            backgroundColor: "green",
+            viewPortIncreasePercent: 50,
+          })
+            .with({
+              svg: svgIcon128,
+              features: {
+                foregroundColor: "pink",
+                backgroundColor: "red",
+                viewPortIncreasePercent: 0,
+              },
+            })
+            .toString()
+        ).toEqual(
+          xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+            <rect x="0" y="0" width="128" height="128" fill="red"/>
+            <path d="path1" fill="pink"/>
+            <path d="path2" fill="none" stroke="pink"/>
+            <path d="path3" fill="pink"/>
+          </svg>
+        `)
+        );
+      });
+    });
+  });
 });
 
 class DummyIcon implements Icon {
-  transformation: Partial<Transformation>;
-  constructor(transformation: Partial<Transformation>) {
-    this.transformation = transformation;
+  svg: string;
+  features: Partial<IconFeatures>;
+  constructor(svg: string, features: Partial<IconFeatures>) {
+    this.svg = svg;
+    this.features = features;
   }
-  public with = (newTransformation: Partial<Transformation>) =>
-    new DummyIcon({ ...this.transformation, ...newTransformation });
 
-  public toString = () => JSON.stringify(this);
+  public apply = (transformer: Transformer): Icon => transformer(this);
+
+  public with = ({ svg, features }: Partial<IconSpec>) => {
+    return new DummyIcon(svg || this.svg, {
+      ...this.features,
+      ...(features || {}),
+    });
+  };
+
+  public toString = () =>
+    JSON.stringify({ svg: this.svg, features: this.features });
 }
 
-describe("ColorOverridingIcon", () => {
+describe("transform", () => {
+  describe("when the features contains no svg", () => {
+    it("should apply the overriding transform ontop of the requested transform", () => {
+      const original = new DummyIcon("original", {
+        backgroundColor: "black",
+        foregroundColor: "black",
+      });
+      const result = original
+        .with({
+          features: {
+            viewPortIncreasePercent: 100,
+            foregroundColor: "blue",
+            backgroundColor: "blue",
+          },
+        })
+        .apply(
+          transform({
+            features: {
+              foregroundColor: "override1",
+              backgroundColor: "override2",
+            },
+          })
+        ) as DummyIcon;
+
+      expect(result.svg).toEqual("original");
+      expect(result.features).toEqual({
+        viewPortIncreasePercent: 100,
+        foregroundColor: "override1",
+        backgroundColor: "override2",
+      });
+    });
+  });
+
+  describe("when the features contains an svg", () => {
+    it("should use the newly provided svg", () => {
+      const original = new DummyIcon("original", {
+        backgroundColor: "black",
+        foregroundColor: "black",
+      });
+      const result = original
+        .with({
+          features: {
+            viewPortIncreasePercent: 100,
+            foregroundColor: "blue",
+            backgroundColor: "blue",
+          },
+        })
+        .apply(
+          transform({
+            svg: "new",
+          })
+        ) as DummyIcon;
+
+      expect(result.svg).toEqual("new");
+      expect(result.features).toEqual({
+        viewPortIncreasePercent: 100,
+        foregroundColor: "blue",
+        backgroundColor: "blue",
+      });
+    });
+  });
+});
+
+describe("features", () => {
+  it("should apply the features", () => {
+    const original = new DummyIcon("original", {
+      backgroundColor: "black",
+      foregroundColor: "black",
+    });
+    const result = original.apply(
+      features({
+        viewPortIncreasePercent: 100,
+        foregroundColor: "blue",
+        backgroundColor: "blue",
+      })
+    ) as DummyIcon;
+
+    expect(result.features).toEqual({
+      viewPortIncreasePercent: 100,
+      foregroundColor: "blue",
+      backgroundColor: "blue",
+    });
+  });
+});
+
+describe("allOf", () => {
+  it("should apply all composed transforms", () => {
+    const result = new DummyIcon("original", {
+      foregroundColor: "black",
+      backgroundColor: "black",
+      viewPortIncreasePercent: 0,
+    }).apply(
+      allOf(
+        (icon: Icon) => icon.with({ svg: "foo" }),
+        (icon: Icon) => icon.with({ features: { backgroundColor: "red" } }),
+        (icon: Icon) => icon.with({ features: { foregroundColor: "blue" } })
+      )
+    ) as DummyIcon;
+
+    expect(result.svg).toEqual("foo");
+    expect(result.features).toEqual({
+      foregroundColor: "blue",
+      backgroundColor: "red",
+      viewPortIncreasePercent: 0,
+    });
+  });
+});
+
+describe("maybeTransform", () => {
   describe("when the rule matches", () => {
-    const icon = new DummyIcon({
+    const original = new DummyIcon("original", {
       backgroundColor: "black",
       foregroundColor: "black",
     });
 
-    describe("overriding some options", () => {
-      const overriding = new ColorOverridingIcon(
-        icon,
-        () => true,
-        () => ({ backgroundColor: "blue", foregroundColor: "red" })
-      );
-
-      describe("with", () => {
-        it("should be the with of the underlieing icon with the overriden colors", () => {
-          const result = overriding.with({
+    describe("transforming the color", () => {
+      const result = original
+        .with({
+          features: {
             viewPortIncreasePercent: 99,
             backgroundColor: "shouldBeIgnored",
             foregroundColor: "shouldBeIgnored",
-          }) as DummyIcon;
+          },
+        })
+        .apply(
+          maybeTransform(
+            () => true,
+            transform({
+              features: {
+                backgroundColor: "blue",
+                foregroundColor: "red",
+              },
+            })
+          )
+        ) as DummyIcon;
 
-          expect(result.transformation).toEqual({
+      describe("with", () => {
+        it("should be the with of the underlieing icon with the overriden colors", () => {
+          expect(result.svg).toEqual("original");
+          expect(result.features).toEqual({
             viewPortIncreasePercent: 99,
             backgroundColor: "blue",
             foregroundColor: "red",
           });
-        });
-      });
-
-      describe("toString", () => {
-        it("should be the toString of the underlieing icon with the overriden colors", () => {
-          expect(overriding.toString()).toEqual(
-            new DummyIcon({
-              backgroundColor: "blue",
-              foregroundColor: "red",
-            }).toString()
-          );
         });
       });
     });
 
     describe("overriding all options", () => {
-      const overriding = new ColorOverridingIcon(
-        icon,
-        () => true,
-        () => ({
-          backgroundColor: "blue",
-          foregroundColor: "red",
-        })
-      );
-
-      describe("with", () => {
-        it("should be the with of the underlieing icon with the overriden colors", () => {
-          const result = overriding.with({
+      const result = original
+        .with({
+          features: {
             viewPortIncreasePercent: 99,
             backgroundColor: "shouldBeIgnored",
             foregroundColor: "shouldBeIgnored",
-          }) as DummyIcon;
+          },
+        })
+        .apply(
+          maybeTransform(
+            () => true,
+            transform({
+              features: {
+                backgroundColor: "blue",
+                foregroundColor: "red",
+              },
+            })
+          )
+        ) as DummyIcon;
 
-          expect(result.transformation).toEqual({
+      describe("with", () => {
+        it("should be the with of the underlieing icon with the overriden colors", () => {
+          expect(result.features).toEqual({
             viewPortIncreasePercent: 99,
             backgroundColor: "blue",
             foregroundColor: "red",
           });
-        });
-      });
-
-      describe("toString", () => {
-        it("should be the toString of the underlieing icon with the overriden colors", () => {
-          expect(overriding.toString()).toEqual(
-            new DummyIcon({
-              backgroundColor: "blue",
-              foregroundColor: "red",
-            }).toString()
-          );
         });
       });
     });
   });
 
   describe("when the rule doesnt match", () => {
-    const icon = new DummyIcon({
+    const original = new DummyIcon("original", {
       backgroundColor: "black",
       foregroundColor: "black",
     });
-    const overriding = new ColorOverridingIcon(
-      icon,
-      () => false,
-      () => ({ backgroundColor: "blue", foregroundColor: "red" })
-    );
-
-    describe("with", () => {
-      it("should use the provided transformation", () => {
-        const result = overriding.with({
+    const result = original
+      .with({
+        features: {
           viewPortIncreasePercent: 88,
           backgroundColor: "shouldBeUsed",
           foregroundColor: "shouldBeUsed",
-        }) as DummyIcon;
+        },
+      })
+      .apply(
+        maybeTransform(
+          () => false,
+          transform({
+            features: { backgroundColor: "blue", foregroundColor: "red" },
+          })
+        )
+      ) as DummyIcon;
 
-        expect(result.transformation).toEqual({
+    describe("with", () => {
+      it("should use the provided features", () => {
+        expect(result.features).toEqual({
           viewPortIncreasePercent: 88,
           backgroundColor: "shouldBeUsed",
           foregroundColor: "shouldBeUsed",
         });
       });
     });
-
-    describe("toString", () => {
-      it("should be the toString of the unchanged icon", () => {
-        expect(overriding.toString()).toEqual(icon.toString());
-      });
-    });
   });
 });
 
-describe("makeFestive", () => {
-  const icon = new DummyIcon({
+describe("festivals", () => {
+  const original = new DummyIcon("original", {
     backgroundColor: "black",
     foregroundColor: "black",
   });
   let now = dayjs();
-
-  const festiveIcon = makeFestive(icon, { now: () => now });
+  const clock = { now: () => now };
 
   describe("on a day that isn't festive", () => {
     beforeEach(() => {
@@ -375,17 +564,23 @@ describe("makeFestive", () => {
     });
 
     it("should use the given colors", () => {
-      const result = festiveIcon.with({
-        viewPortIncreasePercent: 88,
-        backgroundColor: "shouldBeUsed",
-        foregroundColor: "shouldBeUsed",
-      }) as DummyIcon;
+      const result = original
+        .apply(
+          features({
+            viewPortIncreasePercent: 88,
+            backgroundColor: "shouldBeUsed",
+            foregroundColor: "shouldBeUsed",
+          })
+        )
+        .apply(festivals(clock)) as DummyIcon;
 
-      expect(result.transformation).toEqual({
-        viewPortIncreasePercent: 88,
-        backgroundColor: "shouldBeUsed",
-        foregroundColor: "shouldBeUsed",
-      });
+      expect(result.toString()).toEqual(
+        new DummyIcon("original", {
+          backgroundColor: "shouldBeUsed",
+          foregroundColor: "shouldBeUsed",
+          viewPortIncreasePercent: 88,
+        }).toString()
+      );
     });
   });
 
@@ -395,16 +590,22 @@ describe("makeFestive", () => {
     });
 
     it("should use the christmas theme colors", () => {
-      const result = festiveIcon.with({
-        viewPortIncreasePercent: 25,
-        backgroundColor: "shouldNotBeUsed",
-        foregroundColor: "shouldNotBeUsed",
-      }) as DummyIcon;
+      const result = original.apply(
+        allOf(
+          features({
+            viewPortIncreasePercent: 25,
+            backgroundColor: "shouldNotBeUsed",
+            foregroundColor: "shouldNotBeUsed",
+          }),
+          festivals(clock)
+        )
+      ) as DummyIcon;
 
-      expect(result.transformation).toEqual({
-        viewPortIncreasePercent: 25,
+      expect(result.svg).toEqual(ICONS.christmas.svg);
+      expect(result.features).toEqual({
         backgroundColor: "green",
         foregroundColor: "red",
+        viewPortIncreasePercent: 25,
       });
     });
   });
@@ -415,36 +616,98 @@ describe("makeFestive", () => {
     });
 
     it("should use the given colors", () => {
-      const result = festiveIcon.with({
-        viewPortIncreasePercent: 12,
-        backgroundColor: "shouldNotBeUsed",
-        foregroundColor: "shouldNotBeUsed",
-      }) as DummyIcon;
+      const result = original
+        .apply(
+          features({
+            viewPortIncreasePercent: 12,
+            backgroundColor: "shouldNotBeUsed",
+            foregroundColor: "shouldNotBeUsed",
+          })
+        )
+        .apply(festivals(clock)) as DummyIcon;
 
-      expect(result.transformation).toEqual({
+      expect(result.svg).toEqual(ICONS.halloween.svg);
+      expect(result.features).toEqual({
         viewPortIncreasePercent: 12,
-        backgroundColor: "orange",
-        foregroundColor: "black",
+        backgroundColor: "black",
+        foregroundColor: "orange",
       });
     });
   });
 
   describe("on cny", () => {
-    beforeEach(() => {
-      now = dayjs("2022/02/01");
+    describe("2022", () => {
+      beforeEach(() => {
+        now = dayjs("2022/02/01");
+      });
+
+      it("should use the cny theme", () => {
+        const result = original
+          .apply(
+            features({
+              viewPortIncreasePercent: 12,
+              backgroundColor: "shouldNotBeUsed",
+              foregroundColor: "shouldNotBeUsed",
+            })
+          )
+          .apply(festivals(clock)) as DummyIcon;
+
+        expect(result.svg).toEqual(ICONS.yoTiger.svg);
+        expect(result.features).toEqual({
+          viewPortIncreasePercent: 12,
+          backgroundColor: "red",
+          foregroundColor: "yellow",
+        });
+      });
     });
 
-    it("should use the given colors", () => {
-      const result = festiveIcon.with({
-        viewPortIncreasePercent: 12,
-        backgroundColor: "shouldNotBeUsed",
-        foregroundColor: "shouldNotBeUsed",
-      }) as DummyIcon;
+    describe("2023", () => {
+      beforeEach(() => {
+        now = dayjs("2023/01/22");
+      });
 
-      expect(result.transformation).toEqual({
-        viewPortIncreasePercent: 12,
-        backgroundColor: "red",
-        foregroundColor: "yellow",
+      it("should use the cny theme", () => {
+        const result = original
+          .apply(
+            features({
+              viewPortIncreasePercent: 12,
+              backgroundColor: "shouldNotBeUsed",
+              foregroundColor: "shouldNotBeUsed",
+            })
+          )
+          .apply(festivals(clock)) as DummyIcon;
+
+        expect(result.svg).toEqual(ICONS.yoRabbit.svg);
+        expect(result.features).toEqual({
+          viewPortIncreasePercent: 12,
+          backgroundColor: "red",
+          foregroundColor: "yellow",
+        });
+      });
+    });
+
+    describe("2024", () => {
+      beforeEach(() => {
+        now = dayjs("2024/02/10");
+      });
+
+      it("should use the cny theme", () => {
+        const result = original
+          .apply(
+            features({
+              viewPortIncreasePercent: 12,
+              backgroundColor: "shouldNotBeUsed",
+              foregroundColor: "shouldNotBeUsed",
+            })
+          )
+          .apply(festivals(clock)) as DummyIcon;
+
+        expect(result.svg).toEqual(ICONS.yoDragon.svg);
+        expect(result.features).toEqual({
+          viewPortIncreasePercent: 12,
+          backgroundColor: "red",
+          foregroundColor: "yellow",
+        });
       });
     });
   });
@@ -455,21 +718,25 @@ describe("makeFestive", () => {
     });
 
     it("should use the given colors", () => {
-      const result = festiveIcon.with({
-        viewPortIncreasePercent: 12,
-        backgroundColor: "shouldNotBeUsed",
-        foregroundColor: "shouldNotBeUsed",
-      }) as DummyIcon;
+      const result = original
+        .apply(
+          features({
+            viewPortIncreasePercent: 12,
+            backgroundColor: "shouldNotBeUsed",
+            foregroundColor: "shouldNotBeUsed",
+          })
+        )
+        .apply(festivals(clock)) as DummyIcon;
 
-      expect(result.transformation.viewPortIncreasePercent).toEqual(12);
-      expect(
-        HOLI_COLORS.includes(result.transformation.backgroundColor!)
-      ).toEqual(true);
-      expect(
-        HOLI_COLORS.includes(result.transformation.foregroundColor!)
-      ).toEqual(true);
-      expect(result.transformation.backgroundColor).not.toEqual(
-        result.transformation.foregroundColor
+      expect(result.features.viewPortIncreasePercent).toEqual(12);
+      expect(HOLI_COLORS.includes(result.features.backgroundColor!)).toEqual(
+        true
+      );
+      expect(HOLI_COLORS.includes(result.features.foregroundColor!)).toEqual(
+        true
+      );
+      expect(result.features.backgroundColor).not.toEqual(
+        result.features.foregroundColor
       );
     });
   });
@@ -499,7 +766,7 @@ describe("containsWord", () => {
   it("should be true word is a substring with space delim", () => {
     expect(containsWord("Foo")("some   foo   bar")).toEqual(true);
   });
-  
+
   it("should be true word is a substring with hyphen delim", () => {
     expect(containsWord("Foo")("some----foo-bar")).toEqual(true);
   });
@@ -508,7 +775,6 @@ describe("containsWord", () => {
     expect(containsWord("Foo")("somefoobar")).toEqual(false);
   });
 });
-
 
 describe("iconForGenre", () => {
   [

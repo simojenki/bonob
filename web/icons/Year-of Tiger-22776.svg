@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="yoTiger" viewBox="0 0 32 32">
+    <path fill="none" stroke="#000" stroke-linejoin="bevel" stroke-miterlimit="10" stroke-width="2" d="M12,9c2.242,0,4,2,4,2s1.758-2,4-2" id="yoTiger"/>
+    <path fill="none" stroke="#000" stroke-miterlimit="10" stroke-width="2" d="M4 15c0 0 2.319 2 5 2M3 19c0 0 3.319 2 6 2"/>
+    <path fill="none" stroke="#000" stroke-miterlimit="10" stroke-width="2" d="M13.871,14.871c0,0-2.871,3.519-2.871,10.129c-4.506,0-8-2-8-2c0-6.665,2.917-11,2.917-11S4,10.443,4,7.927S5.831,4,6.917,4c0.901,1.478,3,3,3,3"/>
+    <path d="M19 21c0 .552-3 2-3 2s-3-1.448-3-2 1.895-1 3-1S19 20.448 19 21zM10 13l5 2-.725 1.001c0 0-.335-.001-2.275-.001S10 13 10 13z"/>
+    <path fill="none" stroke="#000" stroke-miterlimit="10" stroke-width="2" d="M25.738 11.508C24.157 6.477 20.797 5 19.083 5s-3 1-3 1h-.167c0 0-1.287-1-3-1s-5.073 1.477-6.655 6.508M28 15c0 0-2.319 2-5 2M29 19c0 0-3.319 2-6 2"/>
+    <path fill="none" stroke="#000" stroke-miterlimit="10" stroke-width="2" d="M18.129 14.871c0 0 2.871 3.519 2.871 10.129 4.506 0 8-2 8-2 0-6.665-2.917-11-2.917-11S28 10.443 28 7.927 26.169 4 25.083 4c-.901 1.478-3 3-3 3M21 25c0 2.792-5 3-5 3s-5-.208-5-3"/>
+    <path d="M22,13l-5,2l0.725,1.001c0,0,0.335-0.001,2.275-0.001S22,13,22,13z"/>
+    <path fill="none" stroke="#000" stroke-miterlimit="10" stroke-width="2" d="M19.207,27.349C17.549,27.549,16.15,25,16.15,25h-0.3c0,0-1.399,2.549-3.057,2.349"/>
+</svg>
