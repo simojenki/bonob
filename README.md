@@ -146,6 +146,8 @@ BONOB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, mu
 
 ## Initialising service within sonos app
 
+- Configure bonob, make sure to set BONOB_URL. **bonob must be accessible from your sonos devices on BONOB_URL, otherwise it will fail to initialise within the sonos app, so make sure you test this in your browser by putting BONOB_URL in the address bar and seeing the bonob information page**
+- Start bonob, 
 - Open sonos app on your device
 - Settings -> Services & Voice -> + Add a Service
 - Select your Music Service, default name is 'bonob', can be overriden with configuration BONOB_SONOS_SERVICE_NAME
