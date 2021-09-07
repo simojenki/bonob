@@ -268,7 +268,7 @@ export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   itemType: "album",
   id: `album:${album.id}`,
   artist: album.artistName,
-  artistId: album.artistId,
+  artistId: `artist:${album.artistId}`,
   title: album.name,
   albumArtURI: defaultAlbumArtURI(bonobUrl, album).href(),
   canPlay: true,

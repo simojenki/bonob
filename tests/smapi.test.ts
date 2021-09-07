@@ -299,7 +299,7 @@ describe("album", () => {
       albumArtURI: defaultAlbumArtURI(bonobUrl, someAlbum).href(),
       canPlay: true,
       artist: someAlbum.artistName,
-      artistId: someAlbum.artistId,
+      artistId: `artist:${someAlbum.artistId}`,
     });
   });
 });
@@ -1168,7 +1168,7 @@ describe("api", () => {
                             it
                           ).href(),
                           canPlay: true,
-                          artistId: it.artistId,
+                          artistId: `artist:${it.artistId}`,
                           artist: it.artistName,
                         })
                       ),
@@ -1205,7 +1205,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 2,
@@ -1509,7 +1509,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -1557,7 +1557,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -1605,7 +1605,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -1653,7 +1653,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -1701,7 +1701,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -1747,7 +1747,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -1793,7 +1793,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 2,
@@ -1837,7 +1837,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -1884,7 +1884,7 @@ describe("api", () => {
                           it
                         ).href(),
                         canPlay: true,
-                        artistId: it.artistId,
+                        artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
                       })),
                       index: 0,
@@ -2344,7 +2344,7 @@ describe("api", () => {
                         album
                       ).href(),
                       canPlay: true,
-                      artistId: album.artistId,
+                      artistId: `artist:${album.artistId}`,
                       artist: album.artistName,
                     },
                   },
