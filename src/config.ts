@@ -2,56 +2,91 @@ import { hostname } from "os";
 import logger from "./logger";
 import url from "./url_builder";
 
+export const WORD = /^\w+$/;
+
+type EnvVarOpts = {
+  default: string | undefined;
+  legacy: string[] | undefined;
+  validationPattern: RegExp | undefined;
+};
+
+export function envVar(
+  name: string,
+  opts: Partial<EnvVarOpts> = {
+    default: undefined,
+    legacy: undefined,
+    validationPattern: undefined,
+  }
+) {
+  const result = [name, ...(opts.legacy || [])]
+    .map((it) => ({ key: it, value: process.env[it] }))
+    .find((it) => it.value);
+
+  if (
+    result &&
+    result.value && 
+    opts.validationPattern &&
+    !result.value.match(opts.validationPattern)
+  ) {
+    throw `Invalid value specified for '${name}', must match ${opts.validationPattern}`;
+  }
+
+  if(result && result.value && result.key != name) {
+    logger.warn(`Configuration key '${result.key}' is deprecated, replace with '${name}'`)
+  }
+
+  return result?.value || opts.default;
+}
+
+export const bnbEnvVar = (key: string, opts: Partial<EnvVarOpts> = {}) =>
+  envVar(`BNB_${key}`, {
+    ...opts,
+    legacy: [`BONOB_${key}`, ...(opts.legacy || [])],
+  });
+
 export default function () {
-  const port = +(process.env["BONOB_PORT"] || 4534);
-  const bonobUrl =
-    process.env["BONOB_URL"] ||
-    process.env["BONOB_WEB_ADDRESS"] ||
-    `http://${hostname()}:${port}`;
+  const port = +bnbEnvVar("PORT", { default: "4534" })!;
+  const bonobUrl = bnbEnvVar("URL", {
+    legacy: ["BONOB_WEB_ADDRESS"],
+    default: `http://${hostname()}:${port}`,
+  })!;
 
   if (bonobUrl.match("localhost")) {
     logger.error(
-      "BONOB_URL containing localhost is almost certainly incorrect, sonos devices will not be able to communicate with bonob using localhost, please specify either public IP or DNS entry"
+      "BNB_URL containing localhost is almost certainly incorrect, sonos devices will not be able to communicate with bonob using localhost, please specify either public IP or DNS entry"
     );
     process.exit(1);
   }
 
-  const wordFrom = (envVar: string) => {
-    const value = process.env[envVar];
-    if (value && value != "") {
-      if (value.match(/^\w+$/)) return value;
-      else throw `Invalid color specified for ${envVar}`;
-    } else {
-      return undefined;
-    }
-  };
-
   return {
     port,
     bonobUrl: url(bonobUrl),
-    secret: process.env["BONOB_SECRET"] || "bonob",
+    secret: bnbEnvVar("SECRET", { default: "bonob" })!,
     icons: {
-      foregroundColor: wordFrom("BONOB_ICON_FOREGROUND_COLOR"),
-      backgroundColor: wordFrom("BONOB_ICON_BACKGROUND_COLOR"),
+      foregroundColor: bnbEnvVar("ICON_FOREGROUND_COLOR", {
+        validationPattern: WORD,
+      }),
+      backgroundColor: bnbEnvVar("ICON_BACKGROUND_COLOR", {
+        validationPattern: WORD,
+      }),
     },
     sonos: {
-      serviceName: process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
+      serviceName: bnbEnvVar("SONOS_SERVICE_NAME", { default: "bonob" })!,
       discovery: {
         enabled:
-          (process.env["BONOB_SONOS_DEVICE_DISCOVERY"] || "true") == "true",
-        seedHost: process.env["BONOB_SONOS_SEED_HOST"],
+          bnbEnvVar("SONOS_DEVICE_DISCOVERY", { default: "true" }) == "true",
+        seedHost: bnbEnvVar("SONOS_SEED_HOST"),
       },
       autoRegister:
-        (process.env["BONOB_SONOS_AUTO_REGISTER"] || "false") == "true",
-      sid: Number(process.env["BONOB_SONOS_SERVICE_ID"] || "246"),
+        bnbEnvVar("SONOS_AUTO_REGISTER", { default: "false" }) == "true",
+      sid: Number(bnbEnvVar("SONOS_SERVICE_ID", { default: "246" })),
     },
-    navidrome: {
-      url: process.env["BONOB_NAVIDROME_URL"] || `http://${hostname()}:4533`,
-      customClientsFor:
-        process.env["BONOB_NAVIDROME_CUSTOM_CLIENTS"] || undefined,
+    subsonic: {
+      url: bnbEnvVar("SUBSONIC_URL", { legacy: ["BONOB_NAVIDROME_URL"], default: `http://${hostname()}:4533` })!,
+      customClientsFor: bnbEnvVar("SUBSONIC_CUSTOM_CLIENTS", { legacy: ["BONOB_NAVIDROME_CUSTOM_CLIENTS"] }),
     },
-    scrobbleTracks: (process.env["BONOB_SCROBBLE_TRACKS"] || "true") == "true",
+    scrobbleTracks: bnbEnvVar("SCROBBLE_TRACKS", { default: "true" }) == "true",
     reportNowPlaying:
-      (process.env["BONOB_REPORT_NOW_PLAYING"] || "true") == "true",
+      bnbEnvVar("REPORT_NOW_PLAYING", { default: "true" }) == "true",
   };
 }

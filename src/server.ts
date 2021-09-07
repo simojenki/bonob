@@ -15,6 +15,7 @@ import {
   LOGIN_ROUTE,
   CREATE_REGISTRATION_ROUTE,
   REMOVE_REGISTRATION_ROUTE,
+  sonosifyMimeType,
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
@@ -317,6 +318,13 @@ function server(
             }, headers=(${JSON.stringify(stream.headers)})`
           );
 
+          const sonosisfyContentType = (contentType: string) =>
+            contentType
+              .split(";")
+              .map((it) => it.trim())
+              .map((it) => sonosifyMimeType(it))
+              .join("; ");
+
           const respondWith = ({
             status,
             filter,
@@ -326,7 +334,7 @@ function server(
           }: {
             status: number;
             filter: Transform;
-            headers: Record<string, string | undefined>;
+            headers: Record<string, string>;
             sendStream: boolean;
             nowPlaying: boolean;
           }) => {
@@ -340,9 +348,11 @@ function server(
               : Promise.resolve(true)
             ).then((_) => {
               res.status(status);
-              Object.entries(stream.headers)
+              Object.entries(headers)
                 .filter(([_, v]) => v !== undefined)
-                .forEach(([header, value]) => res.setHeader(header, value));
+                .forEach(([header, value]) => {
+                  res.setHeader(header, value!);
+                });
               if (sendStream) stream.stream.pipe(filter).pipe(res);
               else res.send();
             });
@@ -353,7 +363,9 @@ function server(
               status: 200,
               filter: new PassThrough(),
               headers: {
-                "content-type": stream.headers["content-type"],
+                "content-type": sonosisfyContentType(
+                  stream.headers["content-type"]
+                ),
                 "content-length": stream.headers["content-length"],
                 "accept-ranges": stream.headers["accept-ranges"],
               },
@@ -365,7 +377,9 @@ function server(
               status: 206,
               filter: new PassThrough(),
               headers: {
-                "content-type": stream.headers["content-type"],
+                "content-type": sonosisfyContentType(
+                  stream.headers["content-type"]
+                ),
                 "content-length": stream.headers["content-length"],
                 "content-range": stream.headers["content-range"],
                 "accept-ranges": stream.headers["accept-ranges"],
@@ -457,25 +471,22 @@ function server(
     "centre",
   ];
 
-  app.get("/art/:type/:ids/size/:size", (req, res) => {
+  app.get("/art/:ids/size/:size", (req, res) => {
     const authToken = accessTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
-    const type = req.params["type"]!;
     const ids = req.params["ids"]!.split("&");
     const size = Number.parseInt(req.params["size"]!);
 
     if (!authToken) {
       return res.status(401).send();
-    } else if (type != "artist" && type != "album") {
-      return res.status(400).send();
     } else if (!(size > 0)) {
       return res.status(400).send();
     }
 
     return musicService
       .login(authToken)
-      .then((it) => Promise.all(ids.map((id) => it.coverArt(id, type, size))))
+      .then((it) => Promise.all(ids.map((id) => it.coverArt(id, size))))
       .then((coverArts) => coverArts.filter((it) => it))
       .then(shuffle)
       .then((coverArts) => {
@@ -513,12 +524,9 @@ function server(
         }
       })
       .catch((e: Error) => {
-        logger.error(
-          `Failed fetching image ${type}/${ids.join("&")}/size/${size}`,
-          {
-            cause: e,
-          }
-        );
+        logger.error(`Failed fetching image ${ids.join("&")}/size/${size}`, {
+          cause: e,
+        });
         return res.status(500).send();
       });
   });

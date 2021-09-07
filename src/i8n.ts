@@ -41,7 +41,7 @@ export type KEY =
 
 const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
   "en-US": {
-    AppLinkMessage: "Linking sonos with $BONOB_SONOS_SERVICE_NAME",
+    AppLinkMessage: "Linking sonos with $BNB_SONOS_SERVICE_NAME",
     artists: "Artists",
     albums: "Albums",
     tracks: "Tracks",
@@ -62,7 +62,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     devices: "Devices",
     services: "Services",
     login: "Login",
-    logInToBonob: "Log in to $BONOB_SONOS_SERVICE_NAME",
+    logInToBonob: "Log in to $BNB_SONOS_SERVICE_NAME",
     username: "Username",
     password: "Password",
     successfullyRegistered: "Successfully registered",
@@ -75,7 +75,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "No sonos devices",
   },
   "nl-NL": {
-    AppLinkMessage: "Sonos koppelen aan $BONOB_SONOS_SERVICE_NAME",
+    AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
     artists: "Artiesten",
     albums: "Albums",
     tracks: "Nummers",
@@ -96,7 +96,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     devices: "Apparaten",
     services: "Services",
     login: "Inloggen",
-    logInToBonob: "Login op $BONOB_SONOS_SERVICE_NAME",
+    logInToBonob: "Login op $BNB_SONOS_SERVICE_NAME",
     username: "Gebruikersnaam",
     password: "Wachtwoord",
     successfullyRegistered: "Registratie geslaagd",
@@ -151,7 +151,7 @@ export default (serviceName: string): I8N =>
       translations["en-US"];
     return (key: KEY) => {
       const value = langToUse[key]?.replace(
-        "$BONOB_SONOS_SERVICE_NAME",
+        "$BNB_SONOS_SERVICE_NAME",
         serviceName
       );
       if (value) return value;

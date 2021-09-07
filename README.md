@@ -2,13 +2,13 @@
 
 A sonos SMAPI implementation to allow registering sources of music with sonos.  
 
-Currently only a single integration allowing Navidrome to be registered with sonos. In theory as Navidrome implements the subsonic API, it *may* work with other subsonic api clones.
+Support for Subsonic API clones (tested against Navidrome and Gonic).
 
 ![Build](https://github.com/simojenki/bonob/workflows/Build/badge.svg)
 
 ## Features
 
-- Integrates with Navidrome
+- Integrates with Subsonic API clones (Navidrome, Gonic)
 - Browse by Artist, Albums, Genres, Playlist, Random Albums, Starred Albums, Recently Added Albums, Recently Played Albums, Most Played Albums
 - Artist Art
 - Album Art
@@ -33,8 +33,8 @@ bonob is ditributed via docker and can be run in a number of ways
 
 ```bash
 docker run \
-    -e BONOB_SONOS_AUTO_REGISTER=true \
-    -e BONOB_SONOS_DEVICE_DISCOVERY=true \
+    -e BNB_SONOS_AUTO_REGISTER=true \
+    -e BNB_SONOS_DEVICE_DISCOVERY=true \
     -p 4534:4534 \
     --network host \
     simojenki/bonob
@@ -46,10 +46,10 @@ Now open http://localhost:4534 in your browser, you should see sonos devices, an
 
 ```bash
 docker run \
-    -e BONOB_PORT=3000 \
-    -e BONOB_SONOS_SEED_HOST=192.168.1.123 \
-    -e BONOB_SONOS_AUTO_REGISTER=true \
-    -e BONOB_SONOS_DEVICE_DISCOVERY=true \
+    -e BNB_PORT=3000 \
+    -e BNB_SONOS_SEED_HOST=192.168.1.123 \
+    -e BNB_SONOS_AUTO_REGISTER=true \
+    -e BNB_SONOS_DEVICE_DISCOVERY=true \
     -p 3000:3000 \
     simojenki/bonob
 ```
@@ -66,13 +66,13 @@ Start bonob outside the LAN with sonos discovery & registration disabled as they
 
 ```bash
 docker run \
-    -e BONOB_PORT=4534 \
-    -e BONOB_SONOS_SERVICE_NAME=MyAwesomeMusic \
-    -e BONOB_SECRET=changeme \
-    -e BONOB_URL=https://my-server.example.com/bonob \
-    -e BONOB_SONOS_AUTO_REGISTER=false \
-    -e BONOB_SONOS_DEVICE_DISCOVERY=false \
-    -e BONOB_NAVIDROME_URL=https://my-navidrome-service.com:4533 \
+    -e BNB_PORT=4534 \
+    -e BNB_SONOS_SERVICE_NAME=MyAwesomeMusic \
+    -e BNB_SECRET=changeme \
+    -e BNB_URL=https://my-server.example.com/bonob \
+    -e BNB_SONOS_AUTO_REGISTER=false \
+    -e BNB_SONOS_DEVICE_DISCOVERY=false \
+    -e BNB_SUBSONIC_URL=https://my-navidrome-service.com:4533 \
     -p 4534:4534 \
     simojenki/bonob
 ```
@@ -93,7 +93,7 @@ docker run \
 ```bash
 docker run \
     --rm \
-    -e BONOB_SONOS_SEED_HOST=192.168.1.163 \
+    -e BNB_SONOS_SEED_HOST=192.168.1.163 \
     simojenki/bonob register https://my-server.example.com/bonob
 ```
 
@@ -124,52 +124,52 @@ services:
       - "4534:4534"
     restart: unless-stopped
     environment:
-      BONOB_PORT: 4534
+      BNB_PORT: 4534
       # ip address of your machine running bonob
-      BONOB_URL: http://192.168.1.111:4534  
-      BONOB_SECRET: changeme
-      BONOB_SONOS_AUTO_REGISTER: true
-      BONOB_SONOS_DEVICE_DISCOVERY: true
-      BONOB_SONOS_SERVICE_ID: 246
+      BNB_URL: http://192.168.1.111:4534  
+      BNB_SECRET: changeme
+      BNB_SONOS_AUTO_REGISTER: true
+      BNB_SONOS_DEVICE_DISCOVERY: true
+      BNB_SONOS_SERVICE_ID: 246
       # ip address of one of your sonos devices
-      BONOB_SONOS_SEED_HOST: 192.168.1.121
-      BONOB_NAVIDROME_URL: http://navidrome:4533
+      BNB_SONOS_SEED_HOST: 192.168.1.121
+      BNB_SUBSONIC_URL: http://navidrome:4533
 ```
 
 ## Configuration
 
 item | default value | description
 ---- | ------------- | -----------
-BONOB_PORT | 4534 | Default http port for bonob to listen on
-BONOB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
-BONOB_SECRET | bonob | secret used for encrypting credentials
-BONOB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
-BONOB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable sonos device discovery entirely.  Setting this to 'false' will disable sonos device search, regardless of whether a seed host is specified.
-BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommitted for for auto-discovery
-BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
-BONOB_SONOS_SERVICE_ID | 246 | service id for sonos
-BONOB_NAVIDROME_URL | http://$(hostname):4533 | URL for navidrome
-BONOB_NAVIDROME_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom navidrome clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
-BONOB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it has been played for >30s
-BONOB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
-BONOB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
-BONOB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
+BNB_PORT | 4534 | Default http port for bonob to listen on
+BNB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
+BNB_SECRET | bonob | secret used for encrypting credentials
+BNB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
+BNB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable sonos device discovery entirely.  Setting this to 'false' will disable sonos device search, regardless of whether a seed host is specified.
+BNB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommitted for for auto-discovery
+BNB_SONOS_SERVICE_NAME | bonob | service name for sonos
+BNB_SONOS_SERVICE_ID | 246 | service id for sonos
+BNB_SUBSONIC_URL | http://$(hostname):4533 | URL for subsonic clone
+BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom subsonic clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
+BNB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it has been played for >30s
+BNB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
+BNB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
+BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
 
 ## Initialising service within sonos app
 
-- Configure bonob, make sure to set BONOB_URL. **bonob must be accessible from your sonos devices on BONOB_URL, otherwise it will fail to initialise within the sonos app, so make sure you test this in your browser by putting BONOB_URL in the address bar and seeing the bonob information page**
+- Configure bonob, make sure to set BNB_URL. **bonob must be accessible from your sonos devices on BNB_URL, otherwise it will fail to initialise within the sonos app, so make sure you test this in your browser by putting BNB_URL in the address bar and seeing the bonob information page**
 - Start bonob, 
 - Open sonos app on your device
 - Settings -> Services & Voice -> + Add a Service
-- Select your Music Service, default name is 'bonob', can be overriden with configuration BONOB_SONOS_SERVICE_NAME
+- Select your Music Service, default name is 'bonob', can be overriden with configuration BNB_SONOS_SERVICE_NAME
 - Press 'Add to Sonos' -> 'Linking sonos with bonob' -> Authorize
-- Your device should open a browser and you should now see a login screen, enter your navidrome credentials
+- Your device should open a browser and you should now see a login screen, enter your subsonic clone credentials
 - You should get 'Login successful!'
 - Go back into the sonos app and complete the process
-- You should now be able to play music from navidrome
-- Within navidrome a new player will be created, 'bonob (username)', so you can configure transcoding specifically for sonos
+- You should now be able to play music on your sonos devices from you subsonic clone
+- Within the subsonic clone a new player will be created, 'bonob (username)', so you can configure transcoding specifically for sonos
 
-## Implementing a different music source other than navidrome
+## Implementing a different music source other than a subsonic clone
 
 - Implement the MusicService/MusicLibrary interface
 - Startup bonob with your new implementation.
@@ -183,7 +183,7 @@ In some situations you may wish to have different 'Players' within Navidrome so 
 In this case you could set;
 
 ```bash
-BONOB_NAVIDROME_CUSTOM_CLIENTS="audio/flac"
+BNB_SUBSONIC_CUSTOM_CLIENTS="audio/flac"
 ```
 
 This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie [Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz);
@@ -195,15 +195,15 @@ ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=480
 ### Changing Icon colors
 
 ```bash
--e BONOB_ICON_FOREGROUND_COLOR=white \
--e BONOB_ICON_BACKGROUND_COLOR=darkgrey
+-e BNB_ICON_FOREGROUND_COLOR=white \
+-e BNB_ICON_BACKGROUND_COLOR=darkgrey
 ```
 
 ![White & Dark Grey](https://github.com/simojenki/bonob/blob/master/docs/images/whiteDarkGrey.png?raw=true)
 
 ```bash
--e BONOB_ICON_FOREGROUND_COLOR=chartreuse \
--e BONOB_ICON_BACKGROUND_COLOR=fuchsia
+-e BNB_ICON_FOREGROUND_COLOR=chartreuse \
+-e BNB_ICON_BACKGROUND_COLOR=fuchsia
 ```
 
 ![Chartreuse & Fuchsia](https://github.com/simojenki/bonob/blob/master/docs/images/chartreuseFuchsia.png?raw=true)

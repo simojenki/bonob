@@ -50,8 +50,8 @@
   "scripts": {
     "clean": "rm -Rf build node_modules",
     "build": "tsc",
-    "dev": "BONOB_ICON_FOREGROUND_COLOR=white BONOB_ICON_BACKGROUND_COLOR=darkgrey BONOB_SONOS_SERVICE_NAME=bonobDev BONOB_SONOS_DEVICE_DISCOVERY=true nodemon -V ./src/app.ts",
-    "devr": "BONOB_ICON_FOREGROUND_COLOR=white BONOB_ICON_BACKGROUND_COLOR=darkgrey BONOB_SONOS_SERVICE_NAME=bonobDev BONOB_SONOS_DEVICE_DISCOVERY=true BONOB_SONOS_AUTO_REGISTER=true nodemon -V ./src/app.ts",
+    "dev": "BNB_ICON_FOREGROUND_COLOR=white BNB_ICON_BACKGROUND_COLOR=darkgrey BNB_SONOS_SERVICE_NAME=bonobDev BNB_SONOS_DEVICE_DISCOVERY=true nodemon -V ./src/app.ts",
+    "devr": "BNB_ICON_FOREGROUND_COLOR=white BNB_ICON_BACKGROUND_COLOR=darkgrey BNB_SONOS_SERVICE_NAME=bonobDev BNB_SONOS_DEVICE_DISCOVERY=true BNB_SONOS_AUTO_REGISTER=true nodemon -V ./src/app.ts",
     "register-dev": "ts-node ./src/register.ts http://$(hostname):4534",
     "test": "jest",
     "gitinfo": "git describe --tags > .gitinfo"
