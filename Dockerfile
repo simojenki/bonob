@@ -49,5 +49,6 @@ COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl ./src/Sonoswsdl-1.19.4-20190411
 RUN apk add --no-cache --update vips
 
 USER nobody 
+WORKDIR /bonob/src
 
-CMD ["node", "/bonob/src/app.js"]
+CMD ["node", "app.js"]
