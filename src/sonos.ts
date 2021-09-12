@@ -9,7 +9,20 @@ import qs from "querystring";
 import { URLBuilder } from "./url_builder";
 import { LANG } from "./i8n";
 
-export const SONOS_LANG: LANG[] = ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "ja-JP", "nb-NO", "nl-NL", "pt-BR", "sv-SE", "zh-CN"]
+export const SONOS_LANG: LANG[] = [
+  "en-US",
+  "da-DK",
+  "de-DE",
+  "es-ES",
+  "fr-FR",
+  "it-IT",
+  "ja-JP",
+  "nb-NO",
+  "nl-NL",
+  "pt-BR",
+  "sv-SE",
+  "zh-CN",
+];
 
 export const PRESENTATION_AND_STRINGS_VERSION = "21";
 
@@ -118,7 +131,7 @@ export const asDevice = (sonosDevice: SonosDevice): Device => ({
 
 export const asRemoveCustomdForm = (csrfToken: string, sid: number) => ({
   csrfToken,
-  sid: `${sid}`
+  sid: `${sid}`,
 });
 
 export const asCustomdForm = (csrfToken: string, service: Service) => ({
@@ -168,7 +181,10 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
       });
   };
 
-  const post = async (action: string, customdForm: (csrfToken: string) => any) => {
+  const post = async (
+    action: string,
+    customdForm: (csrfToken: string) => any
+  ) => {
     const anyDevice = await sonosDevices().then((devices) => head(devices));
 
     if (!anyDevice) {
@@ -195,7 +211,7 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
       );
       return false;
     }
-    const form = customdForm(csrfToken)
+    const form = customdForm(csrfToken);
     logger.info(`${action} with sonos @ ${customd}`, { form });
     return axios
       .post(customd, new URLSearchParams(qs.stringify(form)), {
@@ -218,16 +234,22 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
         )
         .then((it) => it.map(asService)),
 
-    remove: async (sid: number) => post("remove", (csrfToken) => asRemoveCustomdForm(csrfToken, sid)),
+    remove: async (sid: number) =>
+      post("remove", (csrfToken) => asRemoveCustomdForm(csrfToken, sid)),
 
-    register: async (service: Service) => post("register", (csrfToken) => asCustomdForm(csrfToken, service)),
+    register: async (service: Service) =>
+      post("register", (csrfToken) => asCustomdForm(csrfToken, service)),
   };
 }
 
-const sonos = (
-  discoveryEnabled: boolean = true,
-  sonosSeedHost: string | undefined = undefined
-): Sonos =>
-  discoveryEnabled ? autoDiscoverySonos(sonosSeedHost) : SONOS_DISABLED;
+export type Discovery = {
+  auto: boolean;
+  seedHost?: string;
+};
 
-export default sonos;
+export default (
+  sonosDiscovery: Discovery = { auto: true }
+): Sonos =>
+  sonosDiscovery.auto
+    ? autoDiscoverySonos(sonosDiscovery.seedHost)
+    : SONOS_DISABLED;

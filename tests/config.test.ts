@@ -198,17 +198,17 @@ describe("config", () => {
       "deviceDiscovery",
       "BONOB_SONOS_DEVICE_DISCOVERY",
       true,
-      (config) => config.sonos.deviceDiscovery
+      (config) => config.sonos.discovery.auto
     );
 
     describe("seedHost", () => {
       it("should default to undefined", () => {
-        expect(config().sonos.seedHost).toBeUndefined();
+        expect(config().sonos.discovery.seedHost).toBeUndefined();
       });
 
       it("should be overridable", () => {
         process.env["BONOB_SONOS_SEED_HOST"] = "123.456.789.0";
-        expect(config().sonos.seedHost).toEqual("123.456.789.0");
+        expect(config().sonos.discovery.seedHost).toEqual("123.456.789.0");
       });
     });
 

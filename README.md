@@ -79,12 +79,24 @@ docker run \
 
 Now within the LAN that contains the sonos devices run bonob the registration process.
 
+#### Using auto-discovery
+
 ```bash
 docker run \
     --rm \
     --network host \
     simojenki/bonob register https://my-server.example.com/bonob
 ```
+
+#### Using a seed host
+
+```bash
+docker run \
+    --rm \
+    -e BONOB_SONOS_SEED_HOST=192.168.1.163 \
+    simojenki/bonob register https://my-server.example.com/bonob
+```
+
 
 ### Running bonob and navidrome using docker-compose
 

@@ -20,6 +20,8 @@ import sharp from "sharp";
 jest.mock("sharp");
 
 import randomString from "../src/random_string";
+jest.mock("../src/random_string");
+
 import {
   Album,
   Artist,
@@ -42,8 +44,6 @@ import {
   aPlaylistSummary,
   aTrack,
 } from "./builders";
-
-jest.mock("../src/random_string");
 
 describe("t", () => {
   it("should be an md5 of the password and the salt", () => {

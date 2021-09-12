@@ -274,7 +274,7 @@ describe("sonos", () => {
 
   describe("when is disabled", () => {
     it("should return a disabled client", async () => {
-      const disabled = sonos(false);
+      const disabled = sonos({ auto: false });
 
       expect(disabled).toEqual(SONOS_DISABLED);
       expect(await disabled.devices()).toEqual([]);
@@ -310,7 +310,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        const actualDevices = await sonos(true, undefined).devices();
+        const actualDevices = await sonos({ auto: true }).devices();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
         expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
@@ -331,7 +331,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        const actualDevices = await sonos(true, "").devices();
+        const actualDevices = await sonos({ auto: true, seedHost: "" }).devices();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
         expect(sonosManager.InitializeWithDiscovery).toHaveBeenCalledWith(10);
@@ -354,7 +354,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeFromDevice.mockResolvedValue(true);
 
-        const actualDevices = await sonos(true, seedHost).devices();
+        const actualDevices = await sonos({ auto: true, seedHost }).devices();
 
         expect(SonosManager).toHaveBeenCalledTimes(1);
         expect(sonosManager.InitializeFromDevice).toHaveBeenCalledWith(
@@ -377,7 +377,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(true);
 
-        const actualDevices = await sonos(true, undefined).devices();
+        const actualDevices = await sonos({ auto: true, seedHost: undefined }).devices();
 
         expect(actualDevices).toEqual([
           {
@@ -408,7 +408,7 @@ describe("sonos", () => {
         );
         sonosManager.InitializeWithDiscovery.mockResolvedValue(false);
 
-        expect(await sonos(true, "").devices()).toEqual([]);
+        expect(await sonos({ auto: true, seedHost: "" }).devices()).toEqual([]);
       });
     });
   });
