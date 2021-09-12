@@ -22,7 +22,7 @@ const bonob = bonobService(
   "AppLink"
 );
 
-const sonosSystem = sonos(config.sonos.deviceDiscovery, config.sonos.seedHost);
+const sonosSystem = sonos(config.sonos.discovery);
 
 const streamUserAgent = config.navidrome.customClientsFor
   ? appendMimeTypeToClientFor(config.navidrome.customClientsFor.split(","))
@@ -90,7 +90,7 @@ if (config.sonos.autoRegister) {
       );
     }
   });
-} else if(config.sonos.deviceDiscovery) {
+} else if(config.sonos.discovery.auto) {
   sonosSystem.devices().then(devices => {
     devices.forEach(d => {
       logger.info(`Found device ${d.name}(${d.group}) @ ${d.ip}:${d.port}`)
