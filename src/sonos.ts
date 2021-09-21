@@ -101,8 +101,8 @@ export interface Sonos {
 export const SONOS_DISABLED: Sonos = {
   devices: () => Promise.resolve([]),
   services: () => Promise.resolve([]),
-  remove: (_: number) => Promise.resolve(true),
-  register: (_: Service) => Promise.resolve(true),
+  remove: (_: number) => Promise.resolve(false),
+  register: (_: Service) => Promise.resolve(false),
 };
 
 export const asService = (musicService: MusicService): Service => ({
@@ -243,13 +243,13 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
 }
 
 export type Discovery = {
-  auto: boolean;
+  enabled: boolean;
   seedHost?: string;
 };
 
 export default (
-  sonosDiscovery: Discovery = { auto: true }
+  sonosDiscovery: Discovery = { enabled: true }
 ): Sonos =>
-  sonosDiscovery.auto
+  sonosDiscovery.enabled
     ? autoDiscoverySonos(sonosDiscovery.seedHost)
     : SONOS_DISABLED;

@@ -37,7 +37,7 @@ export default function () {
     sonos: {
       serviceName: process.env["BONOB_SONOS_SERVICE_NAME"] || "bonob",
       discovery: {
-        auto:
+        enabled:
           (process.env["BONOB_SONOS_DEVICE_DISCOVERY"] || "true") == "true",
         seedHost: process.env["BONOB_SONOS_SEED_HOST"],
       },
