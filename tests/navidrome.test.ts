@@ -38,12 +38,14 @@ import {
   SimilarArtist,
 } from "../src/music_service";
 import {
+  aGenre,
   anAlbum,
   anArtist,
   aPlaylist,
   aPlaylistSummary,
   aTrack,
 } from "./builders";
+import { b64Encode } from "../src/b64";
 
 describe("t", () => {
   it("should be an md5 of the password and the salt", () => {
@@ -547,7 +549,7 @@ describe("Navidrome", () => {
           .then((it) => navidrome.login(it.authToken))
           .then((it) => it.genres());
 
-        expect(result).toEqual([{ id: "genre1", name: "genre1" }]);
+        expect(result).toEqual([{ id: b64Encode("genre1"), name: "genre1" }]);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
           params: asURLSearchParams(authParams),
@@ -579,10 +581,10 @@ describe("Navidrome", () => {
           .then((it) => it.genres());
 
         expect(result).toEqual([
-          { id: "g1", name: "g1" },
-          { id: "g2", name: "g2" },
-          { id: "g3", name: "g3" },
-          { id: "g4", name: "g4" },
+          { id: b64Encode("g1"), name: "g1" },
+          { id: b64Encode("g2"), name: "g2" },
+          { id: b64Encode("g3"), name: "g3" },
+          { id: b64Encode("g4"), name: "g4" },
         ]);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
@@ -1234,11 +1236,11 @@ describe("Navidrome", () => {
             );
         });
 
-        it("should pass the filter to navidrome", async () => {
+        it("should map the 64 encoded genre back into the subsonic genre", async () => {
           const q: AlbumQuery = {
             _index: 0,
             _count: 100,
-            genre: "Pop",
+            genre: b64Encode("Pop"),
             type: "byGenre",
           };
           const result = await navidrome
@@ -2300,7 +2302,7 @@ describe("Navidrome", () => {
 
   describe("streaming a track", () => {
     const trackId = uuid();
-    const genre = { id: "foo", name: "foo" };
+    const genre = aGenre("foo");
 
     const album = anAlbum({ genre });
     const artist = anArtist({
@@ -3535,7 +3537,7 @@ describe("Navidrome", () => {
       it("should return true", async () => {
         const album = anAlbum({
           name: "foo woo",
-          genre: { id: "pop", name: "pop" },
+          genre: { id: b64Encode("pop"), name: "pop" },
         });
         const artist = anArtist({ name: "#1", albums: [album] });
 
@@ -3570,13 +3572,13 @@ describe("Navidrome", () => {
       it("should return true", async () => {
         const album1 = anAlbum({
           name: "album1",
-          genre: { id: "pop", name: "pop" },
+          genre: { id: b64Encode("pop"), name: "pop" },
         });
         const artist1 = anArtist({ name: "artist1", albums: [album1] });
 
         const album2 = anAlbum({
           name: "album2",
-          genre: { id: "pop", name: "pop" },
+          genre: { id: b64Encode("pop"), name: "pop" },
         });
         const artist2 = anArtist({ name: "artist2", albums: [album2] });
 
@@ -3904,11 +3906,11 @@ describe("Navidrome", () => {
             const id = uuid();
             const name = "Great Playlist";
             const track1 = aTrack({
-              genre: { id: "pop", name: "pop" },
+              genre: { id: b64Encode("pop"), name: "pop" },
               number: 66,
             });
             const track2 = aTrack({
-              genre: { id: "rock", name: "rock" },
+              genre: { id: b64Encode("rock"), name: "rock" },
               number: 77,
             });
 

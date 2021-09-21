@@ -467,9 +467,9 @@ describe("InMemoryMusicService", () => {
         it("should provide an array of artists", async () => {
           expect(await musicLibrary.genres()).toEqual([
             HIP_HOP,
+            SKA,
             POP,
             ROCK,
-            SKA,
           ]);
         });
       });

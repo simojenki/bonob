@@ -21,11 +21,12 @@ import {
 } from "./music_service";
 import X2JS from "x2js";
 import sharp from "sharp";
-import _, { pick } from "underscore";
+import _ from "underscore";
 
 import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
+import { b64Encode, b64Decode } from "./b64";
 
 export const BROWSER_HEADERS = {
   accept:
@@ -262,7 +263,7 @@ const asAlbum = (album: album) => ({
 });
 
 export const asGenre = (genreName: string) => ({
-  id: genreName,
+  id: b64Encode(genreName),
   name: genreName,
 });
 
@@ -374,20 +375,16 @@ export class Navidrome implements MusicService {
   generateToken = async (credentials: Credentials) =>
     this.getJSON(credentials, "/rest/ping.view")
       .then(() => ({
-        authToken: Buffer.from(
+        authToken: b64Encode(
           JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
-        ).toString("base64"),
+        ),
         userId: credentials.username,
         nickname: credentials.username,
       }))
       .catch((e) => ({ message: `${e}` }));
 
   parseToken = (token: string): Credentials =>
-    JSON.parse(
-      this.encryption.decrypt(
-        JSON.parse(Buffer.from(token, "base64").toString("ascii"))
-      )
-    );
+    JSON.parse(this.encryption.decrypt(JSON.parse(b64Decode(token))));
 
   getArtists = (
     credentials: Credentials
@@ -519,8 +516,8 @@ export class Navidrome implements MusicService {
           })),
       artist: async (id: string): Promise<Artist> =>
         navidrome.getArtistWithInfo(credentials, id),
-      albums: async (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
-        return Promise.all([
+      albums: async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
+        Promise.all([
           navidrome
             .getArtists(credentials)
             .then((it) =>
@@ -528,7 +525,8 @@ export class Navidrome implements MusicService {
             ),
           navidrome
             .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
-              ...pick(q, "type", "genre"),
+              type: q.type,
+              ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
               size: 500,
               offset: q._index,
             })
@@ -536,12 +534,8 @@ export class Navidrome implements MusicService {
             .then(navidrome.toAlbumSummary),
         ]).then(([total, albums]) => ({
           results: albums.slice(0, q._count),
-          total:
-            albums.length == 500
-              ? total
-              : q._index + albums.length,
-        }));
-      },
+          total: albums.length == 500 ? total : q._index + albums.length,
+        })),
       album: (id: string): Promise<Album> =>
         navidrome.getAlbum(credentials, id),
       genres: () =>
@@ -553,7 +547,7 @@ export class Navidrome implements MusicService {
               A.filter((it) => Number.parseInt(it._albumCount) > 0),
               A.map((it) => it.__text),
               A.sort(ordString),
-              A.map((it) => ({ id: it, name: it }))
+              A.map((it) => ({ id: b64Encode(it), name: it }))
             )
           ),
       tracks: (albumId: string) =>
