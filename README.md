@@ -178,7 +178,7 @@ BONOB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, mu
 
 ### Audio File type specific transcoding options within Navidrome
 
-In some situations you may wish to have different 'Players' within Navidrome so that you can configure different transcoding options depending on the file type.  For example if you have a mixture of flac file formats where not all are supported by sonos ![See issue #52](https://github.com/simojenki/bonob/issues/52) & ![Sonos supported audio formats](https://developer.sonos.com/build/content-service-add-features/supported-audio-formats/)
+In some situations you may wish to have different 'Players' within Navidrome so that you can configure different transcoding options depending on the file type.  For example if you have a mixture of flac file formats where not all are supported by sonos [See issue #52](https://github.com/simojenki/bonob/issues/52) & [Sonos supported audio formats](https://developer.sonos.com/build/content-service-add-features/supported-audio-formats/)
 
 In this case you could set;
 
@@ -186,7 +186,7 @@ In this case you could set;
 BONOB_NAVIDROME_CUSTOM_CLIENTS="audio/flac"
 ```
 
-This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie ![Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz);
+This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie [Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz);
 
 ```bash
 ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=48000 -f flac -
