@@ -1,15 +1,12 @@
 import axios from "axios";
 import _ from "underscore";
 import logger from "./logger";
-import sonos, { bonobService, Discovery } from "./sonos";
+import sonos, { bonobService } from "./sonos";
 import { URLBuilder } from "./url_builder";
 
 export default (
     bonobUrl: URLBuilder,
-    sonosDiscovery: Discovery = {
-      auto: true,
-      seedHost: undefined,
-    }
+    seedHost?: string
   ) =>
   async () => {
     const about = bonobUrl.append({ pathname: "/about" });
@@ -34,5 +31,5 @@ export default (
       .then(({ name, sid }: { name: string; sid: number }) =>
         bonobService(name, sid, bonobUrl)
       )
-      .then((service) => sonos(sonosDiscovery).register(service));
+      .then((service) => sonos({ enabled: true, seedHost }).register(service));
   };

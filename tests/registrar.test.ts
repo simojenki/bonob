@@ -75,41 +75,62 @@ describe("registrar", () => {
       (sonos as jest.Mock).mockReturnValue(fakeSonos);
     });
 
+    describe("seedHost", () => {
+      describe("is specified", () => {
+        it("should register using the seed host", async () => {
+          fakeSonos.register.mockResolvedValue(true);
+          const seedHost = "127.0.0.11";
+  
+          expect(await registrar(bonobUrl, seedHost)()).toEqual(
+            true
+          );
+  
+          expect(bonobService).toHaveBeenCalledWith(
+            serviceDetails.name,
+            serviceDetails.sid,
+            bonobUrl
+          );
+          expect(sonos).toHaveBeenCalledWith({ enabled: true, seedHost });
+          expect(fakeSonos.register).toHaveBeenCalledWith(service);
+        });
+      });
+
+      describe("is not specified", () => {
+        it("should register without using the seed host", async () => {
+          fakeSonos.register.mockResolvedValue(true);
+
+          expect(await registrar(bonobUrl)()).toEqual(
+            true
+          );
+  
+          expect(bonobService).toHaveBeenCalledWith(
+            serviceDetails.name,
+            serviceDetails.sid,
+            bonobUrl
+          );
+          expect(sonos).toHaveBeenCalledWith({ enabled: true });
+          expect(fakeSonos.register).toHaveBeenCalledWith(service);
+        });
+      });
+    });
+
     describe("when registration succeeds", () => {
       it("should fetch the service details and register", async () => {
         fakeSonos.register.mockResolvedValue(true);
-        const sonosDiscovery = { auto: true };
 
-        expect(await registrar(bonobUrl, sonosDiscovery)()).toEqual(
+        expect(await registrar(bonobUrl)()).toEqual(
           true
         );
-
-        expect(bonobService).toHaveBeenCalledWith(
-          serviceDetails.name,
-          serviceDetails.sid,
-          bonobUrl
-        );
-        expect(sonos).toHaveBeenCalledWith(sonosDiscovery);
-        expect(fakeSonos.register).toHaveBeenCalledWith(service);
       });
     });
 
     describe("when registration fails", () => {
       it("should fetch the service details and register", async () => {
         fakeSonos.register.mockResolvedValue(false);
-        const sonosDiscovery = { auto: false, seedHost: "192.168.1.163" };
 
-        expect(await registrar(bonobUrl, sonosDiscovery)()).toEqual(
+        expect(await registrar(bonobUrl)()).toEqual(
           false
         );
-
-        expect(bonobService).toHaveBeenCalledWith(
-          serviceDetails.name,
-          serviceDetails.sid,
-          bonobUrl
-        );
-        expect(sonos).toHaveBeenCalledWith(sonosDiscovery);
-        expect(fakeSonos.register).toHaveBeenCalledWith(service);
       });
     });
   });

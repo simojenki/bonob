@@ -13,7 +13,7 @@ const bonobUrl = new URLBuilder(params[0]!);
 
 const config = readConfig();
 
-registrar(bonobUrl, config.sonos.discovery)()
+registrar(bonobUrl, config.sonos.discovery.seedHost)()
   .then((success) => {
     if (success) {
       console.log(`Successfully registered bonob @ ${bonobUrl} with sonos`);

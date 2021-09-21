@@ -198,7 +198,7 @@ describe("config", () => {
       "deviceDiscovery",
       "BONOB_SONOS_DEVICE_DISCOVERY",
       true,
-      (config) => config.sonos.discovery.auto
+      (config) => config.sonos.discovery.enabled
     );
 
     describe("seedHost", () => {
