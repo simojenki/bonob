@@ -5,6 +5,7 @@ import { Credentials } from "../src/smapi";
 import { Service, Device } from "../src/sonos";
 import { Album, Artist, Track, albumToAlbumSummary, artistToArtistSummary, PlaylistSummary, Playlist } from "../src/music_service";
 import randomString from "../src/random_string";
+import { b64Encode } from "../src/b64";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -111,16 +112,18 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
   return artist;
 }
 
-export const HIP_HOP = { id: "genre_hip_hop", name: "Hip-Hop" };
-export const METAL = { id: "genre_metal", name: "Metal" };
-export const NEW_WAVE = { id: "genre_new_wave", name: "New Wave" };
-export const POP = { id: "genre_pop", name: "Pop" };
-export const POP_ROCK = { id: "genre_pop_rock", name: "Pop Rock" };
-export const REGGAE = { id: "genre_reggae", name: "Reggae" };
-export const ROCK = { id: "genre_rock", name: "Rock" };
-export const SKA = { id: "genre_ska", name: "Ska" };
-export const PUNK = { id: "genre_punk", name: "Punk" };
-export const TRIP_HOP = { id: "genre_trip_hop", name: "Trip Hop" };
+export const aGenre = (name: string) => ({ id: b64Encode(name), name })
+
+export const HIP_HOP = aGenre("Hip-Hop");
+export const METAL = aGenre("Metal");
+export const NEW_WAVE = aGenre("New Wave");
+export const POP = aGenre("Pop");
+export const POP_ROCK = aGenre("Pop Rock");
+export const REGGAE = aGenre("Reggae");
+export const ROCK = aGenre("Rock");
+export const SKA = aGenre("Ska");
+export const PUNK = aGenre("Punk");
+export const TRIP_HOP = aGenre("Trip Hop");
 
 export const SAMPLE_GENRES = [HIP_HOP, METAL, NEW_WAVE, POP, POP_ROCK, REGGAE, ROCK, SKA];
 export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)];

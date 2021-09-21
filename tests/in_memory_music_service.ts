@@ -5,6 +5,8 @@ import { pipe } from "fp-ts/lib/function";
 import { ordString, fromCompare } from "fp-ts/lib/Ord";
 import { shuffle } from "underscore";
 
+import { b64Encode, b64Decode } from "../src/b64";
+
 import {
   MusicService,
   Credentials,
@@ -37,9 +39,7 @@ export class InMemoryMusicService implements MusicService {
       this.users[username] == password
     ) {
       return Promise.resolve({
-        authToken: Buffer.from(JSON.stringify({ username, password })).toString(
-          "base64"
-        ),
+        authToken: b64Encode(JSON.stringify({ username, password })),
         userId: username,
         nickname: username,
       });
@@ -49,9 +49,7 @@ export class InMemoryMusicService implements MusicService {
   }
 
   login(token: string): Promise<MusicLibrary> {
-    const credentials = JSON.parse(
-      Buffer.from(token, "base64").toString("ascii")
-    ) as Credentials;
+    const credentials = JSON.parse(b64Decode(token)) as Credentials;
     if (this.users[credentials.username] != credentials.password)
       return Promise.reject("Invalid auth token");
 
