@@ -90,7 +90,7 @@ if (config.sonos.autoRegister) {
       );
     }
   });
-} else if(config.sonos.discovery.auto) {
+} else if(config.sonos.discovery.enabled) {
   sonosSystem.devices().then(devices => {
     devices.forEach(d => {
       logger.info(`Found device ${d.name}(${d.group}) @ ${d.ip}:${d.port}`)
