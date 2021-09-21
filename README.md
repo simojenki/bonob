@@ -97,7 +97,6 @@ docker run \
     simojenki/bonob register https://my-server.example.com/bonob
 ```
 
-
 ### Running bonob and navidrome using docker-compose
 
 ```yaml
@@ -145,7 +144,7 @@ BONOB_PORT | 4534 | Default http port for bonob to listen on
 BONOB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
 BONOB_SECRET | bonob | secret used for encrypting credentials
 BONOB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
-BONOB_SONOS_DEVICE_DISCOVERY | true | whether or not sonos device discovery should be enabled
+BONOB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable sonos device discovery entirely.  Setting this to 'false' will disable sonos device search, regardless of whether a seed host is specified.
 BONOB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommitted for for auto-discovery
 BONOB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BONOB_SONOS_SERVICE_ID | 246 | service id for sonos
@@ -175,21 +174,39 @@ BONOB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, mu
 - Implement the MusicService/MusicLibrary interface
 - Startup bonob with your new implementation.
 
-## Sample Icon colors
+## Cusomisation
 
+### Audio File type specific transcoding options within Navidrome
+
+In some situations you may wish to have different 'Players' within Navidrome so that you can configure different transcoding options depending on the file type.  For example if you have a mixture of flac file formats where not all are supported by sonos ![See issue #52](https://github.com/simojenki/bonob/issues/52) & ![Sonos supported audio formats](https://developer.sonos.com/build/content-service-add-features/supported-audio-formats/)
+
+In this case you could set;
+
+```bash
+BONOB_NAVIDROME_CUSTOM_CLIENTS="audio/flac"
 ```
+
+This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie ![Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz);
+
+```bash
+ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=48000 -f flac -
+```
+
+### Changing Icon colors
+
+```bash
 -e BONOB_ICON_FOREGROUND_COLOR=white \
 -e BONOB_ICON_BACKGROUND_COLOR=darkgrey
 ```
+
 ![White & Dark Grey](https://github.com/simojenki/bonob/blob/master/docs/images/whiteDarkGrey.png?raw=true)
 
-
-```
+```bash
 -e BONOB_ICON_FOREGROUND_COLOR=chartreuse \
 -e BONOB_ICON_BACKGROUND_COLOR=fuchsia
 ```
-![Chartreuse & Fuchsia](https://github.com/simojenki/bonob/blob/master/docs/images/chartreuseFuchsia.png?raw=true)
 
+![Chartreuse & Fuchsia](https://github.com/simojenki/bonob/blob/master/docs/images/chartreuseFuchsia.png?raw=true)
 
 ## Credits
 
