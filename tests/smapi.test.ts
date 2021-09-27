@@ -472,6 +472,7 @@ describe("api", () => {
     deletePlaylist: jest.fn(),
     removeFromPlaylist: jest.fn(),
     scrobble: jest.fn(),
+    nowPlaying: jest.fn(),
   };
   const accessTokens = {
     mint: jest.fn(),
@@ -2810,9 +2811,11 @@ describe("api", () => {
             function itShouldScroble({
               trackId,
               secondsPlayed,
+              shouldMarkNowPlaying,
             }: {
               trackId: string;
               secondsPlayed: number;
+              shouldMarkNowPlaying: boolean,
             }) {
               it("should scrobble", async () => {
                 musicLibrary.scrobble.mockResolvedValue(true);
@@ -2827,15 +2830,22 @@ describe("api", () => {
                 expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
                 expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+                if(shouldMarkNowPlaying) {
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                } else {
+                  expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
+                }
               });
             }
 
             function itShouldNotScroble({
               trackId,
               secondsPlayed,
+              shouldMarkNowPlaying,
             }: {
               trackId: string;
               secondsPlayed: number;
+              shouldMarkNowPlaying: boolean,
             }) {
               it("should scrobble", async () => {
                 const result = await ws.setPlayedSecondsAsync({
@@ -2848,6 +2858,11 @@ describe("api", () => {
                 expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
                 expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.scrobble).not.toHaveBeenCalled();
+                if(shouldMarkNowPlaying) {
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                } else {
+                  expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
+                }
               });
             }
 
@@ -2858,16 +2873,24 @@ describe("api", () => {
                 );
               });
 
-              describe("when the played length is 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
+              describe("when the seconds played is 30 seconds", () => {
+                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
               });
 
-              describe("when the played length is > 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 90 });
+              describe("when the seconds played is > 30 seconds", () => {
+                itShouldScroble({ trackId, secondsPlayed: 90, shouldMarkNowPlaying: true });
               });
 
-              describe("when the played length is < 30 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 29 });
+              describe("when the seconds played is < 30 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 29, shouldMarkNowPlaying: true });
+              });
+
+              describe("when the seconds played is 1 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 1, shouldMarkNowPlaying: true });
+              });
+
+              describe("when the seconds played is 0 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 0, shouldMarkNowPlaying: false });
               });
             });
 
@@ -2878,16 +2901,24 @@ describe("api", () => {
                 );
               });
 
-              describe("when the played length is 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
+              describe("when the seconds played is 30 seconds", () => {
+                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
               });
 
-              describe("when the played length is > 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 90 });
+              describe("when the seconds played is > 30 seconds", () => {
+                itShouldScroble({ trackId, secondsPlayed: 90, shouldMarkNowPlaying: true });
               });
 
-              describe("when the played length is < 30 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 29 });
+              describe("when the seconds played is < 30 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 29, shouldMarkNowPlaying: true });
+              });
+
+              describe("when the seconds played is 1 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 1, shouldMarkNowPlaying: true });
+              });
+
+              describe("when the seconds played is 0 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 0, shouldMarkNowPlaying: false });
               });
             });
 
@@ -2898,20 +2929,28 @@ describe("api", () => {
                 );
               });
 
-              describe("when the played length is 29 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
+              describe("when the seconds played is 29 seconds", () => {
+                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
               });
 
-              describe("when the played length is > 29 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
+              describe("when the seconds played is > 29 seconds", () => {
+                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
               });
 
-              describe("when the played length is 10 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 10 });
+              describe("when the seconds played is 10 seconds", () => {
+                itShouldScroble({ trackId, secondsPlayed: 10, shouldMarkNowPlaying: true });
               });
 
-              describe("when the played length is < 10 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 9 });
+              describe("when the seconds played is < 10 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 9, shouldMarkNowPlaying: true });
+              });
+
+              describe("when the seconds played is 1 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 1, shouldMarkNowPlaying: true });
+              });
+
+              describe("when the seconds played is 0 seconds", () => {
+                itShouldNotScroble({ trackId, secondsPlayed: 0, shouldMarkNowPlaying: false });
               });
             });
           });
@@ -2926,6 +2965,7 @@ describe("api", () => {
               expect(result[0]).toEqual({ setPlayedSecondsResult: null });
               expect(musicService.login).toHaveBeenCalledWith(authToken);
               expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+              expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
               expect(musicLibrary.scrobble).not.toHaveBeenCalled();
             });
           });
