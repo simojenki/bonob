@@ -888,6 +888,9 @@ function bindSmapiSoapServiceToExpress(
                 switch (type) {
                   case "track":
                     musicLibrary.track(typeId).then(({ duration }) => {
+                      if(+seconds > 0) {
+                        musicLibrary.nowPlaying(typeId);
+                      }
                       if (
                         (duration < 30 && +seconds >= 10) ||
                         (duration >= 30 && +seconds >= 30)
