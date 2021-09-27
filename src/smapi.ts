@@ -265,7 +265,8 @@ export const defaultArtistArtURI = (
   artist: ArtistSummary
 ) => bonobUrl.append({ pathname: `/art/artist:${artist.id}/size/180` });
 
-export const sonosifyMimeType = (mimeType: string) => mimeType == "audio/x-flac" ? "audio/flac" : mimeType;
+export const sonosifyMimeType = (mimeType: string) =>
+  mimeType == "audio/x-flac" ? "audio/flac" : mimeType;
 
 export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   itemType: "album",
@@ -509,7 +510,7 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary.track(typeId).then((it) => ({
                       getExtendedMetadataResult: {
                         mediaMetadata: {
-                          ...track(urlWithToken(accessToken), it)
+                          ...track(urlWithToken(accessToken), it),
                         },
                       },
                     }));
@@ -887,21 +888,29 @@ function bindSmapiSoapServiceToExpress(
               .then(({ musicLibrary, type, typeId }) => {
                 switch (type) {
                   case "track":
-                    musicLibrary.track(typeId).then(({ duration }) => {
-                      if(+seconds > 0) {
-                        musicLibrary.nowPlaying(typeId);
-                      }
-                      if (
-                        (duration < 30 && +seconds >= 10) ||
-                        (duration >= 30 && +seconds >= 30)
-                      ) {
-                        musicLibrary.scrobble(typeId);
-                      }
-                    });
+                    return musicLibrary
+                      .track(typeId)
+                      .then(({ duration }) => {
+                        if (
+                          (duration < 30 && +seconds >= 10) ||
+                          (duration >= 30 && +seconds >= 30)
+                        ) {
+                          return musicLibrary.scrobble(typeId);
+                        } else {
+                          return Promise.resolve(true);
+                        }
+                      })
+                      .then(() => {
+                        if (+seconds > 0) {
+                          return musicLibrary.nowPlaying(typeId);
+                        } else {
+                          return Promise.resolve(true);
+                        }
+                      });
                     break;
                   default:
                     logger.info("Unsupported scrobble", { id, seconds });
-                    break;
+                    return Promise.resolve(true);
                 }
               })
               .then((_) => ({
