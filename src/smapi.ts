@@ -215,10 +215,7 @@ const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
   itemType: "container",
   id: `genre:${genre.id}`,
   title: genre.name,
-  albumArtURI: iconArtURI(
-    bonobUrl,
-    iconForGenre(genre.name)
-  ).href(),
+  albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name)).href(),
 });
 
 const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
@@ -238,31 +235,37 @@ export const playlistAlbumArtURL = (
   bonobUrl: URLBuilder,
   playlist: Playlist
 ) => {
-  const ids = uniq(playlist.entries.map((it) => it.album?.id).filter((it) => it));
+  const ids = uniq(
+    playlist.entries.map((it) => it.coverArt).filter((it) => it)
+  );
   if (ids.length == 0) {
     return iconArtURI(bonobUrl, "error");
   } else {
     return bonobUrl.append({
-      pathname: `/art/album/${ids.slice(0, 9).join("&")}/size/180`
+      pathname: `/art/${ids.slice(0, 9).join("&")}/size/180`,
     });
   }
 };
 
-export const defaultAlbumArtURI = (bonobUrl: URLBuilder, album: AlbumSummary) =>
-  bonobUrl.append({ pathname: `/art/album/${album.id}/size/180` });
-
-export const iconArtURI = (
+export const defaultAlbumArtURI = (
   bonobUrl: URLBuilder,
-  icon: ICON
+  { coverArt }: { coverArt: string | undefined }
 ) =>
+  coverArt
+    ? bonobUrl.append({ pathname: `/art/${coverArt}/size/180` })
+    : iconArtURI(bonobUrl, "vinyl");
+
+export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
   bonobUrl.append({
-    pathname: `/icon/${icon}/size/legacy`
+    pathname: `/icon/${icon}/size/legacy`,
   });
 
 export const defaultArtistArtURI = (
   bonobUrl: URLBuilder,
   artist: ArtistSummary
-) => bonobUrl.append({ pathname: `/art/artist/${artist.id}/size/180` });
+) => bonobUrl.append({ pathname: `/art/artist:${artist.id}/size/180` });
+
+export const sonosifyMimeType = (mimeType: string) => mimeType == "audio/x-flac" ? "audio/flac" : mimeType;
 
 export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   itemType: "album",
@@ -281,17 +284,17 @@ export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
 export const track = (bonobUrl: URLBuilder, track: Track) => ({
   itemType: "track",
   id: `track:${track.id}`,
-  mimeType: track.mimeType,
+  mimeType: sonosifyMimeType(track.mimeType),
   title: track.name,
 
   trackMetadata: {
     album: track.album.name,
-    albumId: track.album.id,
+    albumId: `album:${track.album.id}`,
     albumArtist: track.artist.name,
-    albumArtistId: track.artist.id,
-    albumArtURI: defaultAlbumArtURI(bonobUrl, track.album).href(),
+    albumArtistId: `artist:${track.artist.id}`,
+    albumArtURI: defaultAlbumArtURI(bonobUrl, track).href(),
     artist: track.artist.name,
-    artistId: track.artist.id,
+    artistId: `artist:${track.artist.id}`,
     duration: track.duration,
     genre: track.album.genre?.name,
     genreId: track.album.genre?.id,
@@ -368,7 +371,7 @@ function bindSmapiSoapServiceToExpress(
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
       searchParams: {
-        "bat": accessToken,
+        bat: accessToken,
       },
     });
 
@@ -506,23 +509,7 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary.track(typeId).then((it) => ({
                       getExtendedMetadataResult: {
                         mediaMetadata: {
-                          id: `track:${it.id}`,
-                          itemType: "track",
-                          title: it.name,
-                          mimeType: it.mimeType,
-                          trackMetadata: {
-                            artistId: `artist:${it.artist.id}`,
-                            artist: it.artist.name,
-                            albumId: `album:${it.album.id}`,
-                            album: it.album.name,
-                            genre: it.genre?.name,
-                            genreId: it.genre?.id,
-                            duration: it.duration,
-                            albumArtURI: defaultAlbumArtURI(
-                              urlWithToken(accessToken),
-                              it.album
-                            ).href(),
-                          },
+                          ...track(urlWithToken(accessToken), it)
                         },
                       },
                     }));

@@ -23,6 +23,7 @@ import {
   searchResult,
   iconArtURI,
   playlistAlbumArtURL,
+  sonosifyMimeType,
 } from "../src/smapi";
 
 import {
@@ -48,7 +49,7 @@ import {
 } from "../src/music_service";
 import { AccessTokens } from "../src/access_tokens";
 import dayjs from "dayjs";
-import url from "../src/url_builder";
+import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
@@ -252,7 +253,8 @@ describe("track", () => {
     const bonobUrl = url("http://localhost:4567/foo?access-token=1234");
     const someTrack = aTrack({
       id: uuid(),
-      mimeType: "audio/something",
+      // audio/x-flac should be mapped to audio/flac
+      mimeType: "audio/x-flac",
       name: "great song",
       duration: randomInt(1000),
       number: randomInt(100),
@@ -262,22 +264,23 @@ describe("track", () => {
         genre: { id: "genre101", name: "some genre" },
       }),
       artist: anArtist({ name: "great artist", id: uuid() }),
+      coverArt:"coverArt:887766"
     });
 
     expect(track(bonobUrl, someTrack)).toEqual({
       itemType: "track",
       id: `track:${someTrack.id}`,
-      mimeType: someTrack.mimeType,
+      mimeType: 'audio/flac',
       title: someTrack.name,
 
       trackMetadata: {
         album: someTrack.album.name,
-        albumId: someTrack.album.id,
+        albumId: `album:${someTrack.album.id}`,
         albumArtist: someTrack.artist.name,
-        albumArtistId: someTrack.artist.id,
-        albumArtURI: `http://localhost:4567/foo/art/album/${someTrack.album.id}/size/180?access-token=1234`,
+        albumArtistId: `artist:${someTrack.artist.id}`,
+        albumArtURI: `http://localhost:4567/foo/art/${someTrack.coverArt}/size/180?access-token=1234`,
         artist: someTrack.artist.name,
-        artistId: someTrack.artist.id,
+        artistId: `artist:${someTrack.artist.id}`,
         duration: someTrack.duration,
         genre: someTrack.album.genre?.name,
         genreId: someTrack.album.genre?.id,
@@ -304,12 +307,28 @@ describe("album", () => {
   });
 });
 
+describe("sonosifyMimeType", () => {
+  describe("when is audio/x-flac", () => {
+    it("should be mapped to audio/flac", () => {
+      expect(sonosifyMimeType("audio/x-flac")).toEqual("audio/flac");
+    });
+  });
+
+  describe("when it is not audio/x-flac", () => {
+    it("should be returned as is", () => {
+      expect(sonosifyMimeType("audio/flac")).toEqual("audio/flac");
+      expect(sonosifyMimeType("audio/mpeg")).toEqual("audio/mpeg");
+      expect(sonosifyMimeType("audio/whoop")).toEqual("audio/whoop");
+    });
+  });
+});
+
 describe("playlistAlbumArtURL", () => {
-  describe("when the playlist has no albumIds", () => {
+  describe("when the playlist has no coverArt ids", () => {
     it("should return question mark icon", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
-        entries: [aTrack({ album: undefined }), aTrack({ album: undefined })],
+        entries: [aTrack({ coverArt: undefined }), aTrack({ coverArt: undefined })],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
@@ -318,20 +337,20 @@ describe("playlistAlbumArtURL", () => {
     });
   });
 
-  describe("when the playlist has 2 distinct albumIds", () => {
+  describe("when the playlist has 2 distinct coverArt ids", () => {
     it("should return them on the url to the image", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
+          aTrack({ coverArt: "1" }),
+          aTrack({ coverArt: "2" }),
+          aTrack({ coverArt: "1" }),
+          aTrack({ coverArt: "2" }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/album/1&2/size/180?search=yes`
+        `http://localhost:1234/context-path/art/1&2/size/180?search=yes`
       );
     });
   });
@@ -341,52 +360,75 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "3" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "4" })) }),
+          aTrack({ coverArt: "1" }),
+          aTrack({ coverArt: "2" }),
+          aTrack({ coverArt: "2" }),
+          aTrack({ coverArt: "3" }),
+          aTrack({ coverArt: "4" }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/album/1&2&3&4/size/180?search=yes`
+        `http://localhost:1234/context-path/art/1&2&3&4/size/180?search=yes`
       );
     });
   });
 
-  describe("when the playlist has 9 distinct albumIds", () => {
-    it("should return 9 of the ids on the url", () => {
+  describe("when the playlist has at least 9 distinct albumIds", () => {
+    it("should return the first 9 of the ids on the url", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "1" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "2" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "3" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "4" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "5" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "6" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "7" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "8" })) }),
-          aTrack({ album: albumToAlbumSummary(anAlbum({ id: "9" })) }),
+          aTrack({ coverArt: "1" }),
+          aTrack({ coverArt: "2" }),
+          aTrack({ coverArt: "2" }),
+          aTrack({ coverArt: "2" }),
+          aTrack({ coverArt: "3" }),
+          aTrack({ coverArt: "4" }),
+          aTrack({ coverArt: "5" }),
+          aTrack({ coverArt: "6" }),
+          aTrack({ coverArt: "7" }),
+          aTrack({ coverArt: "8" }),
+          aTrack({ coverArt: "9" }),
+          aTrack({ coverArt: "10" }),
+          aTrack({ coverArt: "11" }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/album/1&2&3&4&5&6&7&8&9/size/180?search=yes`
+        `http://localhost:1234/context-path/art/1&2&3&4&5&6&7&8&9/size/180?search=yes`
       );
     });
   });
 });
 
 describe("defaultAlbumArtURI", () => {
-  it("should create the correct URI", () => {
-    const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-    const album = anAlbum();
+  const bonobUrl = new URLBuilder("http://bonob.example.com:8080/context?search=yes");
 
-    expect(defaultAlbumArtURI(bonobUrl, album).href()).toEqual(
-      `http://localhost:1234/context-path/art/album/${album.id}/size/180?search=yes`
-    );
+  describe("when there is an album coverArt", () => {
+    it("should use it in the image url", () => {
+      expect(
+        defaultAlbumArtURI(
+          bonobUrl,
+          anAlbum({ coverArt: "coverArt:123" })
+        ).href()
+      ).toEqual(
+        "http://bonob.example.com:8080/context/art/coverArt:123/size/180?search=yes"
+      );
+    });
+  });
+
+  describe("when there is no album coverArt", () => {
+    it("should return a vinly icon image", () => {
+      expect(
+        defaultAlbumArtURI(
+          bonobUrl,
+          anAlbum({ coverArt: undefined })
+        ).href()
+      ).toEqual(
+        "http://bonob.example.com:8080/context/icon/vinyl/size/legacy?search=yes"
+      );
+    });
   });
 });
 
@@ -396,7 +438,7 @@ describe("defaultArtistArtURI", () => {
     const artist = anArtist();
 
     expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-      `http://localhost:1234/something/art/artist/${artist.id}/size/180?s=123`
+      `http://localhost:1234/something/art/artist:${artist.id}/size/180?s=123`
     );
   });
 });
@@ -448,7 +490,7 @@ describe("api", () => {
       const accessToken = `accessToken-${uuid()}`;
 
       const bonobUrlWithAccessToken = bonobUrl.append({
-        searchParams: { "bat": accessToken },
+        searchParams: { bat: accessToken },
       });
 
       const service = bonobService("test-api", 133, bonobUrl, "AppLink");
@@ -1020,7 +1062,7 @@ describe("api", () => {
                         title: genre.name,
                         albumArtURI: iconArtURI(
                           bonobUrl,
-                          iconForGenre(genre.name),
+                          iconForGenre(genre.name)
                         ).href(),
                       })),
                       index: 0,
@@ -1045,7 +1087,7 @@ describe("api", () => {
                         title: genre.name,
                         albumArtURI: iconArtURI(
                           bonobUrl,
-                          iconForGenre(genre.name),
+                          iconForGenre(genre.name)
                         ).href(),
                       })),
                       index: 1,
@@ -2302,14 +2344,17 @@ describe("api", () => {
                         artistId: `artist:${track.artist.id}`,
                         artist: track.artist.name,
                         albumId: `album:${track.album.id}`,
+                        albumArtist: track.artist.name,
+                        albumArtistId: `artist:${track.artist.id}`,
                         album: track.album.name,
                         genre: track.genre?.name,
                         genreId: track.genre?.id,
                         duration: track.duration,
                         albumArtURI: defaultAlbumArtURI(
                           bonobUrlWithAccessToken,
-                          track.album
+                          track
                         ).href(),
+                        trackNumber: track.number,
                       },
                     },
                   },
@@ -2510,7 +2555,7 @@ describe("api", () => {
                 expect(root[0]).toEqual({
                   getMediaMetadataResult: track(
                     bonobUrl.with({
-                      searchParams: { "bat": accessToken },
+                      searchParams: { bat: accessToken },
                     }),
                     someTrack
                   ),

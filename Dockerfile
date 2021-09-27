@@ -31,9 +31,9 @@ RUN apk add --no-cache --update --virtual .gyp \
 
 FROM node:16.6-alpine
 
-ENV BONOB_PORT=4534
+ENV BNB_PORT=4534
 
-EXPOSE $BONOB_PORT
+EXPOSE $BNB_PORT
 
 WORKDIR /bonob
 

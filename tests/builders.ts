@@ -141,6 +141,7 @@ export function aTrack(fields: Partial<Track> = {}): Track {
     genre,
     artist: artistToArtistSummary(artist),
     album: albumToAlbumSummary(anAlbum({ artistId: artist.id, artistName: artist.name, genre })),
+    coverArt: `coverArt:${uuid()}`,
     ...fields,
   };
 }
@@ -154,6 +155,7 @@ export function anAlbum(fields: Partial<Album> = {}): Album {
     year: `19${randomInt(99)}`,
     artistId: `Artist ${uuid()}`,
     artistName: `Artist ${randomString()}`,
+    coverArt: `coverArt:${uuid()}`,
     ...fields,
   };
 }
@@ -170,7 +172,8 @@ export const BLONDIE: Artist = {
       year: "1976",
       genre: NEW_WAVE,
       artistId: BLONDIE_ID,
-      artistName: BLONDIE_NAME
+      artistName: BLONDIE_NAME,
+      coverArt: `coverArt:${uuid()}`
     },
     {
       id: uuid(),
@@ -178,7 +181,8 @@ export const BLONDIE: Artist = {
       year: "1978",
       genre: POP_ROCK,
       artistId: BLONDIE_ID,
-      artistName: BLONDIE_NAME
+      artistName: BLONDIE_NAME,
+      coverArt: `coverArt:${uuid()}`
     },
   ],
   image: {
@@ -195,9 +199,9 @@ export const BOB_MARLEY: Artist = {
   id: BOB_MARLEY_ID,
   name: BOB_MARLEY_NAME,
   albums: [
-    { id: uuid(), name: "Burin'", year: "1973", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME },
-    { id: uuid(), name: "Exodus", year: "1977", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME },
-    { id: uuid(), name: "Kaya", year: "1978", genre: SKA, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME },
+    { id: uuid(), name: "Burin'", year: "1973", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME, coverArt: `coverArt:${uuid()}` },
+    { id: uuid(), name: "Exodus", year: "1977", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME, coverArt: `coverArt:${uuid()}` },
+    { id: uuid(), name: "Kaya", year: "1978", genre: SKA, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME, coverArt: `coverArt:${uuid()}` },
   ],
   image: {
     small: "http://localhost/BOB_MARLEY/sml",
@@ -234,6 +238,7 @@ export const METALLICA: Artist = {
       genre: METAL,
       artistId: METALLICA_ID,
       artistName: METALLICA_NAME,
+      coverArt: `coverArt:${uuid()}`
     },
     {
       id: uuid(),
@@ -241,7 +246,8 @@ export const METALLICA: Artist = {
       year: "1986",
       genre: METAL,
       artistId: METALLICA_ID,
-      artistName: METALLICA_NAME,
+      artistName: METALLICA_NAME, 
+      coverArt: `coverArt:${uuid()}`
     },
   ],
   image: {
