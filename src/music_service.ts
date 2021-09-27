@@ -52,6 +52,7 @@ export type AlbumSummary = {
   name: string;
   year: string | undefined;
   genre: Genre | undefined;
+  coverArt: string | undefined;
 
   artistName: string;
   artistId: string;
@@ -71,6 +72,7 @@ export type Track = {
   duration: number;
   number: number | undefined;
   genre: Genre | undefined;
+  coverArt: string | undefined;
   album: AlbumSummary;
   artist: ArtistSummary;
 };
@@ -118,6 +120,7 @@ export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
   genre: it.genre,
   artistName: it.artistName,
   artistId: it.artistId,
+  coverArt: it.coverArt
 });
 
 export const playlistToPlaylistSummary = (it: Playlist): PlaylistSummary => ({
@@ -174,7 +177,7 @@ export interface MusicLibrary {
     trackId: string;
     range: string | undefined;
   }): Promise<TrackStream>;
-  coverArt(id: string, type: "album" | "artist", size?: number): Promise<CoverArt | undefined>;
+  coverArt(id: string, size?: number): Promise<CoverArt | undefined>;
   nowPlaying(id: string): Promise<boolean>
   scrobble(id: string): Promise<boolean>
   searchArtists(query: string): Promise<ArtistSummary[]>;

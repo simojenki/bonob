@@ -148,7 +148,7 @@ export type song = {
   _artist: string;
   _track: string | undefined;
   _genre: string;
-  _coverArt: string;
+  _coverArt: string | undefined;
   _created: "2004-11-08T23:36:11";
   _duration: string | undefined;
   _bitRate: "128";
@@ -179,6 +179,7 @@ export type entry = {
   _track: string;
   _year: string;
   _genre: string;
+  _coverArt: string;
   _contentType: string;
   _duration: string;
   _albumId: string;
@@ -223,6 +224,12 @@ export function isError(
   return (subsonicResponse as SubsonicError).error !== undefined;
 }
 
+export const splitCoverArtId = (coverArt: string): [string, string] => {
+  const parts = coverArt.split(":").filter(it => it.length > 0);
+  if(parts.length < 2) throw `'${coverArt}' is an invalid coverArt id'`
+  return [parts[0]!, parts.slice(1).join(":")];
+};
+
 export type IdName = {
   id: string;
   name: string;
@@ -239,6 +246,8 @@ export type getAlbumListParams = {
 
 export const MAX_ALBUM_LIST = 500;
 
+const maybeAsCoverArt = (coverArt: string | undefined) => coverArt ? `coverArt:${coverArt}` : undefined
+
 const asTrack = (album: Album, song: song) => ({
   id: song._id,
   name: song._title,
@@ -246,6 +255,7 @@ const asTrack = (album: Album, song: song) => ({
   duration: parseInt(song._duration || "0"),
   number: parseInt(song._track || "0"),
   genre: maybeAsGenre(song._genre),
+  coverArt: maybeAsCoverArt(song._coverArt),
   album,
   artist: {
     id: song._artistId,
@@ -260,6 +270,7 @@ const asAlbum = (album: album) => ({
   genre: maybeAsGenre(album._genre),
   artistId: album._artistId,
   artistName: album._artist,
+  coverArt: maybeAsCoverArt(album._coverArt)
 });
 
 export const asGenre = (genreName: string) => ({
@@ -298,7 +309,7 @@ export const asURLSearchParams = (q: any) => {
   return urlSearchParams;
 };
 
-export class Navidrome implements MusicService {
+export class Subsonic implements MusicService {
   url: string;
   encryption: Encryption;
   streamClientApplication: StreamClientApplication;
@@ -335,7 +346,7 @@ export class Navidrome implements MusicService {
       })
       .then((response) => {
         if (response.status != 200 && response.status != 206) {
-          throw `Navidrome failed with a ${response.status || "no!"} status`;
+          throw `Subsonic failed with a ${response.status || "no!"} status`;
         } else return response;
       });
 
@@ -368,7 +379,7 @@ export class Navidrome implements MusicService {
       )
       .then((json) => json["subsonic-response"])
       .then((json) => {
-        if (isError(json)) throw `Navidrome error:${json.error._message}`;
+        if (isError(json)) throw `Subsonic error:${json.error._message}`;
         else return json as unknown as T;
       });
 
@@ -427,6 +438,7 @@ export class Navidrome implements MusicService {
         genre: maybeAsGenre(album._genre),
         artistId: album._artistId,
         artistName: album._artist,
+        coverArt: maybeAsCoverArt(album._coverArt)
       }));
 
   getArtist = (
@@ -440,14 +452,7 @@ export class Navidrome implements MusicService {
       .then((it) => ({
         id: it._id,
         name: it._name,
-        albums: (it.album || []).map((album) => ({
-          id: album._id,
-          name: album._name,
-          year: album._year,
-          genre: maybeAsGenre(album._genre),
-          artistId: it._id,
-          artistName: it._name,
-        })),
+        albums: this.toAlbumSummary(it.album || []),
       }));
 
   getArtistWithInfo = (credentials: Credentials, id: string) =>
@@ -487,6 +492,7 @@ export class Navidrome implements MusicService {
       genre: maybeAsGenre(album._genre),
       artistId: album._artistId,
       artistName: album._artist,
+      coverArt: maybeAsCoverArt(album._coverArt)
     }));
 
   search3 = (credentials: Credentials, q: any) =>
@@ -602,14 +608,16 @@ export class Navidrome implements MusicService {
               stream: res.data,
             }))
         ),
-      coverArt: async (id: string, type: "album" | "artist", size?: number) => {
-        if (type == "album") {
+      coverArt: async (coverArt: string, size?: number) => {
+        const [type, id] = splitCoverArtId(coverArt);
+        if (type == "coverArt") {
           return navidrome.getCoverArt(credentials, id, size).then((res) => ({
             contentType: res.headers["content-type"],
             data: Buffer.from(res.data, "binary"),
           }));
         } else {
           return navidrome.getArtistWithInfo(credentials, id).then((artist) => {
+            const albumsWithCoverArt = artist.albums.filter(it => it.coverArt);
             if (artist.image.large) {
               return axios
                 .get(artist.image.large!, {
@@ -633,9 +641,9 @@ export class Navidrome implements MusicService {
                     };
                   }
                 });
-            } else if (artist.albums.length > 0) {
+            } else if (albumsWithCoverArt.length > 0) {
               return navidrome
-                .getCoverArt(credentials, artist.albums[0]!.id, size)
+                .getCoverArt(credentials, splitCoverArtId(albumsWithCoverArt[0]!.coverArt!)[1], size)
                 .then((res) => ({
                   contentType: res.headers["content-type"],
                   data: Buffer.from(res.data, "binary"),
@@ -708,6 +716,7 @@ export class Navidrome implements MusicService {
                 duration: parseInt(entry._duration || "0"),
                 number: trackNumber++,
                 genre: maybeAsGenre(entry._genre),
+                coverArt: maybeAsCoverArt(entry._coverArt),
                 album: {
                   id: entry._albumId,
                   name: entry._album,
@@ -715,6 +724,7 @@ export class Navidrome implements MusicService {
                   genre: maybeAsGenre(entry._genre),
                   artistName: entry._artist,
                   artistId: entry._artistId,
+                  coverArt: maybeAsCoverArt(entry._coverArt)
                 },
                 artist: {
                   id: entry._artistId,

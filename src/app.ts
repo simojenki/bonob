@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import server from "./server";
 import logger from "./logger";
-import { appendMimeTypeToClientFor, DEFAULT, Navidrome } from "./navidrome";
+import { appendMimeTypeToClientFor, DEFAULT, Subsonic } from "./subsonic";
 import encryption from "./encryption";
 import { InMemoryAccessTokens, sha256 } from "./access_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
@@ -24,20 +24,20 @@ const bonob = bonobService(
 
 const sonosSystem = sonos(config.sonos.discovery);
 
-const streamUserAgent = config.navidrome.customClientsFor
-  ? appendMimeTypeToClientFor(config.navidrome.customClientsFor.split(","))
+const streamUserAgent = config.subsonic.customClientsFor
+  ? appendMimeTypeToClientFor(config.subsonic.customClientsFor.split(","))
   : DEFAULT;
 
-const navidrome = new Navidrome(
-  config.navidrome.url,
+const subsonic = new Subsonic(
+  config.subsonic.url,
   encryption(config.secret),
   streamUserAgent
 );
 
 const featureFlagAwareMusicService: MusicService = {
-  generateToken: navidrome.generateToken,
+  generateToken: subsonic.generateToken,
   login: (authToken: string) =>
-    navidrome.login(authToken).then((library) => {
+    subsonic.login(authToken).then((library) => {
       return {
         ...library,
         scrobble: (id: string) => {
