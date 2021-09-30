@@ -3,6 +3,7 @@ import express, { Express, Request } from "express";
 import * as Eta from "eta";
 import path from "path";
 import sharp from "sharp";
+import { v4 as uuid } from "uuid";
 
 import { PassThrough, Transform, TransformCallback } from "stream";
 
@@ -289,8 +290,10 @@ function server(
 
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
+    const trace = uuid();
+    
     logger.info(
-      `-> /stream/track/${id}, headers=${JSON.stringify(req.headers)}`
+      `${trace} bnb<- ${req.method} /stream/track/${id}, headers=${JSON.stringify(req.headers)}`
     );
     const authToken = pipe(
       req.header(BONOB_ACCESS_TOKEN_HEADER),
@@ -313,7 +316,7 @@ function server(
         )
         .then(({ stream }) => {
           logger.info(
-            `stream response from music service for ${id}, status=${
+            `${trace} bnb<- stream response from music service for ${id}, status=${
               stream.status
             }, headers=(${JSON.stringify(stream.headers)})`
           );
@@ -337,7 +340,7 @@ function server(
             sendStream: boolean;
           }) => {
             logger.info(
-              `<- /stream/track/${id}, status=${status}, headers=${JSON.stringify(
+              `${trace} bnb-> /stream/track/${id}, status=${status}, headers=${JSON.stringify(
                 headers
               )}`
             );
