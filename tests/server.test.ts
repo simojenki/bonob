@@ -186,7 +186,7 @@ describe("server", () => {
             bonobUrl,
             new InMemoryMusicService(),
             {
-              version: "v123.456"  
+              version: "v123.456",
             }
           );
 
@@ -230,49 +230,48 @@ describe("server", () => {
               name: "bonobMissing",
               sid: 88,
             });
-  
+
             const fakeSonos: Sonos = {
               devices: () => Promise.resolve([]),
-              services: () =>
-                Promise.resolve([]),
+              services: () => Promise.resolve([]),
               remove: () => Promise.resolve(false),
               register: () => Promise.resolve(false),
             };
-  
+
             const server = makeServer(
               fakeSonos,
               missingBonobService,
               bonobUrl,
               new InMemoryMusicService()
             );
-  
+
             describe("devices list", () => {
               it("should be empty", async () => {
                 const res = await request(server)
                   .get(bonobUrl.append({ pathname: "/" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
-  
+
                 expect(res.status).toEqual(200);
                 expect(res.text).toMatch(`<h2>${lang("devices")} \(0\)</h2>`);
                 expect(res.text).not.toMatch(/class=device/);
-                expect(res.text).toContain(lang("noSonosDevices"));                
+                expect(res.text).toContain(lang("noSonosDevices"));
               });
             });
-  
+
             describe("services", () => {
               it("should be empty", async () => {
                 const res = await request(server)
                   .get(bonobUrl.append({ pathname: "/" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
-  
+
                 expect(res.status).toEqual(200);
                 expect(res.text).toMatch(`<h2>${lang("services")} \(0\)</h2>`);
               });
             });
           });
-          
+
           describe("there are 2 devices and bonob is not registered", () => {
             const service1 = aService({
               name: "s1",
@@ -294,19 +293,19 @@ describe("server", () => {
               name: "bonobMissing",
               sid: 88,
             });
-  
+
             const device1: Device = aDevice({
               name: "device1",
               ip: "172.0.0.1",
               port: 4301,
             });
-  
+
             const device2: Device = aDevice({
               name: "device2",
               ip: "172.0.0.2",
               port: 4302,
             });
-  
+
             const fakeSonos: Sonos = {
               devices: () => Promise.resolve([device1, device2]),
               services: () =>
@@ -314,35 +313,35 @@ describe("server", () => {
               remove: () => Promise.resolve(false),
               register: () => Promise.resolve(false),
             };
-  
+
             const server = makeServer(
               fakeSonos,
               missingBonobService,
               bonobUrl,
               new InMemoryMusicService()
             );
-  
+
             describe("devices list", () => {
               it("should contain the devices returned from sonos", async () => {
                 const res = await request(server)
                   .get(bonobUrl.append({ pathname: "/" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
-  
+
                 expect(res.status).toEqual(200);
                 expect(res.text).toMatch(`<h2>${lang("devices")} \(2\)</h2>`);
                 expect(res.text).toMatch(/device1\s+\(172.0.0.1:4301\)/);
                 expect(res.text).toMatch(/device2\s+\(172.0.0.2:4302\)/);
               });
             });
-  
+
             describe("services", () => {
               it("should contain a list of services returned from sonos", async () => {
                 const res = await request(server)
                   .get(bonobUrl.append({ pathname: "/" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
-  
+
                 expect(res.status).toEqual(200);
                 expect(res.text).toMatch(`<h2>${lang("services")} \(4\)</h2>`);
                 expect(res.text).toMatch(/s1\s+\(1\)/);
@@ -351,7 +350,7 @@ describe("server", () => {
                 expect(res.text).toMatch(/s4\s+\(4\)/);
               });
             });
-  
+
             describe("registration status", () => {
               it("should be not-registered", async () => {
                 const res = await request(server)
@@ -372,10 +371,10 @@ describe("server", () => {
               });
             });
           });
-  
+
           describe("there are 2 devices and bonob is registered", () => {
             const service1 = aService();
-  
+
             const service2 = aService();
 
             const device1: Device = aDevice({
@@ -383,32 +382,33 @@ describe("server", () => {
               ip: "172.0.0.1",
               port: 4301,
             });
-  
+
             const device2: Device = aDevice({
               name: "device2",
               ip: "172.0.0.2",
               port: 4302,
             });
-  
+
             const bonobService = aService({
               name: "bonobNotMissing",
               sid: 99,
             });
-  
+
             const fakeSonos: Sonos = {
               devices: () => Promise.resolve([device1, device2]),
-              services: () => Promise.resolve([service1, service2, bonobService]),
+              services: () =>
+                Promise.resolve([service1, service2, bonobService]),
               remove: () => Promise.resolve(false),
               register: () => Promise.resolve(false),
             };
-  
+
             const server = makeServer(
               fakeSonos,
               bonobService,
               bonobUrl,
               new InMemoryMusicService()
             );
-  
+
             describe("registration status", () => {
               it("should be registered", async () => {
                 const res = await request(server)
@@ -755,13 +755,14 @@ describe("server", () => {
             it("should return a 401", async () => {
               now = now.add(1, "day");
 
-              const res = await request(server)
-                .head(
-                  bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}` })
-                    .path()
-                )
-                .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+              const res = await request(server).head(
+                bonobUrl
+                  .append({
+                    pathname: `/stream/track/${trackId}`,
+                    searchParams: { bat: accessToken },
+                  })
+                  .path()
+              );
 
               expect(res.status).toEqual(401);
             });
@@ -786,10 +787,9 @@ describe("server", () => {
                 const res = await request(server)
                   .head(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
+                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                       .path()
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  );
 
                 expect(res.status).toEqual(trackStream.status);
                 expect(res.headers["content-type"]).toEqual(
@@ -812,8 +812,10 @@ describe("server", () => {
                 musicLibrary.stream.mockResolvedValue(trackStream);
 
                 const res = await request(server)
-                  .head(`/stream/track/${trackId}`)
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  .head(bonobUrl
+                    .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
+                    .path()
+                    );
 
                 expect(res.status).toEqual(404);
                 expect(res.body).toEqual({});
@@ -840,10 +842,9 @@ describe("server", () => {
               const res = await request(server)
                 .get(
                   bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}` })
+                    .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                     .path()
-                )
-                .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                );
 
               expect(res.status).toEqual(401);
             });
@@ -863,10 +864,9 @@ describe("server", () => {
               const res = await request(server)
                 .get(
                   bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}` })
+                    .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                     .path()
-                )
-                .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                );
 
               expect(res.status).toEqual(404);
 
@@ -894,10 +894,9 @@ describe("server", () => {
                 const res = await request(server)
                   .get(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
+                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                       .path()
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  );
 
                 expect(res.status).toEqual(stream.status);
                 expect(res.headers["content-type"]).toEqual(
@@ -933,10 +932,9 @@ describe("server", () => {
                 const res = await request(server)
                   .get(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
+                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                       .path()
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  );
 
                 expect(res.status).toEqual(stream.status);
                 expect(res.headers["content-type"]).toEqual(
@@ -970,10 +968,9 @@ describe("server", () => {
                 const res = await request(server)
                   .get(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
+                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                       .path()
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  );
 
                 expect(res.status).toEqual(stream.status);
                 expect(res.header["content-type"]).toEqual(
@@ -1008,10 +1005,9 @@ describe("server", () => {
                 const res = await request(server)
                   .get(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
+                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                       .path()
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  );
 
                 expect(res.status).toEqual(stream.status);
                 expect(res.header["content-type"]).toEqual(
@@ -1051,10 +1047,9 @@ describe("server", () => {
                 const res = await request(server)
                   .get(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
+                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                       .path()
                   )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
                   .set("Range", requestedRange);
 
                 expect(res.status).toEqual(stream.status);
@@ -1093,10 +1088,9 @@ describe("server", () => {
                 const res = await request(server)
                   .get(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
+                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
                       .path()
                   )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken)
                   .set("Range", "4000-5000");
 
                 expect(res.status).toEqual(stream.status);
@@ -1242,11 +1236,24 @@ describe("server", () => {
             });
 
             describe("fetching multiple images as a collage", () => {
-              const png = fs.readFileSync(path.join(__dirname, '..', 'docs', 'images', 'chartreuseFuchsia.png'));
+              const png = fs.readFileSync(
+                path.join(
+                  __dirname,
+                  "..",
+                  "docs",
+                  "images",
+                  "chartreuseFuchsia.png"
+                )
+              );
 
               describe("fetching a collage of 4 when all are available", () => {
                 it("should return the image and a 200", async () => {
-                  const ids = ["artist:1", "artist:2", "coverArt:3", "coverArt:4"];
+                  const ids = [
+                    "artist:1",
+                    "artist:2",
+                    "coverArt:3",
+                    "coverArt:4",
+                  ];
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
@@ -1258,10 +1265,11 @@ describe("server", () => {
                     );
                   });
 
-                  
                   const res = await request(server)
                     .get(
-                      `/art/${ids.join("&")}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${ids.join(
+                        "&"
+                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1270,10 +1278,7 @@ describe("server", () => {
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
                   ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                      id,
-                      200
-                    );
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 200);
                   });
 
                   const image = await Image.load(res.body);
@@ -1294,7 +1299,7 @@ describe("server", () => {
                   musicLibrary.coverArt.mockResolvedValueOnce(
                     coverArtResponse({
                       data: png,
-                      contentType: "image/some-mime-type"
+                      contentType: "image/some-mime-type",
                     })
                   );
 
@@ -1307,10 +1312,12 @@ describe("server", () => {
                     .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
                   expect(res.status).toEqual(200);
-                  expect(res.header["content-type"]).toEqual("image/some-mime-type");
+                  expect(res.header["content-type"]).toEqual(
+                    "image/some-mime-type"
+                  );
                 });
               });
-              
+
               describe("fetching a collage of 4 and all are missing", () => {
                 it("should return a 404", async () => {
                   const ids = ["artist:1", "artist:2", "artist:3", "artist:4"];
@@ -1335,7 +1342,17 @@ describe("server", () => {
 
               describe("fetching a collage of 9 when all are available", () => {
                 it("should return the image and a 200", async () => {
-                  const ids = ["artist:1", "artist:2", "coverArt:3", "artist:4", "artist:5", "artist:6", "artist:7", "artist:8", "artist:9"];
+                  const ids = [
+                    "artist:1",
+                    "artist:2",
+                    "coverArt:3",
+                    "artist:4",
+                    "artist:5",
+                    "artist:6",
+                    "artist:7",
+                    "artist:8",
+                    "artist:9",
+                  ];
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
@@ -1360,10 +1377,7 @@ describe("server", () => {
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
                   ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                      id,
-                      180
-                    );
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 180);
                   });
 
                   const image = await Image.load(res.body);
@@ -1374,7 +1388,17 @@ describe("server", () => {
 
               describe("fetching a collage of 9 when only 2 are available", () => {
                 it("should still return an image and a 200", async () => {
-                  const ids = ["artist:1", "artist:2", "artist:3", "artist:4", "artist:5", "artist:6", "artist:7", "artist:8", "artist:9"];
+                  const ids = [
+                    "artist:1",
+                    "artist:2",
+                    "artist:3",
+                    "artist:4",
+                    "artist:5",
+                    "artist:6",
+                    "artist:7",
+                    "artist:8",
+                    "artist:9",
+                  ];
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
@@ -1409,21 +1433,30 @@ describe("server", () => {
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
                   ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                      id,
-                      180
-                    );
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 180);
                   });
 
                   const image = await Image.load(res.body);
                   expect(image.width).toEqual(180);
                   expect(image.height).toEqual(180);
                 });
-              });       
-              
+              });
+
               describe("fetching a collage of 11", () => {
                 it("should still return an image and a 200, though will only display 9", async () => {
-                  const ids = ["artist:1", "artist:2", "artist:3", "artist:4", "artist:5", "artist:6", "artist:7", "artist:8", "artist:9", "artist:10", "artist:11"];
+                  const ids = [
+                    "artist:1",
+                    "artist:2",
+                    "artist:3",
+                    "artist:4",
+                    "artist:5",
+                    "artist:6",
+                    "artist:7",
+                    "artist:8",
+                    "artist:9",
+                    "artist:10",
+                    "artist:11",
+                  ];
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
@@ -1448,17 +1481,14 @@ describe("server", () => {
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
                   ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                      id,
-                      180
-                    );
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 180);
                   });
 
                   const image = await Image.load(res.body);
                   expect(image.width).toEqual(180);
                   expect(image.height).toEqual(180);
                 });
-              });              
+              });
 
               describe("when the image is not available", () => {
                 it("should return a 404", async () => {
@@ -1692,12 +1722,18 @@ describe("server", () => {
                   expect(svg).toContain(`fill="brightpink"`);
                 });
 
-                function itShouldBeFestive(theme: string, date: string, id: string, color1: string, color2: string) {
+                function itShouldBeFestive(
+                  theme: string,
+                  date: string,
+                  id: string,
+                  color1: string,
+                  color2: string
+                ) {
                   it(`should return a ${theme} icon on ${date}`, async () => {
                     const response = await request(
                       server({ now: () => dayjs(date) })
                     ).get(`/icon/${type}/size/180`);
-  
+
                     expect(response.status).toEqual(200);
                     const svg = Buffer.from(response.body).toString();
                     expect(svg).toContain(`id="${id}"`);
@@ -1706,14 +1742,50 @@ describe("server", () => {
                   });
                 }
 
-                itShouldBeFestive("christmas '22", "2022/12/25", "christmas", "red", "green")
-                itShouldBeFestive("christmas '23", "2023/12/25", "christmas", "red", "green")
+                itShouldBeFestive(
+                  "christmas '22",
+                  "2022/12/25",
+                  "christmas",
+                  "red",
+                  "green"
+                );
+                itShouldBeFestive(
+                  "christmas '23",
+                  "2023/12/25",
+                  "christmas",
+                  "red",
+                  "green"
+                );
 
-                itShouldBeFestive("halloween", "2022/10/31", "halloween", "black", "orange")
-                itShouldBeFestive("halloween", "2023/10/31", "halloween", "black", "orange")
+                itShouldBeFestive(
+                  "halloween",
+                  "2022/10/31",
+                  "halloween",
+                  "black",
+                  "orange"
+                );
+                itShouldBeFestive(
+                  "halloween",
+                  "2023/10/31",
+                  "halloween",
+                  "black",
+                  "orange"
+                );
 
-                itShouldBeFestive("cny '22", "2022/02/01", "yoTiger", "red", "yellow")
-                itShouldBeFestive("cny '23", "2023/01/22", "yoRabbit", "red", "yellow")
+                itShouldBeFestive(
+                  "cny '22",
+                  "2022/02/01",
+                  "yoTiger",
+                  "red",
+                  "yellow"
+                );
+                itShouldBeFestive(
+                  "cny '23",
+                  "2023/01/22",
+                  "yoRabbit",
+                  "red",
+                  "yellow"
+                );
               });
             });
           });

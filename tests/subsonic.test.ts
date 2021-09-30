@@ -184,7 +184,8 @@ const getArtistInfoXml = (
           </artistInfo2>
         </subsonic-response>`;
 
-const maybeIdFromCoverArtId = (coverArt: string | undefined) => coverArt ? splitCoverArtId(coverArt)[1] : "";
+const maybeIdFromCoverArtId = (coverArt: string | undefined) =>
+  coverArt ? splitCoverArtId(coverArt)[1] : "";
 
 const albumXml = (
   artist: Artist,
@@ -437,15 +438,21 @@ const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="
 
 describe("splitCoverArtId", () => {
   it("should split correctly", () => {
-    expect(splitCoverArtId("foo:bar")).toEqual(["foo", "bar"])
-    expect(splitCoverArtId("foo:bar:car:jar")).toEqual(["foo", "bar:car:jar"])
+    expect(splitCoverArtId("foo:bar")).toEqual(["foo", "bar"]);
+    expect(splitCoverArtId("foo:bar:car:jar")).toEqual(["foo", "bar:car:jar"]);
   });
 
   it("should blow up when the id is invalid", () => {
-    expect(() => splitCoverArtId("")).toThrow(`'' is an invalid coverArt id`)
-    expect(() => splitCoverArtId("foo:")).toThrow(`'foo:' is an invalid coverArt id`)
-    expect(() => splitCoverArtId("foo:")).toThrow(`'foo:' is an invalid coverArt id`)
-    expect(() => splitCoverArtId(":dog")).toThrow(`':dog' is an invalid coverArt id`)
+    expect(() => splitCoverArtId("")).toThrow(`'' is an invalid coverArt id`);
+    expect(() => splitCoverArtId("foo:")).toThrow(
+      `'foo:' is an invalid coverArt id`
+    );
+    expect(() => splitCoverArtId("foo:")).toThrow(
+      `'foo:' is an invalid coverArt id`
+    );
+    expect(() => splitCoverArtId(":dog")).toThrow(
+      `':dog' is an invalid coverArt id`
+    );
   });
 });
 
@@ -1677,17 +1684,10 @@ describe("Subsonic", () => {
 
       // the artists have 5 albums in the getArtists endpoint
       const artist1 = anArtist({
-        albums: [
-          album1,
-          album2,
-          album3,
-          album4,
-        ],
+        albums: [album1, album2, album3, album4],
       });
       const artist2 = anArtist({
-        albums: [
-          album5,
-        ],
+        albums: [album5],
       });
       const artists = [artist1, artist2];
 
@@ -1713,7 +1713,7 @@ describe("Subsonic", () => {
                 )
               );
           });
-  
+
           it("should return the page of albums, updating the total to be accurate", async () => {
             const q: AlbumQuery = {
               _index: 0,
@@ -1727,12 +1727,7 @@ describe("Subsonic", () => {
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
-              results: [
-                album1,
-                album2,
-                album3,
-                album5,
-              ],
+              results: [album1, album2, album3, album5],
               total: 4,
             });
 
@@ -1741,15 +1736,18 @@ describe("Subsonic", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-              params: asURLSearchParams({
-                ...authParams,
-                type: "alphabeticalByArtist",
-                size: 500,
-                offset: q._index,
-              }),
-              headers,
-            });
+            expect(axios.get).toHaveBeenCalledWith(
+              `${url}/rest/getAlbumList2`,
+              {
+                params: asURLSearchParams({
+                  ...authParams,
+                  type: "alphabeticalByArtist",
+                  size: 500,
+                  offset: q._index,
+                }),
+                headers,
+              }
+            );
           });
         });
 
@@ -1775,7 +1773,7 @@ describe("Subsonic", () => {
                 )
               );
           });
-  
+
           it("should filter out the pre-fetched albums", async () => {
             const q: AlbumQuery = {
               _index: 0,
@@ -1789,10 +1787,7 @@ describe("Subsonic", () => {
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
-              results: [
-                album1,
-                album2,
-              ],
+              results: [album1, album2],
               total: 4,
             });
 
@@ -1801,17 +1796,20 @@ describe("Subsonic", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-              params: asURLSearchParams({
-                ...authParams,
-                type: "alphabeticalByArtist",
-                size: 500,
-                offset: q._index,
-              }),
-              headers,
-            });
+            expect(axios.get).toHaveBeenCalledWith(
+              `${url}/rest/getAlbumList2`,
+              {
+                params: asURLSearchParams({
+                  ...authParams,
+                  type: "alphabeticalByArtist",
+                  size: 500,
+                  offset: q._index,
+                }),
+                headers,
+              }
+            );
           });
-        });   
+        });
 
         describe("when the query is for the last page only", () => {
           beforeEach(() => {
@@ -1834,7 +1832,7 @@ describe("Subsonic", () => {
                 )
               );
           });
-  
+
           it("should return the last page of albums, updating the total to be accurate", async () => {
             const q: AlbumQuery = {
               _index: 2,
@@ -1848,10 +1846,7 @@ describe("Subsonic", () => {
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
-              results: [
-                album3,
-                album5,
-              ],
+              results: [album3, album5],
               total: 4,
             });
 
@@ -1860,17 +1855,20 @@ describe("Subsonic", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-              params: asURLSearchParams({
-                ...authParams,
-                type: "alphabeticalByArtist",
-                size: 500,
-                offset: q._index,
-              }),
-              headers,
-            });
+            expect(axios.get).toHaveBeenCalledWith(
+              `${url}/rest/getAlbumList2`,
+              {
+                params: asURLSearchParams({
+                  ...authParams,
+                  type: "alphabeticalByArtist",
+                  size: 500,
+                  offset: q._index,
+                }),
+                headers,
+              }
+            );
           });
-        });        
+        });
       });
 
       describe("when the number of albums returned from getAlbums is more than the number of albums in the getArtists endpoint", () => {
@@ -1879,11 +1877,15 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistsXml([
-                  // artist1 has lost 2 albums on the getArtists end point
-                  { ...artist1, albums: [album1, album2] },
-                  artist2,
-                ])))
+                Promise.resolve(
+                  ok(
+                    getArtistsXml([
+                      // artist1 has lost 2 albums on the getArtists end point
+                      { ...artist1, albums: [album1, album2] },
+                      artist2,
+                    ])
+                  )
+                )
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(
@@ -1899,7 +1901,7 @@ describe("Subsonic", () => {
                 )
               );
           });
-  
+
           it("should return the page of albums, updating the total to be accurate", async () => {
             const q: AlbumQuery = {
               _index: 0,
@@ -1913,13 +1915,7 @@ describe("Subsonic", () => {
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
-              results: [
-                album1,
-                album2,
-                album3,
-                album4,
-                album5,
-              ],
+              results: [album1, album2, album3, album4, album5],
               total: 5,
             });
 
@@ -1928,15 +1924,18 @@ describe("Subsonic", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-              params: asURLSearchParams({
-                ...authParams,
-                type: "alphabeticalByArtist",
-                size: 500,
-                offset: q._index,
-              }),
-              headers,
-            });
+            expect(axios.get).toHaveBeenCalledWith(
+              `${url}/rest/getAlbumList2`,
+              {
+                params: asURLSearchParams({
+                  ...authParams,
+                  type: "alphabeticalByArtist",
+                  size: 500,
+                  offset: q._index,
+                }),
+                headers,
+              }
+            );
           });
         });
 
@@ -1945,12 +1944,16 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml([
-                // artist1 has lost 2 albums on the getArtists end point
-                { ...artist1, albums: [album1, album2] },
-                artist2,
-              ])))
-            )
+                Promise.resolve(
+                  ok(
+                    getArtistsXml([
+                      // artist1 has lost 2 albums on the getArtists end point
+                      { ...artist1, albums: [album1, album2] },
+                      artist2,
+                    ])
+                  )
+                )
+              )
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -1965,7 +1968,7 @@ describe("Subsonic", () => {
                 )
               );
           });
-  
+
           it("should filter out the pre-fetched albums", async () => {
             const q: AlbumQuery = {
               _index: 0,
@@ -1979,10 +1982,7 @@ describe("Subsonic", () => {
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
-              results: [
-                album1,
-                album2,
-              ],
+              results: [album1, album2],
               total: 5,
             });
 
@@ -1991,29 +1991,36 @@ describe("Subsonic", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-              params: asURLSearchParams({
-                ...authParams,
-                type: "alphabeticalByArtist",
-                size: 500,
-                offset: q._index,
-              }),
-              headers,
-            });
+            expect(axios.get).toHaveBeenCalledWith(
+              `${url}/rest/getAlbumList2`,
+              {
+                params: asURLSearchParams({
+                  ...authParams,
+                  type: "alphabeticalByArtist",
+                  size: 500,
+                  offset: q._index,
+                }),
+                headers,
+              }
+            );
           });
-        });   
+        });
 
         describe("when the query is for the last page only", () => {
           beforeEach(() => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml([
-                // artist1 has lost 2 albums on the getArtists end point
-                { ...artist1, albums: [album1, album2] },
-                artist2,
-              ])))
-            )
+                Promise.resolve(
+                  ok(
+                    getArtistsXml([
+                      // artist1 has lost 2 albums on the getArtists end point
+                      { ...artist1, albums: [album1, album2] },
+                      artist2,
+                    ])
+                  )
+                )
+              )
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -2040,11 +2047,7 @@ describe("Subsonic", () => {
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
-              results: [
-                album3,
-                album4,
-                album5,
-              ],
+              results: [album3, album4, album5],
               total: 5,
             });
 
@@ -2053,19 +2056,21 @@ describe("Subsonic", () => {
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-              params: asURLSearchParams({
-                ...authParams,
-                type: "alphabeticalByArtist",
-                size: 500,
-                offset: q._index,
-              }),
-              headers,
-            });
+            expect(axios.get).toHaveBeenCalledWith(
+              `${url}/rest/getAlbumList2`,
+              {
+                params: asURLSearchParams({
+                  ...authParams,
+                  type: "alphabeticalByArtist",
+                  size: 500,
+                  offset: q._index,
+                }),
+                headers,
+              }
+            );
           });
-        });        
+        });
       });
-
     });
   });
 
@@ -2735,6 +2740,25 @@ describe("Subsonic", () => {
           });
         });
       });
+
+      describe("when an unexpected error occurs", () => {
+        it("should return undefined", async () => {
+          const coverArtId = "someCoverArt";
+          const size = 1879;
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.reject("BOOOM"));
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.coverArt(`coverArt:${coverArtId}`, size));
+
+          expect(result).toBeUndefined();
+        });
+      });
     });
 
     describe("fetching artist art", () => {
@@ -2798,6 +2822,38 @@ describe("Subsonic", () => {
               responseType: "arraybuffer",
             });
           });
+
+          describe("and an error occurs fetching the uri", () => {
+            it("should return undefined", async () => {
+              const artistId = "someArtist123";
+
+              const images: Images = {
+                small: "http://example.com/images/small",
+                medium: "http://example.com/images/medium",
+                large: "http://example.com/images/large",
+              };
+
+              const artist = anArtist({ id: artistId, image: images });
+
+              mockGET
+                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getArtistXml(artist)))
+                )
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getArtistInfoXml(artist)))
+                )
+                .mockImplementationOnce(() => Promise.reject("BOOOM"));
+
+              const result = await navidrome
+                .generateToken({ username, password })
+                .then((it) => it as AuthSuccess)
+                .then((it) => navidrome.login(it.authToken))
+                .then((it) => it.coverArt(`artist:${artistId}`));
+
+              expect(result).toBeUndefined();
+            });
+          });
         });
 
         describe("when the artist doest not have a valid artist uri", () => {
@@ -2818,151 +2874,17 @@ describe("Subsonic", () => {
               data: Buffer.from("the image", "ascii"),
             };
 
-            describe("all albums have coverArt", () => {
-              it("should fetch the coverArt from the first album", async () => {
-                const album1 = anAlbum({ coverArt: `coverArt:album1CoverArt` });
-                const album2 = anAlbum({ coverArt: `coverArt:album2CoverArt` });
-  
-                const artist = anArtist({
-                  id: artistId,
-                  albums: [album1, album2],
-                  image: images,
-                });
-  
-                mockGET
-                  .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-                  .mockImplementationOnce(() =>
-                    Promise.resolve(ok(getArtistXml(artist)))
-                  )
-                  .mockImplementationOnce(() =>
-                    Promise.resolve(ok(getArtistInfoXml(artist)))
-                  )
-                  .mockImplementationOnce(() => Promise.resolve(streamResponse));
-  
-                const result = await navidrome
-                  .generateToken({ username, password })
-                  .then((it) => it as AuthSuccess)
-                  .then((it) => navidrome.login(it.authToken))
-                  .then((it) => it.coverArt(`artist:${artistId}`));
-  
-                expect(result).toEqual({
-                  contentType: streamResponse.headers["content-type"],
-                  data: streamResponse.data,
-                });
-  
-                expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                  params: asURLSearchParams({
-                    ...authParams,
-                    id: artistId,
-                  }),
-                  headers,
-                });
-  
-                expect(axios.get).toHaveBeenCalledWith(
-                  `${url}/rest/getArtistInfo2`,
-                  {
-                    params: asURLSearchParams({
-                      ...authParams,
-                      id: artistId,
-                      count: 50,
-                      includeNotPresent: true,
-                    }),
-                    headers,
-                  }
-                );
-  
-                expect(axios.get).toHaveBeenCalledWith(
-                  `${url}/rest/getCoverArt`,
-                  {
-                    params: asURLSearchParams({
-                      ...authParams,
-                      id: splitCoverArtId(album1.coverArt!)[1],
-                    }),
-                    headers,
-                    responseType: "arraybuffer",
-                  }
-                );
-              });
-            });
-
-            describe("the first album does not have coverArt", () => {
-              it("should fetch the coverArt from the first album with coverArt", async () => {
-                const album1 = anAlbum({ coverArt: undefined });
-                const album2 = anAlbum({ coverArt: `coverArt:album2CoverArt` });
-  
-                const artist = anArtist({
-                  id: artistId,
-                  albums: [album1, album2],
-                  image: images,
-                });
-  
-                mockGET
-                  .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-                  .mockImplementationOnce(() =>
-                    Promise.resolve(ok(getArtistXml(artist)))
-                  )
-                  .mockImplementationOnce(() =>
-                    Promise.resolve(ok(getArtistInfoXml(artist)))
-                  )
-                  .mockImplementationOnce(() => Promise.resolve(streamResponse));
-  
-                const result = await navidrome
-                  .generateToken({ username, password })
-                  .then((it) => it as AuthSuccess)
-                  .then((it) => navidrome.login(it.authToken))
-                  .then((it) => it.coverArt(`artist:${artistId}`));
-  
-                expect(result).toEqual({
-                  contentType: streamResponse.headers["content-type"],
-                  data: streamResponse.data,
-                });
-  
-                expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                  params: asURLSearchParams({
-                    ...authParams,
-                    id: artistId,
-                  }),
-                  headers,
-                });
-  
-                expect(axios.get).toHaveBeenCalledWith(
-                  `${url}/rest/getArtistInfo2`,
-                  {
-                    params: asURLSearchParams({
-                      ...authParams,
-                      id: artistId,
-                      count: 50,
-                      includeNotPresent: true,
-                    }),
-                    headers,
-                  }
-                );
-  
-                expect(axios.get).toHaveBeenCalledWith(
-                  `${url}/rest/getCoverArt`,
-                  {
-                    params: asURLSearchParams({
-                      ...authParams,
-                      id: splitCoverArtId(album2.coverArt!)[1],
-                    }),
-                    headers,
-                    responseType: "arraybuffer",
-                  }
-                );
-              });
-            });
-
             describe("no albums have coverArt", () => {
               it("should return undefined", async () => {
                 const album1 = anAlbum({ coverArt: undefined });
                 const album2 = anAlbum({ coverArt: undefined });
-  
+
                 const artist = anArtist({
                   id: artistId,
                   albums: [album1, album2],
                   image: images,
                 });
-  
+
                 mockGET
                   .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                   .mockImplementationOnce(() =>
@@ -2971,24 +2893,29 @@ describe("Subsonic", () => {
                   .mockImplementationOnce(() =>
                     Promise.resolve(ok(getArtistInfoXml(artist)))
                   )
-                  .mockImplementationOnce(() => Promise.resolve(streamResponse));
-  
+                  .mockImplementationOnce(() =>
+                    Promise.resolve(streamResponse)
+                  );
+
                 const result = await navidrome
                   .generateToken({ username, password })
                   .then((it) => it as AuthSuccess)
                   .then((it) => navidrome.login(it.authToken))
                   .then((it) => it.coverArt(`artist:${artistId}`));
-  
+
                 expect(result).toEqual(undefined);
-  
-                expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-                  params: asURLSearchParams({
-                    ...authParams,
-                    id: artistId,
-                  }),
-                  headers,
-                });
-  
+
+                expect(axios.get).toHaveBeenCalledWith(
+                  `${url}/rest/getArtist`,
+                  {
+                    params: asURLSearchParams({
+                      ...authParams,
+                      id: artistId,
+                    }),
+                    headers,
+                  }
+                );
+
                 expect(axios.get).toHaveBeenCalledWith(
                   `${url}/rest/getArtistInfo2`,
                   {
@@ -3001,7 +2928,194 @@ describe("Subsonic", () => {
                     headers,
                   }
                 );
+              });
+            });
+
+            describe("some albums have coverArt", () => {
+              describe("all albums have coverArt", () => {
+                it("should fetch the coverArt from the first album", async () => {
+                  const album1 = anAlbum({
+                    coverArt: `coverArt:album1CoverArt`,
+                  });
+                  const album2 = anAlbum({
+                    coverArt: `coverArt:album2CoverArt`,
+                  });
+
+                  const artist = anArtist({
+                    id: artistId,
+                    albums: [album1, album2],
+                    image: images,
+                  });
+
+                  mockGET
+                    .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(ok(getArtistXml(artist)))
+                    )
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(ok(getArtistInfoXml(artist)))
+                    )
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(streamResponse)
+                    );
+
+                  const result = await navidrome
+                    .generateToken({ username, password })
+                    .then((it) => it as AuthSuccess)
+                    .then((it) => navidrome.login(it.authToken))
+                    .then((it) => it.coverArt(`artist:${artistId}`));
+
+                  expect(result).toEqual({
+                    contentType: streamResponse.headers["content-type"],
+                    data: streamResponse.data,
+                  });
+
+                  expect(axios.get).toHaveBeenCalledWith(
+                    `${url}/rest/getArtist`,
+                    {
+                      params: asURLSearchParams({
+                        ...authParams,
+                        id: artistId,
+                      }),
+                      headers,
+                    }
+                  );
+
+                  expect(axios.get).toHaveBeenCalledWith(
+                    `${url}/rest/getArtistInfo2`,
+                    {
+                      params: asURLSearchParams({
+                        ...authParams,
+                        id: artistId,
+                        count: 50,
+                        includeNotPresent: true,
+                      }),
+                      headers,
+                    }
+                  );
+
+                  expect(axios.get).toHaveBeenCalledWith(
+                    `${url}/rest/getCoverArt`,
+                    {
+                      params: asURLSearchParams({
+                        ...authParams,
+                        id: splitCoverArtId(album1.coverArt!)[1],
+                      }),
+                      headers,
+                      responseType: "arraybuffer",
+                    }
+                  );
                 });
+              });
+
+              describe("the first album does not have coverArt", () => {
+                it("should fetch the coverArt from the first album with coverArt", async () => {
+                  const album1 = anAlbum({ coverArt: undefined });
+                  const album2 = anAlbum({
+                    coverArt: `coverArt:album2CoverArt`,
+                  });
+
+                  const artist = anArtist({
+                    id: artistId,
+                    albums: [album1, album2],
+                    image: images,
+                  });
+
+                  mockGET
+                    .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(ok(getArtistXml(artist)))
+                    )
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(ok(getArtistInfoXml(artist)))
+                    )
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(streamResponse)
+                    );
+
+                  const result = await navidrome
+                    .generateToken({ username, password })
+                    .then((it) => it as AuthSuccess)
+                    .then((it) => navidrome.login(it.authToken))
+                    .then((it) => it.coverArt(`artist:${artistId}`));
+
+                  expect(result).toEqual({
+                    contentType: streamResponse.headers["content-type"],
+                    data: streamResponse.data,
+                  });
+
+                  expect(axios.get).toHaveBeenCalledWith(
+                    `${url}/rest/getArtist`,
+                    {
+                      params: asURLSearchParams({
+                        ...authParams,
+                        id: artistId,
+                      }),
+                      headers,
+                    }
+                  );
+
+                  expect(axios.get).toHaveBeenCalledWith(
+                    `${url}/rest/getArtistInfo2`,
+                    {
+                      params: asURLSearchParams({
+                        ...authParams,
+                        id: artistId,
+                        count: 50,
+                        includeNotPresent: true,
+                      }),
+                      headers,
+                    }
+                  );
+
+                  expect(axios.get).toHaveBeenCalledWith(
+                    `${url}/rest/getCoverArt`,
+                    {
+                      params: asURLSearchParams({
+                        ...authParams,
+                        id: splitCoverArtId(album2.coverArt!)[1],
+                      }),
+                      headers,
+                      responseType: "arraybuffer",
+                    }
+                  );
+                });
+              });
+
+              describe("an unexpected error occurs getting the albums coverArt", () => {
+                it("should fetch the coverArt from the first album", async () => {
+                  const album1 = anAlbum({
+                    coverArt: `coverArt:album1CoverArt`,
+                  });
+                  const album2 = anAlbum({
+                    coverArt: `coverArt:album2CoverArt`,
+                  });
+
+                  const artist = anArtist({
+                    id: artistId,
+                    albums: [album1, album2],
+                    image: images,
+                  });
+
+                  mockGET
+                    .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(ok(getArtistXml(artist)))
+                    )
+                    .mockImplementationOnce(() =>
+                      Promise.resolve(ok(getArtistInfoXml(artist)))
+                    )
+                    .mockImplementationOnce(() => Promise.reject("BOOOM"));
+
+                  const result = await navidrome
+                    .generateToken({ username, password })
+                    .then((it) => it as AuthSuccess)
+                    .then((it) => navidrome.login(it.authToken))
+                    .then((it) => it.coverArt(`artist:${artistId}`));
+
+                  expect(result).toBeUndefined();
+                });
+              });
             });
           });
 
@@ -3318,8 +3432,14 @@ describe("Subsonic", () => {
                 data: Buffer.from("the image", "ascii"),
               };
 
-              const album1 = anAlbum({ id: "album1Id", coverArt: "coverArt:album1CoverArt" });
-              const album2 = anAlbum({ id: "album2Id", coverArt: "coverArt:album2CoverArt" });
+              const album1 = anAlbum({
+                id: "album1Id",
+                coverArt: "coverArt:album1CoverArt",
+              });
+              const album2 = anAlbum({
+                id: "album2Id",
+                coverArt: "coverArt:album2CoverArt",
+              });
 
               const artist = anArtist({
                 id: artistId,
@@ -4046,23 +4166,31 @@ describe("Subsonic", () => {
             const id = uuid();
             const name = "Great Playlist";
             const artist1 = anArtist();
-            const album1 = anAlbum({ artistId: artist1.id, artistName: artist1.name, genre: POP });
+            const album1 = anAlbum({
+              artistId: artist1.id,
+              artistName: artist1.name,
+              genre: POP,
+            });
             const track1 = aTrack({
               genre: POP,
               number: 66,
               coverArt: album1.coverArt,
               artist: artistToArtistSummary(artist1),
-              album: albumToAlbumSummary(album1)
+              album: albumToAlbumSummary(album1),
             });
 
             const artist2 = anArtist();
-            const album2 = anAlbum({ artistId: artist2.id, artistName: artist2.name, genre: ROCK });
+            const album2 = anAlbum({
+              artistId: artist2.id,
+              artistName: artist2.name,
+              genre: ROCK,
+            });
             const track2 = aTrack({
               genre: ROCK,
               number: 77,
               coverArt: album2.coverArt,
               artist: artistToArtistSummary(artist2),
-              album: albumToAlbumSummary(album2)
+              album: albumToAlbumSummary(album2),
             });
 
             mockGET
@@ -4487,7 +4615,7 @@ describe("Subsonic", () => {
         const track1 = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album1),
-          genre: POP
+          genre: POP,
         });
 
         const track2 = aTrack({

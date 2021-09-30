@@ -291,12 +291,14 @@ function server(
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
     const trace = uuid();
-    
+
     logger.info(
-      `${trace} bnb<- ${req.method} /stream/track/${id}, headers=${JSON.stringify(req.headers)}`
+      `${trace} bnb<- ${req.method} ${req.path}?${
+        JSON.stringify(req.query)
+      }, headers=${JSON.stringify(req.headers)}`
     );
     const authToken = pipe(
-      req.header(BONOB_ACCESS_TOKEN_HEADER),
+      req.query[BONOB_ACCESS_TOKEN_HEADER] as string,
       O.fromNullable,
       O.map((accessToken) => accessTokens.authTokenFor(accessToken)),
       O.getOrElseW(() => undefined)
@@ -340,9 +342,9 @@ function server(
             sendStream: boolean;
           }) => {
             logger.info(
-              `${trace} bnb-> /stream/track/${id}, status=${status}, headers=${JSON.stringify(
-                headers
-              )}`
+              `${trace} bnb-> ${
+                req.path
+              }, status=${status}, headers=${JSON.stringify(headers)}`
             );
             res.status(status);
             Object.entries(headers)
