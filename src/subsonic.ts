@@ -27,6 +27,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
 import randomString from "./random_string";
 import { b64Encode, b64Decode } from "./b64";
+import logger from "./logger";
 
 export const BROWSER_HEADERS = {
   accept:
@@ -225,8 +226,8 @@ export function isError(
 }
 
 export const splitCoverArtId = (coverArt: string): [string, string] => {
-  const parts = coverArt.split(":").filter(it => it.length > 0);
-  if(parts.length < 2) throw `'${coverArt}' is an invalid coverArt id'`
+  const parts = coverArt.split(":").filter((it) => it.length > 0);
+  if (parts.length < 2) throw `'${coverArt}' is an invalid coverArt id'`;
   return [parts[0]!, parts.slice(1).join(":")];
 };
 
@@ -246,7 +247,8 @@ export type getAlbumListParams = {
 
 export const MAX_ALBUM_LIST = 500;
 
-const maybeAsCoverArt = (coverArt: string | undefined) => coverArt ? `coverArt:${coverArt}` : undefined
+const maybeAsCoverArt = (coverArt: string | undefined) =>
+  coverArt ? `coverArt:${coverArt}` : undefined;
 
 const asTrack = (album: Album, song: song) => ({
   id: song._id,
@@ -270,7 +272,7 @@ const asAlbum = (album: album) => ({
   genre: maybeAsGenre(album._genre),
   artistId: album._artistId,
   artistName: album._artist,
-  coverArt: maybeAsCoverArt(album._coverArt)
+  coverArt: maybeAsCoverArt(album._coverArt),
 });
 
 export const asGenre = (genreName: string) => ({
@@ -438,7 +440,7 @@ export class Subsonic implements MusicService {
         genre: maybeAsGenre(album._genre),
         artistId: album._artistId,
         artistName: album._artist,
-        coverArt: maybeAsCoverArt(album._coverArt)
+        coverArt: maybeAsCoverArt(album._coverArt),
       }));
 
   getArtist = (
@@ -492,7 +494,7 @@ export class Subsonic implements MusicService {
       genre: maybeAsGenre(album._genre),
       artistId: album._artistId,
       artistName: album._artist,
-      coverArt: maybeAsCoverArt(album._coverArt)
+      coverArt: maybeAsCoverArt(album._coverArt),
     }));
 
   search3 = (credentials: Credentials, q: any) =>
@@ -508,12 +510,12 @@ export class Subsonic implements MusicService {
     }));
 
   async login(token: string) {
-    const navidrome = this;
+    const subsonic = this;
     const credentials: Credentials = this.parseToken(token);
 
     const musicLibrary: MusicLibrary = {
       artists: (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
-        navidrome
+        subsonic
           .getArtists(credentials)
           .then(slice2(q))
           .then(([page, total]) => ({
@@ -521,15 +523,15 @@ export class Subsonic implements MusicService {
             results: page.map((it) => ({ id: it.id, name: it.name })),
           })),
       artist: async (id: string): Promise<Artist> =>
-        navidrome.getArtistWithInfo(credentials, id),
+        subsonic.getArtistWithInfo(credentials, id),
       albums: async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
         Promise.all([
-          navidrome
+          subsonic
             .getArtists(credentials)
             .then((it) =>
               _.inject(it, (total, artist) => total + artist.albumCount, 0)
             ),
-          navidrome
+          subsonic
             .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
               type: q.type,
               ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
@@ -537,15 +539,14 @@ export class Subsonic implements MusicService {
               offset: q._index,
             })
             .then((response) => response.albumList2.album || [])
-            .then(navidrome.toAlbumSummary),
+            .then(subsonic.toAlbumSummary),
         ]).then(([total, albums]) => ({
           results: albums.slice(0, q._count),
           total: albums.length == 500 ? total : q._index + albums.length,
         })),
-      album: (id: string): Promise<Album> =>
-        navidrome.getAlbum(credentials, id),
+      album: (id: string): Promise<Album> => subsonic.getAlbum(credentials, id),
       genres: () =>
-        navidrome
+        subsonic
           .getJSON<GetGenresResponse>(credentials, "/rest/getGenres")
           .then((it) =>
             pipe(
@@ -557,7 +558,7 @@ export class Subsonic implements MusicService {
             )
           ),
       tracks: (albumId: string) =>
-        navidrome
+        subsonic
           .getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", {
             id: albumId,
           })
@@ -565,7 +566,7 @@ export class Subsonic implements MusicService {
           .then((album) =>
             (album.song || []).map((song) => asTrack(asAlbum(album), song))
           ),
-      track: (trackId: string) => navidrome.getTrack(credentials, trackId),
+      track: (trackId: string) => subsonic.getTrack(credentials, trackId),
       stream: async ({
         trackId,
         range,
@@ -573,8 +574,8 @@ export class Subsonic implements MusicService {
         trackId: string;
         range: string | undefined;
       }) =>
-        navidrome.getTrack(credentials, trackId).then((track) =>
-          navidrome
+        subsonic.getTrack(credentials, trackId).then((track) =>
+          subsonic
             .get(
               credentials,
               `/rest/stream`,
@@ -611,51 +612,69 @@ export class Subsonic implements MusicService {
       coverArt: async (coverArt: string, size?: number) => {
         const [type, id] = splitCoverArtId(coverArt);
         if (type == "coverArt") {
-          return navidrome.getCoverArt(credentials, id, size).then((res) => ({
-            contentType: res.headers["content-type"],
-            data: Buffer.from(res.data, "binary"),
-          }));
-        } else {
-          return navidrome.getArtistWithInfo(credentials, id).then((artist) => {
-            const albumsWithCoverArt = artist.albums.filter(it => it.coverArt);
-            if (artist.image.large) {
-              return axios
-                .get(artist.image.large!, {
-                  headers: BROWSER_HEADERS,
-                  responseType: "arraybuffer",
-                })
-                .then((res) => {
-                  const image = Buffer.from(res.data, "binary");
-                  if (size) {
-                    return sharp(image)
-                      .resize(size)
-                      .toBuffer()
-                      .then((resized) => ({
-                        contentType: res.headers["content-type"],
-                        data: resized,
-                      }));
-                  } else {
-                    return {
-                      contentType: res.headers["content-type"],
-                      data: image,
-                    };
-                  }
-                });
-            } else if (albumsWithCoverArt.length > 0) {
-              return navidrome
-                .getCoverArt(credentials, splitCoverArtId(albumsWithCoverArt[0]!.coverArt!)[1], size)
-                .then((res) => ({
-                  contentType: res.headers["content-type"],
-                  data: Buffer.from(res.data, "binary"),
-                }));
-            } else {
+          return subsonic
+            .getCoverArt(credentials, id, size)
+            .then((res) => ({
+              contentType: res.headers["content-type"],
+              data: Buffer.from(res.data, "binary"),
+            }))
+            .catch((e) => {
+              logger.error(`Failed getting coverArt ${coverArt}: ${e}`);
               return undefined;
-            }
-          });
+            });
+        } else {
+          return subsonic
+            .getArtistWithInfo(credentials, id)
+            .then((artist) => {
+              const albumsWithCoverArt = artist.albums.filter(
+                (it) => it.coverArt
+              );
+              if (artist.image.large) {
+                return axios
+                  .get(artist.image.large!, {
+                    headers: BROWSER_HEADERS,
+                    responseType: "arraybuffer",
+                  })
+                  .then((res) => {
+                    const image = Buffer.from(res.data, "binary");
+                    if (size) {
+                      return sharp(image)
+                        .resize(size)
+                        .toBuffer()
+                        .then((resized) => ({
+                          contentType: res.headers["content-type"],
+                          data: resized,
+                        }));
+                    } else {
+                      return {
+                        contentType: res.headers["content-type"],
+                        data: image,
+                      };
+                    }
+                  });
+              } else if (albumsWithCoverArt.length > 0) {
+                return subsonic
+                  .getCoverArt(
+                    credentials,
+                    splitCoverArtId(albumsWithCoverArt[0]!.coverArt!)[1],
+                    size
+                  )
+                  .then((res) => ({
+                    contentType: res.headers["content-type"],
+                    data: Buffer.from(res.data, "binary"),
+                  }));
+              } else {
+                return undefined;
+              }
+            })
+            .catch((e) => {
+              logger.error(`Failed getting coverArt ${coverArt}: ${e}`);
+              return undefined;
+            });
         }
       },
       scrobble: async (id: string) =>
-        navidrome
+        subsonic
           .get(credentials, `/rest/scrobble`, {
             id,
             submission: true,
@@ -663,7 +682,7 @@ export class Subsonic implements MusicService {
           .then((_) => true)
           .catch(() => false),
       nowPlaying: async (id: string) =>
-        navidrome
+        subsonic
           .get(credentials, `/rest/scrobble`, {
             id,
             submission: false,
@@ -671,7 +690,7 @@ export class Subsonic implements MusicService {
           .then((_) => true)
           .catch(() => false),
       searchArtists: async (query: string) =>
-        navidrome
+        subsonic
           .search3(credentials, { query, artistCount: 20 })
           .then(({ artists }) =>
             artists.map((artist) => ({
@@ -680,26 +699,26 @@ export class Subsonic implements MusicService {
             }))
           ),
       searchAlbums: async (query: string) =>
-        navidrome
+        subsonic
           .search3(credentials, { query, albumCount: 20 })
-          .then(({ albums }) => navidrome.toAlbumSummary(albums)),
+          .then(({ albums }) => subsonic.toAlbumSummary(albums)),
       searchTracks: async (query: string) =>
-        navidrome
+        subsonic
           .search3(credentials, { query, songCount: 20 })
           .then(({ songs }) =>
             Promise.all(
-              songs.map((it) => navidrome.getTrack(credentials, it._id))
+              songs.map((it) => subsonic.getTrack(credentials, it._id))
             )
           ),
       playlists: async () =>
-        navidrome
+        subsonic
           .getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
           .then((it) => it.playlists.playlist || [])
           .then((playlists) =>
             playlists.map((it) => ({ id: it._id, name: it._name }))
           ),
       playlist: async (id: string) =>
-        navidrome
+        subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
             id,
           })
@@ -724,7 +743,7 @@ export class Subsonic implements MusicService {
                   genre: maybeAsGenre(entry._genre),
                   artistName: entry._artist,
                   artistId: entry._artistId,
-                  coverArt: maybeAsCoverArt(entry._coverArt)
+                  coverArt: maybeAsCoverArt(entry._coverArt),
                 },
                 artist: {
                   id: entry._artistId,
@@ -734,34 +753,34 @@ export class Subsonic implements MusicService {
             };
           }),
       createPlaylist: async (name: string) =>
-        navidrome
+        subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
             name,
           })
           .then((it) => it.playlist)
           .then((it) => ({ id: it._id, name: it._name })),
       deletePlaylist: async (id: string) =>
-        navidrome
+        subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/deletePlaylist", {
             id,
           })
           .then((_) => true),
       addToPlaylist: async (playlistId: string, trackId: string) =>
-        navidrome
+        subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/updatePlaylist", {
             playlistId,
             songIdToAdd: trackId,
           })
           .then((_) => true),
       removeFromPlaylist: async (playlistId: string, indicies: number[]) =>
-        navidrome
+        subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/updatePlaylist", {
             playlistId,
             songIndexToRemove: indicies,
           })
           .then((_) => true),
       similarSongs: async (id: string) =>
-        navidrome
+        subsonic
           .getJSON<GetSimilarSongsResponse>(
             credentials,
             "/rest/getSimilarSongs2",
@@ -771,15 +790,15 @@ export class Subsonic implements MusicService {
           .then((songs) =>
             Promise.all(
               songs.map((song) =>
-                navidrome
+                subsonic
                   .getAlbum(credentials, song._albumId)
                   .then((album) => asTrack(album, song))
               )
             )
           ),
       topSongs: async (artistId: string) =>
-        navidrome.getArtist(credentials, artistId).then(({ name }) =>
-          navidrome
+        subsonic.getArtist(credentials, artistId).then(({ name }) =>
+          subsonic
             .getJSON<GetTopSongsResponse>(credentials, "/rest/getTopSongs", {
               artist: name,
               count: 50,
@@ -788,7 +807,7 @@ export class Subsonic implements MusicService {
             .then((songs) =>
               Promise.all(
                 songs.map((song) =>
-                  navidrome
+                  subsonic
                     .getAlbum(credentials, song._albumId)
                     .then((album) => asTrack(album, song))
                 )
