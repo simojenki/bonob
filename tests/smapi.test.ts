@@ -2471,12 +2471,9 @@ describe("api", () => {
                   getMediaURIResult: bonobUrl
                     .append({
                       pathname: `/stream/track/${trackId}`,
+                      searchParams: { "bat": accessToken }
                     })
                     .href(),
-                  httpHeaders: {
-                    header: "bat",
-                    value: accessToken,
-                  },
                 });
 
                 expect(musicService.login).toHaveBeenCalledWith(authToken);

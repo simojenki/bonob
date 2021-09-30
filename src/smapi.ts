@@ -18,7 +18,6 @@ import {
   Track,
 } from "./music_service";
 import { AccessTokens } from "./access_tokens";
-import { BONOB_ACCESS_TOKEN_HEADER } from "./server";
 import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
@@ -404,14 +403,9 @@ function bindSmapiSoapServiceToExpress(
                 getMediaURIResult: bonobUrl
                   .append({
                     pathname: `/stream/${type}/${typeId}`,
+                    searchParams: { "bat": accessToken }
                   })
                   .href(),
-                httpHeaders: [
-                  {
-                    header: BONOB_ACCESS_TOKEN_HEADER,
-                    value: accessToken,
-                  },
-                ],
               })),
           getMediaMetadata: async (
             { id }: { id: string },
