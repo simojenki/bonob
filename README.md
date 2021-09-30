@@ -18,7 +18,7 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 - Discovery of sonos devices using seed IP address
 - Auto register bonob service with sonos system
 - Multiple registrations within a single household.
-- Transcoding performed by Navidrome with specific player for bonob/sonos, customisable by mimeType
+- Transcoding support for flacs using a specific player for the flac mimeType bonob/sonos
 - Ability to search by Album, Artist, Track
 - Ability to play a playlist
 - Ability to add/remove playlists
@@ -174,11 +174,17 @@ BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must
 - Implement the MusicService/MusicLibrary interface
 - Startup bonob with your new implementation.
 
+## A note on transcoding
+
+tldr; Transcoding to mp3/m4a is not supported as sonos devices will not play the track.  Transcoding to flac works however, use BNB_SUBSONIC_CUSTOM_CLIENTS=audio/flac if you want to transcode flac->flac ie. to downsample HD flacs (see below).
+
+Sonos devices are very particular about how audio streams are presented to them, see [streaming basics](https://developer.sonos.com/build/content-service-add-features/streaming-basics/).  When using transcoding both Navidrome and Gonic report no 'content-length', nor do they support range queries, this will cause the sonos device to fail to play the track. 
+
 ## Cusomisation
 
-### Audio File type specific transcoding options within Navidrome
+### Audio File type specific transcoding options within Subsonic
 
-In some situations you may wish to have different 'Players' within Navidrome so that you can configure different transcoding options depending on the file type.  For example if you have a mixture of flac file formats where not all are supported by sonos [See issue #52](https://github.com/simojenki/bonob/issues/52) & [Sonos supported audio formats](https://developer.sonos.com/build/content-service-add-features/supported-audio-formats/)
+In some situations you may wish to have different 'Players' within you Subsonic server so that you can configure different transcoding options depending on the file type.  For example if you have flacs with a mixture of frequency formats where not all are supported by sonos [See issue #52](https://github.com/simojenki/bonob/issues/52) & [Sonos supported audio formats](https://developer.sonos.com/build/content-service-add-features/supported-audio-formats/)
 
 In this case you could set;
 
