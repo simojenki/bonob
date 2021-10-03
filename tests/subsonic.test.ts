@@ -172,7 +172,7 @@ describe("cachingImageFetcher", () => {
   });
 
   describe("when there is no image in the cache", () => {
-    it.only("should fetch the image from the source and then cache and return it", async () => {
+    it("should fetch the image from the source and then cache and return it", async () => {
       const dir = tmp.dirSync();
       const cacheFile = path.join(dir.name, `${Md5.hashStr(url)}.png`);
       const jpgImage = Buffer.from("jpg-image", 'utf-8');
@@ -197,7 +197,7 @@ describe("cachingImageFetcher", () => {
   });
 
   describe("when the image is already in the cache", () => {
-    it.only("should fetch the image from the cache and return it", async () => {
+    it("should fetch the image from the cache and return it", async () => {
       const dir = tmp.dirSync();
       const cacheFile = path.join(dir.name, `${Md5.hashStr(url)}.png`);
       const data = Buffer.from("foobar2", "utf-8");
@@ -214,7 +214,7 @@ describe("cachingImageFetcher", () => {
   });
 
   describe("when the delegate returns undefined", () => {
-    it.only("should return undefined", async () => {
+    it("should return undefined", async () => {
       const dir = tmp.dirSync();
       const cacheFile = path.join(dir.name, `${Md5.hashStr(url)}.png`);
 
