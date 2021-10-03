@@ -3,7 +3,15 @@ import { v4 as uuid } from "uuid";
 import { Credentials } from "../src/smapi";
 
 import { Service, Device } from "../src/sonos";
-import { Album, Artist, Track, albumToAlbumSummary, artistToArtistSummary, PlaylistSummary, Playlist } from "../src/music_service";
+import {
+  Album,
+  Artist,
+  Track,
+  albumToAlbumSummary,
+  artistToArtistSummary,
+  PlaylistSummary,
+  Playlist,
+} from "../src/music_service";
 import randomString from "../src/random_string";
 import { b64Encode } from "../src/b64";
 
@@ -29,12 +37,14 @@ export const aService = (fields: Partial<Service> = {}): Service => ({
   ...fields,
 });
 
-export function aPlaylistSummary(fields: Partial<PlaylistSummary> = {}): PlaylistSummary {
+export function aPlaylistSummary(
+  fields: Partial<PlaylistSummary> = {}
+): PlaylistSummary {
   return {
     id: `playlist-${uuid()}`,
     name: `playlistname-${randomString()}`,
-    ...fields
-  }
+    ...fields,
+  };
 }
 
 export function aPlaylist(fields: Partial<Playlist> = {}): Playlist {
@@ -42,9 +52,9 @@ export function aPlaylist(fields: Partial<Playlist> = {}): Playlist {
     id: `playlist-${uuid()}`,
     name: `playlist-${randomString()}`,
     entries: [aTrack(), aTrack()],
-    ...fields
-  }
-} 
+    ...fields,
+  };
+}
 
 export function aDevice(fields: Partial<Device> = {}): Device {
   return {
@@ -105,14 +115,14 @@ export function anArtist(fields: Partial<Artist> = {}): Artist {
     ],
     ...fields,
   };
-  artist.albums.forEach(album => {
+  artist.albums.forEach((album) => {
     album.artistId = artist.id;
     album.artistName = artist.name;
-  })
+  });
   return artist;
 }
 
-export const aGenre = (name: string) => ({ id: b64Encode(name), name })
+export const aGenre = (name: string) => ({ id: b64Encode(name), name });
 
 export const HIP_HOP = aGenre("Hip-Hop");
 export const METAL = aGenre("Metal");
@@ -125,7 +135,16 @@ export const SKA = aGenre("Ska");
 export const PUNK = aGenre("Punk");
 export const TRIP_HOP = aGenre("Trip Hop");
 
-export const SAMPLE_GENRES = [HIP_HOP, METAL, NEW_WAVE, POP, POP_ROCK, REGGAE, ROCK, SKA];
+export const SAMPLE_GENRES = [
+  HIP_HOP,
+  METAL,
+  NEW_WAVE,
+  POP,
+  POP_ROCK,
+  REGGAE,
+  ROCK,
+  SKA,
+];
 export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)];
 
 export function aTrack(fields: Partial<Track> = {}): Track {
@@ -140,7 +159,9 @@ export function aTrack(fields: Partial<Track> = {}): Track {
     number: randomInt(100),
     genre,
     artist: artistToArtistSummary(artist),
-    album: albumToAlbumSummary(anAlbum({ artistId: artist.id, artistName: artist.name, genre })),
+    album: albumToAlbumSummary(
+      anAlbum({ artistId: artist.id, artistName: artist.name, genre })
+    ),
     coverArt: `coverArt:${uuid()}`,
     ...fields,
   };
@@ -173,7 +194,7 @@ export const BLONDIE: Artist = {
       genre: NEW_WAVE,
       artistId: BLONDIE_ID,
       artistName: BLONDIE_NAME,
-      coverArt: `coverArt:${uuid()}`
+      coverArt: `coverArt:${uuid()}`,
     },
     {
       id: uuid(),
@@ -182,7 +203,7 @@ export const BLONDIE: Artist = {
       genre: POP_ROCK,
       artistId: BLONDIE_ID,
       artistName: BLONDIE_NAME,
-      coverArt: `coverArt:${uuid()}`
+      coverArt: `coverArt:${uuid()}`,
     },
   ],
   image: {
@@ -199,9 +220,33 @@ export const BOB_MARLEY: Artist = {
   id: BOB_MARLEY_ID,
   name: BOB_MARLEY_NAME,
   albums: [
-    { id: uuid(), name: "Burin'", year: "1973", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME, coverArt: `coverArt:${uuid()}` },
-    { id: uuid(), name: "Exodus", year: "1977", genre: REGGAE, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME, coverArt: `coverArt:${uuid()}` },
-    { id: uuid(), name: "Kaya", year: "1978", genre: SKA, artistId: BOB_MARLEY_ID, artistName: BOB_MARLEY_NAME, coverArt: `coverArt:${uuid()}` },
+    {
+      id: uuid(),
+      name: "Burin'",
+      year: "1973",
+      genre: REGGAE,
+      artistId: BOB_MARLEY_ID,
+      artistName: BOB_MARLEY_NAME,
+      coverArt: `coverArt:${uuid()}`,
+    },
+    {
+      id: uuid(),
+      name: "Exodus",
+      year: "1977",
+      genre: REGGAE,
+      artistId: BOB_MARLEY_ID,
+      artistName: BOB_MARLEY_NAME,
+      coverArt: `coverArt:${uuid()}`,
+    },
+    {
+      id: uuid(),
+      name: "Kaya",
+      year: "1978",
+      genre: SKA,
+      artistId: BOB_MARLEY_ID,
+      artistName: BOB_MARLEY_NAME,
+      coverArt: `coverArt:${uuid()}`,
+    },
   ],
   image: {
     small: "http://localhost/BOB_MARLEY/sml",
@@ -238,7 +283,7 @@ export const METALLICA: Artist = {
       genre: METAL,
       artistId: METALLICA_ID,
       artistName: METALLICA_NAME,
-      coverArt: `coverArt:${uuid()}`
+      coverArt: `coverArt:${uuid()}`,
     },
     {
       id: uuid(),
@@ -246,8 +291,8 @@ export const METALLICA: Artist = {
       year: "1986",
       genre: METAL,
       artistId: METALLICA_ID,
-      artistName: METALLICA_NAME, 
-      coverArt: `coverArt:${uuid()}`
+      artistName: METALLICA_NAME,
+      coverArt: `coverArt:${uuid()}`,
     },
   ],
   image: {
@@ -261,3 +306,4 @@ export const METALLICA: Artist = {
 export const ALL_ARTISTS = [BOB_MARLEY, BLONDIE, MADONNA, METALLICA];
 
 export const ALL_ALBUMS = ALL_ARTISTS.flatMap((it) => it.albums || []);
+

@@ -18,10 +18,13 @@ import {
   AlbumSummary,
   Genre,
   Track,
+  CoverArt,
 } from "./music_service";
 import X2JS from "x2js";
 import sharp from "sharp";
 import _ from "underscore";
+import fse from "fs-extra";
+import path from "path";
 
 import axios, { AxiosRequestConfig } from "axios";
 import { Encryption } from "./encryption";
@@ -311,19 +314,61 @@ export const asURLSearchParams = (q: any) => {
   return urlSearchParams;
 };
 
+export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
+
+export const cachingImageFetcher =
+  (cacheDir: string, delegate: ImageFetcher) =>
+  (url: string): Promise<CoverArt | undefined> => {
+    const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
+    return fse
+      .readFile(filename)
+      .then((data) => ({ contentType: "image/png", data }))
+      .catch(() =>
+        delegate(url).then((image) => {
+          if (image) {
+            return sharp(image.data)
+              .png()
+              .toBuffer()
+              .then((png) => {
+                return fse
+                  .writeFile(filename, png)
+                  .then(() => ({ contentType: "image/png", data: png }));
+              });
+          } else {
+            return undefined;
+          }
+        })
+      );
+  };
+
+export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
+  axios
+    .get(url, {
+      headers: BROWSER_HEADERS,
+      responseType: "arraybuffer",
+    })
+    .then((res) => ({
+      contentType: res.headers["content-type"],
+      data: Buffer.from(res.data, "binary"),
+    }))
+    .catch(() => undefined);
+
 export class Subsonic implements MusicService {
   url: string;
   encryption: Encryption;
   streamClientApplication: StreamClientApplication;
+  externalImageFetcher: ImageFetcher;
 
   constructor(
     url: string,
     encryption: Encryption,
-    streamClientApplication: StreamClientApplication = DEFAULT
+    streamClientApplication: StreamClientApplication = DEFAULT,
+    externalImageFetcher: ImageFetcher = axiosImageFetcher
   ) {
     this.url = url;
     this.encryption = encryption;
     this.streamClientApplication = streamClientApplication;
+    this.externalImageFetcher = externalImageFetcher;
   }
 
   get = async (
@@ -630,28 +675,21 @@ export class Subsonic implements MusicService {
                 (it) => it.coverArt
               );
               if (artist.image.large) {
-                return axios
-                  .get(artist.image.large!, {
-                    headers: BROWSER_HEADERS,
-                    responseType: "arraybuffer",
-                  })
-                  .then((res) => {
-                    const image = Buffer.from(res.data, "binary");
-                    if (size) {
-                      return sharp(image)
+                return this.externalImageFetcher(artist.image.large!).then(
+                  (image) => {
+                    if (image && size) {
+                      return sharp(image.data)
                         .resize(size)
                         .toBuffer()
                         .then((resized) => ({
-                          contentType: res.headers["content-type"],
+                          contentType: image.contentType,
                           data: resized,
                         }));
                     } else {
-                      return {
-                        contentType: res.headers["content-type"],
-                        data: image,
-                      };
+                      return image;
                     }
-                  });
+                  }
+                );
               } else if (albumsWithCoverArt.length > 0) {
                 return subsonic
                   .getCoverArt(

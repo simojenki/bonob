@@ -84,6 +84,7 @@ export default function () {
     subsonic: {
       url: bnbEnvVar("SUBSONIC_URL", { legacy: ["BONOB_NAVIDROME_URL"], default: `http://${hostname()}:4533` })!,
       customClientsFor: bnbEnvVar("SUBSONIC_CUSTOM_CLIENTS", { legacy: ["BONOB_NAVIDROME_CUSTOM_CLIENTS"] }),
+      artistImageCache: bnbEnvVar("SUBSONIC_ARTIST_IMAGE_CACHE"),
     },
     scrobbleTracks: bnbEnvVar("SCROBBLE_TRACKS", { default: "true" }) == "true",
     reportNowPlaying:

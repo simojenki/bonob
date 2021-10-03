@@ -2,7 +2,13 @@ import path from "path";
 import fs from "fs";
 import server from "./server";
 import logger from "./logger";
-import { appendMimeTypeToClientFor, DEFAULT, Subsonic } from "./subsonic";
+import {
+  appendMimeTypeToClientFor,
+  axiosImageFetcher,
+  cachingImageFetcher,
+  DEFAULT,
+  Subsonic,
+} from "./subsonic";
 import encryption from "./encryption";
 import { InMemoryAccessTokens, sha256 } from "./access_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
@@ -28,10 +34,15 @@ const streamUserAgent = config.subsonic.customClientsFor
   ? appendMimeTypeToClientFor(config.subsonic.customClientsFor.split(","))
   : DEFAULT;
 
+const artistImageFetcher = config.subsonic.artistImageCache
+  ? cachingImageFetcher(config.subsonic.artistImageCache, axiosImageFetcher)
+  : axiosImageFetcher;
+
 const subsonic = new Subsonic(
   config.subsonic.url,
   encryption(config.secret),
-  streamUserAgent
+  streamUserAgent,
+  artistImageFetcher
 );
 
 const featureFlagAwareMusicService: MusicService = {
@@ -60,7 +71,9 @@ const featureFlagAwareMusicService: MusicService = {
 
 export const GIT_INFO = path.join(__dirname, "..", ".gitinfo");
 
-const version = fs.existsSync(GIT_INFO) ? fs.readFileSync(GIT_INFO).toString().trim() : "v??"
+const version = fs.existsSync(GIT_INFO)
+  ? fs.readFileSync(GIT_INFO).toString().trim()
+  : "v??";
 
 const app = server(
   sonosSystem,
@@ -69,12 +82,12 @@ const app = server(
   featureFlagAwareMusicService,
   {
     linkCodes: () => new InMemoryLinkCodes(),
-    accessTokens: () =>  new InMemoryAccessTokens(sha256(config.secret)),
+    accessTokens: () => new InMemoryAccessTokens(sha256(config.secret)),
     clock: SystemClock,
     iconColors: config.icons,
     applyContextPath: true,
     logRequests: true,
-    version
+    version,
   }
 );
 
@@ -90,12 +103,12 @@ if (config.sonos.autoRegister) {
       );
     }
   });
-} else if(config.sonos.discovery.enabled) {
-  sonosSystem.devices().then(devices => {
-    devices.forEach(d => {
-      logger.info(`Found device ${d.name}(${d.group}) @ ${d.ip}:${d.port}`)
-    })
-  })
+} else if (config.sonos.discovery.enabled) {
+  sonosSystem.devices().then((devices) => {
+    devices.forEach((d) => {
+      logger.info(`Found device ${d.name}(${d.group}) @ ${d.ip}:${d.port}`);
+    });
+  });
 }
 
 export default app;
