@@ -1668,7 +1668,7 @@ describe("server", () => {
             "playlists",
             "genres",
             "random",
-            "starred",
+            "heart",
             "recentlyAdded",
             "recentlyPlayed",
             "mostPlayed",

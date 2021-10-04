@@ -24,25 +24,25 @@ export const SONOS_LANG: LANG[] = [
   "zh-CN",
 ];
 
-export const PRESENTATION_AND_STRINGS_VERSION = "21";
+export const PRESENTATION_AND_STRINGS_VERSION =
+  process.env["BNB_DEBUG"] === "true"
+    ? `${Math.round(new Date().getTime() / 1000)}`
+    : "23";
 
-// NOTE: manifest requires https for the URL,
-// otherwise you will get an error trying to register
+// NOTE: manifest requires https for the URL, otherwise you will get an error trying to register
 export type Capability =
   | "search"
-  | "trFavorites"
-  | "alFavorites"
-  | "ucPlaylists"
-  | "extendedMD"
+  | "trFavorites" // Favorites: Adding/Removing Tracks (deprecated)
+  | "alFavorites" // Favorites: Adding/Removing Albums (deprecated)
+  | "ucPlaylists" // User Content Playlists
+  | "extendedMD" // Extended Metadata (More Menu, Info & Options)
   | "contextHeaders"
   | "authorizationHeader"
-  | "logging"
+  | "logging" // Playback duration logging at track end (deprecated)
   | "manifest";
 
 export const BONOB_CAPABILITIES: Capability[] = [
   "search",
-  // "trFavorites",
-  // "alFavorites",
   "ucPlaylists",
   "extendedMD",
   "logging",
@@ -247,9 +247,7 @@ export type Discovery = {
   seedHost?: string;
 };
 
-export default (
-  sonosDiscovery: Discovery = { enabled: true }
-): Sonos =>
+export default (sonosDiscovery: Discovery = { enabled: true }): Sonos =>
   sonosDiscovery.enabled
     ? autoDiscoverySonos(sonosDiscovery.seedHost)
     : SONOS_DISABLED;

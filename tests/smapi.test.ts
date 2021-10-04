@@ -24,8 +24,11 @@ import {
   iconArtURI,
   playlistAlbumArtURL,
   sonosifyMimeType,
+  ratingAsInt,
+  ratingFromInt,
 } from "../src/smapi";
 
+import { keys as i8nKeys } from '../src/i8n';
 import {
   aService,
   getAppLinkMessage,
@@ -54,6 +57,32 @@ import { iconForGenre } from "../src/icon";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
+
+describe("rating to and from ints", () => {
+  describe("ratingAsInt", () => {
+    [
+      { rating: { love: false, stars: 0 }, expectedValue: 100 }, 
+      { rating: { love: true,  stars: 0 }, expectedValue: 101 }, 
+      { rating: { love: false, stars: 1 }, expectedValue: 110 }, 
+      { rating: { love: true,  stars: 1 }, expectedValue: 111 }, 
+      { rating: { love: false, stars: 2 }, expectedValue: 120 }, 
+      { rating: { love: true,  stars: 2 }, expectedValue: 121 }, 
+      { rating: { love: false, stars: 3 }, expectedValue: 130 }, 
+      { rating: { love: true,  stars: 3 }, expectedValue: 131 }, 
+      { rating: { love: false, stars: 4 }, expectedValue: 140 }, 
+      { rating: { love: true,  stars: 4 }, expectedValue: 141 }, 
+      { rating: { love: false, stars: 5 }, expectedValue: 150 }, 
+      { rating: { love: true,  stars: 5 }, expectedValue: 151 }, 
+    ].forEach(({ rating, expectedValue }) => {
+      it(`should map ${JSON.stringify(rating)} to a ${expectedValue} and back`, () => {
+        const actualValue = ratingAsInt(rating);
+        expect(actualValue).toEqual(expectedValue);
+        expect(ratingFromInt(actualValue)).toEqual(rating);
+      });
+    });
+  });
+});
+
 describe("service config", () => {
   const bonobWithNoContextPath = url("http://localhost:1234");
   const bonobWithContextPath = url("http://localhost:5678/some-context-path");
@@ -72,18 +101,18 @@ describe("service config", () => {
         pathname: PRESENTATION_MAP_ROUTE,
       });
 
+      async function fetchStringsXml() {
+        const res = await request(server).get(stringsUrl.path()).send();
+
+        expect(res.status).toEqual(200);
+
+        // removing the sonos xml ns as makes xpath queries with xpath-ts painful
+        return parseXML(
+          res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
+        );
+      }
+
       describe(STRINGS_ROUTE, () => {
-        async function fetchStringsXml() {
-          const res = await request(server).get(stringsUrl.path()).send();
-
-          expect(res.status).toEqual(200);
-
-          // removing the sonos xml ns as makes xpath queries with xpath-ts painful
-          return parseXML(
-            res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
-          );
-        }
-
         it("should return xml for the strings", async () => {
           const xml = await fetchStringsXml();
 
@@ -120,15 +149,17 @@ describe("service config", () => {
       });
 
       describe(PRESENTATION_MAP_ROUTE, () => {
-        it("should have an ArtWorkSizeMap for all sizes recommended by sonos", async () => {
+        async function presentationMapXml() {
           const res = await request(server).get(presentationUrl.path()).send();
-
           expect(res.status).toEqual(200);
-
           // removing the sonos xml ns as makes xpath queries with xpath-ts painful
-          const xml = parseXML(
+          return parseXML(
             res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
           );
+        }
+
+        it("should have an ArtWorkSizeMap for all sizes recommended by sonos", async () => {
+          const xml = await presentationMapXml();
 
           const imageSizeMap = (size: string) =>
             xpath.select(
@@ -142,14 +173,7 @@ describe("service config", () => {
         });
 
         it("should have an BrowseIconSizeMap for all sizes recommended by sonos", async () => {
-          const res = await request(server).get(presentationUrl.path()).send();
-
-          expect(res.status).toEqual(200);
-
-          // removing the sonos xml ns as makes xpath queries with xpath-ts painful
-          const xml = parseXML(
-            res.text.replace('xmlns="http://sonos.com/sonosapi"', "")
-          );
+          const xml = await presentationMapXml();
 
           const imageSizeMap = (size: string) =>
             xpath.select(
@@ -159,6 +183,64 @@ describe("service config", () => {
 
           SONOS_RECOMMENDED_IMAGE_SIZES.forEach((size) => {
             expect(imageSizeMap(size)).toEqual(`/size/${size}`);
+          });
+        });
+
+        describe("NowPlayingRatings", () => {
+          it("should have Matches with propname = rating", async () => {
+            const xml = await presentationMapXml();
+  
+            const matchElements = xpath.select(
+              `/Presentation/PresentationMap[@type="NowPlayingRatings"]/Match`,
+              xml
+            ) as Element[];
+  
+            expect(matchElements.length).toBe(12);
+  
+            matchElements.forEach((match) => {
+              expect(match.getAttributeNode("propname")?.value).toEqual(
+                "rating"
+              );
+            });
+          });
+  
+          it("should have Rating stringIds that are in strings.xml", async () => {
+            const xml = await presentationMapXml();
+  
+            const ratingElements = xpath.select(
+              `/Presentation/PresentationMap[@type="NowPlayingRatings"]/Match/Ratings/Rating`,
+              xml
+            ) as Element[];
+  
+            expect(ratingElements.length).toBeGreaterThan(1);
+  
+            ratingElements.forEach((rating) => {
+              const OnSuccessStringId =
+                rating.getAttributeNode("OnSuccessStringId")!.value;
+              const StringId = rating.getAttributeNode("StringId")!.value;
+  
+              expect(i8nKeys()).toContain(OnSuccessStringId);
+              expect(i8nKeys()).toContain(StringId);
+            });
+          });
+
+          it("should have Rating Ids that are valid ratings as ints", async () => {
+            const xml = await presentationMapXml();
+  
+            const ratingElements = xpath.select(
+              `/Presentation/PresentationMap[@type="NowPlayingRatings"]/Match/Ratings/Rating`,
+              xml
+            ) as Element[];
+  
+            expect(ratingElements.length).toBeGreaterThan(1);
+  
+            ratingElements.forEach((ratingElement) => {
+              
+              const rating = ratingFromInt(Math.abs(Number.parseInt(ratingElement.getAttributeNode("Id")!.value)))
+              expect(rating.love).toBeDefined();
+              expect(rating.stars).toBeGreaterThanOrEqual(0);
+              expect(rating.stars).toBeLessThanOrEqual(5);
+            });
           });
         });
       });
@@ -264,13 +346,17 @@ describe("track", () => {
         genre: { id: "genre101", name: "some genre" },
       }),
       artist: anArtist({ name: "great artist", id: uuid() }),
-      coverArt:"coverArt:887766"
+      coverArt: "coverArt:887766",
+      rating: {
+        love: true,
+        stars: 5
+      }
     });
 
     expect(track(bonobUrl, someTrack)).toEqual({
       itemType: "track",
       id: `track:${someTrack.id}`,
-      mimeType: 'audio/flac',
+      mimeType: "audio/flac",
       title: someTrack.name,
 
       trackMetadata: {
@@ -285,6 +371,14 @@ describe("track", () => {
         genre: someTrack.album.genre?.name,
         genreId: someTrack.album.genre?.id,
         trackNumber: someTrack.number,
+      },
+      dynamic: {
+        property: [
+          {
+            name: "rating",
+            value: `${ratingAsInt(someTrack.rating)}`,
+          },
+        ],
       },
     });
   });
@@ -328,7 +422,10 @@ describe("playlistAlbumArtURL", () => {
     it("should return question mark icon", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
-        entries: [aTrack({ coverArt: undefined }), aTrack({ coverArt: undefined })],
+        entries: [
+          aTrack({ coverArt: undefined }),
+          aTrack({ coverArt: undefined }),
+        ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
@@ -403,7 +500,9 @@ describe("playlistAlbumArtURL", () => {
 });
 
 describe("defaultAlbumArtURI", () => {
-  const bonobUrl = new URLBuilder("http://bonob.example.com:8080/context?search=yes");
+  const bonobUrl = new URLBuilder(
+    "http://bonob.example.com:8080/context?search=yes"
+  );
 
   describe("when there is an album coverArt", () => {
     it("should use it in the image url", () => {
@@ -421,10 +520,7 @@ describe("defaultAlbumArtURI", () => {
   describe("when there is no album coverArt", () => {
     it("should return a vinly icon image", () => {
       expect(
-        defaultAlbumArtURI(
-          bonobUrl,
-          anAlbum({ coverArt: undefined })
-        ).href()
+        defaultAlbumArtURI(bonobUrl, anAlbum({ coverArt: undefined })).href()
       ).toEqual(
         "http://bonob.example.com:8080/context/icon/vinyl/size/legacy?search=yes"
       );
@@ -473,6 +569,7 @@ describe("api", () => {
     removeFromPlaylist: jest.fn(),
     scrobble: jest.fn(),
     nowPlaying: jest.fn(),
+    rate: jest.fn(),
   };
   const accessTokens = {
     mint: jest.fn(),
@@ -869,6 +966,18 @@ describe("api", () => {
                           itemType: "albumList",
                         },
                         {
+                          id: "randomAlbums",
+                          title: "Random",
+                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                          itemType: "albumList",
+                        },
+                        {
+                          id: "favouriteAlbums",
+                          title: "Favourites",
+                          albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                          itemType: "albumList",
+                        },
+                        {
                           id: "playlists",
                           title: "Playlists",
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
@@ -884,18 +993,6 @@ describe("api", () => {
                           title: "Genres",
                           albumArtURI: iconArtURI(bonobUrl, "genres").href(),
                           itemType: "container",
-                        },
-                        {
-                          id: "randomAlbums",
-                          title: "Random",
-                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "starredAlbums",
-                          title: "Starred",
-                          albumArtURI: iconArtURI(bonobUrl, "starred").href(),
-                          itemType: "albumList",
                         },
                         {
                           id: "recentlyAdded",
@@ -956,6 +1053,18 @@ describe("api", () => {
                           itemType: "albumList",
                         },
                         {
+                          id: "randomAlbums",
+                          title: "Willekeurig",
+                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                          itemType: "albumList",
+                        },
+                        {
+                          id: "favouriteAlbums",
+                          title: "Favorieten",
+                          albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                          itemType: "albumList",
+                        },
+                        {
                           id: "playlists",
                           title: "Afspeellijsten",
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
@@ -971,18 +1080,6 @@ describe("api", () => {
                           title: "Genres",
                           albumArtURI: iconArtURI(bonobUrl, "genres").href(),
                           itemType: "container",
-                        },
-                        {
-                          id: "randomAlbums",
-                          title: "Willekeurig",
-                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "starredAlbums",
-                          title: "Favorieten",
-                          albumArtURI: iconArtURI(bonobUrl, "starred").href(),
-                          itemType: "albumList",
                         },
                         {
                           id: "recentlyAdded",
@@ -1568,7 +1665,7 @@ describe("api", () => {
                 });
               });
 
-              describe("asking for starred albums", () => {
+              describe("asking for favourite albums", () => {
                 const albums = [rock2, rock1, pop2];
 
                 beforeEach(() => {
@@ -1585,7 +1682,7 @@ describe("api", () => {
                   };
 
                   const result = await ws.getMetadataAsync({
-                    id: "starredAlbums",
+                    id: "favouriteAlbums",
                     ...paging,
                   });
 
@@ -2325,42 +2422,90 @@ describe("api", () => {
             });
 
             describe("asking for a track", () => {
-              it("should return the track", async () => {
-                const track = aTrack();
+              describe("that has a love", () => {
+                it("should return the track", async () => {
+                  const track = aTrack();
 
-                musicLibrary.track.mockResolvedValue(track);
+                  musicLibrary.track.mockResolvedValue(track);
 
-                const root = await ws.getExtendedMetadataAsync({
-                  id: `track:${track.id}`,
-                });
+                  const root = await ws.getExtendedMetadataAsync({
+                    id: `track:${track.id}`,
+                  });
 
-                expect(root[0]).toEqual({
-                  getExtendedMetadataResult: {
-                    mediaMetadata: {
-                      id: `track:${track.id}`,
-                      itemType: "track",
-                      title: track.name,
-                      mimeType: track.mimeType,
-                      trackMetadata: {
-                        artistId: `artist:${track.artist.id}`,
-                        artist: track.artist.name,
-                        albumId: `album:${track.album.id}`,
-                        albumArtist: track.artist.name,
-                        albumArtistId: `artist:${track.artist.id}`,
-                        album: track.album.name,
-                        genre: track.genre?.name,
-                        genreId: track.genre?.id,
-                        duration: track.duration,
-                        albumArtURI: defaultAlbumArtURI(
-                          bonobUrlWithAccessToken,
-                          track
-                        ).href(),
-                        trackNumber: track.number,
+                  expect(root[0]).toEqual({
+                    getExtendedMetadataResult: {
+                      mediaMetadata: {
+                        id: `track:${track.id}`,
+                        itemType: "track",
+                        title: track.name,
+                        mimeType: track.mimeType,
+                        trackMetadata: {
+                          artistId: `artist:${track.artist.id}`,
+                          artist: track.artist.name,
+                          albumId: `album:${track.album.id}`,
+                          albumArtist: track.artist.name,
+                          albumArtistId: `artist:${track.artist.id}`,
+                          album: track.album.name,
+                          genre: track.genre?.name,
+                          genreId: track.genre?.id,
+                          duration: track.duration,
+                          albumArtURI: defaultAlbumArtURI(
+                            bonobUrlWithAccessToken,
+                            track
+                          ).href(),
+                          trackNumber: track.number,
+                        },
+                        dynamic: {
+                          property: [{ name: "rating", value: `${ratingAsInt(track.rating)}` }],
+                        },
                       },
                     },
-                  },
+                  });
+                  expect(musicLibrary.track).toHaveBeenCalledWith(track.id);
                 });
-                expect(musicLibrary.track).toHaveBeenCalledWith(track.id);
+              });
+
+              describe("that does not have a love", () => {
+                it("should return the track", async () => {
+                  const track = aTrack();
+
+                  musicLibrary.track.mockResolvedValue(track);
+
+                  const root = await ws.getExtendedMetadataAsync({
+                    id: `track:${track.id}`,
+                  });
+
+                  expect(root[0]).toEqual({
+                    getExtendedMetadataResult: {
+                      mediaMetadata: {
+                        id: `track:${track.id}`,
+                        itemType: "track",
+                        title: track.name,
+                        mimeType: track.mimeType,
+                        trackMetadata: {
+                          artistId: `artist:${track.artist.id}`,
+                          artist: track.artist.name,
+                          albumId: `album:${track.album.id}`,
+                          albumArtist: track.artist.name,
+                          albumArtistId: `artist:${track.artist.id}`,
+                          album: track.album.name,
+                          genre: track.genre?.name,
+                          genreId: track.genre?.id,
+                          duration: track.duration,
+                          albumArtURI: defaultAlbumArtURI(
+                            bonobUrlWithAccessToken,
+                            track
+                          ).href(),
+                          trackNumber: track.number,
+                        },
+                        dynamic: {
+                          property: [{ name: "rating", value: `${ratingAsInt(track.rating)}` }],
+                        },
+                      },
+                    },
+                  });
+                  expect(musicLibrary.track).toHaveBeenCalledWith(track.id);
+                });
               });
             });
 
@@ -2471,7 +2616,7 @@ describe("api", () => {
                   getMediaURIResult: bonobUrl
                     .append({
                       pathname: `/stream/track/${trackId}`,
-                      searchParams: { "bat": accessToken }
+                      searchParams: { bat: accessToken },
                     })
                     .href(),
                 });
@@ -2788,6 +2933,64 @@ describe("api", () => {
           });
         });
 
+        describe("rateItem", () => {
+          let ws: Client;
+
+          beforeEach(async () => {
+            musicService.login.mockResolvedValue(musicLibrary);
+            accessTokens.mint.mockReturnValue(accessToken);
+
+            ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+            ws.addSoapHeader({ credentials: someCredentials(authToken) });
+          });
+
+          describe("rating a track with a positive rating value", () => {
+            const trackId = "123";
+            const ratingIntValue = 31;
+
+            it("should give the track a love", async () => {
+              musicLibrary.rate.mockResolvedValue(true);
+
+              const result = await ws.rateItemAsync({
+                id: `track:${trackId}`,
+                rating: ratingIntValue,
+              });
+
+              expect(result[0]).toEqual({
+                rateItemResult: { shouldSkip: false },
+              });
+              expect(musicService.login).toHaveBeenCalledWith(authToken);
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+              expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(ratingIntValue));
+            });
+          });
+
+          describe("rating a track with a negative rating value", () => {
+            const trackId = "123";
+            const ratingIntValue = -20;
+
+            it("should give the track a love", async () => {
+              musicLibrary.rate.mockResolvedValue(true);
+
+              const result = await ws.rateItemAsync({
+                id: `track:${trackId}`,
+                rating: ratingIntValue,
+              });
+
+              expect(result[0]).toEqual({
+                rateItemResult: { shouldSkip: false },
+              });
+              expect(musicService.login).toHaveBeenCalledWith(authToken);
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+              expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(Math.abs(ratingIntValue)));
+            });
+          });
+
+        });
+
         describe("setPlayedSeconds", () => {
           let ws: Client;
 
@@ -2812,7 +3015,7 @@ describe("api", () => {
             }: {
               trackId: string;
               secondsPlayed: number;
-              shouldMarkNowPlaying: boolean,
+              shouldMarkNowPlaying: boolean;
             }) {
               it("should scrobble", async () => {
                 musicLibrary.scrobble.mockResolvedValue(true);
@@ -2827,7 +3030,7 @@ describe("api", () => {
                 expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
                 expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
-                if(shouldMarkNowPlaying) {
+                if (shouldMarkNowPlaying) {
                   expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 } else {
                   expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
@@ -2842,7 +3045,7 @@ describe("api", () => {
             }: {
               trackId: string;
               secondsPlayed: number;
-              shouldMarkNowPlaying: boolean,
+              shouldMarkNowPlaying: boolean;
             }) {
               it("should scrobble", async () => {
                 const result = await ws.setPlayedSecondsAsync({
@@ -2855,7 +3058,7 @@ describe("api", () => {
                 expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
                 expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.scrobble).not.toHaveBeenCalled();
-                if(shouldMarkNowPlaying) {
+                if (shouldMarkNowPlaying) {
                   expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 } else {
                   expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
@@ -2871,23 +3074,43 @@ describe("api", () => {
               });
 
               describe("when the seconds played is 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
+                itShouldScroble({
+                  trackId,
+                  secondsPlayed: 30,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is > 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 90, shouldMarkNowPlaying: true });
+                itShouldScroble({
+                  trackId,
+                  secondsPlayed: 90,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is < 30 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 29, shouldMarkNowPlaying: true });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 29,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is 1 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 1, shouldMarkNowPlaying: true });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 1,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is 0 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 0, shouldMarkNowPlaying: false });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 0,
+                  shouldMarkNowPlaying: false,
+                });
               });
             });
 
@@ -2899,23 +3122,43 @@ describe("api", () => {
               });
 
               describe("when the seconds played is 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
+                itShouldScroble({
+                  trackId,
+                  secondsPlayed: 30,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is > 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 90, shouldMarkNowPlaying: true });
+                itShouldScroble({
+                  trackId,
+                  secondsPlayed: 90,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is < 30 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 29, shouldMarkNowPlaying: true });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 29,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is 1 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 1, shouldMarkNowPlaying: true });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 1,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is 0 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 0, shouldMarkNowPlaying: false });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 0,
+                  shouldMarkNowPlaying: false,
+                });
               });
             });
 
@@ -2927,27 +3170,51 @@ describe("api", () => {
               });
 
               describe("when the seconds played is 29 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
+                itShouldScroble({
+                  trackId,
+                  secondsPlayed: 30,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is > 29 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30, shouldMarkNowPlaying: true });
+                itShouldScroble({
+                  trackId,
+                  secondsPlayed: 30,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is 10 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 10, shouldMarkNowPlaying: true });
+                itShouldScroble({
+                  trackId,
+                  secondsPlayed: 10,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is < 10 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 9, shouldMarkNowPlaying: true });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 9,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is 1 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 1, shouldMarkNowPlaying: true });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 1,
+                  shouldMarkNowPlaying: true,
+                });
               });
 
               describe("when the seconds played is 0 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 0, shouldMarkNowPlaying: false });
+                itShouldNotScroble({
+                  trackId,
+                  secondsPlayed: 0,
+                  shouldMarkNowPlaying: false,
+                });
               });
             });
           });
