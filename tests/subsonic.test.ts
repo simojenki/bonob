@@ -266,7 +266,7 @@ const maybeIdFromCoverArtId = (coverArt: string | undefined) =>
   coverArt ? splitCoverArtId(coverArt)[1] : "";
 
 const asAlbumJson = (
-  artist: Artist,
+  artist: { id: string | undefined, name: string | undefined },
   album: AlbumSummary,
   tracks: Track[] = []
 ) => ({
@@ -353,9 +353,9 @@ const getAlbumJson = (artist: Artist, album: Album, tracks: Track[]) =>
 
 const getSongJson = (track: Track) => subsonicOK({ song: asSongJson(track) });
 
-// const getStarredJson = ({ songIds }: { songIds: string[] }) => subsonicOK({starred2: {
-//   album: [],
-//   song: songIds.map((id) => ({ id })),
+// const getStarredJson = ({ albums }: { albums: Album[] }) => subsonicOK({starred2: {
+//   album: albums.map(it => asAlbumJson({ id: it.artistId, name: it.artistName }, it, [])),
+//   song: [],
 // }})
 
 const subsonicOK = (body: any = {}) => ({
@@ -1389,11 +1389,13 @@ describe("Subsonic", () => {
 
   describe("getting albums", () => {
     describe("filtering", () => {
-      const album1 = anAlbum({ genre: asGenre("Pop") });
-      const album2 = anAlbum({ genre: asGenre("Rock") });
-      const album3 = anAlbum({ genre: asGenre("Pop") });
+      const album1 = anAlbum({ id: "album1", genre: asGenre("Pop") });
+      const album2 = anAlbum({ id: "album2", genre: asGenre("Rock") });
+      const album3 = anAlbum({ id: "album3", genre: asGenre("Pop") });
+      const album4 = anAlbum({ id: "album4", genre: asGenre("Pop") });
+      const album5 = anAlbum({ id: "album5", genre: asGenre("Pop") });
 
-      const artist = anArtist({ albums: [album1, album2, album3] });
+      const artist = anArtist({ albums: [album1, album2, album3, album4, album5] });
 
       describe("by genre", () => {
         beforeEach(() => {
@@ -1472,7 +1474,7 @@ describe("Subsonic", () => {
         });
 
         it("should pass the filter to navidrome", async () => {
-          const q: AlbumQuery = { _index: 0, _count: 100, type: "newest" };
+          const q: AlbumQuery = { _index: 0, _count: 100, type: "recentlyAdded" };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
@@ -1522,7 +1524,7 @@ describe("Subsonic", () => {
         });
 
         it("should pass the filter to navidrome", async () => {
-          const q: AlbumQuery = { _index: 0, _count: 100, type: "recent" };
+          const q: AlbumQuery = { _index: 0, _count: 100, type: "recentlyPlayed" };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
@@ -1567,7 +1569,7 @@ describe("Subsonic", () => {
         });
 
         it("should pass the filter to navidrome", async () => {
-          const q: AlbumQuery = { _index: 0, _count: 100, type: "frequent" };
+          const q: AlbumQuery = { _index: 0, _count: 100, type: "mostPlayed" };
           const result = await navidrome
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
@@ -1588,6 +1590,51 @@ describe("Subsonic", () => {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "frequent",
+              size: 500,
+              offset: 0,
+            }),
+            headers,
+          });
+        });
+      });
+
+      describe("by starred", () => {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(asArtistsJson([artist])))
+            )
+            .mockImplementationOnce(
+              () =>
+                // album1 never played
+                Promise.resolve(ok(getAlbumListJson([[artist, album2]])))
+              // album3 never played
+            );
+        });
+
+        it("should pass the filter to navidrome", async () => {
+          const q: AlbumQuery = { _index: 0, _count: 100, type: "starred" };
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.albums(q));
+
+          expect(result).toEqual({
+            results: [album2].map(albumToAlbumSummary),
+            total: 1,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              type: "highest",
               size: 500,
               offset: 0,
             }),
