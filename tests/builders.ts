@@ -151,6 +151,7 @@ export function aTrack(fields: Partial<Track> = {}): Track {
   const id = uuid();
   const artist = anArtist();
   const genre = fields.genre || randomGenre();
+  const rating = { love: false, stars: Math.floor(Math.random() * 5) };
   return {
     id,
     name: `Track ${id}`,
@@ -163,9 +164,10 @@ export function aTrack(fields: Partial<Track> = {}): Track {
       anAlbum({ artistId: artist.id, artistName: artist.name, genre })
     ),
     coverArt: `coverArt:${uuid()}`,
+    rating,
     ...fields,
   };
-}
+};
 
 export function anAlbum(fields: Partial<Album> = {}): Album {
   const id = uuid();

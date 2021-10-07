@@ -166,7 +166,7 @@ export type ICON =
   | "playlists"
   | "genres"
   | "random"
-  | "starred"
+  | "topRated"
   | "recentlyAdded"
   | "recentlyPlayed"
   | "mostPlayed"
@@ -225,7 +225,10 @@ export type ICON =
   | "skywalker"
   | "leia"
   | "r2d2"
-  | "yoda";
+  | "yoda" 
+  | "heart"
+  | "star" 
+  | "solidStar";
 
 const iconFrom = (name: string) =>
   new SvgIcon(
@@ -241,7 +244,7 @@ export const ICONS: Record<ICON, SvgIcon> = {
   playlists: iconFrom("navidrome-playlists.svg"),
   genres: iconFrom("Theatre-Mask-111172.svg"),
   random: iconFrom("navidrome-random.svg"),
-  starred: iconFrom("navidrome-topRated.svg"),
+  topRated: iconFrom("navidrome-topRated.svg"),
   recentlyAdded: iconFrom("navidrome-recentlyAdded.svg"),
   recentlyPlayed: iconFrom("navidrome-recentlyPlayed.svg"),
   mostPlayed: iconFrom("navidrome-mostPlayed.svg"),
@@ -300,6 +303,9 @@ export const ICONS: Record<ICON, SvgIcon> = {
   leia: iconFrom("Princess-Leia-68568.svg"),
   r2d2: iconFrom("R2-D2-39423.svg"),
   yoda: iconFrom("Yoda-68107.svg"),
+  heart: iconFrom("Heart-85038.svg"),
+  star: iconFrom("Star-16101.svg"),
+  solidStar: iconFrom("Star-43879.svg")
 };
 
 export const STAR_WARS = [ICONS.c3po, ICONS.chewy, ICONS.darth, ICONS.skywalker, ICONS.leia, ICONS.r2d2, ICONS.yoda];

@@ -19,8 +19,8 @@ import {
   Genre,
   Track,
   CoverArt,
+  Rating,
 } from "./music_service";
-import X2JS from "x2js";
 import sharp from "sharp";
 import _ from "underscore";
 import fse from "fs-extra";
@@ -60,36 +60,36 @@ export const isDodgyImage = (url: string) => url.endsWith(DODGY_IMAGE_NAME);
 export const validate = (url: string | undefined) =>
   url && !isDodgyImage(url) ? url : undefined;
 
-export type SubconicEnvelope = {
+export type SubsonicEnvelope = {
   "subsonic-response": SubsonicResponse;
 };
 
 export type SubsonicResponse = {
-  _status: string;
+  status: string;
 };
 
 export type album = {
-  _id: string;
-  _name: string;
-  _genre: string | undefined;
-  _year: string | undefined;
-  _coverArt: string | undefined;
-  _artist: string;
-  _artistId: string;
+  id: string;
+  name: string;
+  artist: string | undefined;
+  artistId: string | undefined;
+  coverArt: string | undefined;
+  genre: string | undefined;
+  year: string | undefined;
 };
 
 export type artistSummary = {
-  _id: string;
-  _name: string;
-  _albumCount: string;
-  _artistImageUrl: string | undefined;
+  id: string;
+  name: string;
+  albumCount: number;
+  artistImageUrl: string | undefined;
 };
 
 export type GetArtistsResponse = SubsonicResponse & {
   artists: {
     index: {
       artist: artistSummary[];
-      _name: string;
+      name: string;
     }[];
   };
 };
@@ -101,9 +101,9 @@ export type GetAlbumListResponse = SubsonicResponse & {
 };
 
 export type genre = {
-  _songCount: string;
-  _albumCount: string;
-  __text: string;
+  songCount: number;
+  albumCount: number;
+  value: string;
 };
 
 export type GetGenresResponse = SubsonicResponse & {
@@ -114,8 +114,8 @@ export type GetGenresResponse = SubsonicResponse & {
 
 export type SubsonicError = SubsonicResponse & {
   error: {
-    _code: string;
-    _message: string;
+    code: string;
+    message: string;
   };
 };
 
@@ -145,22 +145,25 @@ export type GetArtistResponse = SubsonicResponse & {
 };
 
 export type song = {
-  _id: string;
-  _parent: string;
-  _title: string;
-  _album: string;
-  _artist: string;
-  _track: string | undefined;
-  _genre: string;
-  _coverArt: string | undefined;
-  _created: "2004-11-08T23:36:11";
-  _duration: string | undefined;
-  _bitRate: "128";
-  _suffix: "mp3";
-  _contentType: string;
-  _albumId: string;
-  _artistId: string;
-  _type: "music";
+  id: string;
+  parent: string | undefined;
+  title: string;
+  album: string | undefined;
+  artist: string | undefined;
+  track: number | undefined;
+  year: string | undefined;
+  genre: string | undefined;
+  coverArt: string | undefined;
+  created: string | undefined;
+  duration: number | undefined;
+  bitRate: number | undefined;
+  suffix: string | undefined;
+  contentType: string | undefined;
+  albumId: string | undefined;
+  artistId: string | undefined;
+  type: string | undefined;
+  userRating: number | undefined;
+  starred: string | undefined;
 };
 
 export type GetAlbumResponse = {
@@ -170,31 +173,15 @@ export type GetAlbumResponse = {
 };
 
 export type playlist = {
-  _id: string;
-  _name: string;
-};
-
-export type entry = {
-  _id: string;
-  _parent: string;
-  _title: string;
-  _album: string;
-  _artist: string;
-  _track: string;
-  _year: string;
-  _genre: string;
-  _coverArt: string;
-  _contentType: string;
-  _duration: string;
-  _albumId: string;
-  _artistId: string;
+  id: string;
+  name: string;
 };
 
 export type GetPlaylistResponse = {
   playlist: {
-    _id: string;
-    _name: string;
-    entry: entry[];
+    id: string;
+    name: string;
+    entry: song[];
   };
 };
 
@@ -212,6 +199,12 @@ export type GetTopSongsResponse = {
 
 export type GetSongResponse = {
   song: song;
+};
+
+export type GetStarredResponse = {
+  starred2: {
+    song: song[];
+  };
 };
 
 export type Search3Response = SubsonicResponse & {
@@ -253,29 +246,33 @@ export const MAX_ALBUM_LIST = 500;
 const maybeAsCoverArt = (coverArt: string | undefined) =>
   coverArt ? `coverArt:${coverArt}` : undefined;
 
-const asTrack = (album: Album, song: song) => ({
-  id: song._id,
-  name: song._title,
-  mimeType: song._contentType,
-  duration: parseInt(song._duration || "0"),
-  number: parseInt(song._track || "0"),
-  genre: maybeAsGenre(song._genre),
-  coverArt: maybeAsCoverArt(song._coverArt),
+export const asTrack = (album: Album, song: song): Track => ({
+  id: song.id,
+  name: song.title,
+  mimeType: song.contentType!,
+  duration: song.duration || 0,
+  number: song.track || 0,
+  genre: maybeAsGenre(song.genre),
+  coverArt: maybeAsCoverArt(song.coverArt),
   album,
   artist: {
-    id: song._artistId,
-    name: song._artist,
+    id: `${song.artistId!}`,
+    name: song.artist!,
+  },
+  rating: {
+    love: song.starred != undefined,
+    stars: (song.userRating && song.userRating <= 5 && song.userRating >= 0 ? song.userRating : 0),
   },
 });
 
 const asAlbum = (album: album) => ({
-  id: album._id,
-  name: album._name,
-  year: album._year,
-  genre: maybeAsGenre(album._genre),
-  artistId: album._artistId,
-  artistName: album._artist,
-  coverArt: maybeAsCoverArt(album._coverArt),
+  id: album.id,
+  name: album.name,
+  year: album.year,
+  genre: maybeAsGenre(album.genre),
+  artistId: album.artistId,
+  artistName: album.artist,
+  coverArt: maybeAsCoverArt(album.coverArt),
 });
 
 export const asGenre = (genreName: string) => ({
@@ -318,7 +315,7 @@ export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
 export const cachingImageFetcher =
   (cacheDir: string, delegate: ImageFetcher) =>
-  (url: string): Promise<CoverArt | undefined> => {
+  async (url: string): Promise<CoverArt | undefined> => {
     const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
     return fse
       .readFile(filename)
@@ -402,31 +399,11 @@ export class Subsonic implements MusicService {
     path: string,
     q: {} = {}
   ): Promise<T> =>
-    this.get({ username, password }, path, q)
-      .then(
-        (response) =>
-          new X2JS({
-            arrayAccessFormPaths: [
-              "subsonic-response.album.song",
-              "subsonic-response.albumList2.album",
-              "subsonic-response.artist.album",
-              "subsonic-response.artists.index",
-              "subsonic-response.artists.index.artist",
-              "subsonic-response.artistInfo2.similarArtist",
-              "subsonic-response.genres.genre",
-              "subsonic-response.playlist.entry",
-              "subsonic-response.playlists.playlist",
-              "subsonic-response.searchResult3.album",
-              "subsonic-response.searchResult3.artist",
-              "subsonic-response.searchResult3.song",
-              "subsonic-response.similarSongs2.song",
-              "subsonic-response.topSongs.song",
-            ],
-          }).xml2js(response.data) as SubconicEnvelope
-      )
+    this.get({ username, password }, path, { f: "json", ...q })
+      .then((response) => response.data as SubsonicEnvelope)
       .then((json) => json["subsonic-response"])
       .then((json) => {
-        if (isError(json)) throw `Subsonic error:${json.error._message}`;
+        if (isError(json)) throw `Subsonic error:${json.error.message}`;
         else return json as unknown as T;
       });
 
@@ -451,9 +428,9 @@ export class Subsonic implements MusicService {
       .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
       .then((artists) =>
         artists.map((artist) => ({
-          id: artist._id,
-          name: artist._name,
-          albumCount: Number.parseInt(artist._albumCount),
+          id: `${artist.id}`,
+          name: artist.name,
+          albumCount: artist.albumCount,
         }))
       );
 
@@ -469,9 +446,9 @@ export class Subsonic implements MusicService {
         large: validate(it.artistInfo2.largeImageUrl),
       },
       similarArtist: (it.artistInfo2.similarArtist || []).map((artist) => ({
-        id: artist._id,
-        name: artist._name,
-        inLibrary: artist._id != "-1",
+        id: `${artist.id}`,
+        name: artist.name,
+        inLibrary: artist.id != "-1",
       })),
     }));
 
@@ -479,13 +456,13 @@ export class Subsonic implements MusicService {
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
       .then((it) => it.album)
       .then((album) => ({
-        id: album._id,
-        name: album._name,
-        year: album._year,
-        genre: maybeAsGenre(album._genre),
-        artistId: album._artistId,
-        artistName: album._artist,
-        coverArt: maybeAsCoverArt(album._coverArt),
+        id: album.id,
+        name: album.name,
+        year: album.year,
+        genre: maybeAsGenre(album.genre),
+        artistId: album.artistId,
+        artistName: album.artist,
+        coverArt: maybeAsCoverArt(album.coverArt),
       }));
 
   getArtist = (
@@ -497,8 +474,8 @@ export class Subsonic implements MusicService {
     })
       .then((it) => it.artist)
       .then((it) => ({
-        id: it._id,
-        name: it._name,
+        id: it.id,
+        name: it.name,
         albums: this.toAlbumSummary(it.album || []),
       }));
 
@@ -526,20 +503,25 @@ export class Subsonic implements MusicService {
     })
       .then((it) => it.song)
       .then((song) =>
-        this.getAlbum(credentials, song._albumId).then((album) =>
+        this.getAlbum(credentials, song.albumId!).then((album) =>
           asTrack(album, song)
         )
       );
 
+  getStarred = (credentials: Credentials) =>
+    this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2").then(
+      (it) => new Set(it.starred2.song.map((it) => it.id))
+    );
+
   toAlbumSummary = (albumList: album[]): AlbumSummary[] =>
     albumList.map((album) => ({
-      id: album._id,
-      name: album._name,
-      year: album._year,
-      genre: maybeAsGenre(album._genre),
-      artistId: album._artistId,
-      artistName: album._artist,
-      coverArt: maybeAsCoverArt(album._coverArt),
+      id: album.id,
+      name: album.name,
+      year: album.year,
+      genre: maybeAsGenre(album.genre),
+      artistId: album.artistId,
+      artistName: album.artist,
+      coverArt: maybeAsCoverArt(album.coverArt),
     }));
 
   search3 = (credentials: Credentials, q: any) =>
@@ -596,8 +578,8 @@ export class Subsonic implements MusicService {
           .then((it) =>
             pipe(
               it.genres.genre || [],
-              A.filter((it) => Number.parseInt(it._albumCount) > 0),
-              A.map((it) => it.__text),
+              A.filter((it) => it.albumCount > 0),
+              A.map((it) => it.value),
               A.sort(ordString),
               A.map((it) => ({ id: b64Encode(it), name: it }))
             )
@@ -612,6 +594,40 @@ export class Subsonic implements MusicService {
             (album.song || []).map((song) => asTrack(asAlbum(album), song))
           ),
       track: (trackId: string) => subsonic.getTrack(credentials, trackId),
+      rate: (trackId: string, rating: Rating) =>
+        Promise.resolve(true)
+          .then(() => {
+            if (rating.stars >= 0 && rating.stars <= 5) {
+              return subsonic.getTrack(credentials, trackId);
+            } else {
+              throw `Invalid rating.stars value of ${rating.stars}`;
+            }
+          })
+          .then((track) => {
+            const thingsToUpdate = [];
+            if (track.rating.love != rating.love) {
+              thingsToUpdate.push(
+                subsonic.getJSON(
+                  credentials,
+                  `/rest/${rating.love ? "star" : "unstar"}`,
+                  {
+                    id: trackId,
+                  }
+                )
+              );
+            }
+            if (track.rating.stars != rating.stars) {
+              thingsToUpdate.push(
+                subsonic.getJSON(credentials, `/rest/setRating`, {
+                  id: trackId,
+                  rating: rating.stars,
+                })
+              );
+            }
+            return Promise.all(thingsToUpdate);
+          })
+          .then(() => true)
+          .catch(() => false),
       stream: async ({
         trackId,
         range,
@@ -713,7 +729,7 @@ export class Subsonic implements MusicService {
       },
       scrobble: async (id: string) =>
         subsonic
-          .get(credentials, `/rest/scrobble`, {
+          .getJSON(credentials, `/rest/scrobble`, {
             id,
             submission: true,
           })
@@ -721,7 +737,7 @@ export class Subsonic implements MusicService {
           .catch(() => false),
       nowPlaying: async (id: string) =>
         subsonic
-          .get(credentials, `/rest/scrobble`, {
+          .getJSON(credentials, `/rest/scrobble`, {
             id,
             submission: false,
           })
@@ -732,8 +748,8 @@ export class Subsonic implements MusicService {
           .search3(credentials, { query, artistCount: 20 })
           .then(({ artists }) =>
             artists.map((artist) => ({
-              id: artist._id,
-              name: artist._name,
+              id: artist.id,
+              name: artist.name,
             }))
           ),
       searchAlbums: async (query: string) =>
@@ -745,7 +761,7 @@ export class Subsonic implements MusicService {
           .search3(credentials, { query, songCount: 20 })
           .then(({ songs }) =>
             Promise.all(
-              songs.map((it) => subsonic.getTrack(credentials, it._id))
+              songs.map((it) => subsonic.getTrack(credentials, it.id))
             )
           ),
       playlists: async () =>
@@ -753,7 +769,7 @@ export class Subsonic implements MusicService {
           .getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
           .then((it) => it.playlists.playlist || [])
           .then((playlists) =>
-            playlists.map((it) => ({ id: it._id, name: it._name }))
+            playlists.map((it) => ({ id: it.id, name: it.name }))
           ),
       playlist: async (id: string) =>
         subsonic
@@ -764,29 +780,22 @@ export class Subsonic implements MusicService {
           .then((playlist) => {
             let trackNumber = 1;
             return {
-              id: playlist._id,
-              name: playlist._name,
+              id: playlist.id,
+              name: playlist.name,
               entries: (playlist.entry || []).map((entry) => ({
-                id: entry._id,
-                name: entry._title,
-                mimeType: entry._contentType,
-                duration: parseInt(entry._duration || "0"),
+                ...asTrack(
+                  {
+                    id: entry.albumId!,
+                    name: entry.album!,
+                    year: entry.year,
+                    genre: maybeAsGenre(entry.genre),
+                    artistName: entry.artist,
+                    artistId: entry.artistId,
+                    coverArt: maybeAsCoverArt(entry.coverArt),
+                  },
+                  entry
+                ),
                 number: trackNumber++,
-                genre: maybeAsGenre(entry._genre),
-                coverArt: maybeAsCoverArt(entry._coverArt),
-                album: {
-                  id: entry._albumId,
-                  name: entry._album,
-                  year: entry._year,
-                  genre: maybeAsGenre(entry._genre),
-                  artistName: entry._artist,
-                  artistId: entry._artistId,
-                  coverArt: maybeAsCoverArt(entry._coverArt),
-                },
-                artist: {
-                  id: entry._artistId,
-                  name: entry._artist,
-                },
               })),
             };
           }),
@@ -796,7 +805,7 @@ export class Subsonic implements MusicService {
             name,
           })
           .then((it) => it.playlist)
-          .then((it) => ({ id: it._id, name: it._name })),
+          .then((it) => ({ id: it.id, name: it.name })),
       deletePlaylist: async (id: string) =>
         subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/deletePlaylist", {
@@ -829,7 +838,7 @@ export class Subsonic implements MusicService {
             Promise.all(
               songs.map((song) =>
                 subsonic
-                  .getAlbum(credentials, song._albumId)
+                  .getAlbum(credentials, song.albumId!)
                   .then((album) => asTrack(album, song))
               )
             )
@@ -846,7 +855,7 @@ export class Subsonic implements MusicService {
               Promise.all(
                 songs.map((song) =>
                   subsonic
-                    .getAlbum(credentials, song._albumId)
+                    .getAlbum(credentials, song.albumId!)
                     .then((album) => asTrack(album, song))
                 )
               )

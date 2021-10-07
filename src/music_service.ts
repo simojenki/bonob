@@ -54,8 +54,8 @@ export type AlbumSummary = {
   genre: Genre | undefined;
   coverArt: string | undefined;
 
-  artistName: string;
-  artistId: string;
+  artistName: string | undefined;
+  artistId: string | undefined;
 };
 
 export type Album = AlbumSummary & {};
@@ -63,6 +63,11 @@ export type Album = AlbumSummary & {};
 export type Genre = {
   name: string;
   id: string;
+}
+
+export type Rating = {
+  love: boolean;
+  stars: number;
 }
 
 export type Track = {
@@ -75,6 +80,7 @@ export type Track = {
   coverArt: string | undefined;
   album: AlbumSummary;
   artist: ArtistSummary;
+  rating: Rating;
 };
 
 export type Paging = {
@@ -177,6 +183,7 @@ export interface MusicLibrary {
     trackId: string;
     range: string | undefined;
   }): Promise<TrackStream>;
+  rate(trackId: string, rating: Rating): Promise<boolean>;
   coverArt(id: string, size?: number): Promise<CoverArt | undefined>;
   nowPlaying(id: string): Promise<boolean>
   scrobble(id: string): Promise<boolean>

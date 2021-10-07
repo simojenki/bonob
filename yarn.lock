@@ -1349,7 +1349,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@xmldom/xmldom@npm:^0.7.0, @xmldom/xmldom@npm:^0.7.4":
+"@xmldom/xmldom@npm:^0.7.0":
   version: 0.7.4
   resolution: "@xmldom/xmldom@npm:0.7.4"
   checksum: f807a921fe2c1b4244bb0c79ac6b61f06c8a71c5108017aa022060aa0ffb0c832aa7a704288a9c66888991bf701da8c9148c0775e66b0b3efe8d884153c5729d
@@ -1816,7 +1816,6 @@ __metadata:
     underscore: ^1.13.1
     uuid: ^8.3.2
     winston: ^3.3.3
-    x2js: ^3.4.2
     xmldom-ts: ^0.3.1
     xpath-ts: ^1.3.13
   languageName: unknown
@@ -7317,15 +7316,6 @@ typescript@^4.4.2:
     utf-8-validate:
       optional: true
   checksum: 48582e4feb1fc6b6b977a0ee6136e5cd1c6a14bc5cb6ce5acf596652b34be757cdf0c225235b3263d56d057bc5d6e528dbe27fc88a3d09828aa803c6696f4b2c
-  languageName: node
-  linkType: hard
-
-"x2js@npm:^3.4.2":
-  version: 3.4.2
-  resolution: "x2js@npm:3.4.2"
-  dependencies:
-    "@xmldom/xmldom": ^0.7.4
-  checksum: 4a77f684b312492f42265aad88c849347831fe17c7c43c66b2f45f3742bd008221c80d0c6875d2a14d63ebcb833130086d7c0d0103674c68c41a9e222e9c05d2
   languageName: node
   linkType: hard
 
