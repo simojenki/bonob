@@ -120,8 +120,7 @@ function server(
   }
   app.use(express.urlencoded({ extended: false }));
 
-  // todo: pass options in here?
-  app.use(express.static("./web/public"));
+  app.use(express.static(path.resolve(__dirname, "..", "web", "public")));
   app.engine("eta", Eta.renderFile);
 
   app.set("view engine", "eta");
