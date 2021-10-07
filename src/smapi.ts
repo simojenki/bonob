@@ -81,10 +81,11 @@ export type GetDeviceAuthTokenResult = {
   };
 };
 
-export const ratingAsInt = (rating: Rating): number => rating.stars * 10 + (rating.love ? 1 : 0) + 100;
+export const ratingAsInt = (rating: Rating): number =>
+  rating.stars * 10 + (rating.love ? 1 : 0) + 100;
 export const ratingFromInt = (value: number): Rating => {
   const x = value - 100;
-  return { love: (x % 10 == 1), stars: Math.floor(x / 10) }
+  return { love: x % 10 == 1, stars: Math.floor(x / 10) };
 };
 
 export type MediaCollection = {
@@ -309,7 +310,7 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
   },
   dynamic: {
     property: [{ name: "rating", value: `${ratingAsInt(track.rating)}` }],
-  }
+  },
 });
 
 export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
@@ -426,10 +427,7 @@ function bindSmapiSoapServiceToExpress(
               .then(splitId(id))
               .then(async ({ musicLibrary, accessToken, typeId }) =>
                 musicLibrary.track(typeId!).then((it) => ({
-                  getMediaMetadataResult: track(
-                    urlWithToken(accessToken),
-                    it
-                  ),
+                  getMediaMetadataResult: track(urlWithToken(accessToken), it),
                 }))
               ),
           search: async (
@@ -516,10 +514,7 @@ function bindSmapiSoapServiceToExpress(
                   case "track":
                     return musicLibrary.track(typeId).then((it) => ({
                       getExtendedMetadataResult: {
-                        mediaMetadata: track(
-                          urlWithToken(accessToken),
-                          it
-                        ),
+                        mediaMetadata: track(urlWithToken(accessToken), it),
                       },
                     }));
                   case "album":
@@ -606,12 +601,12 @@ function bindSmapiSoapServiceToExpress(
                           albumArtURI: iconArtURI(bonobUrl, "heart").href(),
                           itemType: "albumList",
                         },
-                        // {
-                        //   id: "topRatedAlbums",
-                        //   title: lang("topRated"),
-                        //   albumArtURI: iconArtURI(bonobUrl, "star").href(),
-                        //   itemType: "albumList",
-                        // },
+                        {
+                          id: "starredAlbums",
+                          title: lang("topRated"),
+                          albumArtURI: iconArtURI(bonobUrl, "star").href(),
+                          itemType: "albumList",
+                        },
                         {
                           id: "playlists",
                           title: lang("playlists"),
@@ -711,22 +706,27 @@ function bindSmapiSoapServiceToExpress(
                     });
                   case "favouriteAlbums":
                     return albums({
+                      type: "favourited",
+                      ...paging,
+                    });
+                  case "starredAlbums":
+                    return albums({
                       type: "starred",
                       ...paging,
                     });
                   case "recentlyAdded":
                     return albums({
-                      type: "newest",
+                      type: "recentlyAdded",
                       ...paging,
                     });
                   case "recentlyPlayed":
                     return albums({
-                      type: "recent",
+                      type: "recentlyPlayed",
                       ...paging,
                     });
                   case "mostPlayed":
                     return albums({
-                      type: "frequent",
+                      type: "mostPlayed",
                       ...paging,
                     });
                   case "genres":

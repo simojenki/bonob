@@ -20,6 +20,7 @@ import {
   Track,
   CoverArt,
   Rating,
+  AlbumQueryType,
 } from "./music_service";
 import sharp from "sharp";
 import _ from "underscore";
@@ -204,6 +205,7 @@ export type GetSongResponse = {
 export type GetStarredResponse = {
   starred2: {
     song: song[];
+    album: album[];
   };
 };
 
@@ -261,11 +263,14 @@ export const asTrack = (album: Album, song: song): Track => ({
   },
   rating: {
     love: song.starred != undefined,
-    stars: (song.userRating && song.userRating <= 5 && song.userRating >= 0 ? song.userRating : 0),
+    stars:
+      song.userRating && song.userRating <= 5 && song.userRating >= 0
+        ? song.userRating
+        : 0,
   },
 });
 
-const asAlbum = (album: album) => ({
+const asAlbum = (album: album): Album => ({
   id: album.id,
   name: album.name,
   year: album.year,
@@ -349,6 +354,18 @@ export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
       data: Buffer.from(res.data, "binary"),
     }))
     .catch(() => undefined);
+
+const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
+  alphabeticalByArtist: "alphabeticalByArtist",
+  alphabeticalByName: "alphabeticalByName",
+  byGenre: "byGenre",
+  random: "random",
+  recentlyPlayed: "recent",
+  mostPlayed: "frequent",
+  recentlyAdded: "newest",
+  favourited: "starred",
+  starred: "highest",
+};
 
 export class Subsonic implements MusicService {
   url: string;
@@ -536,6 +553,31 @@ export class Subsonic implements MusicService {
       songs: it.searchResult3.song || [],
     }));
 
+  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) =>
+    Promise.all([
+      this.getArtists(credentials).then((it) =>
+        _.inject(it, (total, artist) => total + artist.albumCount, 0)
+      ),
+      this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
+        type: AlbumQueryTypeToSubsonicType[q.type],
+        ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+        size: 500,
+        offset: q._index,
+      })
+        .then((response) => response.albumList2.album || [])
+        .then(this.toAlbumSummary),
+    ]).then(([total, albums]) => ({
+      results: albums.slice(0, q._count),
+      total: albums.length == 500 ? total : q._index + albums.length,
+    }));
+
+  // getStarred2 = (credentials: Credentials): Promise<{ albums: Album[] }> =>
+  //   this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2")
+  //     .then((it) => it.starred2)
+  //     .then((it) => ({
+  //       albums: it.album.map(asAlbum),
+  //     }));
+
   async login(token: string) {
     const subsonic = this;
     const credentials: Credentials = this.parseToken(token);
@@ -552,25 +594,7 @@ export class Subsonic implements MusicService {
       artist: async (id: string): Promise<Artist> =>
         subsonic.getArtistWithInfo(credentials, id),
       albums: async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
-        Promise.all([
-          subsonic
-            .getArtists(credentials)
-            .then((it) =>
-              _.inject(it, (total, artist) => total + artist.albumCount, 0)
-            ),
-          subsonic
-            .getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
-              type: q.type,
-              ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-              size: 500,
-              offset: q._index,
-            })
-            .then((response) => response.albumList2.album || [])
-            .then(subsonic.toAlbumSummary),
-        ]).then(([total, albums]) => ({
-          results: albums.slice(0, q._count),
-          total: albums.length == 500 ? total : q._index + albums.length,
-        })),
+        subsonic.getAlbumList2(credentials, q),
       album: (id: string): Promise<Album> => subsonic.getAlbum(credentials, id),
       genres: () =>
         subsonic
