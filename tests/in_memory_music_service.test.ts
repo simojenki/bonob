@@ -175,8 +175,8 @@ describe("InMemoryMusicService", () => {
       describe("fetching tracks for an album", () => {
         it("should return only tracks on that album", async () => {
           expect(await musicLibrary.tracks(artist1Album1.id)).toEqual([
-            track1,
-            track2,
+            { ...track1, rating: { love: false, stars: 0 } },
+            { ...track2, rating: { love: false, stars: 0 } },
           ]);
         });
       });
@@ -192,7 +192,7 @@ describe("InMemoryMusicService", () => {
       describe("fetching a single track", () => {
         describe("when it exists", () => {
           it("should return the track", async () => {
-            expect(await musicLibrary.track(track3.id)).toEqual(track3);
+            expect(await musicLibrary.track(track3.id)).toEqual({ ...track3, rating: { love: false, stars: 0 } },);
           });
         });
       });
@@ -221,7 +221,10 @@ describe("InMemoryMusicService", () => {
         ],
       });
       const artist2 = anArtist({ name: "artist2", albums: [artist2_album1] });
-      const artist3 = anArtist({ name: "artist3", albums: [artist3_album1, artist3_album2] });
+      const artist3 = anArtist({
+        name: "artist3",
+        albums: [artist3_album1, artist3_album2],
+      });
       const artistWithNoAlbums = anArtist({ albums: [] });
 
       const allAlbums = [artist1, artist2, artist3, artistWithNoAlbums].flatMap(
@@ -258,7 +261,7 @@ describe("InMemoryMusicService", () => {
             });
 
             expect(albums.total).toEqual(totalAlbumCount);
-            expect(albums.results.length).toEqual(3)
+            expect(albums.results.length).toEqual(3);
             // cannot really assert the results and they will change every time
           });
         });
@@ -282,9 +285,9 @@ describe("InMemoryMusicService", () => {
                     albumToAlbumSummary(artist1_album3),
                     albumToAlbumSummary(artist1_album4),
                     albumToAlbumSummary(artist1_album5),
-  
+
                     albumToAlbumSummary(artist2_album1),
-  
+
                     albumToAlbumSummary(artist3_album1),
                     albumToAlbumSummary(artist3_album2),
                   ],
@@ -302,13 +305,11 @@ describe("InMemoryMusicService", () => {
                     type: "alphabeticalByName",
                   })
                 ).toEqual({
-                  results:                   
-                  _.sortBy(allAlbums, 'name').map(albumToAlbumSummary),
+                  results: _.sortBy(allAlbums, "name").map(albumToAlbumSummary),
                   total: totalAlbumCount,
                 });
               });
             });
-
           });
 
           describe("fetching a page", () => {

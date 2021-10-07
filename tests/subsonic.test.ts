@@ -15,6 +15,7 @@ import {
   asURLSearchParams,
   splitCoverArtId,
   cachingImageFetcher,
+  asTrack,
 } from "../src/subsonic";
 import encryption from "../src/encryption";
 
@@ -41,6 +42,7 @@ import {
   PlaylistSummary,
   Playlist,
   SimilarArtist,
+  Rating,
 } from "../src/music_service";
 import {
   aGenre,
@@ -175,8 +177,8 @@ describe("cachingImageFetcher", () => {
     it("should fetch the image from the source and then cache and return it", async () => {
       const dir = tmp.dirSync();
       const cacheFile = path.join(dir.name, `${Md5.hashStr(url)}.png`);
-      const jpgImage = Buffer.from("jpg-image", 'utf-8');
-      const pngImage = Buffer.from("png-image", 'utf-8');
+      const jpgImage = Buffer.from("jpg-image", "utf-8");
+      const pngImage = Buffer.from("png-image", "utf-8");
 
       delegate.mockResolvedValue({ contentType: "image/jpeg", data: jpgImage });
       const png = jest.fn();
@@ -230,214 +232,217 @@ describe("cachingImageFetcher", () => {
   });
 });
 
-const ok = (data: string) => ({
+const ok = (data: string | object) => ({
   status: 200,
   data,
 });
 
-const similarArtistXml = (similarArtist: SimilarArtist) => {
+const asSimilarArtistJson = (similarArtist: SimilarArtist) => {
   if (similarArtist.inLibrary)
-    return `<similarArtist id="${similarArtist.id}" name="${similarArtist.name}" albumCount="3"></similarArtist>`;
+    return {
+      id: similarArtist.id,
+      name: similarArtist.name,
+      albumCount: 3,
+    };
   else
-    return `<similarArtist id="-1" name="${similarArtist.name}" albumCount="3"></similarArtist>`;
+    return {
+      id: -1,
+      name: similarArtist.name,
+      albumCount: 3,
+    };
 };
 
-const getArtistInfoXml = (
-  artist: Artist
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-          <artistInfo2>
-              <biography></biography>
-              <musicBrainzId></musicBrainzId>
-              <lastFmUrl></lastFmUrl>
-              <smallImageUrl>${artist.image.small || ""}</smallImageUrl>
-              <mediumImageUrl>${artist.image.medium || ""}</mediumImageUrl>
-              <largeImageUrl>${artist.image.large || ""}</largeImageUrl>
-              ${artist.similarArtists.map(similarArtistXml).join("")}
-          </artistInfo2>
-        </subsonic-response>`;
+const getArtistInfoJson = (artist: Artist) =>
+  subsonicOK({
+    artistInfo2: {
+      smallImageUrl: artist.image.small,
+      mediumImageUrl: artist.image.medium,
+      largeImageUrl: artist.image.large,
+      similarArtist: artist.similarArtists.map(asSimilarArtistJson),
+    },
+  });
 
 const maybeIdFromCoverArtId = (coverArt: string | undefined) =>
   coverArt ? splitCoverArtId(coverArt)[1] : "";
 
-const albumXml = (
+const asAlbumJson = (
   artist: Artist,
   album: AlbumSummary,
   tracks: Track[] = []
-) => `<album id="${album.id}" 
-            parent="${artist.id}" 
-            isDir="true" 
-            title="${album.name}" name="${album.name}" album="${album.name}" 
-            artist="${artist.name}" 
-            genre="${album.genre?.name}" 
-            coverArt="${maybeIdFromCoverArtId(album.coverArt)}" 
-            duration="123" 
-            playCount="4" 
-            year="${album.year}"
-            created="2021-01-07T08:19:55.834207205Z" 
-            artistId="${artist.id}" 
-            songCount="19" 
-            isVideo="false">${tracks.map(songXml).join("")}</album>`;
+) => ({
+  id: album.id,
+  parent: artist.id,
+  isDir: "true",
+  title: album.name,
+  name: album.name,
+  album: album.name,
+  artist: artist.name,
+  genre: album.genre?.name,
+  coverArt: maybeIdFromCoverArtId(album.coverArt),
+  duration: "123",
+  playCount: "4",
+  year: album.year,
+  created: "2021-01-07T08:19:55.834207205Z",
+  artistId: artist.id,
+  songCount: "19",
+  isVideo: false,
+  song: tracks.map(asSongJson),
+});
 
-const songXml = (track: Track) => `<song 
-            id="${track.id}" 
-            parent="${track.album.id}" 
-            title="${track.name}" 
-            album="${track.album.name}" 
-            artist="${track.artist.name}" 
-            track="${track.number}"
-            genre="${track.genre?.name}"
-            isDir="false" 
-            coverArt="${maybeIdFromCoverArtId(track.coverArt)}" 
-            created="2004-11-08T23:36:11" 
-            duration="${track.duration}" 
-            bitRate="128" 
-            size="5624132" 
-            suffix="mp3" 
-            contentType="${track.mimeType}" 
-            isVideo="false" 
-            path="ACDC/High voltage/ACDC - The Jack.mp3" 
-            albumId="${track.album.id}" 
-            artistId="${track.artist.id}" 
-            type="music"/>`;
+const asSongJson = (track: Track) => ({
+  id: track.id,
+  parent: track.album.id,
+  title: track.name,
+  album: track.album.name,
+  artist: track.artist.name,
+  track: track.number,
+  genre: track.genre?.name,
+  isDir: "false",
+  coverArt: maybeIdFromCoverArtId(track.coverArt),
+  created: "2004-11-08T23:36:11",
+  duration: track.duration,
+  bitRate: 128,
+  size: "5624132",
+  suffix: "mp3",
+  contentType: track.mimeType,
+  isVideo: "false",
+  path: "ACDC/High voltage/ACDC - The Jack.mp3",
+  albumId: track.album.id,
+  artistId: track.artist.id,
+  type: "music",
+  starred: track.rating.love ? "sometime" : undefined,
+  userRating: track.rating.stars,
+  year: ""
+});
 
-const albumListXml = (
-  albums: [Artist, Album][]
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                    <albumList2>
-                      ${albums
-                        .map(([artist, album]) => albumXml(artist, album))
-                        .join("")}
-                    </albumList2>
-                  </subsonic-response>`;
+const getAlbumListJson = (albums: [Artist, Album][]) =>
+  subsonicOK({
+    albumList2: {
+      album: albums.map(([artist, album]) => asAlbumJson(artist, album)),
+    },
+  });
 
-const artistXml = (artist: Artist) => `<artist id="${artist.id}" name="${
-  artist.name
-}" albumCount="${artist.albums.length}" artistImageUrl="....">
-                                        ${artist.albums
-                                          .map((album) =>
-                                            albumXml(artist, album)
-                                          )
-                                          .join("")}
-                                      </artist>`;
+const asArtistJson = (artist: Artist) => ({
+  id: artist.id,
+  name: artist.name,
+  albumCount: artist.albums.length,
+  artistImageUrl: "...",
+  album: artist.albums.map((it) => asAlbumJson(artist, it)),
+});
 
-const getArtistXml = (
-  artist: Artist
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-          ${artistXml(artist)}
-        </subsonic-response>`;
+const getArtistJson = (artist: Artist) =>
+  subsonicOK({
+    artist: asArtistJson(artist),
+  });
 
-const genreXml = (genre: { name: string; albumCount: number }) =>
-  `<genre songCount="1475" albumCount="${genre.albumCount}">${genre.name}</genre>`;
+const asGenreJson = (genre: { name: string; albumCount: number }) => ({
+  songCount: 1475,
+  albumCount: genre.albumCount,
+  value: genre.name,
+});
 
-const genresXml = (
-  genres: { name: string; albumCount: number }[]
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                                          <genres>
-                                            ${genres.map(genreXml).join("")}
-                                          </genres>
-                                          </subsonic-response>`;
+const getGenresJson = (genres: { name: string; albumCount: number }[]) =>
+  subsonicOK({
+    genres: {
+      genre: genres.map(asGenreJson),
+    },
+  });
 
-const getAlbumXml = (
-  artist: Artist,
-  album: Album,
-  tracks: Track[]
-) => `<subsonic-response status="ok" version="1.8.0">
-                                                        ${albumXml(
-                                                          artist,
-                                                          album,
-                                                          tracks
-                                                        )}
-                                                      </subsonic-response>`;
+const getAlbumJson = (artist: Artist, album: Album, tracks: Track[]) =>
+  subsonicOK({ album: asAlbumJson(artist, album, tracks) });
 
-const getSongXml = (
-  track: Track
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                                                                    ${songXml(
-                                                                      track
-                                                                    )}
-                                                                    </subsonic-response>`;
+const getSongJson = (track: Track) => subsonicOK({ song: asSongJson(track) });
 
-const similarSongsXml = (
-  tracks: Track[]
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                                                <similarSongs2>
-                                                ${tracks.map(songXml).join("")}
-                                                </similarSongs2>
-                                              </subsonic-response>`;
+// const getStarredJson = ({ songIds }: { songIds: string[] }) => subsonicOK({starred2: {
+//   album: [],
+//   song: songIds.map((id) => ({ id })),
+// }})
 
-const topSongsXml = (
-  tracks: Track[]
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                                                <topSongs>
-                                                ${tracks.map(songXml).join("")}
-                                                </topSongs>
-                                              </subsonic-response>`;
+const subsonicOK = (body: any = {}) => ({
+  "subsonic-response": {
+    status: "ok",
+    version: "1.16.1",
+    type: "navidrome",
+    serverVersion: "0.45.1 (c55e6590)",
+    ...body,
+  },
+});
+
+const getSimilarSongsJson = (tracks: Track[]) =>
+  subsonicOK({ similarSongs2: { song: tracks.map(asSongJson) } });
+
+const getTopSongsJson = (tracks: Track[]) =>
+  subsonicOK({ topSongs: { song: tracks.map(asSongJson) } });
 
 export type ArtistWithAlbum = {
   artist: Artist;
   album: Album;
 };
 
-const playlistXml = (playlist: PlaylistSummary) =>
-  `<playlist id="${playlist.id}" name="${playlist.name}" songCount="1" duration="190" public="true" owner="bob" created="2021-05-06T02:07:24.308007023Z" changed="2021-05-06T02:08:06Z"></playlist>`;
+const asPlaylistJson = (playlist: PlaylistSummary) => ({
+  id: playlist.id,
+  name: playlist.name,
+  songCount: 1,
+  duration: 190,
+  public: true,
+  owner: "bob",
+  created: "2021-05-06T02:07:24.308007023Z",
+  changed: "2021-05-06T02:08:06Z",
+});
 
-const getPlayLists = (
-  playlists: PlaylistSummary[]
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
-<playlists>
-  ${playlists.map(playlistXml).join("")}
-</playlists>
-</subsonic-response>`;
+const getPlayListsJson = (playlists: PlaylistSummary[]) =>
+  subsonicOK({
+    playlists: {
+      playlist: playlists.map(asPlaylistJson),
+    },
+  });
 
-const error = (code: string, message: string) =>
-  `<subsonic-response xmlns="http://subsonic.org/restapi" status="failed" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
-    <error code="${code}" message="${message}">
-    </error>
-  </subsonic-response>`;
+const createPlayListJson = (playlist: PlaylistSummary) =>
+  subsonicOK({
+    playlist: asPlaylistJson(playlist),
+  });
 
-const createPlayList = (
-  playlist: PlaylistSummary
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
-  ${playlistXml(playlist)}
-  </subsonic-response>`;
+const getPlayListJson = (playlist: Playlist) =>
+  subsonicOK({
+    playlist: {
+      id: playlist.id,
+      name: playlist.name,
+      songCount: playlist.entries.length,
+      duration: 627,
+      public: true,
+      owner: "bob",
+      created: "2021-05-06T02:07:30.460465988Z",
+      changed: "2021-05-06T02:40:04Z",
+      entry: playlist.entries.map((it) => ({
+        id: it.id,
+        parent: "...",
+        isDir: false,
+        title: it.name,
+        album: it.album.name,
+        artist: it.artist.name,
+        track: it.number,
+        year: it.album.year,
+        genre: it.album.genre?.name,
+        coverArt: splitCoverArtId(it.coverArt!)[1],
+        size: 123,
+        contentType: it.mimeType,
+        suffix: "mp3",
+        duration: it.duration,
+        bitRate: 128,
+        path: "...",
+        discNumber: 1,
+        created: "2019-09-04T04:07:00.138169924Z",
+        albumId: it.album.id,
+        artistId: it.artist.id,
+        type: "music",
+        isVideo: false,
+        starred: it.rating.love ? "sometime" : undefined,
+        userRating: it.rating.stars,
+      })),
+    },
+  });
 
-const getPlayList = (
-  playlist: Playlist
-) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.42.0 (f1bd736b)">
-<playlist id="${playlist.id}" name="${playlist.name}" songCount="${
-  playlist.entries.length
-}" duration="627" public="true" owner="bob" created="2021-05-06T02:07:30.460465988Z" changed="2021-05-06T02:40:04Z">
-  ${playlist.entries
-    .map(
-      (it) => `<entry 
-        id="${it.id}" 
-        parent="..." 
-        isDir="false" 
-        title="${it.name}" 
-        album="${it.album.name}" 
-        artist="${it.artist.name}" 
-        track="${it.number}" 
-        year="${it.album.year}" 
-        genre="${it.album.genre?.name}" 
-        coverArt="${splitCoverArtId(it.coverArt!)[1]}" 
-        size="123" 
-        contentType="${it.mimeType}" 
-        suffix="mp3" 
-        duration="${it.duration}" 
-        bitRate="128" 
-        path="..." 
-        discNumber="1" 
-        created="2019-09-04T04:07:00.138169924Z" 
-        albumId="${it.album.id}" 
-        artistId="${it.artist.id}" 
-        type="music" 
-        isVideo="false"></entry>`
-    )
-    .join("")}
-</playlist>
-</subsonic-response>`;
-
-const searchResult3 = ({
+const getSearchResult3Json = ({
   artists,
   albums,
   tracks,
@@ -445,22 +450,16 @@ const searchResult3 = ({
   artists: Artist[];
   albums: ArtistWithAlbum[];
   tracks: Track[];
-}>) => `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.41.1 (43bb0758)">
-<searchResult3>
-  ${(artists || [])
-    .map((it) =>
-      artistXml({
-        ...it,
-        albums: [],
-      })
-    )
-    .join("")}
-  ${(albums || []).map((it) => albumXml(it.artist, it.album, [])).join("")}
-  ${(tracks || []).map((it) => songXml(it)).join("")}
-</searchResult3>
-</subsonic-response>`;
+}>) =>
+  subsonicOK({
+    searchResult3: {
+      artist: (artists || []).map((it) => asArtistJson({ ...it, albums: [] })),
+      album: (albums || []).map((it) => asAlbumJson(it.artist, it.album, [])),
+      song: (tracks || []).map((it) => asSongJson(it)),
+    },
+  });
 
-const getArtistsXml = (artists: Artist[]) => {
+const asArtistsJson = (artists: Artist[]) => {
   const as: Artist[] = [];
   const bs: Artist[] = [];
   const cs: Artist[] = [];
@@ -483,30 +482,66 @@ const getArtistsXml = (artists: Artist[]) => {
     }
   });
 
-  const artistSummaryXml = (artist: Artist) =>
-    `<artist id="${artist.id}" name="${artist.name}" albumCount="${artist.albums.length}"></artist>`;
+  const asArtistSummary = (artist: Artist) => ({
+    id: artist.id,
+    name: artist.name,
+    albumCount: artist.albums.length,
+  });
 
-  return `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-  <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
-    <index name="A">
-      ${as.map(artistSummaryXml).join("")}
-    </index>
-    <index name="B">
-      ${bs.map(artistSummaryXml).join("")}
-    </index>
-    <index name="C">
-      ${cs.map(artistSummaryXml).join("")}
-    </index>
-    <index name="D-Z">
-      ${rest.map(artistSummaryXml).join("")}
-    </index>
-  </artists>
-  </subsonic-response>`;
+  return subsonicOK({
+    artists: {
+      index: [
+        {
+          name: "A",
+          artist: as.map(asArtistSummary),
+        },
+        {
+          name: "B",
+          artist: bs.map(asArtistSummary),
+        },
+        {
+          name: "C",
+          artist: cs.map(asArtistSummary),
+        },
+        {
+          name: "D-Z",
+          artist: rest.map(asArtistSummary),
+        },
+      ],
+    },
+  });
 };
 
-const EMPTY = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
+const error = (code: string, message: string) => ({
+  "subsonic-response": {
+    status: "failed",
+    version: "1.16.1",
+    type: "navidrome",
+    serverVersion: "0.45.1 (c55e6590)",
+    error: { code, message },
+  },
+});
 
-const PING_OK = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)"></subsonic-response>`;
+const EMPTY = {
+  "subsonic-response": {
+    status: "ok",
+    version: "1.16.1",
+    type: "navidrome",
+    serverVersion: "0.45.1 (c55e6590)",
+  },
+};
+
+const FAILURE = {
+  "subsonic-response": {
+    status: "failed",
+    version: "1.16.1",
+    type: "navidrome",
+    serverVersion: "0.45.1 (c55e6590)",
+    error: { code: 10, message: 'Missing required parameter "v"' },
+  },
+};
+
+const PING_OK = subsonicOK({});
 
 describe("splitCoverArtId", () => {
   it("should split correctly", () => {
@@ -525,6 +560,27 @@ describe("splitCoverArtId", () => {
     expect(() => splitCoverArtId(":dog")).toThrow(
       `':dog' is an invalid coverArt id`
     );
+  });
+});
+
+describe("asTrack", () => {
+  const album = anAlbum();
+  const track = aTrack();
+
+  describe("invalid rating.stars values", () => {
+    describe("a value greater than 5", () => {
+      it("should be returned as 0", () => {
+        const result = asTrack(album, { ...asSongJson(track), userRating: 6 });
+        expect(result.rating.stars).toEqual(0)
+      });
+    });
+
+    describe("a value less than 0", () => {
+      it("should be returned as 0", () => {
+        const result = asTrack(album, { ...asSongJson(track), userRating: -1 });
+        expect(result.rating.stars).toEqual(0)
+      });
+    });
   });
 });
 
@@ -562,6 +618,12 @@ describe("Subsonic", () => {
     t: t(password, salt),
     s: salt,
   };
+
+  const authParamsPlusJson = {
+    ...authParams,
+    f: "json",
+  };
+
   const headers = {
     "User-Agent": "bonob",
   };
@@ -581,7 +643,7 @@ describe("Subsonic", () => {
         expect(token.userId).toEqual(username);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-          params: asURLSearchParams(authParams),
+          params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
       });
@@ -591,9 +653,7 @@ describe("Subsonic", () => {
       it("should be able to generate a token and then login using it", async () => {
         (axios.get as jest.Mock).mockResolvedValue({
           status: 200,
-          data: `<subsonic-response xmlns="http://subsonic.org/restapi" status="failed" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                    <error code="40" message="Wrong username or password"></error>
-                 </subsonic-response>`,
+          data: error("40", "Wrong username or password"),
         });
 
         const token = await navidrome.generateToken({ username, password });
@@ -609,7 +669,7 @@ describe("Subsonic", () => {
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(genresXml([]))));
+          .mockImplementationOnce(() => Promise.resolve(ok(getGenresJson([]))));
       });
 
       it("should return empty array", async () => {
@@ -622,7 +682,7 @@ describe("Subsonic", () => {
         expect(result).toEqual([]);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: asURLSearchParams(authParams),
+          params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
       });
@@ -637,7 +697,9 @@ describe("Subsonic", () => {
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(genresXml(genres))));
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getGenresJson(genres)))
+          );
       });
 
       it("should return them alphabetically sorted", async () => {
@@ -650,7 +712,7 @@ describe("Subsonic", () => {
         expect(result).toEqual([{ id: b64Encode("genre1"), name: "genre1" }]);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: asURLSearchParams(authParams),
+          params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
       });
@@ -668,7 +730,9 @@ describe("Subsonic", () => {
       beforeEach(() => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(genresXml(genres))));
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getGenresJson(genres)))
+          );
       });
 
       it("should return them alphabetically sorted", async () => {
@@ -686,7 +750,7 @@ describe("Subsonic", () => {
         ]);
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: asURLSearchParams(authParams),
+          params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
       });
@@ -719,10 +783,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistXml(artist)))
+              Promise.resolve(ok(getArtistJson(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoJson(artist)))
             );
         });
 
@@ -734,7 +798,7 @@ describe("Subsonic", () => {
             .then((it) => it.artist(artist.id));
 
           expect(result).toEqual({
-            id: artist.id,
+            id: `${artist.id}`,
             name: artist.name,
             image: {
               small: undefined,
@@ -747,7 +811,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
             }),
             headers,
@@ -755,7 +819,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
@@ -786,10 +850,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistXml(artist)))
+              Promise.resolve(ok(getArtistJson(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoJson(artist)))
             );
         });
 
@@ -814,7 +878,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
             }),
             headers,
@@ -822,7 +886,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
@@ -851,10 +915,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistXml(artist)))
+              Promise.resolve(ok(getArtistJson(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoJson(artist)))
             );
         });
 
@@ -879,7 +943,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
             }),
             headers,
@@ -887,7 +951,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
@@ -916,10 +980,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistXml(artist)))
+              Promise.resolve(ok(getArtistJson(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoJson(artist)))
             );
         });
 
@@ -944,7 +1008,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
             }),
             headers,
@@ -952,7 +1016,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
@@ -976,10 +1040,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistXml(artist)))
+              Promise.resolve(ok(getArtistJson(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoJson(artist)))
             );
         });
 
@@ -1000,7 +1064,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
             }),
             headers,
@@ -1008,7 +1072,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
@@ -1030,10 +1094,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistXml(artist)))
+              Promise.resolve(ok(getArtistJson(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoJson(artist)))
             );
         });
 
@@ -1054,7 +1118,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
             }),
             headers,
@@ -1062,7 +1126,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
@@ -1082,10 +1146,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistXml(artist)))
+              Promise.resolve(ok(getArtistJson(artist)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoXml(artist)))
+              Promise.resolve(ok(getArtistInfoJson(artist)))
             );
         });
 
@@ -1106,7 +1170,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
             }),
             headers,
@@ -1114,7 +1178,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
@@ -1133,16 +1197,23 @@ describe("Subsonic", () => {
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
-              ok(`<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                    <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
-                      <index name="#">
-                      </index>
-                      <index name="A">
-                      </index>
-                      <index name="B">
-                      </index>
-                    </artists>
-                  </subsonic-response>`)
+              ok(
+                subsonicOK({
+                  artists: {
+                    index: [
+                      {
+                        name: "#",
+                      },
+                      {
+                        name: "A",
+                      },
+                      {
+                        name: "B",
+                      },
+                    ],
+                  },
+                })
+              )
             )
           );
       });
@@ -1167,10 +1238,11 @@ describe("Subsonic", () => {
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
-              ok(`<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-                    <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
-                    </artists>
-                  </subsonic-response>`)
+              ok(
+                subsonicOK({
+                  artists: {},
+                })
+              )
             )
           );
       });
@@ -1192,19 +1264,28 @@ describe("Subsonic", () => {
     describe("when there is one index and one artist", () => {
       const artist1 = anArtist();
 
-      const getArtistsXml = `<subsonic-response xmlns="http://subsonic.org/restapi" status="ok" version="1.16.1" type="navidrome" serverVersion="0.40.0 (8799358a)">
-              <artists lastModified="1614586749000" ignoredArticles="The El La Los Las Le Les Os As O A">
-                <index name="#">
-                  <artist id="${artist1.id}" name="${artist1.name}" albumCount="22"></artist>
-                </index>
-              </artists>
-            </subsonic-response>`;
+      const asArtistsJson = subsonicOK({
+        artists: {
+          index: [
+            {
+              name: "#",
+              artist: [
+                {
+                  id: artist1.id,
+                  name: artist1.name,
+                  albumCount: 22,
+                },
+              ],
+            },
+          ],
+        },
+      });
 
       describe("when it all fits on one page", () => {
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() => Promise.resolve(ok(getArtistsXml)));
+            .mockImplementationOnce(() => Promise.resolve(ok(asArtistsJson)));
         });
 
         it("should return the single artist", async () => {
@@ -1225,7 +1306,7 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
         });
@@ -1244,7 +1325,7 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml(artists)))
+              Promise.resolve(ok(asArtistsJson(artists)))
             );
         });
 
@@ -1268,7 +1349,7 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
         });
@@ -1279,7 +1360,7 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml(artists)))
+              Promise.resolve(ok(asArtistsJson(artists)))
             );
         });
 
@@ -1298,7 +1379,7 @@ describe("Subsonic", () => {
           expect(artists).toEqual({ results: expectedResults, total: 4 });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
         });
@@ -1319,12 +1400,12 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml([artist])))
+              Promise.resolve(ok(asArtistsJson([artist])))
             )
             .mockImplementationOnce(() =>
               Promise.resolve(
                 ok(
-                  albumListXml([
+                  getAlbumListJson([
                     [artist, album1],
                     // album2 is not Pop
                     [artist, album3],
@@ -1353,13 +1434,13 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               type: "byGenre",
               genre: "Pop",
               size: 500,
@@ -1375,12 +1456,12 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml([artist])))
+              Promise.resolve(ok(asArtistsJson([artist])))
             )
             .mockImplementationOnce(() =>
               Promise.resolve(
                 ok(
-                  albumListXml([
+                  getAlbumListJson([
                     [artist, album3],
                     [artist, album2],
                     [artist, album1],
@@ -1404,13 +1485,13 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               type: "newest",
               size: 500,
               offset: 0,
@@ -1425,12 +1506,12 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml([artist])))
+              Promise.resolve(ok(asArtistsJson([artist])))
             )
             .mockImplementationOnce(() =>
               Promise.resolve(
                 ok(
-                  albumListXml([
+                  getAlbumListJson([
                     [artist, album3],
                     [artist, album2],
                     // album1 never played
@@ -1454,13 +1535,13 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               type: "recent",
               size: 500,
               offset: 0,
@@ -1475,12 +1556,12 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml([artist])))
+              Promise.resolve(ok(asArtistsJson([artist])))
             )
             .mockImplementationOnce(
               () =>
                 // album1 never played
-                Promise.resolve(ok(albumListXml([[artist, album2]])))
+                Promise.resolve(ok(getAlbumListJson([[artist, album2]])))
               // album3 never played
             );
         });
@@ -1499,13 +1580,13 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               type: "frequent",
               size: 500,
               offset: 0,
@@ -1528,10 +1609,10 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getArtistsXml(artists)))
+            Promise.resolve(ok(asArtistsJson(artists)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
+            Promise.resolve(ok(getAlbumListJson(asArtistAlbumPairs(artists))))
           );
       });
 
@@ -1553,13 +1634,13 @@ describe("Subsonic", () => {
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-          params: asURLSearchParams(authParams),
+          params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             type: "alphabeticalByArtist",
             size: 500,
             offset: 0,
@@ -1581,10 +1662,10 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getArtistsXml(artists)))
+            Promise.resolve(ok(asArtistsJson(artists)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
+            Promise.resolve(ok(getAlbumListJson(asArtistAlbumPairs(artists))))
           );
       });
 
@@ -1606,13 +1687,13 @@ describe("Subsonic", () => {
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-          params: asURLSearchParams(authParams),
+          params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             type: "alphabeticalByArtist",
             size: 500,
             offset: 0,
@@ -1651,10 +1732,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml(artists)))
+              Promise.resolve(ok(asArtistsJson(artists)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(albumListXml(asArtistAlbumPairs(artists))))
+              Promise.resolve(ok(getAlbumListJson(asArtistAlbumPairs(artists))))
             );
 
           const q: AlbumQuery = {
@@ -1674,13 +1755,13 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               type: "alphabeticalByArtist",
               size: 500,
               offset: 0,
@@ -1695,12 +1776,12 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistsXml(artists)))
+              Promise.resolve(ok(asArtistsJson(artists)))
             )
             .mockImplementationOnce(() =>
               Promise.resolve(
                 ok(
-                  albumListXml([
+                  getAlbumListJson([
                     [artist1, artist1.albums[2]!],
                     [artist2, artist2.albums[0]!],
                     // due to pre-fetch will get next 2 albums also
@@ -1728,13 +1809,13 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               type: "alphabeticalByArtist",
               size: 500,
               offset: 2,
@@ -1769,12 +1850,12 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistsXml(artists)))
+                Promise.resolve(ok(asArtistsJson(artists)))
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    albumListXml([
+                    getAlbumListJson([
                       [artist1, album1],
                       [artist1, album2],
                       [artist1, album3],
@@ -1804,7 +1885,7 @@ describe("Subsonic", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParams),
+              params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
@@ -1812,7 +1893,7 @@ describe("Subsonic", () => {
               `${url}/rest/getAlbumList2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
@@ -1828,12 +1909,12 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistsXml(artists)))
+                Promise.resolve(ok(asArtistsJson(artists)))
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    albumListXml([
+                    getAlbumListJson([
                       [artist1, album1],
                       [artist1, album2],
                       // album3 & album5 is returned due to the prefetch
@@ -1864,7 +1945,7 @@ describe("Subsonic", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParams),
+              params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
@@ -1872,7 +1953,7 @@ describe("Subsonic", () => {
               `${url}/rest/getAlbumList2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
@@ -1888,12 +1969,12 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistsXml(artists)))
+                Promise.resolve(ok(asArtistsJson(artists)))
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    albumListXml([
+                    getAlbumListJson([
                       // album1 is on the first page
                       // album2 is on the first page
                       [artist1, album3],
@@ -1923,7 +2004,7 @@ describe("Subsonic", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParams),
+              params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
@@ -1931,7 +2012,7 @@ describe("Subsonic", () => {
               `${url}/rest/getAlbumList2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
@@ -1951,7 +2032,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    getArtistsXml([
+                    asArtistsJson([
                       // artist1 has lost 2 albums on the getArtists end point
                       { ...artist1, albums: [album1, album2] },
                       artist2,
@@ -1962,7 +2043,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    albumListXml([
+                    getAlbumListJson([
                       [artist1, album1],
                       [artist1, album2],
                       [artist1, album3],
@@ -1992,7 +2073,7 @@ describe("Subsonic", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParams),
+              params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
@@ -2000,7 +2081,7 @@ describe("Subsonic", () => {
               `${url}/rest/getAlbumList2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
@@ -2018,7 +2099,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    getArtistsXml([
+                    asArtistsJson([
                       // artist1 has lost 2 albums on the getArtists end point
                       { ...artist1, albums: [album1, album2] },
                       artist2,
@@ -2029,7 +2110,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    albumListXml([
+                    getAlbumListJson([
                       [artist1, album1],
                       [artist1, album2],
                       [artist1, album3],
@@ -2059,7 +2140,7 @@ describe("Subsonic", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParams),
+              params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
@@ -2067,7 +2148,7 @@ describe("Subsonic", () => {
               `${url}/rest/getAlbumList2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
@@ -2085,7 +2166,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    getArtistsXml([
+                    asArtistsJson([
                       // artist1 has lost 2 albums on the getArtists end point
                       { ...artist1, albums: [album1, album2] },
                       artist2,
@@ -2096,7 +2177,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    albumListXml([
+                    getAlbumListJson([
                       [artist1, album3],
                       [artist1, album4],
                       [artist2, album5],
@@ -2124,7 +2205,7 @@ describe("Subsonic", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParams),
+              params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
@@ -2132,7 +2213,7 @@ describe("Subsonic", () => {
               `${url}/rest/getAlbumList2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
@@ -2165,7 +2246,7 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist, album, tracks)))
+            Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
           );
       });
 
@@ -2180,7 +2261,7 @@ describe("Subsonic", () => {
 
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             id: album.id,
           }),
           headers,
@@ -2191,7 +2272,7 @@ describe("Subsonic", () => {
 
   describe("getting tracks", () => {
     describe("for an album", () => {
-      describe("when the album has multiple tracks", () => {
+      describe("when the album has multiple tracks, some of which are rated", () => {
         const hipHop = asGenre("Hip-Hop");
         const tripHop = asGenre("Trip-Hop");
 
@@ -2203,34 +2284,50 @@ describe("Subsonic", () => {
           albums: [album],
         });
 
-        const tracks = [
-          aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
-            genre: hipHop,
-          }),
-          aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
-            genre: hipHop,
-          }),
-          aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
-            genre: tripHop,
-          }),
-          aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
-            genre: tripHop,
-          }),
-        ];
+        const track1 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album),
+          genre: hipHop,
+          rating: {
+            love: true,
+            stars: 3,
+          },
+        });
+        const track2 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album),
+          genre: hipHop,
+          rating: {
+            love: false,
+            stars: 0,
+          },
+        });
+        const track3 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album),
+          genre: tripHop,
+          rating: {
+            love: true,
+            stars: 5,
+          },
+        });
+        const track4 = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album),
+          genre: tripHop,
+          rating: {
+            love: false,
+            stars: 1,
+          },
+        });
+
+        const tracks = [track1, track2, track3, track4];
 
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, tracks)))
+              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
             );
         });
 
@@ -2241,11 +2338,11 @@ describe("Subsonic", () => {
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.tracks(album.id));
 
-          expect(result).toEqual(tracks);
+          expect(result).toEqual([track1, track2, track3, track4]);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: album.id,
             }),
             headers,
@@ -2268,19 +2365,19 @@ describe("Subsonic", () => {
           albums: [album],
         });
 
-        const tracks = [
-          aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
-            genre: flipFlop,
-          }),
-        ];
+        const track = aTrack({
+          artist: artistToArtistSummary(artist),
+          album: albumToAlbumSummary(album),
+          genre: flipFlop,
+        });
+
+        const tracks = [track];
 
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, tracks)))
+              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
             );
         });
 
@@ -2291,11 +2388,11 @@ describe("Subsonic", () => {
             .then((it) => navidrome.login(it.authToken))
             .then((it) => it.tracks(album.id));
 
-          expect(result).toEqual(tracks);
+          expect(result).toEqual([track]);
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: album.id,
             }),
             headers,
@@ -2318,7 +2415,7 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, tracks)))
+              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
             );
         });
 
@@ -2333,7 +2430,7 @@ describe("Subsonic", () => {
 
           expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               id: album.id,
             }),
             headers,
@@ -2353,44 +2450,103 @@ describe("Subsonic", () => {
         albums: [album],
       });
 
-      const track = aTrack({
-        artist: artistToArtistSummary(artist),
-        album: albumToAlbumSummary(album),
-        genre: pop,
-      });
+      describe("that is starred", () => {
+        it("should return the track", async () => {
+          const track = aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: pop,
+            rating: {
+              love: true,
+              stars: 4,
+            },
+          });
 
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist, album, [])))
-          );
-      });
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            );
 
-      it("should return the track", async () => {
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.authToken))
-          .then((it) => it.track(track.id));
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.track(track.id));
 
-        expect(result).toEqual(track);
+          expect(result).toEqual({
+            ...track,
+            rating: { love: true, stars: 4 },
+          });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
-          params: asURLSearchParams({
-            ...authParams,
-            id: track.id,
-          }),
-          headers,
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: track.id,
+            }),
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: album.id,
+            }),
+            headers,
+          });
         });
+      });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-          params: asURLSearchParams({
-            ...authParams,
-            id: album.id,
-          }),
-          headers,
+      describe("that is not starred", () => {
+        it("should return the track", async () => {
+          const track = aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: pop,
+            rating: {
+              love: false,
+              stars: 0,
+            },
+          });
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            );
+
+          const result = await navidrome
+            .generateToken({ username, password })
+            .then((it) => it as AuthSuccess)
+            .then((it) => navidrome.login(it.authToken))
+            .then((it) => it.track(track.id));
+
+          expect(result).toEqual({
+            ...track,
+            rating: { love: false, stars: 0 },
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: track.id,
+            }),
+            headers,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: album.id,
+            }),
+            headers,
+          });
         });
       });
     });
@@ -2434,10 +2590,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongXml(track)))
+              Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2476,10 +2632,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongXml(track)))
+              Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2520,10 +2676,10 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getSongXml(track)))
+                Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumXml(artist, album, [])))
+                Promise.resolve(ok(getAlbumJson(artist, album, [])))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2565,10 +2721,10 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getSongXml(track)))
+                Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumXml(artist, album, [])))
+                Promise.resolve(ok(getAlbumJson(artist, album, [])))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2606,10 +2762,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongXml(track)))
+              Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2659,10 +2815,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongXml(track)))
+              Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, [track])))
+              Promise.resolve(ok(getAlbumJson(artist, album, [track])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2704,10 +2860,10 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongXml(track)))
+              Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumXml(artist, album, [track])))
+              Promise.resolve(ok(getAlbumJson(artist, album, [track])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2858,10 +3014,10 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistXml(artist)))
+                Promise.resolve(ok(getArtistJson(artist)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistInfoXml(artist)))
+                Promise.resolve(ok(getArtistInfoJson(artist)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2880,7 +3036,7 @@ describe("Subsonic", () => {
               `${url}/rest/getArtistInfo2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   id: artistId,
                   count: 50,
                   includeNotPresent: true,
@@ -2910,10 +3066,10 @@ describe("Subsonic", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistXml(artist)))
+                  Promise.resolve(ok(getArtistJson(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoJson(artist)))
                 )
                 .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
@@ -2960,10 +3116,10 @@ describe("Subsonic", () => {
                 mockGET
                   .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                   .mockImplementationOnce(() =>
-                    Promise.resolve(ok(getArtistXml(artist)))
+                    Promise.resolve(ok(getArtistJson(artist)))
                   )
                   .mockImplementationOnce(() =>
-                    Promise.resolve(ok(getArtistInfoXml(artist)))
+                    Promise.resolve(ok(getArtistInfoJson(artist)))
                   )
                   .mockImplementationOnce(() =>
                     Promise.resolve(streamResponse)
@@ -2981,7 +3137,7 @@ describe("Subsonic", () => {
                   `${url}/rest/getArtist`,
                   {
                     params: asURLSearchParams({
-                      ...authParams,
+                      ...authParamsPlusJson,
                       id: artistId,
                     }),
                     headers,
@@ -2992,7 +3148,7 @@ describe("Subsonic", () => {
                   `${url}/rest/getArtistInfo2`,
                   {
                     params: asURLSearchParams({
-                      ...authParams,
+                      ...authParamsPlusJson,
                       id: artistId,
                       count: 50,
                       includeNotPresent: true,
@@ -3022,10 +3178,10 @@ describe("Subsonic", () => {
                   mockGET
                     .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                     .mockImplementationOnce(() =>
-                      Promise.resolve(ok(getArtistXml(artist)))
+                      Promise.resolve(ok(getArtistJson(artist)))
                     )
                     .mockImplementationOnce(() =>
-                      Promise.resolve(ok(getArtistInfoXml(artist)))
+                      Promise.resolve(ok(getArtistInfoJson(artist)))
                     )
                     .mockImplementationOnce(() =>
                       Promise.resolve(streamResponse)
@@ -3046,7 +3202,7 @@ describe("Subsonic", () => {
                     `${url}/rest/getArtist`,
                     {
                       params: asURLSearchParams({
-                        ...authParams,
+                        ...authParamsPlusJson,
                         id: artistId,
                       }),
                       headers,
@@ -3057,7 +3213,7 @@ describe("Subsonic", () => {
                     `${url}/rest/getArtistInfo2`,
                     {
                       params: asURLSearchParams({
-                        ...authParams,
+                        ...authParamsPlusJson,
                         id: artistId,
                         count: 50,
                         includeNotPresent: true,
@@ -3096,10 +3252,10 @@ describe("Subsonic", () => {
                   mockGET
                     .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                     .mockImplementationOnce(() =>
-                      Promise.resolve(ok(getArtistXml(artist)))
+                      Promise.resolve(ok(getArtistJson(artist)))
                     )
                     .mockImplementationOnce(() =>
-                      Promise.resolve(ok(getArtistInfoXml(artist)))
+                      Promise.resolve(ok(getArtistInfoJson(artist)))
                     )
                     .mockImplementationOnce(() =>
                       Promise.resolve(streamResponse)
@@ -3120,7 +3276,7 @@ describe("Subsonic", () => {
                     `${url}/rest/getArtist`,
                     {
                       params: asURLSearchParams({
-                        ...authParams,
+                        ...authParamsPlusJson,
                         id: artistId,
                       }),
                       headers,
@@ -3131,7 +3287,7 @@ describe("Subsonic", () => {
                     `${url}/rest/getArtistInfo2`,
                     {
                       params: asURLSearchParams({
-                        ...authParams,
+                        ...authParamsPlusJson,
                         id: artistId,
                         count: 50,
                         includeNotPresent: true,
@@ -3172,10 +3328,10 @@ describe("Subsonic", () => {
                   mockGET
                     .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                     .mockImplementationOnce(() =>
-                      Promise.resolve(ok(getArtistXml(artist)))
+                      Promise.resolve(ok(getArtistJson(artist)))
                     )
                     .mockImplementationOnce(() =>
-                      Promise.resolve(ok(getArtistInfoXml(artist)))
+                      Promise.resolve(ok(getArtistInfoJson(artist)))
                     )
                     .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
@@ -3218,10 +3374,10 @@ describe("Subsonic", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistXml(artist)))
+                  Promise.resolve(ok(getArtistJson(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoJson(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3235,7 +3391,7 @@ describe("Subsonic", () => {
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   id: artistId,
                 }),
                 headers,
@@ -3245,7 +3401,7 @@ describe("Subsonic", () => {
                 `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
-                    ...authParams,
+                    ...authParamsPlusJson,
                     id: artistId,
                     count: 50,
                     includeNotPresent: true,
@@ -3287,10 +3443,10 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistXml(artist)))
+                Promise.resolve(ok(getArtistJson(artist)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getArtistInfoXml(artist)))
+                Promise.resolve(ok(getArtistInfoJson(artist)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3315,7 +3471,7 @@ describe("Subsonic", () => {
               `${url}/rest/getArtistInfo2`,
               {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   id: artistId,
                   count: 50,
                   includeNotPresent: true,
@@ -3365,10 +3521,10 @@ describe("Subsonic", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistXml(artist)))
+                  Promise.resolve(ok(getArtistJson(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoJson(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3385,7 +3541,8 @@ describe("Subsonic", () => {
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
+                  f: "json",
                   id: artistId,
                 }),
                 headers,
@@ -3395,7 +3552,7 @@ describe("Subsonic", () => {
                 `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
-                    ...authParams,
+                    ...authParamsPlusJson,
                     id: artistId,
                     count: 50,
                     includeNotPresent: true,
@@ -3446,10 +3603,10 @@ describe("Subsonic", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistXml(artist)))
+                  Promise.resolve(ok(getArtistJson(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoJson(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3463,7 +3620,8 @@ describe("Subsonic", () => {
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
+                  f: "json",
                   id: artistId,
                 }),
                 headers,
@@ -3473,7 +3631,7 @@ describe("Subsonic", () => {
                 `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
-                    ...authParams,
+                    ...authParamsPlusJson,
                     id: artistId,
                     count: 50,
                     includeNotPresent: true,
@@ -3522,10 +3680,10 @@ describe("Subsonic", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistXml(artist)))
+                  Promise.resolve(ok(getArtistJson(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoJson(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3542,7 +3700,7 @@ describe("Subsonic", () => {
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
                   id: artistId,
                 }),
                 headers,
@@ -3552,7 +3710,7 @@ describe("Subsonic", () => {
                 `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
-                    ...authParams,
+                    ...authParamsPlusJson,
                     id: artistId,
                     count: 50,
                     includeNotPresent: true,
@@ -3603,10 +3761,10 @@ describe("Subsonic", () => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistXml(artist)))
+                  Promise.resolve(ok(getArtistJson(artist)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getArtistInfoXml(artist)))
+                  Promise.resolve(ok(getArtistInfoJson(artist)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3620,7 +3778,8 @@ describe("Subsonic", () => {
 
               expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
                 params: asURLSearchParams({
-                  ...authParams,
+                  ...authParamsPlusJson,
+                  f: "json",
                   id: artistId,
                 }),
                 headers,
@@ -3630,7 +3789,7 @@ describe("Subsonic", () => {
                 `${url}/rest/getArtistInfo2`,
                 {
                   params: asURLSearchParams({
-                    ...authParams,
+                    ...authParamsPlusJson,
                     id: artistId,
                     count: 50,
                     includeNotPresent: true,
@@ -3640,6 +3799,249 @@ describe("Subsonic", () => {
               );
             });
           });
+        });
+      });
+    });
+  });
+
+  describe("rate", () => {
+    const trackId = uuid();
+
+    const rate = (trackId: string, rating: Rating) =>
+      navidrome
+        .generateToken({ username, password })
+        .then((it) => it as AuthSuccess)
+        .then((it) => navidrome.login(it.authToken))
+        .then((it) => it.rate(trackId, rating));
+
+    const artist = anArtist();
+    const album = anAlbum({ id: "album1", name: "Burnin", genre: POP });
+
+    describe("rating a track", () => {
+      describe("loving a track that isnt already loved", () => {
+        it("should mark the track as loved", async () => {
+          const track = aTrack({
+            id: trackId,
+            artist,
+            album: albumToAlbumSummary(album),
+            rating: { love: false, stars: 0 },
+          });
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+
+          const result = await rate(trackId, { love: true, stars: 0 });
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/star`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: trackId,
+            }),
+            headers,
+          });
+        });
+      });
+
+      describe("unloving a track that is loved", () => {
+        it("should mark the track as loved", async () => {
+          const track = aTrack({
+            id: trackId,
+            artist,
+            album: albumToAlbumSummary(album),
+            rating: { love: true, stars: 0 },
+          });
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+
+          const result = await rate(trackId, { love: false, stars: 0 });
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/unstar`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: trackId,
+            }),
+            headers,
+          });
+        });
+      });
+
+      describe("loving a track that is already loved", () => {
+        it("shouldn't do anything", async () => {
+          const track = aTrack({
+            id: trackId,
+            artist,
+            album: albumToAlbumSummary(album),
+            rating: { love: true, stars: 0 },
+          });
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            );
+
+          const result = await rate(trackId, { love: true, stars: 0 });
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledTimes(3);
+        });
+      });
+
+      describe("rating a track with a different rating", () => {
+        it("should add the new rating", async () => {
+          const track = aTrack({
+            id: trackId,
+            artist,
+            album: albumToAlbumSummary(album),
+            rating: { love: false, stars: 0 },
+          });
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+
+          const result = await rate(trackId, { love: false, stars: 3 });
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/setRating`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: trackId,
+              rating: 3,
+            }),
+            headers,
+          });
+        });
+      });
+
+      describe("rating a track with the same rating it already has", () => {
+        it("shouldn't do anything", async () => {
+          const track = aTrack({
+            id: trackId,
+            artist,
+            album: albumToAlbumSummary(album),
+            rating: { love: true, stars: 3 },
+          });
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            );
+
+          const result = await rate(trackId, { love: true, stars: 3 });
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledTimes(3);
+        });
+      });
+
+      describe("loving and rating a track", () => {
+        it("should return true", async () => {
+          const track = aTrack({
+            id: trackId,
+            artist,
+            album: albumToAlbumSummary(album),
+            rating: { love: true, stars: 3 },
+          });
+
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            )
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)))
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+
+          const result = await rate(trackId, { love: false, stars: 5 });
+
+          expect(result).toEqual(true);
+
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/unstar`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: trackId,
+            }),
+            headers,
+          });
+          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/setRating`, {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: trackId,
+              rating: 5,
+            }),
+            headers,
+          });
+        });
+      });
+
+      describe("invalid star values", () => {
+        describe("stars of -1", () => {
+          it("should return false", async () => {
+            mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+
+            const result = await rate(trackId, { love: true, stars: -1 });
+            expect(result).toEqual(false);
+          });
+        });
+
+        describe("stars of 6", () => {
+          it("should return false", async () => {
+            mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+
+            const result = await rate(trackId, { love: true, stars: -1 });
+            expect(result).toEqual(false);
+          });
+        });
+      });
+
+      describe("when fails", () => {
+        it("should return false", async () => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() => Promise.resolve(ok(FAILURE)))
+            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+
+          const result = await rate(trackId, { love: true, stars: 0 });
+
+          expect(result).toEqual(false);
         });
       });
     });
@@ -3664,7 +4066,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             id,
             submission: true,
           }),
@@ -3696,7 +4098,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             id,
             submission: true,
           }),
@@ -3725,7 +4127,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             id,
             submission: false,
           }),
@@ -3757,7 +4159,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             id,
             submission: false,
           }),
@@ -3775,7 +4177,7 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(searchResult3({ artists: [artist1] })))
+            Promise.resolve(ok(getSearchResult3Json({ artists: [artist1] })))
           );
 
         const result = await navidrome
@@ -3788,7 +4190,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
@@ -3807,7 +4209,9 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(searchResult3({ artists: [artist1, artist2] })))
+            Promise.resolve(
+              ok(getSearchResult3Json({ artists: [artist1, artist2] }))
+            )
           );
 
         const result = await navidrome
@@ -3823,7 +4227,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
@@ -3839,7 +4243,7 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(searchResult3({ artists: [] })))
+            Promise.resolve(ok(getSearchResult3Json({ artists: [] })))
           );
 
         const result = await navidrome
@@ -3852,7 +4256,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
@@ -3876,7 +4280,9 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(searchResult3({ albums: [{ artist, album }] })))
+            Promise.resolve(
+              ok(getSearchResult3Json({ albums: [{ artist, album }] }))
+            )
           );
 
         const result = await navidrome
@@ -3889,7 +4295,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 20,
             songCount: 0,
@@ -3919,7 +4325,7 @@ describe("Subsonic", () => {
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(
-                searchResult3({
+                getSearchResult3Json({
                   albums: [
                     { artist: artist1, album: album1 },
                     { artist: artist2, album: album2 },
@@ -3942,7 +4348,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 20,
             songCount: 0,
@@ -3958,7 +4364,7 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(searchResult3({ albums: [] })))
+            Promise.resolve(ok(getSearchResult3Json({ albums: [] })))
           );
 
         const result = await navidrome
@@ -3971,7 +4377,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 20,
             songCount: 0,
@@ -4003,11 +4409,11 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(searchResult3({ tracks: [track] })))
+            Promise.resolve(ok(getSearchResult3Json({ tracks: [track] })))
           )
-          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track))))
+          .mockImplementationOnce(() => Promise.resolve(ok(getSongJson(track))))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist, album, [])))
+            Promise.resolve(ok(getAlbumJson(artist, album, [])))
           );
 
         const result = await navidrome
@@ -4020,7 +4426,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 0,
             songCount: 20,
@@ -4066,19 +4472,23 @@ describe("Subsonic", () => {
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(
-                searchResult3({
+                getSearchResult3Json({
                   tracks: [track1, track2],
                 })
               )
             )
           )
-          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track1))))
-          .mockImplementationOnce(() => Promise.resolve(ok(getSongXml(track2))))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+            Promise.resolve(ok(getSongJson(track1)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist2, album2, [])))
+            Promise.resolve(ok(getSongJson(track2)))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumJson(artist2, album2, [])))
           );
 
         const result = await navidrome
@@ -4091,7 +4501,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 0,
             songCount: 20,
@@ -4107,7 +4517,7 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(searchResult3({ tracks: [] })))
+            Promise.resolve(ok(getSearchResult3Json({ tracks: [] })))
           );
 
         const result = await navidrome
@@ -4120,7 +4530,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 0,
             songCount: 20,
@@ -4141,7 +4551,7 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getPlayLists([playlist])))
+              Promise.resolve(ok(getPlayListsJson([playlist])))
             );
 
           const result = await navidrome
@@ -4153,7 +4563,7 @@ describe("Subsonic", () => {
           expect(result).toEqual([playlist]);
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
         });
@@ -4169,7 +4579,7 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getPlayLists(playlists)))
+              Promise.resolve(ok(getPlayListsJson(playlists)))
             );
 
           const result = await navidrome
@@ -4181,7 +4591,7 @@ describe("Subsonic", () => {
           expect(result).toEqual(playlists);
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
         });
@@ -4192,7 +4602,7 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getPlayLists([])))
+              Promise.resolve(ok(getPlayListsJson([])))
             );
 
           const result = await navidrome
@@ -4204,7 +4614,7 @@ describe("Subsonic", () => {
           expect(result).toEqual([]);
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: asURLSearchParams(authParams),
+            params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
         });
@@ -4270,7 +4680,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
-                    getPlayList({
+                    getPlayListJson({
                       id,
                       name,
                       entries: [track1, track2],
@@ -4296,7 +4706,7 @@ describe("Subsonic", () => {
 
             expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
               params: asURLSearchParams({
-                ...authParams,
+                ...authParamsPlusJson,
                 id,
               }),
               headers,
@@ -4313,7 +4723,7 @@ describe("Subsonic", () => {
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getPlayList(playlist)))
+                Promise.resolve(ok(getPlayListJson(playlist)))
               );
 
             const result = await navidrome
@@ -4326,7 +4736,7 @@ describe("Subsonic", () => {
 
             expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
               params: asURLSearchParams({
-                ...authParams,
+                ...authParamsPlusJson,
                 id: playlist.id,
               }),
               headers,
@@ -4344,7 +4754,7 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(createPlayList({ id, name })))
+            Promise.resolve(ok(createPlayListJson({ id, name })))
           );
 
         const result = await navidrome
@@ -4357,7 +4767,8 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/createPlaylist`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
+            f: "json",
             name,
           }),
           headers,
@@ -4383,7 +4794,7 @@ describe("Subsonic", () => {
 
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/deletePlaylist`, {
           params: asURLSearchParams({
-            ...authParams,
+            ...authParamsPlusJson,
             id,
           }),
           headers,
@@ -4411,7 +4822,7 @@ describe("Subsonic", () => {
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               playlistId,
               songIdToAdd: trackId,
             }),
@@ -4439,7 +4850,7 @@ describe("Subsonic", () => {
 
           expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
             params: asURLSearchParams({
-              ...authParams,
+              ...authParamsPlusJson,
               playlistId,
               songIndexToRemove: indicies,
             }),
@@ -4473,10 +4884,10 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(similarSongsXml([track1])))
+            Promise.resolve(ok(getSimilarSongsJson([track1])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
         const result = await navidrome
@@ -4490,6 +4901,7 @@ describe("Subsonic", () => {
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
           params: asURLSearchParams({
             ...authParams,
+            f: "json",
             id,
             count: 50,
           }),
@@ -4539,16 +4951,16 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(similarSongsXml([track1, track2, track3])))
+            Promise.resolve(ok(getSimilarSongsJson([track1, track2, track3])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist2, album2, [])))
+            Promise.resolve(ok(getAlbumJson(artist2, album2, [])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist1, album1, [])))
+            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
         const result = await navidrome
@@ -4562,6 +4974,7 @@ describe("Subsonic", () => {
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
           params: asURLSearchParams({
             ...authParams,
+            f: "json",
             id,
             count: 50,
           }),
@@ -4574,10 +4987,11 @@ describe("Subsonic", () => {
       it("should return []", async () => {
         const id = "idWithNoTracks";
 
-        const xml = similarSongsXml([]);
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() => Promise.resolve(ok(xml)));
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getSimilarSongsJson([])))
+          );
 
         const result = await navidrome
           .generateToken({ username, password })
@@ -4590,6 +5004,7 @@ describe("Subsonic", () => {
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
           params: asURLSearchParams({
             ...authParams,
+            f: "json",
             id,
             count: 50,
           }),
@@ -4642,13 +5057,13 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getArtistXml(artist)))
+            Promise.resolve(ok(getArtistJson(artist)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(topSongsXml([track1])))
+            Promise.resolve(ok(getTopSongsJson([track1])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist, album1, [])))
+            Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
         const result = await navidrome
@@ -4662,6 +5077,7 @@ describe("Subsonic", () => {
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
           params: asURLSearchParams({
             ...authParams,
+            f: "json",
             artist: artistName,
             count: 50,
           }),
@@ -4705,19 +5121,19 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getArtistXml(artist)))
+            Promise.resolve(ok(getArtistJson(artist)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(topSongsXml([track1, track2, track3])))
+            Promise.resolve(ok(getTopSongsJson([track1, track2, track3])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist, album1, [])))
+            Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist, album2, [])))
+            Promise.resolve(ok(getAlbumJson(artist, album2, [])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumXml(artist, album1, [])))
+            Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
         const result = await navidrome
@@ -4731,6 +5147,7 @@ describe("Subsonic", () => {
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
           params: asURLSearchParams({
             ...authParams,
+            f: "json",
             artist: artistName,
             count: 50,
           }),
@@ -4755,9 +5172,11 @@ describe("Subsonic", () => {
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getArtistXml(artist)))
+            Promise.resolve(ok(getArtistJson(artist)))
           )
-          .mockImplementationOnce(() => Promise.resolve(ok(topSongsXml([]))));
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getTopSongsJson([])))
+          );
 
         const result = await navidrome
           .generateToken({ username, password })
@@ -4770,6 +5189,7 @@ describe("Subsonic", () => {
         expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
           params: asURLSearchParams({
             ...authParams,
+            f: "json",
             artist: artistName,
             count: 50,
           }),

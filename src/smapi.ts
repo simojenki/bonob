@@ -14,6 +14,7 @@ import {
   Genre,
   MusicService,
   Playlist,
+  Rating,
   slice2,
   Track,
 } from "./music_service";
@@ -78,6 +79,12 @@ export type GetDeviceAuthTokenResult = {
       userIdHashCode: string;
     };
   };
+};
+
+export const ratingAsInt = (rating: Rating): number => rating.stars * 10 + (rating.love ? 1 : 0) + 100;
+export const ratingFromInt = (value: number): Rating => {
+  const x = value - 100;
+  return { love: (x % 10 == 1), stars: Math.floor(x / 10) }
 };
 
 export type MediaCollection = {
@@ -300,6 +307,9 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
     genreId: track.album.genre?.id,
     trackNumber: track.number,
   },
+  dynamic: {
+    property: [{ name: "rating", value: `${ratingAsInt(track.rating)}` }],
+  }
 });
 
 export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
@@ -403,7 +413,7 @@ function bindSmapiSoapServiceToExpress(
                 getMediaURIResult: bonobUrl
                   .append({
                     pathname: `/stream/${type}/${typeId}`,
-                    searchParams: { "bat": accessToken }
+                    searchParams: { bat: accessToken },
                   })
                   .href(),
               })),
@@ -416,7 +426,10 @@ function bindSmapiSoapServiceToExpress(
               .then(splitId(id))
               .then(async ({ musicLibrary, accessToken, typeId }) =>
                 musicLibrary.track(typeId!).then((it) => ({
-                  getMediaMetadataResult: track(urlWithToken(accessToken), it),
+                  getMediaMetadataResult: track(
+                    urlWithToken(accessToken),
+                    it
+                  ),
                 }))
               ),
           search: async (
@@ -503,9 +516,10 @@ function bindSmapiSoapServiceToExpress(
                   case "track":
                     return musicLibrary.track(typeId).then((it) => ({
                       getExtendedMetadataResult: {
-                        mediaMetadata: {
-                          ...track(urlWithToken(accessToken), it),
-                        },
+                        mediaMetadata: track(
+                          urlWithToken(accessToken),
+                          it
+                        ),
                       },
                     }));
                   case "album":
@@ -581,6 +595,24 @@ function bindSmapiSoapServiceToExpress(
                           itemType: "albumList",
                         },
                         {
+                          id: "randomAlbums",
+                          title: lang("random"),
+                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                          itemType: "albumList",
+                        },
+                        {
+                          id: "favouriteAlbums",
+                          title: lang("favourites"),
+                          albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                          itemType: "albumList",
+                        },
+                        // {
+                        //   id: "topRatedAlbums",
+                        //   title: lang("topRated"),
+                        //   albumArtURI: iconArtURI(bonobUrl, "star").href(),
+                        //   itemType: "albumList",
+                        // },
+                        {
                           id: "playlists",
                           title: lang("playlists"),
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
@@ -596,18 +628,6 @@ function bindSmapiSoapServiceToExpress(
                           title: lang("genres"),
                           albumArtURI: iconArtURI(bonobUrl, "genres").href(),
                           itemType: "container",
-                        },
-                        {
-                          id: "randomAlbums",
-                          title: lang("random"),
-                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "starredAlbums",
-                          title: lang("starred"),
-                          albumArtURI: iconArtURI(bonobUrl, "starred").href(),
-                          itemType: "albumList",
                         },
                         {
                           id: "recentlyAdded",
@@ -689,7 +709,7 @@ function bindSmapiSoapServiceToExpress(
                       type: "random",
                       ...paging,
                     });
-                  case "starredAlbums":
+                  case "favouriteAlbums":
                     return albums({
                       type: "starred",
                       ...paging,
@@ -872,6 +892,18 @@ function bindSmapiSoapServiceToExpress(
                 }
               })
               .then((_) => ({ removeFromContainerResult: { updateId: "" } })),
+          rateItem: async (
+            { id, rating }: { id: string; rating: number },
+            _,
+            soapyHeaders: SoapyHeaders
+          ) =>
+            auth(musicService, accessTokens, soapyHeaders?.credentials)
+              .then(splitId(id))
+              .then(({ musicLibrary, typeId }) =>
+                musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
+              )
+              .then((_) => ({ rateItemResult: { shouldSkip: false } })),
+
           setPlayedSeconds: async (
             { id, seconds }: { id: string; seconds: string },
             _,

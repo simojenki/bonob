@@ -22,6 +22,7 @@ import {
   albumToAlbumSummary,
   Track,
   Genre,
+  Rating,
 } from "../src/music_service";
 
 export class InMemoryMusicService implements MusicService {
@@ -75,9 +76,11 @@ export class InMemoryMusicService implements MusicService {
             switch (q.type) {
               case "alphabeticalByArtist":
                 return artist2Album;
-                case "alphabeticalByName":
-                  return artist2Album.sort((a, b) => a.album.name.localeCompare(b.album.name));
-                case "byGenre":
+              case "alphabeticalByName":
+                return artist2Album.sort((a, b) =>
+                  a.album.name.localeCompare(b.album.name)
+                );
+              case "byGenre":
                 return artist2Album.filter(
                   (it) => it.album.genre?.id === q.genre
                 );
@@ -107,18 +110,21 @@ export class InMemoryMusicService implements MusicService {
             A.map((it) => O.fromNullable(it.genre)),
             A.compact,
             A.uniq(fromEquals((x, y) => x.id === y.id)),
-            A.sort(
-              fromCompare<Genre>((x, y) => ordString.compare(x.id, y.id))
-            )
+            A.sort(fromCompare<Genre>((x, y) => ordString.compare(x.id, y.id)))
           )
         ),
       tracks: (albumId: string) =>
-        Promise.resolve(this.tracks.filter((it) => it.album.id === albumId)),
+        Promise.resolve(
+          this.tracks
+            .filter((it) => it.album.id === albumId)
+            .map((it) => ({ ...it, rating: { love: false, stars: 0 } }))
+        ),
+      rate: (_: string, _2: Rating) => Promise.resolve(false),
       track: (trackId: string) =>
         pipe(
           this.tracks.find((it) => it.id === trackId),
           O.fromNullable,
-          O.map((it) => Promise.resolve(it)),
+          O.map((it) => Promise.resolve({ ...it, rating: { love: false, stars: 0 } })),
           O.getOrElse(() =>
             Promise.reject(`Failed to find track with id ${trackId}`)
           )
@@ -139,10 +145,14 @@ export class InMemoryMusicService implements MusicService {
       playlists: async () => Promise.resolve([]),
       playlist: async (id: string) =>
         Promise.reject(`No playlist with id ${id}`),
-      createPlaylist: async (_: string) => Promise.reject("Unsupported operation"),
-      deletePlaylist: async (_: string) => Promise.reject("Unsupported operation"),
-      addToPlaylist: async (_: string) => Promise.reject("Unsupported operation"),
-      removeFromPlaylist: async (_: string, _2: number[]) => Promise.reject("Unsupported operation"),
+      createPlaylist: async (_: string) =>
+        Promise.reject("Unsupported operation"),
+      deletePlaylist: async (_: string) =>
+        Promise.reject("Unsupported operation"),
+      addToPlaylist: async (_: string) =>
+        Promise.reject("Unsupported operation"),
+      removeFromPlaylist: async (_: string, _2: number[]) =>
+        Promise.reject("Unsupported operation"),
       similarSongs: async (_: string) => Promise.resolve([]),
       topSongs: async (_: string) => Promise.resolve([]),
     });

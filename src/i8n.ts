@@ -12,7 +12,7 @@ export type KEY =
   | "playlists"
   | "genres"
   | "random"
-  | "starred"
+  | "topRated"
   | "recentlyAdded"
   | "recentlyPlayed"
   | "mostPlayed"
@@ -37,7 +37,14 @@ export type KEY =
   | "invalidLinkCode"
   | "loginSuccessful"
   | "loginFailed" 
-  | "noSonosDevices";
+  | "noSonosDevices" 
+  | "favourites"
+  | "LOVE"
+  | "LOVE_SUCCESS"
+  | "STAR" 
+  | "UNSTAR"
+  | "STAR_SUCCESS"
+  | "UNSTAR_SUCCESS";
 
 const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
   "en-US": {
@@ -48,7 +55,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     playlists: "Playlists",
     genres: "Genres",
     random: "Random",
-    starred: "Starred",
+    topRated: "Top Rated",
     recentlyAdded: "Recently added",
     recentlyPlayed: "Recently played",
     mostPlayed: "Most played",
@@ -73,6 +80,13 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     loginSuccessful: "Login successful!",
     loginFailed: "Login failed!",
     noSonosDevices: "No sonos devices",
+    favourites: "Favourites",
+    STAR: "Star track",
+    UNSTAR: "Un-star track",
+    STAR_SUCCESS: "Track starred successfully",
+    UNSTAR_SUCCESS: "Track un-starred successfully",
+    LOVE: "Love",
+    LOVE_SUCCESS: "Track loved"
   },
   "nl-NL": {
     AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
@@ -82,7 +96,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     playlists: "Afspeellijsten",
     genres: "Genres",
     random: "Willekeurig",
-    starred: "Favorieten",
+    topRated: "Best beoordeeld",
     recentlyAdded: "Onlangs toegevoegd",
     recentlyPlayed: "Onlangs afgespeeld",
     mostPlayed: "Meest afgespeeld",
@@ -107,6 +121,13 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     loginSuccessful: "Inloggen gelukt!",
     loginFailed: "Inloggen mislukt!",
     noSonosDevices: "Geen Sonos-apparaten",
+    favourites: "Favorieten",
+    STAR: "Ster spoor",
+    UNSTAR: "Track zonder ster",
+    STAR_SUCCESS: "Track succesvol gemarkeerd",
+    UNSTAR_SUCCESS: "Succes zonder ster bijhouden",
+    LOVE: "Liefde ",
+    LOVE_SUCCESS: "Volg geliefd"
   },
 };
 

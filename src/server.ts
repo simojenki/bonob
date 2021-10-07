@@ -4,6 +4,7 @@ import * as Eta from "eta";
 import path from "path";
 import sharp from "sharp";
 import { v4 as uuid } from "uuid";
+import dayjs from "dayjs";
 
 import { PassThrough, Transform, TransformCallback } from "stream";
 
@@ -17,6 +18,8 @@ import {
   CREATE_REGISTRATION_ROUTE,
   REMOVE_REGISTRATION_ROUTE,
   sonosifyMimeType,
+  ratingFromInt,
+  ratingAsInt,
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
@@ -106,6 +109,8 @@ function server(
   const linkCodes = serverOpts.linkCodes();
   const accessTokens = serverOpts.accessTokens();
   const clock = serverOpts.clock;
+
+  const startUpTime = dayjs();
 
   const app = express();
   const i8n = makeI8N(service.name);
@@ -253,6 +258,28 @@ function server(
   });
 
   app.get(PRESENTATION_MAP_ROUTE, (_, res) => {
+    const LastModified = startUpTime.format("HH:mm:ss D MMM YYYY");
+
+    const nowPlayingRatingsMatch = (value: number) => {
+      const rating = ratingFromInt(value);
+      const nextLove = { ...rating, love: !rating.love };
+      const nextStar = { ...rating, stars: (rating.stars === 5 ? 0 : rating.stars + 1) }
+
+      const loveRatingIcon = bonobUrl.append({pathname: rating.love ? '/love-selected.svg' : '/love-unselected.svg'}).href();
+      const starsRatingIcon = bonobUrl.append({pathname: `/star${rating.stars}.svg`}).href();
+
+      return `<Match propname="rating" value="${value}">
+        <Ratings>
+          <Rating Id="${ratingAsInt(nextLove)}" AutoSkip="NEVER" OnSuccessStringId="LOVE_SUCCESS" StringId="LOVE">
+            <Icon Controller="universal" LastModified="${LastModified}" Uri="${loveRatingIcon}" />
+          </Rating>
+          <Rating Id="${-ratingAsInt(nextStar)}" AutoSkip="NEVER" OnSuccessStringId="STAR_SUCCESS" StringId="STAR">
+            <Icon Controller="universal" LastModified="${LastModified}" Uri="${starsRatingIcon}" />
+          </Rating>
+        </Ratings>
+      </Match>`
+    }
+    
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
     <Presentation>
       <PresentationMap type="ArtWorkSizeMap">
@@ -284,6 +311,20 @@ function server(
               <Category id="tracks"/>
           </SearchCategories>
         </Match>
+      </PresentationMap>
+      <PresentationMap type="NowPlayingRatings" trackEnabled="true" programEnabled="false">
+        ${nowPlayingRatingsMatch(100)}
+        ${nowPlayingRatingsMatch(101)}
+        ${nowPlayingRatingsMatch(110)}
+        ${nowPlayingRatingsMatch(111)}
+        ${nowPlayingRatingsMatch(120)}
+        ${nowPlayingRatingsMatch(121)}
+        ${nowPlayingRatingsMatch(130)}
+        ${nowPlayingRatingsMatch(131)}
+        ${nowPlayingRatingsMatch(140)}
+        ${nowPlayingRatingsMatch(141)}
+        ${nowPlayingRatingsMatch(150)}
+        ${nowPlayingRatingsMatch(151)}
       </PresentationMap>
     </Presentation>`);
   });
