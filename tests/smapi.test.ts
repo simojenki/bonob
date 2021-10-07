@@ -978,6 +978,12 @@ describe("api", () => {
                           itemType: "albumList",
                         },
                         {
+                          id: "starredAlbums",
+                          title: "Top Rated",
+                          albumArtURI: iconArtURI(bonobUrl, "star").href(),
+                          itemType: "albumList",
+                        },
+                        {
                           id: "playlists",
                           title: "Playlists",
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
@@ -1062,6 +1068,12 @@ describe("api", () => {
                           id: "favouriteAlbums",
                           title: "Favorieten",
                           albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                          itemType: "albumList",
+                        },
+                        {
+                          id: "starredAlbums",
+                          title: "Best beoordeeld",
+                          albumArtURI: iconArtURI(bonobUrl, "star").href(),
                           itemType: "albumList",
                         },
                         {
@@ -1706,6 +1718,54 @@ describe("api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
+                    type: "favourited",
+                    _index: paging.index,
+                    _count: paging.count,
+                  });
+                });
+              });
+
+              describe("asking for starred albums", () => {
+                const albums = [rock2, rock1, pop2];
+
+                beforeEach(() => {
+                  musicLibrary.albums.mockResolvedValue({
+                    results: albums,
+                    total: allAlbums.length,
+                  });
+                });
+
+                it("should return some", async () => {
+                  const paging = {
+                    index: 0,
+                    count: 100,
+                  };
+
+                  const result = await ws.getMetadataAsync({
+                    id: "starredAlbums",
+                    ...paging,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: albums.map((it) => ({
+                        itemType: "album",
+                        id: `album:${it.id}`,
+                        title: it.name,
+                        albumArtURI: defaultAlbumArtURI(
+                          bonobUrlWithAccessToken,
+                          it
+                        ).href(),
+                        canPlay: true,
+                        artistId: `artist:${it.artistId}`,
+                        artist: it.artistName,
+                      })),
+                      index: 0,
+                      total: 6,
+                    })
+                  );
+
+                  expect(musicLibrary.albums).toHaveBeenCalledWith({
                     type: "starred",
                     _index: paging.index,
                     _count: paging.count,
@@ -1754,7 +1814,7 @@ describe("api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
-                    type: "recent",
+                    type: "recentlyPlayed",
                     _index: paging.index,
                     _count: paging.count,
                   });
@@ -1802,7 +1862,7 @@ describe("api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
-                    type: "frequent",
+                    type: "mostPlayed",
                     _index: paging.index,
                     _count: paging.count,
                   });
@@ -1850,7 +1910,7 @@ describe("api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
-                    type: "newest",
+                    type: "recentlyAdded",
                     _index: paging.index,
                     _count: paging.count,
                   });

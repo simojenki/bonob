@@ -107,7 +107,7 @@ export const asResult = <T>([results, total]: [T[], number]) => ({
 
 export type ArtistQuery = Paging;
 
-export type AlbumQueryType = 'alphabeticalByArtist' | 'alphabeticalByName' | 'byGenre' | 'random' | 'recent' | 'frequent' | 'newest' | 'starred';
+export type AlbumQueryType = 'alphabeticalByArtist' | 'alphabeticalByName' | 'byGenre' | 'random' | 'recentlyPlayed' | 'mostPlayed' | 'recentlyAdded' | 'favourited' | 'starred';
 
 export type AlbumQuery = Paging & {
   type: AlbumQueryType;
