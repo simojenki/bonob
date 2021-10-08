@@ -9,21 +9,19 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 ## Features
 
 - Integrates with Subsonic API clones (Navidrome, Gonic)
-- Browse by Artist, Albums, Genres, Playlist, Random Albums, Starred Albums, Recently Added Albums, Recently Played Albums, Most Played Albums
-- Artist Art
-- Album Art
+- Browse by Artist, Albums, Random, Favourites, Top Rated, Playlist, Genres, Recently Added Albums, Recently Played Albums, Most Played Albums
+- Artist & Album Art
 - View Related Artists via Artist -> '...' -> Menu -> Related Arists
 - Now playing & Track Scrobbling
+- Search by Album, Artist, Track
+- Playlist editing through sonos app.
+- Marking of songs as favourites and with ratings through the sonos app.
+- Localization (only en-US & nl-NL supported currently, require translations for other languages).  [Sonos localization and supported languages](https://developer.sonos.com/build/content-service-add-features/strings-and-localization/)
 - Auto discovery of sonos devices
 - Discovery of sonos devices using seed IP address
-- Auto register bonob service with sonos system
+- Auto registration with sonos on start
 - Multiple registrations within a single household.
 - Transcoding support for flacs using a specific player for the flac mimeType bonob/sonos
-- Ability to search by Album, Artist, Track
-- Ability to play a playlist
-- Ability to add/remove playlists
-- Ability to add/remove tracks from a playlist
-- Localization (only en-US & nl-NL supported currently, require translations for other languages).  [Sonos localization and supported languages](https://developer.sonos.com/build/content-service-add-features/strings-and-localization/)
 
 ## Running
 
@@ -159,7 +157,7 @@ BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must
 ## Initialising service within sonos app
 
 - Configure bonob, make sure to set BNB_URL. **bonob must be accessible from your sonos devices on BNB_URL, otherwise it will fail to initialise within the sonos app, so make sure you test this in your browser by putting BNB_URL in the address bar and seeing the bonob information page**
-- Start bonob, 
+- Start bonob
 - Open sonos app on your device
 - Settings -> Services & Voice -> + Add a Service
 - Select your Music Service, default name is 'bonob', can be overriden with configuration BNB_SONOS_SERVICE_NAME
@@ -179,7 +177,7 @@ BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must
 
 tldr; Transcoding to mp3/m4a is not supported as sonos devices will not play the track.  Transcoding to flac works however, use BNB_SUBSONIC_CUSTOM_CLIENTS=audio/flac if you want to transcode flac->flac ie. to downsample HD flacs (see below).
 
-Sonos devices are very particular about how audio streams are presented to them, see [streaming basics](https://developer.sonos.com/build/content-service-add-features/streaming-basics/).  When using transcoding both Navidrome and Gonic report no 'content-length', nor do they support range queries, this will cause the sonos device to fail to play the track. 
+Sonos devices are very particular about how audio streams are presented to them, see [streaming basics](https://developer.sonos.com/build/content-service-add-features/streaming-basics/).  When using transcoding both Navidrome and Gonic report no 'content-length', nor do they support range queries, this will cause the sonos device to fail to play the track.
 
 ## Cusomisation
 
@@ -219,6 +217,3 @@ ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=480
 
 - Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and @jicho
 
-## TODO
-
-- Artist Radio
