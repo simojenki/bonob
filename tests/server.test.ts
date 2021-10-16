@@ -707,6 +707,7 @@ describe("server", () => {
         const musicLibrary = {
           stream: jest.fn(),
           scrobble: jest.fn(),
+          nowPlaying: jest.fn(),
         };
         let now = dayjs();
         const accessTokens = new ExpiringAccessTokens({ now: () => now });
@@ -870,6 +871,7 @@ describe("server", () => {
 
               expect(res.status).toEqual(404);
 
+              expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
               expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
             });
           });
@@ -890,6 +892,7 @@ describe("server", () => {
 
                 musicService.login.mockResolvedValue(musicLibrary);
                 musicLibrary.stream.mockResolvedValue(stream);
+                musicLibrary.nowPlaying.mockResolvedValue(true);
 
                 const res = await request(server)
                   .get(
@@ -909,6 +912,7 @@ describe("server", () => {
                 expect(Object.keys(res.headers)).not.toContain("content-range");
 
                 expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
               });
             });
@@ -928,6 +932,7 @@ describe("server", () => {
 
                 musicService.login.mockResolvedValue(musicLibrary);
                 musicLibrary.stream.mockResolvedValue(stream);
+                musicLibrary.nowPlaying.mockResolvedValue(true);
 
                 const res = await request(server)
                   .get(
@@ -946,6 +951,7 @@ describe("server", () => {
                 expect(Object.keys(res.headers)).not.toContain("content-range");
 
                 expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
               });
             });
@@ -964,6 +970,7 @@ describe("server", () => {
 
                 musicService.login.mockResolvedValue(musicLibrary);
                 musicLibrary.stream.mockResolvedValue(stream);
+                musicLibrary.nowPlaying.mockResolvedValue(true);
 
                 const res = await request(server)
                   .get(
@@ -982,6 +989,7 @@ describe("server", () => {
                 expect(res.header["content-range"]).toBeUndefined();
 
                 expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
               });
             });
@@ -1001,6 +1009,7 @@ describe("server", () => {
 
                 musicService.login.mockResolvedValue(musicLibrary);
                 musicLibrary.stream.mockResolvedValue(stream);
+                musicLibrary.nowPlaying.mockResolvedValue(true);
 
                 const res = await request(server)
                   .get(
@@ -1021,6 +1030,7 @@ describe("server", () => {
                 );
 
                 expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
               });
             });
@@ -1041,6 +1051,7 @@ describe("server", () => {
 
                 musicService.login.mockResolvedValue(musicLibrary);
                 musicLibrary.stream.mockResolvedValue(stream);
+                musicLibrary.nowPlaying.mockResolvedValue(true);
 
                 const requestedRange = "40-";
 
@@ -1062,6 +1073,7 @@ describe("server", () => {
                 expect(res.header["content-range"]).toBeUndefined();
 
                 expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.stream).toHaveBeenCalledWith({
                   trackId,
                   range: requestedRange,
@@ -1084,6 +1096,7 @@ describe("server", () => {
 
                 musicService.login.mockResolvedValue(musicLibrary);
                 musicLibrary.stream.mockResolvedValue(stream);
+                musicLibrary.nowPlaying.mockResolvedValue(true);
 
                 const res = await request(server)
                   .get(
@@ -1105,6 +1118,7 @@ describe("server", () => {
                 );
 
                 expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.stream).toHaveBeenCalledWith({
                   trackId,
                   range: "4000-5000",

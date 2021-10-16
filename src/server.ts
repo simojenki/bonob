@@ -356,7 +356,7 @@ function server(
             })
             .then((stream) => ({ musicLibrary: it, stream }))
         )
-        .then(({ stream }) => {
+        .then(({ musicLibrary, stream }) => {
           logger.info(
             `${trace} bnb<- stream response from music service for ${id}, status=${
               stream.status
@@ -375,25 +375,32 @@ function server(
             filter,
             headers,
             sendStream,
+            nowPlaying,
           }: {
             status: number;
             filter: Transform;
             headers: Record<string, string>;
             sendStream: boolean;
+            nowPlaying: boolean;
           }) => {
             logger.info(
               `${trace} bnb-> ${
                 req.path
               }, status=${status}, headers=${JSON.stringify(headers)}`
             );
-            res.status(status);
-            Object.entries(headers)
-              .filter(([_, v]) => v !== undefined)
-              .forEach(([header, value]) => {
-                res.setHeader(header, value!);
-              });
-            if (sendStream) stream.stream.pipe(filter).pipe(res);
-            else res.send();
+            (nowPlaying
+              ? musicLibrary.nowPlaying(id)
+              : Promise.resolve(true)
+            ).then((_) => {
+              res.status(status);
+              Object.entries(headers)
+                .filter(([_, v]) => v !== undefined)
+                .forEach(([header, value]) => {
+                  res.setHeader(header, value!);
+                });
+              if (sendStream) stream.stream.pipe(filter).pipe(res);
+              else res.send();
+            });
           };
 
           if (stream.status == 200) {
@@ -408,6 +415,7 @@ function server(
                 "accept-ranges": stream.headers["accept-ranges"],
               },
               sendStream: req.method == "GET",
+              nowPlaying: req.method == "GET",
             });
           } else if (stream.status == 206) {
             respondWith({
@@ -422,6 +430,7 @@ function server(
                 "accept-ranges": stream.headers["accept-ranges"],
               },
               sendStream: req.method == "GET",
+              nowPlaying: req.method == "GET",
             });
           } else {
             respondWith({
@@ -429,6 +438,7 @@ function server(
               filter: new PassThrough(),
               headers: {},
               sendStream: req.method == "GET",
+              nowPlaying: false,
             });
           }
         });

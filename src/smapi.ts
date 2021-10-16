@@ -914,26 +914,16 @@ function bindSmapiSoapServiceToExpress(
               .then(({ musicLibrary, type, typeId }) => {
                 switch (type) {
                   case "track":
-                    return musicLibrary
-                      .track(typeId)
-                      .then(({ duration }) => {
-                        if (
-                          (duration < 30 && +seconds >= 10) ||
-                          (duration >= 30 && +seconds >= 30)
-                        ) {
-                          return musicLibrary.scrobble(typeId);
-                        } else {
-                          return Promise.resolve(true);
-                        }
-                      })
-                      .then(() => {
-                        if (+seconds > 0) {
-                          return musicLibrary.nowPlaying(typeId);
-                        } else {
-                          return Promise.resolve(true);
-                        }
-                      });
-                    break;
+                    return musicLibrary.track(typeId).then(({ duration }) => {
+                      if (
+                        (duration < 30 && +seconds >= 10) ||
+                        (duration >= 30 && +seconds >= 30)
+                      ) {
+                        return musicLibrary.scrobble(typeId);
+                      } else {
+                        return Promise.resolve(true);
+                      }
+                    });
                   default:
                     logger.info("Unsupported scrobble", { id, seconds });
                     return Promise.resolve(true);
