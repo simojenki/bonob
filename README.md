@@ -213,6 +213,13 @@ ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=480
 
 ![Chartreuse & Fuchsia](https://github.com/simojenki/bonob/blob/master/docs/images/chartreuseFuchsia.png?raw=true)
 
+```bash
+-e BNB_ICON_FOREGROUND_COLOR=lime \
+-e BNB_ICON_BACKGROUND_COLOR=aliceblue
+```
+
+![Lime & Alice Blue](https://github.com/simojenki/bonob/blob/master/docs/images/limeAliceBlue.png?raw=true)
+
 ## Credits
 
 - Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and @jicho
