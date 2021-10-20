@@ -51,4 +51,6 @@ RUN apk add --no-cache --update vips
 USER nobody 
 WORKDIR /bonob/src
 
+HEALTHCHECK CMD wget -O- http://localhost:${BNB_PORT}/about || exit 1   
+
 CMD ["node", "app.js"]
