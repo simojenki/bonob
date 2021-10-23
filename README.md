@@ -25,7 +25,7 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 
 ## Running
 
-bonob is ditributed via docker and can be run in a number of ways
+bonob is distributed via docker and can be run in a number of ways
 
 ### Full sonos device auto-discovery and auto-registration using docker --network host
 
@@ -175,11 +175,9 @@ BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must
 
 ## A note on transcoding
 
-tldr; Transcoding to mp3/m4a is not supported as sonos devices will not play the track.  Transcoding to flac works however, use BNB_SUBSONIC_CUSTOM_CLIENTS=audio/flac if you want to transcode flac->flac ie. to downsample HD flacs (see below).
+tldr; Transcoding to mp3/m4a is not supported as sonos devices will not play the track.  However transcoding to flac does work, use BNB_SUBSONIC_CUSTOM_CLIENTS=audio/flac if you want to transcode flac->flac ie. to downsample HD flacs (see below).
 
 Sonos devices are very particular about how audio streams are presented to them, see [streaming basics](https://developer.sonos.com/build/content-service-add-features/streaming-basics/).  When using transcoding both Navidrome and Gonic report no 'content-length', nor do they support range queries, this will cause the sonos device to fail to play the track.
-
-## Cusomisation
 
 ### Audio File type specific transcoding options within Subsonic
 
@@ -223,4 +221,3 @@ ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=480
 ## Credits
 
 - Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and @jicho
-
