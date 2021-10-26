@@ -652,8 +652,6 @@ function bindSmapiSoapServiceToExpress(
                           itemType: "albumList",
                         },
                       ],
-                      index: 0,
-                      total: 9,
                     });
                   case "search":
                     return getMetadataResult({
@@ -674,8 +672,6 @@ function bindSmapiSoapServiceToExpress(
                           title: lang("tracks"),
                         },
                       ],
-                      index: 0,
-                      total: 3,
                     });
                   case "artists":
                     return musicLibrary.artists(paging).then((result) => {
