@@ -281,6 +281,7 @@ function server(
     
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
     <Presentation>
+      <BrowseOptions PageSize="30" />
       <PresentationMap type="ArtWorkSizeMap">
         <Match>
           <imageSizeMap>
