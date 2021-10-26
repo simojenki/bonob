@@ -950,86 +950,87 @@ describe("api", () => {
                     index: 0,
                     count: 100,
                   });
+                  const mediaCollection = [
+                    {
+                      id: "artists",
+                      title: "Artists",
+                      albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                      itemType: "container",
+                    },
+                    {
+                      id: "albums",
+                      title: "Albums",
+                      albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "randomAlbums",
+                      title: "Random",
+                      albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "favouriteAlbums",
+                      title: "Favourites",
+                      albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "starredAlbums",
+                      title: "Top Rated",
+                      albumArtURI: iconArtURI(bonobUrl, "star").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "playlists",
+                      title: "Playlists",
+                      albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                      itemType: "playlist",
+                      attributes: {
+                        readOnly: "false",
+                        renameable: "false",
+                        userContent: "true",
+                      },
+                    },
+                    {
+                      id: "genres",
+                      title: "Genres",
+                      albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                      itemType: "container",
+                    },
+                    {
+                      id: "recentlyAdded",
+                      title: "Recently added",
+                      albumArtURI: iconArtURI(
+                        bonobUrl,
+                        "recentlyAdded"
+                      ).href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "recentlyPlayed",
+                      title: "Recently played",
+                      albumArtURI: iconArtURI(
+                        bonobUrl,
+                        "recentlyPlayed"
+                      ).href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "mostPlayed",
+                      title: "Most played",
+                      albumArtURI: iconArtURI(
+                        bonobUrl,
+                        "mostPlayed"
+                      ).href(),
+                      itemType: "albumList",
+                    },
+                  ];
                   expect(root[0]).toEqual(
                     getMetadataResult({
-                      mediaCollection: [
-                        {
-                          id: "artists",
-                          title: "Artists",
-                          albumArtURI: iconArtURI(bonobUrl, "artists").href(),
-                          itemType: "container",
-                        },
-                        {
-                          id: "albums",
-                          title: "Albums",
-                          albumArtURI: iconArtURI(bonobUrl, "albums").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "randomAlbums",
-                          title: "Random",
-                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "favouriteAlbums",
-                          title: "Favourites",
-                          albumArtURI: iconArtURI(bonobUrl, "heart").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "starredAlbums",
-                          title: "Top Rated",
-                          albumArtURI: iconArtURI(bonobUrl, "star").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "playlists",
-                          title: "Playlists",
-                          albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "playlist",
-                          attributes: {
-                            readOnly: "false",
-                            renameable: "false",
-                            userContent: "true",
-                          },
-                        },
-                        {
-                          id: "genres",
-                          title: "Genres",
-                          albumArtURI: iconArtURI(bonobUrl, "genres").href(),
-                          itemType: "container",
-                        },
-                        {
-                          id: "recentlyAdded",
-                          title: "Recently added",
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "recentlyAdded"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "recentlyPlayed",
-                          title: "Recently played",
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "recentlyPlayed"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "mostPlayed",
-                          title: "Most played",
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "mostPlayed"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                      ],
+                      mediaCollection,
                       index: 0,
-                      total: 9,
+                      total: mediaCollection.length,
                     })
                   );
                 });
@@ -1043,86 +1044,87 @@ describe("api", () => {
                     index: 0,
                     count: 100,
                   });
+                  const mediaCollection = [
+                    {
+                      id: "artists",
+                      title: "Artiesten",
+                      albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                      itemType: "container",
+                    },
+                    {
+                      id: "albums",
+                      title: "Albums",
+                      albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "randomAlbums",
+                      title: "Willekeurig",
+                      albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "favouriteAlbums",
+                      title: "Favorieten",
+                      albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "starredAlbums",
+                      title: "Best beoordeeld",
+                      albumArtURI: iconArtURI(bonobUrl, "star").href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "playlists",
+                      title: "Afspeellijsten",
+                      albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                      itemType: "playlist",
+                      attributes: {
+                        readOnly: "false",
+                        renameable: "false",
+                        userContent: "true",
+                      },
+                    },
+                    {
+                      id: "genres",
+                      title: "Genres",
+                      albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                      itemType: "container",
+                    },
+                    {
+                      id: "recentlyAdded",
+                      title: "Onlangs toegevoegd",
+                      albumArtURI: iconArtURI(
+                        bonobUrl,
+                        "recentlyAdded"
+                      ).href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "recentlyPlayed",
+                      title: "Onlangs afgespeeld",
+                      albumArtURI: iconArtURI(
+                        bonobUrl,
+                        "recentlyPlayed"
+                      ).href(),
+                      itemType: "albumList",
+                    },
+                    {
+                      id: "mostPlayed",
+                      title: "Meest afgespeeld",
+                      albumArtURI: iconArtURI(
+                        bonobUrl,
+                        "mostPlayed"
+                      ).href(),
+                      itemType: "albumList",
+                    },
+                  ];
                   expect(root[0]).toEqual(
                     getMetadataResult({
-                      mediaCollection: [
-                        {
-                          id: "artists",
-                          title: "Artiesten",
-                          albumArtURI: iconArtURI(bonobUrl, "artists").href(),
-                          itemType: "container",
-                        },
-                        {
-                          id: "albums",
-                          title: "Albums",
-                          albumArtURI: iconArtURI(bonobUrl, "albums").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "randomAlbums",
-                          title: "Willekeurig",
-                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "favouriteAlbums",
-                          title: "Favorieten",
-                          albumArtURI: iconArtURI(bonobUrl, "heart").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "starredAlbums",
-                          title: "Best beoordeeld",
-                          albumArtURI: iconArtURI(bonobUrl, "star").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "playlists",
-                          title: "Afspeellijsten",
-                          albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "playlist",
-                          attributes: {
-                            readOnly: "false",
-                            renameable: "false",
-                            userContent: "true",
-                          },
-                        },
-                        {
-                          id: "genres",
-                          title: "Genres",
-                          albumArtURI: iconArtURI(bonobUrl, "genres").href(),
-                          itemType: "container",
-                        },
-                        {
-                          id: "recentlyAdded",
-                          title: "Onlangs toegevoegd",
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "recentlyAdded"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "recentlyPlayed",
-                          title: "Onlangs afgespeeld",
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "recentlyPlayed"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "mostPlayed",
-                          title: "Meest afgespeeld",
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "mostPlayed"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                      ],
+                      mediaCollection,
                       index: 0,
-                      total: 9,
+                      total: mediaCollection.length,
                     })
                   );
                 });
