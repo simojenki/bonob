@@ -56,6 +56,8 @@ import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
 import { jwtSigner } from "../src/encryption";
+import { formatForURL } from "../src/burn";
+import { range } from "underscore";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
@@ -359,7 +361,7 @@ describe("track", () => {
         genre: { id: "genre101", name: "some genre" },
       }),
       artist: anArtist({ name: "great artist", id: uuid() }),
-      coverArt: "coverArt:887766",
+      coverArt: {system: "subsonic", resource: "887766"},
       rating: {
         love: true,
         stars: 5
@@ -377,7 +379,7 @@ describe("track", () => {
         albumId: `album:${someTrack.album.id}`,
         albumArtist: someTrack.artist.name,
         albumArtistId: `artist:${someTrack.artist.id}`,
-        albumArtURI: `http://localhost:4567/foo/art/${someTrack.coverArt}/size/180?access-token=1234`,
+        albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(formatForURL(someTrack.coverArt!))}/size/180?access-token=1234`,
         artist: someTrack.artist.name,
         artistId: `artist:${someTrack.artist.id}`,
         duration: someTrack.duration,
@@ -431,6 +433,11 @@ describe("sonosifyMimeType", () => {
 });
 
 describe("playlistAlbumArtURL", () => {
+  const coverArt1 = { system: "subsonic", resource: "1" };
+  const coverArt2 = { system: "subsonic", resource: "2" };
+  const coverArt3 = { system: "subsonic", resource: "3" };
+  const coverArt4 = { system: "subsonic", resource: "4" };
+
   describe("when the playlist has no coverArt ids", () => {
     it("should return question mark icon", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
@@ -447,20 +454,41 @@ describe("playlistAlbumArtURL", () => {
     });
   });
 
-  describe("when the playlist has 2 distinct coverArt ids", () => {
-    it("should return them on the url to the image", () => {
+  describe("when the playlist has external ids", () => {
+    it("should format the url with encrypted urn", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const externalArt1 = { system: "external", resource: "http://example.com/image1.jpg" };
+      const externalArt2 = { system: "external", resource: "http://example.com/image2.jpg" };
+
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: "1" }),
-          aTrack({ coverArt: "2" }),
-          aTrack({ coverArt: "1" }),
-          aTrack({ coverArt: "2" }),
+          aTrack({ coverArt: externalArt1 }),
+          aTrack({ coverArt: externalArt2 }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/1&2/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(externalArt1))}&${encodeURIComponent(formatForURL(externalArt2))}/size/180?search=yes`
+      );
+    });
+  });
+
+  describe("when the playlist has 2 distinct coverArt ids", () => {
+    it("should return them on the url to the image", () => {
+      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const coverArt1 = { system: "subsonic", resource: "1" };
+      const coverArt2 = { system: "subsonic", resource: "2" };
+      const playlist = aPlaylist({
+        entries: [
+          aTrack({ coverArt: coverArt1 }),
+          aTrack({ coverArt: coverArt2 }),
+          aTrack({ coverArt: coverArt1 }),
+          aTrack({ coverArt: coverArt2 }),
+        ],
+      });
+
+      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
       );
     });
   });
@@ -470,16 +498,16 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: "1" }),
-          aTrack({ coverArt: "2" }),
-          aTrack({ coverArt: "2" }),
-          aTrack({ coverArt: "3" }),
-          aTrack({ coverArt: "4" }),
+          aTrack({ coverArt: coverArt1 }),
+          aTrack({ coverArt: coverArt2 }),
+          aTrack({ coverArt: coverArt2 }),
+          aTrack({ coverArt: coverArt3 }),
+          aTrack({ coverArt: coverArt4 }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/1&2&3&4/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(formatForURL(coverArt3))}&${encodeURIComponent(formatForURL(coverArt4))}/size/180?search=yes`
       );
     });
   });
@@ -489,24 +517,23 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: "1" }),
-          aTrack({ coverArt: "2" }),
-          aTrack({ coverArt: "2" }),
-          aTrack({ coverArt: "2" }),
-          aTrack({ coverArt: "3" }),
-          aTrack({ coverArt: "4" }),
-          aTrack({ coverArt: "5" }),
-          aTrack({ coverArt: "6" }),
-          aTrack({ coverArt: "7" }),
-          aTrack({ coverArt: "8" }),
-          aTrack({ coverArt: "9" }),
-          aTrack({ coverArt: "10" }),
-          aTrack({ coverArt: "11" }),
+          aTrack({ coverArt: { system: "subsonic", resource: "1" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "2" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "3" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "4" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "5" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "6" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "7" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "8" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "9" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "10" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "11" } }),
         ],
       });
 
+      const burns = range(1, 10).map(i => encodeURIComponent(formatForURL({ system: "subsonic", resource: `${i}` }))).join("&")
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/1&2&3&4&5&6&7&8&9/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${burns}/size/180?search=yes`
       );
     });
   });
@@ -518,15 +545,32 @@ describe("defaultAlbumArtURI", () => {
   );
 
   describe("when there is an album coverArt", () => {
-    it("should use it in the image url", () => {
-      expect(
-        defaultAlbumArtURI(
-          bonobUrl,
-          anAlbum({ coverArt: "coverArt:123" })
-        ).href()
-      ).toEqual(
-        "http://bonob.example.com:8080/context/art/coverArt:123/size/180?search=yes"
-      );
+    describe("from subsonic", () => {
+      it("should use it", () => {
+        const coverArt = { system: "subsonic", resource: "12345" }
+        expect(
+          defaultAlbumArtURI(
+            bonobUrl,
+            anAlbum({ coverArt })
+          ).href()
+        ).toEqual(
+          `http://bonob.example.com:8080/context/art/${encodeURIComponent(formatForURL(coverArt))}/size/180?search=yes`
+        );
+      });
+    });
+
+    describe("that is external", () => {
+      it("should use encrypt it", () => {
+        const coverArt = { system: "external", resource: "http://example.com/someimage.jpg" }
+        expect(
+          defaultAlbumArtURI(
+            bonobUrl,
+            anAlbum({ coverArt })
+          ).href()
+        ).toEqual(
+          `http://bonob.example.com:8080/context/art/${encodeURIComponent(formatForURL(coverArt))}/size/180?search=yes`
+        );
+      });
     });
   });
 
@@ -542,13 +586,39 @@ describe("defaultAlbumArtURI", () => {
 });
 
 describe("defaultArtistArtURI", () => {
-  it("should create the correct URI", () => {
-    const bonobUrl = url("http://localhost:1234/something?s=123");
-    const artist = anArtist();
+  describe("when the artist has no image", () => {
+    it("should return an icon", () => {
+      const bonobUrl = url("http://localhost:1234/something?s=123");
+      const artist = anArtist({ image: undefined });
+  
+      expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
+        `http://localhost:1234/something/icon/vinyl/size/legacy?s=123`
+      );
+    });
+  });
 
-    expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-      `http://localhost:1234/something/art/artist:${artist.id}/size/180?s=123`
-    );
+  describe("when the resource is subsonic", () => {
+    it("should use the resource", () => {
+      const bonobUrl = url("http://localhost:1234/something?s=123");
+      const image = { system:"subsonic", resource: "art:1234"};
+      const artist = anArtist({ image });
+  
+      expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
+        `http://localhost:1234/something/art/${encodeURIComponent(formatForURL(image))}/size/180?s=123`
+      );
+    });
+  });
+
+  describe("when the resource is external", () => {
+    it("should encrypt the resource", () => {
+      const bonobUrl = url("http://localhost:1234/something?s=123");
+      const image = { system:"external", resource: "http://example.com/something.jpg"};
+      const artist = anArtist({ image });
+  
+      expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
+        `http://localhost:1234/something/art/${encodeURIComponent(formatForURL(image))}/size/180?s=123`
+      );
+    });
   });
 });
 

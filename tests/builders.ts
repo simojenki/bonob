@@ -1,5 +1,6 @@
 import { SonosDevice } from "@svrooij/sonos/lib";
 import { v4 as uuid } from "uuid";
+import randomstring from "randomstring";
 
 import { Credentials } from "../src/smapi";
 import { Service, Device } from "../src/sonos";
@@ -11,9 +12,11 @@ import {
   artistToArtistSummary,
   PlaylistSummary,
   Playlist,
+  SimilarArtist,
 } from "../src/music_service";
-import randomString from "../src/random_string";
+
 import { b64Encode } from "../src/b64";
+import { artistImageURN } from "../src/subsonic";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
@@ -42,7 +45,7 @@ export function aPlaylistSummary(
 ): PlaylistSummary {
   return {
     id: `playlist-${uuid()}`,
-    name: `playlistname-${randomString()}`,
+    name: `playlistname-${randomstring.generate()}`,
     ...fields,
   };
 }
@@ -50,7 +53,7 @@ export function aPlaylistSummary(
 export function aPlaylist(fields: Partial<Playlist> = {}): Playlist {
   return {
     id: `playlist-${uuid()}`,
-    name: `playlist-${randomString()}`,
+    name: `playlist-${randomstring.generate()}`,
     entries: [aTrack(), aTrack()],
     ...fields,
   };
@@ -97,21 +100,34 @@ export function someCredentials(token: string): Credentials {
   };
 }
 
+export function aSimilarArtist(
+  fields: Partial<SimilarArtist> = {}
+): SimilarArtist {
+  const id = fields.id || uuid();
+  return {
+    id,
+    name: `Similar Artist ${id}`,
+    image: artistImageURN({ artistId: id }),
+    inLibrary: true,
+    ...fields,
+  };
+}
+
 export function anArtist(fields: Partial<Artist> = {}): Artist {
-  const id = uuid();
+  const id = fields.id || uuid();
   const artist = {
     id,
     name: `Artist ${id}`,
     albums: [anAlbum(), anAlbum(), anAlbum()],
-    image: {
-      small: `/artist/art/${id}/small`,
-      medium: `/artist/art/${id}/small`,
-      large: `/artist/art/${id}/large`,
-    },
+    image: { system: "subsonic", resource: `art:${id}` },
     similarArtists: [
-      { id: uuid(), name: "Similar artist1", inLibrary: true },
-      { id: uuid(), name: "Similar artist2", inLibrary: true },
-      { id: "-1", name: "Artist not in library", inLibrary: false },
+      aSimilarArtist({ id: uuid(), name: "Similar artist1", inLibrary: true }),
+      aSimilarArtist({ id: uuid(), name: "Similar artist2", inLibrary: true }),
+      aSimilarArtist({
+        id: "-1",
+        name: "Artist not in library",
+        inLibrary: false,
+      }),
     ],
     ...fields,
   };
@@ -163,11 +179,11 @@ export function aTrack(fields: Partial<Track> = {}): Track {
     album: albumToAlbumSummary(
       anAlbum({ artistId: artist.id, artistName: artist.name, genre })
     ),
-    coverArt: `coverArt:${uuid()}`,
+    coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     rating,
     ...fields,
   };
-};
+}
 
 export function anAlbum(fields: Partial<Album> = {}): Album {
   const id = uuid();
@@ -177,8 +193,8 @@ export function anAlbum(fields: Partial<Album> = {}): Album {
     genre: randomGenre(),
     year: `19${randomInt(99)}`,
     artistId: `Artist ${uuid()}`,
-    artistName: `Artist ${randomString()}`,
-    coverArt: `coverArt:${uuid()}`,
+    artistName: `Artist ${randomstring.generate()}`,
+    coverArt: { system: "subsonic", resource: `art:${uuid()}` },
     ...fields,
   };
 }
@@ -196,7 +212,7 @@ export const BLONDIE: Artist = {
       genre: NEW_WAVE,
       artistId: BLONDIE_ID,
       artistName: BLONDIE_NAME,
-      coverArt: `coverArt:${uuid()}`,
+      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     },
     {
       id: uuid(),
@@ -205,14 +221,10 @@ export const BLONDIE: Artist = {
       genre: POP_ROCK,
       artistId: BLONDIE_ID,
       artistName: BLONDIE_NAME,
-      coverArt: `coverArt:${uuid()}`,
+      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     },
   ],
-  image: {
-    small: undefined,
-    medium: undefined,
-    large: undefined,
-  },
+  image: { system: "external", resource: "http://localhost:1234/images/blondie.jpg" },
   similarArtists: [],
 };
 
@@ -229,7 +241,7 @@ export const BOB_MARLEY: Artist = {
       genre: REGGAE,
       artistId: BOB_MARLEY_ID,
       artistName: BOB_MARLEY_NAME,
-      coverArt: `coverArt:${uuid()}`,
+      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     },
     {
       id: uuid(),
@@ -238,7 +250,7 @@ export const BOB_MARLEY: Artist = {
       genre: REGGAE,
       artistId: BOB_MARLEY_ID,
       artistName: BOB_MARLEY_NAME,
-      coverArt: `coverArt:${uuid()}`,
+      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     },
     {
       id: uuid(),
@@ -247,14 +259,10 @@ export const BOB_MARLEY: Artist = {
       genre: SKA,
       artistId: BOB_MARLEY_ID,
       artistName: BOB_MARLEY_NAME,
-      coverArt: `coverArt:${uuid()}`,
+      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     },
   ],
-  image: {
-    small: "http://localhost/BOB_MARLEY/sml",
-    medium: "http://localhost/BOB_MARLEY/med",
-    large: "http://localhost/BOB_MARLEY/lge",
-  },
+  image: { system: "subsonic", resource: BOB_MARLEY_ID },
   similarArtists: [],
 };
 
@@ -265,9 +273,8 @@ export const MADONNA: Artist = {
   name: MADONNA_NAME,
   albums: [],
   image: {
-    small: "http://localhost/MADONNA/sml",
-    medium: undefined,
-    large: "http://localhost/MADONNA/lge",
+    system: "external",
+    resource: "http://localhost:1234/images/madonna.jpg",
   },
   similarArtists: [],
 };
@@ -285,7 +292,7 @@ export const METALLICA: Artist = {
       genre: METAL,
       artistId: METALLICA_ID,
       artistName: METALLICA_NAME,
-      coverArt: `coverArt:${uuid()}`,
+      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     },
     {
       id: uuid(),
@@ -294,18 +301,13 @@ export const METALLICA: Artist = {
       genre: METAL,
       artistId: METALLICA_ID,
       artistName: METALLICA_NAME,
-      coverArt: `coverArt:${uuid()}`,
+      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     },
   ],
-  image: {
-    small: "http://localhost/METALLICA/sml",
-    medium: "http://localhost/METALLICA/med",
-    large: "http://localhost/METALLICA/lge",
-  },
+  image: { system: "subsonic", resource: METALLICA_ID },
   similarArtists: [],
 };
 
 export const ALL_ARTISTS = [BOB_MARLEY, BLONDIE, MADONNA, METALLICA];
 
 export const ALL_ALBUMS = ALL_ARTISTS.flatMap((it) => it.albums || []);
-

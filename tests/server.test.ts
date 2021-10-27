@@ -24,6 +24,7 @@ import url from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
 import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
 import { Clock, SystemClock } from "../src/clock";
+import { formatForURL } from "../src/burn";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -1190,7 +1191,7 @@ describe("server", () => {
 
         describe("when there is no access-token", () => {
           it("should return a 401", async () => {
-            const res = await request(server).get(`/art/coverArt:123/size/180`);
+            const res = await request(server).get(`/art/${encodeURIComponent(formatForURL({ system: "subsonic", resource: "art:whatever" }))}/size/180`);
 
             expect(res.status).toEqual(401);
           });
@@ -1201,7 +1202,7 @@ describe("server", () => {
             now = now.add(1, "day");
 
             const res = await request(server).get(
-              `/art/coverArt:123/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+              `/art/${encodeURIComponent(formatForURL({ system: "subsonic", resource: "art:whatever" }))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
             );
 
             expect(res.status).toEqual(401);
@@ -1209,14 +1210,16 @@ describe("server", () => {
         });
 
         describe("when there is a valid access token", () => {
-          describe("artist art", () => {
+          describe("art", () => {
             ["0", "-1", "foo"].forEach((size) => {
               describe(`invalid size of ${size}`, () => {
                 it(`should return a 400`, async () => {
+                  const coverArtURN = { system: "subsonic", resource: "art:400" };
+
                   musicService.login.mockResolvedValue(musicLibrary);
                   const res = await request(server)
                     .get(
-                      `/art/artist:${albumId}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1228,6 +1231,8 @@ describe("server", () => {
             describe("fetching a single image", () => {
               describe("when the images is available", () => {
                 it("should return the image and a 200", async () => {
+                  const coverArtURN = { system: "subsonic", resource: "art:200" };
+
                   const coverArt = coverArtResponse({});
 
                   musicService.login.mockResolvedValue(musicLibrary);
@@ -1236,7 +1241,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/artist:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1247,7 +1252,7 @@ describe("server", () => {
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
                   expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                    `artist:${albumId}`,
+                    coverArtURN,
                     180
                   );
                 });
@@ -1255,13 +1260,14 @@ describe("server", () => {
 
               describe("when the image is not available", () => {
                 it("should return a 404", async () => {
-                  musicService.login.mockResolvedValue(musicLibrary);
+                  const coverArtURN = { system: "subsonic", resource: "art:404" };
 
+                  musicService.login.mockResolvedValue(musicLibrary);
                   musicLibrary.coverArt.mockResolvedValue(undefined);
 
                   const res = await request(server)
                     .get(
-                      `/art/artist:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1283,16 +1289,16 @@ describe("server", () => {
 
               describe("fetching a collage of 4 when all are available", () => {
                 it("should return the image and a 200", async () => {
-                  const ids = [
-                    "artist:1",
-                    "artist:2",
-                    "coverArt:3",
-                    "coverArt:4",
-                  ];
+                  const urns = [
+                    "art:1",
+                    "art:2",
+                    "art:3",
+                    "art:4",
+                  ].map(resource => ({ system:"subsonic", resource }));
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
-                  ids.forEach((_) => {
+                  urns.forEach((_) => {
                     musicLibrary.coverArt.mockResolvedValueOnce(
                       coverArtResponse({
                         data: png,
@@ -1302,7 +1308,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${ids.join(
+                      `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
                       )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
@@ -1312,8 +1318,8 @@ describe("server", () => {
                   expect(res.header["content-type"]).toEqual("image/png");
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
-                  ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 200);
+                  urns.forEach((it) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(it, 200);
                   });
 
                   const image = await Image.load(res.body);
@@ -1324,7 +1330,7 @@ describe("server", () => {
 
               describe("fetching a collage of 4, however only 1 is available", () => {
                 it("should return the single image", async () => {
-                  const ids = ["artist:1", "artist:2", "artist:3", "artist:4"];
+                  const urns = ["art:1", "art:2", "art:3", "art:4"].map(resource => ({ system:"subsonic", resource }));
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
@@ -1340,7 +1346,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${ids.join(
+                      `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
                       )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
@@ -1355,17 +1361,17 @@ describe("server", () => {
 
               describe("fetching a collage of 4 and all are missing", () => {
                 it("should return a 404", async () => {
-                  const ids = ["artist:1", "artist:2", "artist:3", "artist:4"];
+                  const urns = ["art:1", "art:2", "art:3", "art:4"].map(resource => ({ system:"subsonic", resource }));
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
-                  ids.forEach((_) => {
+                  urns.forEach((_) => {
                     musicLibrary.coverArt.mockResolvedValueOnce(undefined);
                   });
 
                   const res = await request(server)
                     .get(
-                      `/art/${ids.join(
+                      `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
                       )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
@@ -1377,7 +1383,7 @@ describe("server", () => {
 
               describe("fetching a collage of 9 when all are available", () => {
                 it("should return the image and a 200", async () => {
-                  const ids = [
+                  const urns = [
                     "artist:1",
                     "artist:2",
                     "coverArt:3",
@@ -1387,11 +1393,11 @@ describe("server", () => {
                     "artist:7",
                     "artist:8",
                     "artist:9",
-                  ];
+                  ].map(resource => ({ system:"subsonic", resource }));
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
-                  ids.forEach((_) => {
+                  urns.forEach((_) => {
                     musicLibrary.coverArt.mockResolvedValueOnce(
                       coverArtResponse({
                         data: png,
@@ -1401,7 +1407,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${ids.join(
+                      `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
                       )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
@@ -1411,8 +1417,8 @@ describe("server", () => {
                   expect(res.header["content-type"]).toEqual("image/png");
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
-                  ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 180);
+                  urns.forEach((it) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(it, 180);
                   });
 
                   const image = await Image.load(res.body);
@@ -1423,7 +1429,7 @@ describe("server", () => {
 
               describe("fetching a collage of 9 when only 2 are available", () => {
                 it("should still return an image and a 200", async () => {
-                  const ids = [
+                  const urns = [
                     "artist:1",
                     "artist:2",
                     "artist:3",
@@ -1433,7 +1439,7 @@ describe("server", () => {
                     "artist:7",
                     "artist:8",
                     "artist:9",
-                  ];
+                  ].map(resource => ({ system:"subsonic", resource }));
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
@@ -1457,7 +1463,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${ids.join(
+                      `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
                       )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
@@ -1467,8 +1473,8 @@ describe("server", () => {
                   expect(res.header["content-type"]).toEqual("image/png");
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
-                  ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 180);
+                  urns.forEach((urn) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(urn, 180);
                   });
 
                   const image = await Image.load(res.body);
@@ -1479,7 +1485,7 @@ describe("server", () => {
 
               describe("fetching a collage of 11", () => {
                 it("should still return an image and a 200, though will only display 9", async () => {
-                  const ids = [
+                  const urns = [
                     "artist:1",
                     "artist:2",
                     "artist:3",
@@ -1491,11 +1497,11 @@ describe("server", () => {
                     "artist:9",
                     "artist:10",
                     "artist:11",
-                  ];
+                  ].map(resource => ({ system:"subsonic", resource }));
 
                   musicService.login.mockResolvedValue(musicLibrary);
 
-                  ids.forEach((_) => {
+                  urns.forEach((_) => {
                     musicLibrary.coverArt.mockResolvedValueOnce(
                       coverArtResponse({
                         data: png,
@@ -1505,7 +1511,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${ids.join(
+                      `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
                       )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
@@ -1515,8 +1521,8 @@ describe("server", () => {
                   expect(res.header["content-type"]).toEqual("image/png");
 
                   expect(musicService.login).toHaveBeenCalledWith(authToken);
-                  ids.forEach((id) => {
-                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(id, 180);
+                  urns.forEach((it) => {
+                    expect(musicLibrary.coverArt).toHaveBeenCalledWith(it, 180);
                   });
 
                   const image = await Image.load(res.body);
@@ -1527,13 +1533,14 @@ describe("server", () => {
 
               describe("when the image is not available", () => {
                 it("should return a 404", async () => {
-                  musicService.login.mockResolvedValue(musicLibrary);
+                  const coverArtURN = { system:"subsonic", resource:"art:404"};
 
+                  musicService.login.mockResolvedValue(musicLibrary);
                   musicLibrary.coverArt.mockResolvedValue(undefined);
 
                   const res = await request(server)
                     .get(
-                      `/art/coverArt:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
@@ -1551,83 +1558,6 @@ describe("server", () => {
                 const res = await request(server)
                   .get(
                     `/art/artist:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-                expect(res.status).toEqual(500);
-              });
-            });
-          });
-
-          describe("album art", () => {
-            ["0", "-1", "foo"].forEach((size) => {
-              describe(`when the size is ${size}`, () => {
-                it(`should return a 400`, async () => {
-                  musicService.login.mockResolvedValue(musicLibrary);
-                  const res = await request(server)
-                    .get(
-                      `/art/coverArt:${albumId}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
-                    )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-                  expect(res.status).toEqual(400);
-                });
-              });
-            });
-
-            describe("when there is some", () => {
-              it("should return the image and a 200", async () => {
-                const coverArt = {
-                  status: 200,
-                  contentType: "image/jpeg",
-                  data: Buffer.from("some image", "ascii"),
-                };
-
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.coverArt.mockResolvedValue(coverArt);
-
-                const res = await request(server)
-                  .get(
-                    `/art/coverArt:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-                expect(res.status).toEqual(coverArt.status);
-                expect(res.header["content-type"]).toEqual(
-                  coverArt.contentType
-                );
-
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                  `coverArt:${albumId}`,
-                  180
-                );
-              });
-            });
-
-            describe("when there isnt any", () => {
-              it("should return a 404", async () => {
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.coverArt.mockResolvedValue(undefined);
-
-                const res = await request(server)
-                  .get(
-                    `/art/album:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
-
-                expect(res.status).toEqual(404);
-              });
-            });
-
-            describe("when there is an error", () => {
-              it("should return a 500", async () => {
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.coverArt.mockRejectedValue("Boooooom");
-
-                const res = await request(server)
-                  .get(
-                    `/art/album:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
 
