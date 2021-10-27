@@ -158,6 +158,17 @@ describe("service config", () => {
           );
         }
 
+        it("should have a PageSize of specified", async () => {
+          const xml = await presentationMapXml();
+
+          const pageSize = xpath.select(
+            `string(/Presentation/BrowseOptions/@PageSize)`,
+            xml
+          );
+            
+          expect(pageSize).toEqual('30');
+        });
+
         it("should have an ArtWorkSizeMap for all sizes recommended by sonos", async () => {
           const xml = await presentationMapXml();
 
