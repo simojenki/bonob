@@ -34,6 +34,7 @@ import { Icon, ICONS, festivals, features } from "./icon";
 import _, { shuffle } from "underscore";
 import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
+import { jwtTokenSigner, Signer } from "./encryption";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -85,6 +86,7 @@ export type ServerOpts = {
   applyContextPath: boolean;
   logRequests: boolean;
   version: string;
+  tokenSigner: Signer;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -95,6 +97,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   applyContextPath: true,
   logRequests: false,
   version: "v?",
+  tokenSigner: jwtTokenSigner(`bonob-${uuid()}`),
 };
 
 function server(
@@ -585,7 +588,8 @@ function server(
     musicService,
     accessTokens,
     clock,
-    i8n
+    i8n,
+    serverOpts.tokenSigner
   );
 
   if (serverOpts.applyContextPath) {

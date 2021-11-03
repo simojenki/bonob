@@ -24,6 +24,7 @@ import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
 import { uniq } from "underscore";
+import { pSigner, Signer } from "./encryption";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -145,10 +146,12 @@ export function searchResult(
 class SonosSoap {
   linkCodes: LinkCodes;
   bonobUrl: URLBuilder;
+  tokenSigner: Signer
 
-  constructor(bonobUrl: URLBuilder, linkCodes: LinkCodes) {
+  constructor(bonobUrl: URLBuilder, linkCodes: LinkCodes, tokenSigner: Signer) {
     this.bonobUrl = bonobUrl;
     this.linkCodes = linkCodes;
+    this.tokenSigner = tokenSigner
   }
 
   getAppLink(): GetAppLinkResult {
@@ -179,7 +182,7 @@ class SonosSoap {
     if (association) {
       return {
         getDeviceAuthTokenResult: {
-          authToken: association.authToken,
+          authToken: this.tokenSigner.sign(association.authToken),
           privateKey: "",
           userInfo: {
             nickname: association.nickname,
@@ -321,39 +324,6 @@ export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
   albumArtURI: defaultArtistArtURI(bonobUrl, artist).href(),
 });
 
-const auth = async (
-  musicService: MusicService,
-  accessTokens: AccessTokens,
-  credentials?: Credentials
-) => {
-  if (!credentials) {
-    throw {
-      Fault: {
-        faultcode: "Client.LoginUnsupported",
-        faultstring: "Missing credentials...",
-      },
-    };
-  }
-  const authToken = credentials.loginToken.token;
-  const accessToken = accessTokens.mint(authToken);
-
-  return musicService
-    .login(authToken)
-    .then((musicLibrary) => ({
-      musicLibrary,
-      authToken,
-      accessToken,
-    }))
-    .catch((_) => {
-      throw {
-        Fault: {
-          faultcode: "Client.LoginUnauthorized",
-          faultstring: "Credentials not found...",
-        },
-      };
-    });
-};
-
 function splitId<T>(id: string) {
   const [type, typeId] = id.split(":");
   return (t: T) => ({
@@ -375,9 +345,10 @@ function bindSmapiSoapServiceToExpress(
   musicService: MusicService,
   accessTokens: AccessTokens,
   clock: Clock,
-  i8n: I8N
+  i8n: I8N,
+  tokenSigner: Signer,
 ) {
-  const sonosSoap = new SonosSoap(bonobUrl, linkCodes);
+  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, tokenSigner);
 
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
@@ -385,6 +356,32 @@ function bindSmapiSoapServiceToExpress(
         bat: accessToken,
       },
     });
+
+    const auth = async (
+      credentials?: Credentials
+    ) => {
+      if (!credentials) {
+        throw {
+          Fault: {
+            faultcode: "Client.LoginUnsupported",
+            faultstring: "Missing credentials...",
+          },
+        };
+      }
+
+      return pSigner(tokenSigner)
+        .verify(credentials.loginToken.token)
+        .then(authToken => ({ authToken, accessToken: accessTokens.mint(authToken) }))
+        .then((tokens) => musicService.login(tokens.authToken).then(musicLibrary => ({ ...tokens, musicLibrary })))
+        .catch((_) => {
+            throw {
+              Fault: {
+                faultcode: "Client.LoginUnauthorized",
+                faultstring: "Failed to authenticate, try Reauthorising your account in the sonos app",
+              },
+            };
+          });
+    };
 
   const soapyService = listen(
     app,
@@ -408,7 +405,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ accessToken, type, typeId }) => ({
                 getMediaURIResult: bonobUrl
@@ -423,7 +420,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(async ({ musicLibrary, accessToken, typeId }) =>
                 musicLibrary.track(typeId!).then((it) => ({
@@ -435,7 +432,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(async ({ musicLibrary, accessToken }) => {
                 switch (id) {
@@ -480,7 +477,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(async ({ musicLibrary, accessToken, type, typeId }) => {
                 const paging = { _index: index, _count: count };
@@ -552,7 +549,7 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ musicLibrary, accessToken, type, typeId }) => {
                 const paging = { _index: index, _count: count };
@@ -825,7 +822,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(({ musicLibrary }) =>
                 musicLibrary
                   .createPlaylist(title)
@@ -851,7 +848,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
               .then((_) => ({ deleteContainerResult: {} })),
           addToContainer: async (
@@ -859,7 +856,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
@@ -870,7 +867,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then((it) => ({
                 ...it,
@@ -893,7 +890,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
@@ -905,7 +902,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(musicService, accessTokens, soapyHeaders?.credentials)
+            auth(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ musicLibrary, type, typeId }) => {
                 switch (type) {

@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import server from "./server";
 import logger from "./logger";
+
 import {
   appendMimeTypeToClientFor,
   axiosImageFetcher,
@@ -9,13 +10,13 @@ import {
   DEFAULT,
   Subsonic,
 } from "./subsonic";
-import encryption from "./encryption";
 import { InMemoryAccessTokens, sha256 } from "./access_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
 import readConfig from "./config";
 import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
+import { jwtTokenSigner } from "./encryption";
 
 const config = readConfig();
 
@@ -40,7 +41,6 @@ const artistImageFetcher = config.subsonic.artistImageCache
 
 const subsonic = new Subsonic(
   config.subsonic.url,
-  encryption(config.secret),
   streamUserAgent,
   artistImageFetcher
 );
@@ -88,6 +88,7 @@ const app = server(
     applyContextPath: true,
     logRequests: true,
     version,
+    tokenSigner: jwtTokenSigner(config.secret)
   }
 );
 

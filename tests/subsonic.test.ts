@@ -17,7 +17,6 @@ import {
   cachingImageFetcher,
   asTrack,
 } from "../src/subsonic";
-import encryption from "../src/encryption";
 
 import axios from "axios";
 jest.mock("axios");
@@ -593,7 +592,6 @@ describe("Subsonic", () => {
   const streamClientApplication = jest.fn();
   const navidrome = new Subsonic(
     url,
-    encryption("secret"),
     streamClientApplication
   );
 

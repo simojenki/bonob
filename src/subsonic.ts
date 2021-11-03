@@ -28,7 +28,6 @@ import fse from "fs-extra";
 import path from "path";
 
 import axios, { AxiosRequestConfig } from "axios";
-import { Encryption } from "./encryption";
 import randomString from "./random_string";
 import { b64Encode, b64Decode } from "./b64";
 import logger from "./logger";
@@ -369,18 +368,15 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
 
 export class Subsonic implements MusicService {
   url: string;
-  encryption: Encryption;
   streamClientApplication: StreamClientApplication;
   externalImageFetcher: ImageFetcher;
 
   constructor(
     url: string,
-    encryption: Encryption,
     streamClientApplication: StreamClientApplication = DEFAULT,
     externalImageFetcher: ImageFetcher = axiosImageFetcher
   ) {
     this.url = url;
-    this.encryption = encryption;
     this.streamClientApplication = streamClientApplication;
     this.externalImageFetcher = externalImageFetcher;
   }
@@ -428,15 +424,14 @@ export class Subsonic implements MusicService {
     this.getJSON(credentials, "/rest/ping.view")
       .then(() => ({
         authToken: b64Encode(
-          JSON.stringify(this.encryption.encrypt(JSON.stringify(credentials)))
+          JSON.stringify(credentials)
         ),
         userId: credentials.username,
         nickname: credentials.username,
       }))
       .catch((e) => ({ message: `${e}` }));
 
-  parseToken = (token: string): Credentials =>
-    JSON.parse(this.encryption.decrypt(JSON.parse(b64Decode(token))));
+  parseToken = (token: string): Credentials => JSON.parse(b64Decode(token));
 
   getArtists = (
     credentials: Credentials
