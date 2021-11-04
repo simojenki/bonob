@@ -26,6 +26,7 @@ import {
   sonosifyMimeType,
   ratingAsInt,
   ratingFromInt,
+  Credentials,
 } from "../src/smapi";
 
 import { keys as i8nKeys } from '../src/i8n';
@@ -54,6 +55,7 @@ import { AccessTokens } from "../src/access_tokens";
 import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
+import { jwtTokenSigner } from "../src/encryption";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
@@ -550,7 +552,7 @@ describe("defaultArtistArtURI", () => {
   });
 });
 
-describe("api", () => {
+describe("wsdl api", () => {
   const musicService = {
     generateToken: jest.fn(),
     login: jest.fn(),
@@ -595,6 +597,9 @@ describe("api", () => {
 
   [bonobUrlWithoutContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`bonob with url ${bonobUrl}`, () => {
+      const tokenSigner = jwtTokenSigner(`smapi-test-secret-${uuid()}`);
+      const jwtSign = tokenSigner.sign;
+      
       const authToken = `authToken-${uuid()}`;
       const accessToken = `accessToken-${uuid()}`;
 
@@ -612,6 +617,7 @@ describe("api", () => {
           linkCodes: () => linkCodes as unknown as LinkCodes,
           accessTokens: () => accessTokens as unknown as AccessTokens,
           clock,
+          tokenSigner
         }
       );
 
@@ -674,7 +680,7 @@ describe("api", () => {
 
               expect(result[0]).toEqual({
                 getDeviceAuthTokenResult: {
-                  authToken: association.authToken,
+                  authToken: jwtSign(association.authToken),
                   privateKey: "",
                   userInfo: {
                     nickname: association.nickname,
@@ -743,48 +749,7 @@ describe("api", () => {
         });
 
         describe("search", () => {
-          describe("when no credentials header provided", () => {
-            it("should return a fault of LoginUnsupported", async () => {
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              await ws
-                .getMetadataAsync({ id: "search", index: 0, count: 0 })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnsupported",
-                    faultstring: "Missing credentials...",
-                  });
-                });
-            });
-          });
-
-          describe("when invalid credentials are provided", () => {
-            it("should return a fault of LoginUnauthorized", async () => {
-              musicService.login.mockRejectedValue("fail!");
-
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              ws.addSoapHeader({
-                credentials: someCredentials("someAuthToken"),
-              });
-              await ws
-                .getMetadataAsync({ id: "search", index: 0, count: 0 })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
-                  });
-                });
-            });
-          });
+          itShouldHandleInvalidCredentials((ws) => ws.getMetadataAsync({ id: "search", index: 0, count: 0 }));
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
@@ -797,7 +762,7 @@ describe("api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(authToken) });
+              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
             });
 
             describe("searching for albums", () => {
@@ -895,49 +860,61 @@ describe("api", () => {
           });
         });
 
-        describe("getMetadata", () => {
-          describe("when no credentials header provided", () => {
-            it("should return a fault of LoginUnsupported", async () => {
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              await ws
-                .getMetadataAsync({ id: "root", index: 0, count: 0 })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnsupported",
-                    faultstring: "Missing credentials...",
-                  });
-                });
+        async function itShouldReturnALoginUnsupported(action: (ws: Client) => Promise<Client>) {
+          it("should return a fault of LoginUnsupported", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
             });
-          });
+            
+            await action(ws)
+              .then(() => fail("shouldnt get here"))
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toEqual({
+                  faultcode: "Client.LoginUnsupported",
+                  faultstring: "Missing credentials...",
+                });
+              });
+          })
+        }
 
+        async function itShouldReturnAFaultOfLoginUnauthorized(credentials: Credentials, action: (ws: Client) => Promise<Client>) {
+          it("should return a fault of LoginUnauthorized", async () => {
+            musicService.login.mockRejectedValue("fail!");
+
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            ws.addSoapHeader({
+              credentials,
+            });
+            await action(ws)
+              .then(() => fail("shouldnt get here"))
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toEqual({
+                  faultcode: "Client.LoginUnauthorized",
+                  faultstring: "Failed to authenticate, try Reauthorising your account in the sonos app",
+                });
+              });
+          });
+        }
+
+        function itShouldHandleInvalidCredentials(action: (ws: Client) => Promise<Client>) {
           describe("when invalid credentials are provided", () => {
-            it("should return a fault of LoginUnauthorized", async () => {
-              musicService.login.mockRejectedValue("fail!");
-
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              ws.addSoapHeader({
-                credentials: someCredentials("someAuthToken"),
-              });
-              await ws
-                .getMetadataAsync({ id: "root", index: 0, count: 0 })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
-                  });
-                });
-            });
+            itShouldReturnALoginUnsupported(action);
           });
+          describe("when invalid credentials are provided", () => {
+            itShouldReturnAFaultOfLoginUnauthorized(someCredentials(jwtSign("someAuthToken")), action);
+          });
+          describe("when invalid jwt is provided", () => {
+            itShouldReturnAFaultOfLoginUnauthorized(someCredentials("not a jwt token"), action);
+          });
+        }
+
+        describe("getMetadata", () => {
+          itShouldHandleInvalidCredentials((ws) => ws.getMetadataAsync({ id: "root", index: 0, count: 0 }))
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
@@ -950,7 +927,7 @@ describe("api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(authToken) });
+              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
             });
 
             describe("asking for the root container", () => {
@@ -2263,48 +2240,7 @@ describe("api", () => {
         });
 
         describe("getExtendedMetadata", () => {
-          describe("when no credentials header provided", () => {
-            it("should return a fault of LoginUnsupported", async () => {
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              await ws
-                .getExtendedMetadataAsync({ id: "root", index: 0, count: 0 })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnsupported",
-                    faultstring: "Missing credentials...",
-                  });
-                });
-            });
-          });
-
-          describe("when invalid credentials are provided", () => {
-            it("should return a fault of LoginUnauthorized", async () => {
-              musicService.login.mockRejectedValue("booom!");
-
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              ws.addSoapHeader({
-                credentials: someCredentials("someAuthToken"),
-              });
-              await ws
-                .getExtendedMetadataAsync({ id: "root", index: 0, count: 0 })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
-                  });
-                });
-            });
-          });
+          itShouldHandleInvalidCredentials((ws) => ws.getExtendedMetadataAsync({ id: "root", index: 0, count: 0 }))
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
@@ -2317,7 +2253,7 @@ describe("api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(authToken) });
+              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
             });
 
             describe("asking for an artist", () => {
@@ -2620,48 +2556,7 @@ describe("api", () => {
         });
 
         describe("getMediaURI", () => {
-          describe("when no credentials header provided", () => {
-            it("should return a fault of LoginUnsupported", async () => {
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              await ws
-                .getMediaURIAsync({ id: "track:123" })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnsupported",
-                    faultstring: "Missing credentials...",
-                  });
-                });
-            });
-          });
-
-          describe("when invalid credentials are provided", () => {
-            it("should return a fault of LoginUnauthorized", async () => {
-              musicService.login.mockRejectedValue("Credentials not found");
-
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              ws.addSoapHeader({
-                credentials: someCredentials("invalid token"),
-              });
-              await ws
-                .getMediaURIAsync({ id: "track:123" })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
-                  });
-                });
-            });
-          });
+          itShouldHandleInvalidCredentials((ws) => ws.getMediaURIAsync({ id: "track:123" }))
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
@@ -2674,7 +2569,7 @@ describe("api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(authToken) });
+              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
             });
 
             describe("asking for a URI to stream a track", () => {
@@ -2702,48 +2597,7 @@ describe("api", () => {
         });
 
         describe("getMediaMetadata", () => {
-          describe("when no credentials header provided", () => {
-            it("should return a fault of LoginUnsupported", async () => {
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              await ws
-                .getMediaMetadataAsync({ id: "track:123" })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnsupported",
-                    faultstring: "Missing credentials...",
-                  });
-                });
-            });
-          });
-
-          describe("when invalid credentials are provided", () => {
-            it("should return a fault of LoginUnauthorized", async () => {
-              musicService.login.mockRejectedValue("Credentials not found!!");
-
-              const ws = await createClientAsync(`${service.uri}?wsdl`, {
-                endpoint: service.uri,
-                httpClient: supersoap(server),
-              });
-
-              ws.addSoapHeader({
-                credentials: someCredentials("some invalid token"),
-              });
-              await ws
-                .getMediaMetadataAsync({ id: "track:123" })
-                .then(() => fail("shouldnt get here"))
-                .catch((e: any) => {
-                  expect(e.root.Envelope.Body.Fault).toEqual({
-                    faultcode: "Client.LoginUnauthorized",
-                    faultstring: "Credentials not found...",
-                  });
-                });
-            });
-          });
+          itShouldHandleInvalidCredentials((ws) => ws.getMediaMetadataAsync({ id: "track:123" }))
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
@@ -2759,7 +2613,7 @@ describe("api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(authToken) });
+              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
             });
 
             describe("asking for media metadata for a track", () => {
@@ -2795,65 +2649,69 @@ describe("api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(authToken) });
+            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          describe("with only a title", () => {
-            const title = "aNewPlaylist";
-            const idOfNewPlaylist = uuid();
+          itShouldHandleInvalidCredentials((ws) => ws.createContainerAsync({ title: "foobar" }))
 
-            it("should create a playlist", async () => {
-              musicLibrary.createPlaylist.mockResolvedValue({
-                id: idOfNewPlaylist,
-                name: title,
+          describe("when valid credentials are provided", () => {
+            describe("with only a title", () => {
+              const title = "aNewPlaylist";
+              const idOfNewPlaylist = uuid();
+  
+              it("should create a playlist", async () => {
+                musicLibrary.createPlaylist.mockResolvedValue({
+                  id: idOfNewPlaylist,
+                  name: title,
+                });
+  
+                const result = await ws.createContainerAsync({
+                  title,
+                });
+  
+                expect(result[0]).toEqual({
+                  createContainerResult: {
+                    id: `playlist:${idOfNewPlaylist}`,
+                    updateId: null,
+                  },
+                });
+                expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
               });
-
-              const result = await ws.createContainerAsync({
-                title,
-              });
-
-              expect(result[0]).toEqual({
-                createContainerResult: {
-                  id: `playlist:${idOfNewPlaylist}`,
-                  updateId: null,
-                },
-              });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-              expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
             });
-          });
-
-          describe("with a title and a seed track", () => {
-            const title = "aNewPlaylist2";
-            const trackId = "track123";
-            const idOfNewPlaylist = "playlistId";
-
-            it("should create a playlist with the track", async () => {
-              musicLibrary.createPlaylist.mockResolvedValue({
-                id: idOfNewPlaylist,
-                name: title,
+  
+            describe("with a title and a seed track", () => {
+              const title = "aNewPlaylist2";
+              const trackId = "track123";
+              const idOfNewPlaylist = "playlistId";
+  
+              it("should create a playlist with the track", async () => {
+                musicLibrary.createPlaylist.mockResolvedValue({
+                  id: idOfNewPlaylist,
+                  name: title,
+                });
+                musicLibrary.addToPlaylist.mockResolvedValue(true);
+  
+                const result = await ws.createContainerAsync({
+                  title,
+                  seedId: `track:${trackId}`,
+                });
+  
+                expect(result[0]).toEqual({
+                  createContainerResult: {
+                    id: `playlist:${idOfNewPlaylist}`,
+                    updateId: null,
+                  },
+                });
+                expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
+                expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
+                  idOfNewPlaylist,
+                  trackId
+                );
               });
-              musicLibrary.addToPlaylist.mockResolvedValue(true);
-
-              const result = await ws.createContainerAsync({
-                title,
-                seedId: `track:${trackId}`,
-              });
-
-              expect(result[0]).toEqual({
-                createContainerResult: {
-                  id: `playlist:${idOfNewPlaylist}`,
-                  updateId: null,
-                },
-              });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-              expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
-              expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
-                idOfNewPlaylist,
-                trackId
-              );
             });
           });
         });
@@ -2871,20 +2729,24 @@ describe("api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(authToken) });
+            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          it("should delete the playlist", async () => {
-            musicLibrary.deletePlaylist.mockResolvedValue(true);
+          itShouldHandleInvalidCredentials((ws) => ws.deleteContainerAsync({ id: "foobar" }))
 
-            const result = await ws.deleteContainerAsync({
-              id,
+          describe("when valid credentials are provided", () => {
+            it("should delete the playlist", async () => {
+              musicLibrary.deletePlaylist.mockResolvedValue(true);
+  
+              const result = await ws.deleteContainerAsync({
+                id,
+              });
+  
+              expect(result[0]).toEqual({ deleteContainerResult: null });
+              expect(musicService.login).toHaveBeenCalledWith(authToken);
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+              expect(musicLibrary.deletePlaylist).toHaveBeenCalledWith(id);
             });
-
-            expect(result[0]).toEqual({ deleteContainerResult: null });
-            expect(musicService.login).toHaveBeenCalledWith(authToken);
-            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-            expect(musicLibrary.deletePlaylist).toHaveBeenCalledWith(id);
           });
         });
 
@@ -2902,26 +2764,30 @@ describe("api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(authToken) });
+            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          it("should delete the playlist", async () => {
-            musicLibrary.addToPlaylist.mockResolvedValue(true);
+          itShouldHandleInvalidCredentials((ws) => ws.addToContainerAsync({ id: "foobar", parentId: "parentId" }))
 
-            const result = await ws.addToContainerAsync({
-              id: `track:${trackId}`,
-              parentId: `parent:${playlistId}`,
+          describe("when valid credentials are provided", () => {
+            it("should add the item to the playlist", async () => {
+              musicLibrary.addToPlaylist.mockResolvedValue(true);
+  
+              const result = await ws.addToContainerAsync({
+                id: `track:${trackId}`,
+                parentId: `parent:${playlistId}`,
+              });
+  
+              expect(result[0]).toEqual({
+                addToContainerResult: { updateId: null },
+              });
+              expect(musicService.login).toHaveBeenCalledWith(authToken);
+              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+              expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
+                playlistId,
+                trackId
+              );
             });
-
-            expect(result[0]).toEqual({
-              addToContainerResult: { updateId: null },
-            });
-            expect(musicService.login).toHaveBeenCalledWith(authToken);
-            expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-            expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
-              playlistId,
-              trackId
-            );
           });
         });
 
@@ -2936,72 +2802,79 @@ describe("api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(authToken) });
+            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          describe("removing tracks from a playlist", () => {
-            const playlistId = "parent123";
+          itShouldHandleInvalidCredentials((ws) => ws.removeFromContainerAsync({
+            id: `playlist:123`,
+            indices: `1,6,9`,
+          }));
 
-            it("should remove the track from playlist", async () => {
-              musicLibrary.removeFromPlaylist.mockResolvedValue(true);
-
-              const result = await ws.removeFromContainerAsync({
-                id: `playlist:${playlistId}`,
-                indices: `1,6,9`,
+          describe("when valid credentials are provided", () => {
+            describe("removing tracks from a playlist", () => {
+              const playlistId = "parent123";
+  
+              it("should remove the track from playlist", async () => {
+                musicLibrary.removeFromPlaylist.mockResolvedValue(true);
+  
+                const result = await ws.removeFromContainerAsync({
+                  id: `playlist:${playlistId}`,
+                  indices: `1,6,9`,
+                });
+  
+                expect(result[0]).toEqual({
+                  removeFromContainerResult: { updateId: null },
+                });
+                expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.removeFromPlaylist).toHaveBeenCalledWith(
+                  playlistId,
+                  [1, 6, 9]
+                );
               });
-
-              expect(result[0]).toEqual({
-                removeFromContainerResult: { updateId: null },
-              });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-              expect(musicLibrary.removeFromPlaylist).toHaveBeenCalledWith(
-                playlistId,
-                [1, 6, 9]
-              );
             });
-          });
 
-          describe("removing a playlist", () => {
-            const playlist1 = aPlaylist({ id: "p1" });
-            const playlist2 = aPlaylist({ id: "p2" });
-            const playlist3 = aPlaylist({ id: "p3" });
-            const playlist4 = aPlaylist({ id: "p4" });
-            const playlist5 = aPlaylist({ id: "p5" });
-
-            it("should delete the playlist", async () => {
-              musicLibrary.playlists.mockResolvedValue([
-                playlist1,
-                playlist2,
-                playlist3,
-                playlist4,
-                playlist5,
-              ]);
-              musicLibrary.deletePlaylist.mockResolvedValue(true);
-
-              const result = await ws.removeFromContainerAsync({
-                id: `playlists`,
-                indices: `0,2,4`,
+            describe("removing a playlist", () => {
+              const playlist1 = aPlaylist({ id: "p1" });
+              const playlist2 = aPlaylist({ id: "p2" });
+              const playlist3 = aPlaylist({ id: "p3" });
+              const playlist4 = aPlaylist({ id: "p4" });
+              const playlist5 = aPlaylist({ id: "p5" });
+  
+              it("should delete the playlist", async () => {
+                musicLibrary.playlists.mockResolvedValue([
+                  playlist1,
+                  playlist2,
+                  playlist3,
+                  playlist4,
+                  playlist5,
+                ]);
+                musicLibrary.deletePlaylist.mockResolvedValue(true);
+  
+                const result = await ws.removeFromContainerAsync({
+                  id: `playlists`,
+                  indices: `0,2,4`,
+                });
+  
+                expect(result[0]).toEqual({
+                  removeFromContainerResult: { updateId: null },
+                });
+                expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.deletePlaylist).toHaveBeenCalledTimes(3);
+                expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
+                  1,
+                  playlist1.id
+                );
+                expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
+                  2,
+                  playlist3.id
+                );
+                expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
+                  3,
+                  playlist5.id
+                );
               });
-
-              expect(result[0]).toEqual({
-                removeFromContainerResult: { updateId: null },
-              });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-              expect(musicLibrary.deletePlaylist).toHaveBeenCalledTimes(3);
-              expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
-                1,
-                playlist1.id
-              );
-              expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
-                2,
-                playlist3.id
-              );
-              expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
-                3,
-                playlist5.id
-              );
             });
           });
         });
@@ -3017,51 +2890,57 @@ describe("api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(authToken) });
+            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          describe("rating a track with a positive rating value", () => {
-            const trackId = "123";
-            const ratingIntValue = 31;
+          itShouldHandleInvalidCredentials((ws) => ws.rateItemAsync({
+            id: `track:123`,
+            rating: 4,
+          }));
 
-            it("should give the track a love", async () => {
-              musicLibrary.rate.mockResolvedValue(true);
-
-              const result = await ws.rateItemAsync({
-                id: `track:${trackId}`,
-                rating: ratingIntValue,
+          describe("when valid credentials are provided", () => {
+            describe("rating a track with a positive rating value", () => {
+              const trackId = "123";
+              const ratingIntValue = 31;
+  
+              it("should give the track a love", async () => {
+                musicLibrary.rate.mockResolvedValue(true);
+  
+                const result = await ws.rateItemAsync({
+                  id: `track:${trackId}`,
+                  rating: ratingIntValue,
+                });
+  
+                expect(result[0]).toEqual({
+                  rateItemResult: { shouldSkip: false },
+                });
+                expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(ratingIntValue));
               });
-
-              expect(result[0]).toEqual({
-                rateItemResult: { shouldSkip: false },
+            });
+  
+            describe("rating a track with a negative rating value", () => {
+              const trackId = "123";
+              const ratingIntValue = -20;
+  
+              it("should give the track a love", async () => {
+                musicLibrary.rate.mockResolvedValue(true);
+  
+                const result = await ws.rateItemAsync({
+                  id: `track:${trackId}`,
+                  rating: ratingIntValue,
+                });
+  
+                expect(result[0]).toEqual({
+                  rateItemResult: { shouldSkip: false },
+                });
+                expect(musicService.login).toHaveBeenCalledWith(authToken);
+                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(Math.abs(ratingIntValue)));
               });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-              expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(ratingIntValue));
             });
           });
-
-          describe("rating a track with a negative rating value", () => {
-            const trackId = "123";
-            const ratingIntValue = -20;
-
-            it("should give the track a love", async () => {
-              musicLibrary.rate.mockResolvedValue(true);
-
-              const result = await ws.rateItemAsync({
-                id: `track:${trackId}`,
-                rating: ratingIntValue,
-              });
-
-              expect(result[0]).toEqual({
-                rateItemResult: { shouldSkip: false },
-              });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-              expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(Math.abs(ratingIntValue)));
-            });
-          });
-
         });
 
         describe("setPlayedSeconds", () => {
@@ -3075,132 +2954,139 @@ describe("api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(authToken) });
+            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          describe("when id is for a track", () => {
-            const trackId = "123456";
+          itShouldHandleInvalidCredentials((ws) => ws.setPlayedSecondsAsync({
+            id: `track:123`,
+            seconds: `33`,
+          }));
 
-            function itShouldScroble({
-              trackId,
-              secondsPlayed,
-            }: {
-              trackId: string;
-              secondsPlayed: number;
-            }) {
-              it("should scrobble", async () => {
-                musicLibrary.scrobble.mockResolvedValue(true);
-
-                const result = await ws.setPlayedSecondsAsync({
-                  id: `track:${trackId}`,
-                  seconds: `${secondsPlayed}`,
+          describe("when valid credentials are provided", () => {
+            describe("when id is for a track", () => {
+              const trackId = "123456";
+  
+              function itShouldScroble({
+                trackId,
+                secondsPlayed,
+              }: {
+                trackId: string;
+                secondsPlayed: number;
+              }) {
+                it("should scrobble", async () => {
+                  musicLibrary.scrobble.mockResolvedValue(true);
+  
+                  const result = await ws.setPlayedSecondsAsync({
+                    id: `track:${trackId}`,
+                    seconds: `${secondsPlayed}`,
+                  });
+  
+                  expect(result[0]).toEqual({ setPlayedSecondsResult: null });
+                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
                 });
-
-                expect(result[0]).toEqual({ setPlayedSecondsResult: null });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
-                expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
+              }
+  
+              function itShouldNotScroble({
+                trackId,
+                secondsPlayed,
+              }: {
+                trackId: string;
+                secondsPlayed: number;
+              }) {
+                it("should scrobble", async () => {
+                  const result = await ws.setPlayedSecondsAsync({
+                    id: `track:${trackId}`,
+                    seconds: `${secondsPlayed}`,
+                  });
+  
+                  expect(result[0]).toEqual({ setPlayedSecondsResult: null });
+                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.scrobble).not.toHaveBeenCalled();
+                });
+              }
+  
+              describe("when the track length is 30 seconds", () => {
+                beforeEach(() => {
+                  musicLibrary.track.mockResolvedValue(
+                    aTrack({ id: trackId, duration: 30 })
+                  );
+                });
+  
+                describe("when the played length is 30 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 30 });
+                });
+  
+                describe("when the played length is > 30 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 90 });
+                });
+  
+                describe("when the played length is < 30 seconds", () => {
+                  itShouldNotScroble({ trackId, secondsPlayed: 29 });
+                });
               });
-            }
-
-            function itShouldNotScroble({
-              trackId,
-              secondsPlayed,
-            }: {
-              trackId: string;
-              secondsPlayed: number;
-            }) {
-              it("should scrobble", async () => {
-                const result = await ws.setPlayedSecondsAsync({
-                  id: `track:${trackId}`,
-                  seconds: `${secondsPlayed}`,
+  
+              describe("when the track length is > 30 seconds", () => {
+                beforeEach(() => {
+                  musicLibrary.track.mockResolvedValue(
+                    aTrack({ id: trackId, duration: 31 })
+                  );
                 });
-
+  
+                describe("when the played length is 30 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 30 });
+                });
+  
+                describe("when the played length is > 30 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 90 });
+                });
+  
+                describe("when the played length is < 30 seconds", () => {
+                  itShouldNotScroble({ trackId, secondsPlayed: 29 });
+                });
+              });
+  
+              describe("when the track length is 29 seconds", () => {
+                beforeEach(() => {
+                  musicLibrary.track.mockResolvedValue(
+                    aTrack({ id: trackId, duration: 29 })
+                  );
+                });
+  
+                describe("when the played length is 29 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 30 });
+                });
+  
+                describe("when the played length is > 29 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 30 });
+                });
+  
+                describe("when the played length is 10 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 10 });
+                });
+  
+                describe("when the played length is < 10 seconds", () => {
+                  itShouldNotScroble({ trackId, secondsPlayed: 9 });
+                });
+              });
+            });
+  
+            describe("when the id is for something that isnt a track", () => {
+              it("should not scrobble", async () => {
+                const result = await ws.setPlayedSecondsAsync({
+                  id: `album:666`,
+                  seconds: "100",
+                });
+  
                 expect(result[0]).toEqual({ setPlayedSecondsResult: null });
                 expect(musicService.login).toHaveBeenCalledWith(authToken);
                 expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
                 expect(musicLibrary.scrobble).not.toHaveBeenCalled();
               });
-            }
-
-            describe("when the track length is 30 seconds", () => {
-              beforeEach(() => {
-                musicLibrary.track.mockResolvedValue(
-                  aTrack({ id: trackId, duration: 30 })
-                );
-              });
-
-              describe("when the played length is 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
-              });
-
-              describe("when the played length is > 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 90 });
-              });
-
-              describe("when the played length is < 30 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 29 });
-              });
-            });
-
-            describe("when the track length is > 30 seconds", () => {
-              beforeEach(() => {
-                musicLibrary.track.mockResolvedValue(
-                  aTrack({ id: trackId, duration: 31 })
-                );
-              });
-
-              describe("when the played length is 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
-              });
-
-              describe("when the played length is > 30 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 90 });
-              });
-
-              describe("when the played length is < 30 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 29 });
-              });
-            });
-
-            describe("when the track length is 29 seconds", () => {
-              beforeEach(() => {
-                musicLibrary.track.mockResolvedValue(
-                  aTrack({ id: trackId, duration: 29 })
-                );
-              });
-
-              describe("when the played length is 29 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
-              });
-
-              describe("when the played length is > 29 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 30 });
-              });
-
-              describe("when the played length is 10 seconds", () => {
-                itShouldScroble({ trackId, secondsPlayed: 10 });
-              });
-
-              describe("when the played length is < 10 seconds", () => {
-                itShouldNotScroble({ trackId, secondsPlayed: 9 });
-              });
-            });
-          });
-
-          describe("when the id is for something that isnt a track", () => {
-            it("should not scrobble", async () => {
-              const result = await ws.setPlayedSecondsAsync({
-                id: `album:666`,
-                seconds: "100",
-              });
-
-              expect(result[0]).toEqual({ setPlayedSecondsResult: null });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-              expect(musicLibrary.scrobble).not.toHaveBeenCalled();
             });
           });
         });

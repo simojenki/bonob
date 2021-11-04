@@ -1,7 +1,7 @@
 import { SonosDevice } from "@svrooij/sonos/lib";
 import { v4 as uuid } from "uuid";
-import { Credentials } from "../src/smapi";
 
+import { Credentials } from "../src/smapi";
 import { Service, Device } from "../src/sonos";
 import {
   Album,
