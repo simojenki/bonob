@@ -1,5 +1,5 @@
 import { hostname } from "os";
-import config, { envVar, WORD } from "../src/config";
+import config, { COLOR, envVar } from "../src/config";
 
 describe("envVar", () => {
   const OLD_ENV = process.env;
@@ -180,18 +180,25 @@ describe("config", () => {
             });
           });
 
-          describe(`when ${k} is specified`, () => {
+          describe(`when ${k} is specified as a color`, () => {
             it(`should use it`, () => {
               process.env[k] = "pink";
               expect(config().icons.foregroundColor).toEqual("pink");
             });
           });
 
+          describe(`when ${k} is specified as hex`, () => {
+            it(`should use it`, () => {
+              process.env[k] = "#1db954";
+              expect(config().icons.foregroundColor).toEqual("#1db954");
+            });
+          });
+
           describe(`when ${k} is an invalid string`, () => {
             it(`should blow up`, () => {
-              process.env[k] = "#dfasd";
+              process.env[k] = "!dfasd";
               expect(() => config()).toThrow(
-                `Invalid value specified for 'BNB_ICON_FOREGROUND_COLOR', must match ${WORD}`
+                `Invalid value specified for 'BNB_ICON_FOREGROUND_COLOR', must match ${COLOR}`
               );
             });
           });
@@ -215,18 +222,25 @@ describe("config", () => {
             });
           });
 
-          describe(`when ${k} is specified`, () => {
+          describe(`when ${k} is specified as a color`, () => {
             it(`should use it`, () => {
               process.env[k] = "blue";
               expect(config().icons.backgroundColor).toEqual("blue");
             });
           });
 
+          describe(`when ${k} is specified as hex`, () => {
+            it(`should use it`, () => {
+              process.env[k] = "#1db954";
+              expect(config().icons.backgroundColor).toEqual("#1db954");
+            });
+          });
+
           describe(`when ${k} is an invalid string`, () => {
             it(`should blow up`, () => {
-              process.env[k] = "#red";
+              process.env[k] = "!red";
               expect(() => config()).toThrow(
-                `Invalid value specified for 'BNB_ICON_BACKGROUND_COLOR', must match ${WORD}`
+                `Invalid value specified for 'BNB_ICON_BACKGROUND_COLOR', must match ${COLOR}`
               );
             });
           });
