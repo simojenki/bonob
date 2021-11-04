@@ -3,6 +3,7 @@ import logger from "./logger";
 import url from "./url_builder";
 
 export const WORD = /^\w+$/;
+export const COLOR = /^#?\w+$/;
 
 type EnvVarOpts = {
   default: string | undefined;
@@ -64,10 +65,10 @@ export default function () {
     secret: bnbEnvVar("SECRET", { default: "bonob" })!,
     icons: {
       foregroundColor: bnbEnvVar("ICON_FOREGROUND_COLOR", {
-        validationPattern: WORD,
+        validationPattern: COLOR,
       }),
       backgroundColor: bnbEnvVar("ICON_BACKGROUND_COLOR", {
-        validationPattern: WORD,
+        validationPattern: COLOR,
       }),
     },
     sonos: {
