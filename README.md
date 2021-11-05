@@ -134,6 +134,10 @@ services:
       BNB_SUBSONIC_URL: http://navidrome:4533
 ```
 
+### Running bonob on synology
+
+[See this issue](https://github.com/simojenki/bonob/issues/15)
+
 ## Configuration
 
 item | default value | description
@@ -217,6 +221,13 @@ ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=480
 ```
 
 ![Lime & Alice Blue](https://github.com/simojenki/bonob/blob/master/docs/images/limeAliceBlue.png?raw=true)
+
+```bash
+-e 'BNB_ICON_FOREGROUND_COLOR=#1db954' \
+-e 'BNB_ICON_BACKGROUND_COLOR=#121212'
+```
+
+![Spotify-ish](https://github.com/simojenki/bonob/blob/master/docs/images/spotify-ish.png?raw=true)
 
 ## Credits
 
