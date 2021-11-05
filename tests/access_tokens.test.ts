@@ -133,10 +133,7 @@ describe("EncryptedAccessTokens", () => {
   describe("encrypt and decrypt", () => {
     it("should be able to round trip the token", () => {
       const authToken = `the token - ${uuid()}`;
-      const hash = {
-        encryptedData: "the encrypted token",
-        iv: "vi",
-      };
+      const hash = "the encrypted token";
 
       encryption.encrypt.mockReturnValue(hash);
       encryption.decrypt.mockReturnValue(authToken);
@@ -144,9 +141,7 @@ describe("EncryptedAccessTokens", () => {
       const accessToken = accessTokens.mint(authToken);
 
       expect(accessToken).not.toContain(authToken);
-      expect(accessToken).toEqual(
-        Buffer.from(JSON.stringify(hash)).toString("base64")
-      );
+      expect(accessToken).toEqual(hash);
 
       expect(accessTokens.authTokenFor(accessToken)).toEqual(authToken);
 
@@ -157,17 +152,12 @@ describe("EncryptedAccessTokens", () => {
 
   describe("when the token is a valid Hash but doesnt decrypt", () => {
     it("should return undefined", () => {
-      const hash = {
-        encryptedData: "valid hash",
-        iv: "vi",
-      };
+      const hash = "valid hash";
       encryption.decrypt.mockImplementation(() => {
         throw "Boooooom decryption failed!!!";
       });
       expect(
-        accessTokens.authTokenFor(
-          Buffer.from(JSON.stringify(hash)).toString("base64")
-        )
+        accessTokens.authTokenFor(hash)
       ).toBeUndefined();
     });
   });

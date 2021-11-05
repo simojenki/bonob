@@ -55,7 +55,7 @@ import { AccessTokens } from "../src/access_tokens";
 import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
-import { jwtTokenSigner } from "../src/encryption";
+import { jwtSigner } from "../src/encryption";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
@@ -597,7 +597,7 @@ describe("wsdl api", () => {
 
   [bonobUrlWithoutContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`bonob with url ${bonobUrl}`, () => {
-      const tokenSigner = jwtTokenSigner(`smapi-test-secret-${uuid()}`);
+      const tokenSigner = jwtSigner(`smapi-test-secret-${uuid()}`);
       const jwtSign = tokenSigner.sign;
       
       const authToken = `authToken-${uuid()}`;

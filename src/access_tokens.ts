@@ -5,7 +5,6 @@ import crypto from "crypto";
 import { Encryption } from "./encryption";
 import logger from "./logger";
 import { Clock, SystemClock } from "./clock";
-import { b64Encode, b64Decode } from "./b64";
 
 type AccessToken = {
   value: string;
@@ -60,14 +59,11 @@ export class EncryptedAccessTokens implements AccessTokens {
     this.encryption = encryption;
   }
 
-  mint = (authToken: string): string =>
-    b64Encode(JSON.stringify(this.encryption.encrypt(authToken)));
+  mint = (authToken: string): string => this.encryption.encrypt(authToken);
 
   authTokenFor(value: string): string | undefined {
     try {
-      return this.encryption.decrypt(
-        JSON.parse(b64Decode(value))
-      );
+      return this.encryption.decrypt(value);
     } catch {
       logger.warn("Failed to decrypt access token...");
       return undefined;

@@ -5,9 +5,14 @@ import {
   createHash,
 } from "crypto";
 import jwt from "jsonwebtoken";
+import jws from "jws";
 
 const ALGORITHM = "aes-256-cbc";
 const IV = randomBytes(16);
+
+function isError(thing: any): thing is Error {
+  return thing.name && thing.message
+}
 
 export type Signer = {
   sign: (value: string) => string;
@@ -20,7 +25,8 @@ export const pSigner = (signer: Signer) => ({
       try {
         return resolve(signer.sign(value));
       } catch(e) {
-        reject(`Failed to sign value: ${e}`);
+        if(isError(e)) reject(e.message)
+        else reject(`Failed to sign value: ${e}`);
       }
     });
   },
@@ -29,19 +35,20 @@ export const pSigner = (signer: Signer) => ({
       try {
         return resolve(signer.verify(token));
       }catch(e) {
-        reject(`Failed to verify value: ${e}`);
+        if(isError(e)) reject(e.message)
+        else reject(`Failed to verify value: ${e}`);
       }
     });
   }
  });
 
-export const jwtTokenSigner = (secret: string) => ({
+export const jwtSigner = (secret: string) => ({
   sign: (value: string) => jwt.sign(value, secret),
   verify: (token: string) => {
     try {
       return jwt.verify(token, secret) as string;
     } catch (e) {
-      throw `Failed to decode jwt, try re-authorising account`;
+      throw new Error(`Failed to verify jwt, try re-authorising account within sonos app`);
     }
   },
 });
@@ -52,11 +59,22 @@ export type Hash = {
 };
 
 export type Encryption = {
-  encrypt: (value: string) => Hash;
-  decrypt: (hash: Hash) => string;
+  encrypt: (value: string) => string;
+  decrypt: (value: string) => string;
 };
 
-const encryption = (secret: string): Encryption => {
+export const jwsEncryption = (secret: string): Encryption => {
+  return {
+    encrypt: (value: string) => jws.sign({
+      header: { alg: 'HS256' },
+      payload: value,
+      secret: secret,
+    }),
+    decrypt: (value: string) => jws.decode(value).payload
+  }
+}
+
+export const cryptoEncryption = (secret: string): Encryption => {
   const key = createHash("sha256")
     .update(String(secret))
     .digest("base64")
@@ -64,26 +82,26 @@ const encryption = (secret: string): Encryption => {
   return {
     encrypt: (value: string) => {
       const cipher = createCipheriv(ALGORITHM, key, IV);
-      return {
-        iv: IV.toString("hex"),
-        encryptedData: Buffer.concat([
-          cipher.update(value),
-          cipher.final(),
-        ]).toString("hex"),
-      };
+      return `${IV.toString("hex")}.${Buffer.concat([
+        cipher.update(value),
+        cipher.final(),
+      ]).toString("hex")}`;
     },
-    decrypt: (hash: Hash) => {
+    decrypt: (value: string) => {
+      const parts = value.split(".");
+      if(parts.length != 2) throw `Invalid value to decrypt`;
+
       const decipher = createDecipheriv(
         ALGORITHM,
         key,
-        Buffer.from(hash.iv, "hex")
+        Buffer.from(parts[0]!, "hex")
       );
       return Buffer.concat([
-        decipher.update(Buffer.from(hash.encryptedData, "hex")),
+        decipher.update(Buffer.from(parts[1]!, "hex")),
         decipher.final(),
       ]).toString();
     },
   };
 };
 
-export default encryption;
+export default jwsEncryption;

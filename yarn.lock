@@ -1193,6 +1193,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/jws@npm:^3.2.4":
+  version: 3.2.4
+  resolution: "@types/jws@npm:3.2.4"
+  dependencies:
+    "@types/node": "*"
+  checksum: 43427a5b00ef0c5e60df6bc8e59c4153220c757fdbde2b79a1852e86083bdc76b660b3c0d89ae9e5902dab00bf6ae9f25a551a375ca233b6e02fa1e4e3fff6c4
+  languageName: node
+  linkType: hard
+
 "@types/keyv@npm:^3.1.1":
   version: 3.1.2
   resolution: "@types/keyv@npm:3.1.2"
@@ -1792,6 +1801,7 @@ __metadata:
     "@types/fs-extra": ^9.0.13
     "@types/jest": ^27.0.1
     "@types/jsonwebtoken": ^8.5.5
+    "@types/jws": ^3.2.4
     "@types/mocha": ^9.0.0
     "@types/morgan": ^1.9.3
     "@types/node": ^16.7.13
@@ -1811,6 +1821,7 @@ __metadata:
     image-js: ^0.33.0
     jest: ^27.1.0
     jsonwebtoken: ^8.5.1
+    jws: ^4.0.0
     libxmljs2: ^0.28.0
     morgan: ^1.10.0
     node-html-parser: ^4.1.4
@@ -4697,6 +4708,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jwa@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "jwa@npm:2.0.0"
+  dependencies:
+    buffer-equal-constant-time: 1.0.1
+    ecdsa-sig-formatter: 1.0.11
+    safe-buffer: ^5.0.1
+  checksum: 8f00b71ad5fe94cb55006d0d19202f8f56889109caada2f7eeb63ca81755769ce87f4f48101967f398462e3b8ae4faebfbd5a0269cb755dead5d63c77ba4d2f1
+  languageName: node
+  linkType: hard
+
 "jws@npm:^3.2.2":
   version: 3.2.2
   resolution: "jws@npm:3.2.2"
@@ -4704,6 +4726,16 @@ __metadata:
     jwa: ^1.4.1
     safe-buffer: ^5.0.1
   checksum: f0213fe5b79344c56cd443428d8f65c16bf842dc8cb8f5aed693e1e91d79c20741663ad6eff07a6d2c433d1831acc9814e8d7bada6a0471fbb91d09ceb2bf5c2
+  languageName: node
+  linkType: hard
+
+"jws@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "jws@npm:4.0.0"
+  dependencies:
+    jwa: ^2.0.0
+    safe-buffer: ^5.0.1
+  checksum: d68d07aa6d1b8cb35c363a9bd2b48f15064d342a5d9dc18a250dbbce8dc06bd7e4792516c50baa16b8d14f61167c19e851fd7f66b59ecc68b7f6a013759765f7
   languageName: node
   linkType: hard
 

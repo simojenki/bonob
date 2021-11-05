@@ -16,7 +16,7 @@ import readConfig from "./config";
 import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
-import { jwtTokenSigner } from "./encryption";
+import { jwtSigner } from "./encryption";
 
 const config = readConfig();
 
@@ -88,7 +88,7 @@ const app = server(
     applyContextPath: true,
     logRequests: true,
     version,
-    tokenSigner: jwtTokenSigner(config.secret)
+    tokenSigner: jwtSigner(config.secret)
   }
 );
 
