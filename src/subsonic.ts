@@ -400,6 +400,8 @@ export class Subsonic implements MusicService {
           "User-Agent": USER_AGENT,
         },
         ...config,
+      }).catch(e => {
+        throw `Subsonic failed with: ${e}`;
       })
       .then((response) => {
         if (response.status != 200 && response.status != 206) {

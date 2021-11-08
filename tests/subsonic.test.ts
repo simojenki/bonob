@@ -2756,11 +2756,15 @@ describe("Subsonic", () => {
         });
 
         describe("navidrome returns something other than a 200", () => {
-          it("should return the content", async () => {
+          it("should fail", async () => {
             const trackId = "track123";
 
             const streamResponse = {
               status: 400,
+              headers: {
+                'content-type': 'text/html',
+                'content-length': '33'
+              }
             };
 
             mockGET
@@ -2781,6 +2785,31 @@ describe("Subsonic", () => {
             return expect(
               musicLibrary.stream({ trackId, range: undefined })
             ).rejects.toEqual(`Subsonic failed with a 400 status`);
+          });
+        });
+
+        describe("io exception occurs", () => {
+          it("should fail", async () => {
+            const trackId = "track123";
+
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getSongJson(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              )
+              .mockImplementationOnce(() => Promise.reject("IO error occured"));
+
+            const musicLibrary = await navidrome
+              .generateToken({ username, password })
+              .then((it) => it as AuthSuccess)
+              .then((it) => navidrome.login(it.authToken));
+
+            return expect(
+              musicLibrary.stream({ trackId, range: undefined })
+            ).rejects.toEqual(`Subsonic failed with: IO error occured`);
           });
         });
       });
