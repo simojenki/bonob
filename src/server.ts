@@ -219,28 +219,35 @@ function server(
     const lang = langFor(req);
     const { username, password, linkCode } = req.body;
     if (!linkCodes.has(linkCode)) {
-      res.status(400).render("failure", {
+      return res.status(400).render("failure", {
         lang,
         message: lang("invalidLinkCode"),
       });
     } else {
-      const authResult = await musicService.generateToken({
+      return musicService.generateToken({
         username,
         password,
-      });
-      if (isSuccess(authResult)) {
-        linkCodes.associate(linkCode, authResult);
-        res.render("success", {
-          lang,
-          message: lang("loginSuccessful"),
-        });
-      } else {
-        res.status(403).render("failure", {
+      }).then(authResult => {
+        if (isSuccess(authResult)) {
+          linkCodes.associate(linkCode, authResult);
+          return res.render("success", {
+            lang,
+            message: lang("loginSuccessful"),
+          });
+        } else {
+          return res.status(403).render("failure", {
+            lang,
+            message: lang("loginFailed"),
+            cause: authResult.message,
+          });
+        }
+      }).catch(e => {
+        return res.status(403).render("failure", {
           lang,
           message: lang("loginFailed"),
-          cause: authResult.message,
+          cause: `Unexpected error occured - ${e}`,
         });
-      }
+      });
     }
   });
 
