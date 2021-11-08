@@ -680,6 +680,27 @@ describe("server", () => {
           });
         });
 
+        describe("when an unexpected failure occurs", () => {
+          it("should return 403 with message", async () => {
+            const username = "userDoesntExist";
+            const password = "password";
+            const linkCode = uuid();
+
+            linkCodes.has.mockReturnValue(true);
+            musicService.generateToken.mockRejectedValue("BOOOOOOM");
+
+            const res = await request(server)
+              .post(bonobUrl.append({ pathname: "/login" }).pathname())
+              .set("accept-language", acceptLanguage)
+              .type("form")
+              .send({ username, password, linkCode })
+              .expect(403);
+
+            expect(res.text).toContain(lang("loginFailed"));
+            expect(res.text).toContain('Unexpected error occured - BOOOOOOM');
+          });
+        });
+
         describe("when linkCode is invalid", () => {
           it("should return 400 with message", async () => {
             const username = "jane";
