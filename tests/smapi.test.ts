@@ -42,6 +42,7 @@ import {
   TRIP_HOP,
   PUNK,
   aPlaylist,
+  anAlbumSummary,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -437,6 +438,7 @@ describe("playlistAlbumArtURL", () => {
   const coverArt2 = { system: "subsonic", resource: "2" };
   const coverArt3 = { system: "subsonic", resource: "3" };
   const coverArt4 = { system: "subsonic", resource: "4" };
+  const coverArt5 = { system: "subsonic", resource: "5" };
 
   describe("when the playlist has no coverArt ids", () => {
     it("should return question mark icon", () => {
@@ -462,8 +464,8 @@ describe("playlistAlbumArtURL", () => {
 
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: externalArt1 }),
-          aTrack({ coverArt: externalArt2 }),
+          aTrack({ coverArt: externalArt1, album: anAlbumSummary({id: "album1"}) }),
+          aTrack({ coverArt: externalArt2, album: anAlbumSummary({id: "album2"}) }),
         ],
       });
 
@@ -473,17 +475,18 @@ describe("playlistAlbumArtURL", () => {
     });
   });
 
-  describe("when the playlist has 2 distinct coverArt ids", () => {
-    it("should return them on the url to the image", () => {
+  describe("when the playlist has 4 tracks from 2 different albums, including some tracks that are missing coverArt urns", () => {
+    it("should use the cover art once per album", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const coverArt1 = { system: "subsonic", resource: "1" };
-      const coverArt2 = { system: "subsonic", resource: "2" };
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: coverArt1 }),
-          aTrack({ coverArt: coverArt2 }),
-          aTrack({ coverArt: coverArt1 }),
-          aTrack({ coverArt: coverArt2 }),
+          aTrack({ coverArt: undefined, album: anAlbumSummary({id: "album1" }) }),
+          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1" }) }),
+          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2" }) }),
+          aTrack({ coverArt: undefined, album: anAlbumSummary({id: "album2" }) }),
+          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album1" }) }),
+          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album2" }) }),
+          aTrack({ coverArt: undefined, album: anAlbumSummary({id: "album2" }) }),
         ],
       });
 
@@ -493,16 +496,52 @@ describe("playlistAlbumArtURL", () => {
     });
   });
 
-  describe("when the playlist has 4 distinct albumIds", () => {
+  describe("when the playlist has 4 tracks from 2 different albums", () => {
+    it("should use the cover art once per album", () => {
+      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const playlist = aPlaylist({
+        entries: [
+          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1" }) }),
+          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2" }) }),
+          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album1" }) }),
+          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album2" }) }),
+        ],
+      });
+
+      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
+      );
+    });
+  });
+
+  describe("when the playlist has 4 tracks from 3 different albums", () => {
+    it("should use the cover art once per album", () => {
+      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+      const playlist = aPlaylist({
+        entries: [
+          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1" }) }),
+          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2" }) }),
+          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album1" }) }),
+          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album3" }) }),
+        ],
+      });
+
+      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(formatForURL(coverArt4))}/size/180?search=yes`
+      );
+    });
+  });
+
+  describe("when the playlist has 4 tracks from 4 different albums", () => {
     it("should return them on the url to the image", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: coverArt1 }),
-          aTrack({ coverArt: coverArt2 }),
-          aTrack({ coverArt: coverArt2 }),
-          aTrack({ coverArt: coverArt3 }),
-          aTrack({ coverArt: coverArt4 }),
+          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1"} ) }),
+          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2"} ) }),
+          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album3"} ) }),
+          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album4"} ) }),
+          aTrack({ coverArt: coverArt5, album: anAlbumSummary({id: "album1"} ) }),
         ],
       });
 
@@ -517,17 +556,17 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: { system: "subsonic", resource: "1" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "2" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "3" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "4" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "5" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "6" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "7" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "8" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "9" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "10" } }),
-          aTrack({ coverArt: { system: "subsonic", resource: "11" } }),
+          aTrack({ coverArt: { system: "subsonic", resource: "1" }, album: anAlbumSummary({ id:"1" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "2" }, album: anAlbumSummary({ id:"2" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "3" }, album: anAlbumSummary({ id:"3" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "4" }, album: anAlbumSummary({ id:"4" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "5" }, album: anAlbumSummary({ id:"5" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "6" }, album: anAlbumSummary({ id:"6" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "7" }, album: anAlbumSummary({ id:"7" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "8" }, album: anAlbumSummary({ id:"8" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "9" }, album: anAlbumSummary({ id:"9" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "10" }, album: anAlbumSummary({ id:"10" }) }),
+          aTrack({ coverArt: { system: "subsonic", resource: "11" }, album: anAlbumSummary({ id:"11" }) }),
         ],
       });
 

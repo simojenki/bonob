@@ -13,6 +13,7 @@ import {
   PlaylistSummary,
   Playlist,
   SimilarArtist,
+  AlbumSummary,
 } from "../src/music_service";
 
 import { b64Encode } from "../src/b64";
@@ -197,7 +198,21 @@ export function anAlbum(fields: Partial<Album> = {}): Album {
     coverArt: { system: "subsonic", resource: `art:${uuid()}` },
     ...fields,
   };
-}
+};
+
+export function anAlbumSummary(fields: Partial<AlbumSummary> = {}): AlbumSummary {
+  const id = uuid();
+  return {
+    id,
+    name: `Album ${id}`,
+    year: `19${randomInt(99)}`,
+    genre: randomGenre(),
+    coverArt: { system: "subsonic", resource: `art:${uuid()}` },
+    artistId: `Artist ${uuid()}`,
+    artistName: `Artist ${randomstring.generate()}`,
+    ...fields
+  }
+};
 
 export const BLONDIE_ID = uuid();
 export const BLONDIE_NAME = "Blondie";

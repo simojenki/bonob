@@ -547,7 +547,6 @@ function server(
     return musicService
       .login(authToken)
       .then((musicLibrary) => Promise.all(urns.map((it) => {
-        console.log(`fetching art for urn = ${it}`)
         if(it.system == "external") {
           return serverOpts.externalImageResolver(it.resource);
         } else {

@@ -26,7 +26,7 @@ import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
-import { uniq } from "underscore";
+import _, { uniq } from "underscore";
 import { pSigner, Signer } from "./encryption";
 import { BUrn, formatForURL } from "./burn";
 
@@ -249,9 +249,8 @@ export const playlistAlbumArtURL = (
   bonobUrl: URLBuilder,
   playlist: Playlist
 ) => {
-  const burns: BUrn[] = uniq(
-    playlist.entries.filter(it => it.coverArt != undefined).map((it) => it.coverArt!)
-  );
+  const burns: BUrn[] = uniq(playlist.entries.filter(it => it.coverArt != undefined), it => it.album.id).map((it) => it.coverArt!);
+  console.log(`### playlist ${playlist.name} burns -> ${JSON.stringify(burns)}`)
   if (burns.length == 0) {
     return iconArtURI(bonobUrl, "error");
   } else {
