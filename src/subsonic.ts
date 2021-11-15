@@ -7,20 +7,18 @@ import {
   Credentials,
   MusicService,
   Album,
-  Artist,
-  ArtistSummary,
   Result,
   slice2,
   AlbumQuery,
   ArtistQuery,
   MusicLibrary,
-  Images,
   AlbumSummary,
   Genre,
   Track,
   CoverArt,
   Rating,
   AlbumQueryType,
+  Artist,
 } from "./music_service";
 import sharp from "sharp";
 import _ from "underscore";
@@ -28,9 +26,11 @@ import fse from "fs-extra";
 import path from "path";
 
 import axios, { AxiosRequestConfig } from "axios";
-import randomString from "./random_string";
+import randomstring from "randomstring";
 import { b64Encode, b64Decode } from "./b64";
 import logger from "./logger";
+import { assertSystem, BUrn } from "./burn";
+import { artist } from "./smapi";
 
 export const BROWSER_HEADERS = {
   accept:
@@ -46,7 +46,7 @@ export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
 
 export const t_and_s = (password: string) => {
-  const s = randomString();
+  const s = randomstring.generate();
   return {
     t: t(password, s),
     s,
@@ -55,20 +55,18 @@ export const t_and_s = (password: string) => {
 
 export const DODGY_IMAGE_NAME = "2a96cbd8b46e442fc41c2b86b821562f.png";
 
-export const isDodgyImage = (url: string) => url.endsWith(DODGY_IMAGE_NAME);
+export const isValidImage = (url: string | undefined) =>
+  url != undefined && !url.endsWith(DODGY_IMAGE_NAME);
 
-export const validate = (url: string | undefined) =>
-  url && !isDodgyImage(url) ? url : undefined;
-
-export type SubsonicEnvelope = {
+type SubsonicEnvelope = {
   "subsonic-response": SubsonicResponse;
 };
 
-export type SubsonicResponse = {
+type SubsonicResponse = {
   status: string;
 };
 
-export type album = {
+type album = {
   id: string;
   name: string;
   artist: string | undefined;
@@ -78,73 +76,75 @@ export type album = {
   year: string | undefined;
 };
 
-export type artistSummary = {
+type artist = {
   id: string;
   name: string;
   albumCount: number;
   artistImageUrl: string | undefined;
 };
 
-export type GetArtistsResponse = SubsonicResponse & {
+type GetArtistsResponse = SubsonicResponse & {
   artists: {
     index: {
-      artist: artistSummary[];
+      artist: artist[];
       name: string;
     }[];
   };
 };
 
-export type GetAlbumListResponse = SubsonicResponse & {
+type GetAlbumListResponse = SubsonicResponse & {
   albumList2: {
     album: album[];
   };
 };
 
-export type genre = {
+type genre = {
   songCount: number;
   albumCount: number;
   value: string;
 };
 
-export type GetGenresResponse = SubsonicResponse & {
+type GetGenresResponse = SubsonicResponse & {
   genres: {
     genre: genre[];
   };
 };
 
-export type SubsonicError = SubsonicResponse & {
+type SubsonicError = SubsonicResponse & {
   error: {
     code: string;
     message: string;
   };
 };
 
-export type artistInfo = {
-  biography: string | undefined;
-  musicBrainzId: string | undefined;
-  lastFmUrl: string | undefined;
+export type images = {
   smallImageUrl: string | undefined;
   mediumImageUrl: string | undefined;
   largeImageUrl: string | undefined;
-  similarArtist: artistSummary[];
 };
 
-export type ArtistInfo = {
-  image: Images;
-  similarArtist: (ArtistSummary & { inLibrary: boolean })[];
+type artistInfo = images & {
+  biography: string | undefined;
+  musicBrainzId: string | undefined;
+  lastFmUrl: string | undefined;
+  similarArtist: artist[];
 };
 
-export type GetArtistInfoResponse = SubsonicResponse & {
+type ArtistSummary = IdName & {
+  image: BUrn | undefined;
+};
+
+type GetArtistInfoResponse = SubsonicResponse & {
   artistInfo2: artistInfo;
 };
 
-export type GetArtistResponse = SubsonicResponse & {
-  artist: artistSummary & {
+type GetArtistResponse = SubsonicResponse & {
+  artist: artist & {
     album: album[];
   };
 };
 
-export type song = {
+type song = {
   id: string;
   parent: string | undefined;
   title: string;
@@ -166,18 +166,18 @@ export type song = {
   starred: string | undefined;
 };
 
-export type GetAlbumResponse = {
+type GetAlbumResponse = {
   album: album & {
     song: song[];
   };
 };
 
-export type playlist = {
+type playlist = {
   id: string;
   name: string;
 };
 
-export type GetPlaylistResponse = {
+type GetPlaylistResponse = {
   playlist: {
     id: string;
     name: string;
@@ -185,32 +185,32 @@ export type GetPlaylistResponse = {
   };
 };
 
-export type GetPlaylistsResponse = {
+type GetPlaylistsResponse = {
   playlists: { playlist: playlist[] };
 };
 
-export type GetSimilarSongsResponse = {
+type GetSimilarSongsResponse = {
   similarSongs2: { song: song[] };
 };
 
-export type GetTopSongsResponse = {
+type GetTopSongsResponse = {
   topSongs: { song: song[] };
 };
 
-export type GetSongResponse = {
+type GetSongResponse = {
   song: song;
 };
 
-export type GetStarredResponse = {
+type GetStarredResponse = {
   starred2: {
     song: song[];
     album: album[];
   };
 };
 
-export type Search3Response = SubsonicResponse & {
+type Search3Response = SubsonicResponse & {
   searchResult3: {
-    artist: artistSummary[];
+    artist: artist[];
     album: album[];
     song: song[];
   };
@@ -222,30 +222,43 @@ export function isError(
   return (subsonicResponse as SubsonicError).error !== undefined;
 }
 
-export const splitCoverArtId = (coverArt: string): [string, string] => {
-  const parts = coverArt.split(":").filter((it) => it.length > 0);
-  if (parts.length < 2) throw `'${coverArt}' is an invalid coverArt id'`;
-  return [parts[0]!, parts.slice(1).join(":")];
-};
-
-export type IdName = {
+type IdName = {
   id: string;
   name: string;
 };
 
-export type getAlbumListParams = {
-  type: string;
-  size?: number;
-  offet?: number;
-  fromYear?: string;
-  toYear?: string;
-  genre?: string;
+const coverArtURN = (coverArt: string | undefined): BUrn | undefined => pipe(
+  coverArt,
+  O.fromNullable,
+  O.map((it: string) => ({ system: "subsonic", resource: `art:${it}` })),
+  O.getOrElseW(() => undefined)
+)
+
+export const artistImageURN = (
+  spec: Partial<{
+    artistId: string | undefined;
+    artistImageURL: string | undefined;
+  }>
+): BUrn | undefined => {
+  const deets = {
+    artistId: undefined,
+    artistImageURL: undefined,
+    ...spec,
+  };
+  if (deets.artistImageURL && isValidImage(deets.artistImageURL)) {
+    return {
+      system: "external",
+      resource: deets.artistImageURL
+    };
+  } else if (artistIsInLibrary(deets.artistId)) {
+    return {
+      system: "subsonic",
+      resource: `art:${deets.artistId!}`,
+    };
+  } else {
+    return undefined;
+  }
 };
-
-export const MAX_ALBUM_LIST = 500;
-
-const maybeAsCoverArt = (coverArt: string | undefined) =>
-  coverArt ? `coverArt:${coverArt}` : undefined;
 
 export const asTrack = (album: Album, song: song): Track => ({
   id: song.id,
@@ -254,11 +267,12 @@ export const asTrack = (album: Album, song: song): Track => ({
   duration: song.duration || 0,
   number: song.track || 0,
   genre: maybeAsGenre(song.genre),
-  coverArt: maybeAsCoverArt(song.coverArt),
+  coverArt: coverArtURN(song.coverArt),
   album,
   artist: {
     id: `${song.artistId!}`,
     name: song.artist!,
+    image: artistImageURN({ artistId: song.artistId }),
   },
   rating: {
     love: song.starred != undefined,
@@ -276,7 +290,7 @@ const asAlbum = (album: album): Album => ({
   genre: maybeAsGenre(album.genre),
   artistId: album.artistId,
   artistName: album.artist,
-  coverArt: maybeAsCoverArt(album.coverArt),
+  coverArt: coverArtURN(album.coverArt),
 });
 
 export const asGenre = (genreName: string) => ({
@@ -294,8 +308,8 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
 
 export type StreamClientApplication = (track: Track) => string;
 
-export const DEFAULT_CLIENT_APPLICATION = "bonob";
-export const USER_AGENT = "bonob";
+const DEFAULT_CLIENT_APPLICATION = "bonob";
+const USER_AGENT = "bonob";
 
 export const DEFAULT: StreamClientApplication = (_: Track) =>
   DEFAULT_CLIENT_APPLICATION;
@@ -366,6 +380,9 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   starred: "highest",
 };
 
+const artistIsInLibrary = (artistId: string | undefined) =>
+  artistId != undefined && artistId != "-1";
+
 export class Subsonic implements MusicService {
   url: string;
   streamClientApplication: StreamClientApplication;
@@ -400,7 +417,8 @@ export class Subsonic implements MusicService {
           "User-Agent": USER_AGENT,
         },
         ...config,
-      }).catch(e => {
+      })
+      .catch((e) => {
         throw `Subsonic failed with: ${e}`;
       })
       .then((response) => {
@@ -425,9 +443,7 @@ export class Subsonic implements MusicService {
   generateToken = async (credentials: Credentials) =>
     this.getJSON(credentials, "/rest/ping.view")
       .then(() => ({
-        authToken: b64Encode(
-          JSON.stringify(credentials)
-        ),
+        authToken: b64Encode(JSON.stringify(credentials)),
         userId: credentials.username,
         nickname: credentials.username,
       }))
@@ -437,7 +453,7 @@ export class Subsonic implements MusicService {
 
   getArtists = (
     credentials: Credentials
-  ): Promise<(IdName & { albumCount: number })[]> =>
+  ): Promise<(IdName & { albumCount: number; image: BUrn | undefined })[]> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
       .then((artists) =>
@@ -445,26 +461,46 @@ export class Subsonic implements MusicService {
           id: `${artist.id}`,
           name: artist.name,
           albumCount: artist.albumCount,
+          image: artistImageURN({
+            artistId: artist.id,
+            artistImageURL: artist.artistImageUrl,
+          }),
         }))
       );
 
-  getArtistInfo = (credentials: Credentials, id: string): Promise<ArtistInfo> =>
+  getArtistInfo = (
+    credentials: Credentials,
+    id: string
+  ): Promise<{
+    similarArtist: (ArtistSummary & { inLibrary: boolean })[];
+    images: {
+      s: string | undefined;
+      m: string | undefined;
+      l: string | undefined;
+    };
+  }> =>
     this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo2", {
       id,
       count: 50,
       includeNotPresent: true,
-    }).then((it) => ({
-      image: {
-        small: validate(it.artistInfo2.smallImageUrl),
-        medium: validate(it.artistInfo2.mediumImageUrl),
-        large: validate(it.artistInfo2.largeImageUrl),
-      },
-      similarArtist: (it.artistInfo2.similarArtist || []).map((artist) => ({
-        id: `${artist.id}`,
-        name: artist.name,
-        inLibrary: artist.id != "-1",
-      })),
-    }));
+    })
+      .then((it) => it.artistInfo2)
+      .then((it) => ({
+        images: {
+          s: it.smallImageUrl,
+          m: it.mediumImageUrl,
+          l: it.largeImageUrl,
+        },
+        similarArtist: (it.similarArtist || []).map((artist) => ({
+          id: `${artist.id}`,
+          name: artist.name,
+          inLibrary: artistIsInLibrary(artist.id),
+          image: artistImageURN({
+            artistId: artist.id,
+            artistImageURL: artist.artistImageUrl,
+          }),
+        })),
+      }));
 
   getAlbum = (credentials: Credentials, id: string): Promise<Album> =>
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
@@ -476,13 +512,15 @@ export class Subsonic implements MusicService {
         genre: maybeAsGenre(album.genre),
         artistId: album.artistId,
         artistName: album.artist,
-        coverArt: maybeAsCoverArt(album.coverArt),
+        coverArt: coverArtURN(album.coverArt),
       }));
 
   getArtist = (
     credentials: Credentials,
     id: string
-  ): Promise<IdName & { albums: AlbumSummary[] }> =>
+  ): Promise<
+    IdName & { artistImageUrl: string | undefined; albums: AlbumSummary[] }
+  > =>
     this.getJSON<GetArtistResponse>(credentials, "/rest/getArtist", {
       id,
     })
@@ -490,6 +528,7 @@ export class Subsonic implements MusicService {
       .then((it) => ({
         id: it.id,
         name: it.name,
+        artistImageUrl: it.artistImageUrl,
         albums: this.toAlbumSummary(it.album || []),
       }));
 
@@ -500,7 +539,15 @@ export class Subsonic implements MusicService {
     ]).then(([artist, artistInfo]) => ({
       id: artist.id,
       name: artist.name,
-      image: artistInfo.image,
+      image: artistImageURN({
+        artistId: artist.id,
+        artistImageURL: [
+          artist.artistImageUrl,
+          artistInfo.images.l,
+          artistInfo.images.m,
+          artistInfo.images.s,
+        ].find(isValidImage),
+      }),
       albums: artist.albums,
       similarArtists: artistInfo.similarArtist,
     }));
@@ -535,7 +582,7 @@ export class Subsonic implements MusicService {
       genre: maybeAsGenre(album.genre),
       artistId: album.artistId,
       artistName: album.artist,
-      coverArt: maybeAsCoverArt(album.coverArt),
+      coverArt: coverArtURN(album.coverArt),
     }));
 
   search3 = (credentials: Credentials, q: any) =>
@@ -586,7 +633,11 @@ export class Subsonic implements MusicService {
           .then(slice2(q))
           .then(([page, total]) => ({
             total,
-            results: page.map((it) => ({ id: it.id, name: it.name })),
+            results: page.map((it) => ({
+              id: it.id,
+              name: it.name,
+              image: it.image,
+            })),
           })),
       artist: async (id: string): Promise<Artist> =>
         subsonic.getArtistWithInfo(credentials, id),
@@ -691,63 +742,27 @@ export class Subsonic implements MusicService {
               stream: res.data,
             }))
         ),
-      coverArt: async (coverArt: string, size?: number) => {
-        const [type, id] = splitCoverArtId(coverArt);
-        if (type == "coverArt") {
-          return subsonic
-            .getCoverArt(credentials, id, size)
-            .then((res) => ({
-              contentType: res.headers["content-type"],
-              data: Buffer.from(res.data, "binary"),
-            }))
-            .catch((e) => {
-              logger.error(`Failed getting coverArt ${coverArt}: ${e}`);
-              return undefined;
-            });
-        } else {
-          return subsonic
-            .getArtistWithInfo(credentials, id)
-            .then((artist) => {
-              const albumsWithCoverArt = artist.albums.filter(
-                (it) => it.coverArt
-              );
-              if (artist.image.large) {
-                return this.externalImageFetcher(artist.image.large!).then(
-                  (image) => {
-                    if (image && size) {
-                      return sharp(image.data)
-                        .resize(size)
-                        .toBuffer()
-                        .then((resized) => ({
-                          contentType: image.contentType,
-                          data: resized,
-                        }));
-                    } else {
-                      return image;
-                    }
-                  }
-                );
-              } else if (albumsWithCoverArt.length > 0) {
-                return subsonic
-                  .getCoverArt(
-                    credentials,
-                    splitCoverArtId(albumsWithCoverArt[0]!.coverArt!)[1],
-                    size
-                  )
-                  .then((res) => ({
-                    contentType: res.headers["content-type"],
-                    data: Buffer.from(res.data, "binary"),
-                  }));
-              } else {
-                return undefined;
-              }
-            })
-            .catch((e) => {
-              logger.error(`Failed getting coverArt ${coverArt}: ${e}`);
-              return undefined;
-            });
-        }
-      },
+      coverArt: async (coverArtURN: BUrn, size?: number) =>
+        Promise.resolve(coverArtURN)
+          .then((it) => assertSystem(it, "subsonic"))
+          .then((it) => it.resource.split(":")[1]!)
+          .then((it) =>
+            subsonic.getCoverArt(
+              credentials,
+              it,
+              size
+            )
+          )
+          .then((res) => ({
+            contentType: res.headers["content-type"],
+            data: Buffer.from(res.data, "binary"),
+          }))
+          .catch((e) => {
+            logger.error(
+              `Failed getting coverArt for urn:'${coverArtURN}': ${e}`
+            );
+            return undefined;
+          }),
       scrobble: async (id: string) =>
         subsonic
           .getJSON(credentials, `/rest/scrobble`, {
@@ -771,6 +786,10 @@ export class Subsonic implements MusicService {
             artists.map((artist) => ({
               id: artist.id,
               name: artist.name,
+              image: artistImageURN({
+                artistId: artist.id,
+                artistImageURL: artist.artistImageUrl,
+              }),
             }))
           ),
       searchAlbums: async (query: string) =>
@@ -812,7 +831,7 @@ export class Subsonic implements MusicService {
                     genre: maybeAsGenre(entry.genre),
                     artistName: entry.artist,
                     artistId: entry.artistId,
-                    coverArt: maybeAsCoverArt(entry.coverArt),
+                    coverArt: coverArtURN(entry.coverArt),
                   },
                   entry
                 ),

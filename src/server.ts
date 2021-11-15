@@ -35,6 +35,8 @@ import _, { shuffle } from "underscore";
 import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
 import { jwtSigner, Signer } from "./encryption";
+import { parse } from "./burn";
+import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -87,6 +89,7 @@ export type ServerOpts = {
   logRequests: boolean;
   version: string;
   tokenSigner: Signer;
+  externalImageResolver: ImageFetcher;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -98,6 +101,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   logRequests: false,
   version: "v?",
   tokenSigner: jwtSigner(`bonob-${uuid()}`),
+  externalImageResolver: axiosImageFetcher
 };
 
 function server(
@@ -527,11 +531,11 @@ function server(
     "centre",
   ];
 
-  app.get("/art/:ids/size/:size", (req, res) => {
+  app.get("/art/:burns/size/:size", (req, res) => {
     const authToken = accessTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
-    const ids = req.params["ids"]!.split("&");
+    const urns = req.params["burns"]!.split("&").map(parse);
     const size = Number.parseInt(req.params["size"]!);
 
     if (!authToken) {
@@ -542,7 +546,13 @@ function server(
 
     return musicService
       .login(authToken)
-      .then((it) => Promise.all(ids.map((id) => it.coverArt(id, size))))
+      .then((musicLibrary) => Promise.all(urns.map((it) => {
+        if(it.system == "external") {
+          return serverOpts.externalImageResolver(it.resource);
+        } else {
+          return musicLibrary.coverArt(it, size);
+        }
+      })))
       .then((coverArts) => coverArts.filter((it) => it))
       .then(shuffle)
       .then((coverArts) => {
@@ -580,7 +590,7 @@ function server(
         }
       })
       .catch((e: Error) => {
-        logger.error(`Failed fetching image ${ids.join("&")}/size/${size}`, {
+        logger.error(`Failed fetching image ${urns.join("&")}/size/${size}`, {
           cause: e,
         });
         return res.status(500).send();
