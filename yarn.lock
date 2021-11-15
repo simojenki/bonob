@@ -1269,6 +1269,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/randomstring@npm:^1.1.8":
+  version: 1.1.8
+  resolution: "@types/randomstring@npm:1.1.8"
+  checksum: 22a9e4b09583ad8e7fa7ca214133abc014636d7d6eb49ca9ee671c09b241311107b0a6ea48205bf795ac61fbe5b185ac415aed2dd27c7f5806235bfea0e5532f
+  languageName: node
+  linkType: hard
+
 "@types/range-parser@npm:*":
   version: 1.2.3
   resolution: "@types/range-parser@npm:1.2.3"
@@ -1600,6 +1607,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"array-uniq@npm:1.0.2":
+  version: 1.0.2
+  resolution: "array-uniq@npm:1.0.2"
+  checksum: 8c4beb94aa183791da1e155935aba4df3fe2eeb6f491c69e666ca7351f897b9b260fa04d016e0ce766ae8280129c16f11071e17359c81c01741289009bb5ac6d
+  languageName: node
+  linkType: hard
+
 "assertion-error@npm:^1.1.0":
   version: 1.1.0
   resolution: "assertion-error@npm:1.1.0"
@@ -1805,6 +1819,7 @@ __metadata:
     "@types/mocha": ^9.0.0
     "@types/morgan": ^1.9.3
     "@types/node": ^16.7.13
+    "@types/randomstring": ^1.1.8
     "@types/sharp": ^0.28.6
     "@types/supertest": ^2.0.11
     "@types/tmp": ^0.2.1
@@ -1826,6 +1841,7 @@ __metadata:
     morgan: ^1.10.0
     node-html-parser: ^4.1.4
     nodemon: ^2.0.12
+    randomstring: ^1.2.1
     sharp: ^0.29.1
     soap: ^0.42.0
     supertest: ^6.1.6
@@ -1836,6 +1852,7 @@ __metadata:
     ts-node: ^10.2.1
     typescript: ^4.4.2
     underscore: ^1.13.1
+    urn-lib: ^2.0.0
     uuid: ^8.3.2
     winston: ^3.3.3
     xmldom-ts: ^0.3.1
@@ -6013,6 +6030,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"randombytes@npm:2.0.3":
+  version: 2.0.3
+  resolution: "randombytes@npm:2.0.3"
+  checksum: 13e1abd143404dd87024bf345fb1a446b2e2ee46d8e1a5a073e8370c9b1e58000d81a97d4327ba7089087213eb6d8c77fa67ab4e91aa00605126d634fcccb9d4
+  languageName: node
+  linkType: hard
+
+"randomstring@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "randomstring@npm:1.2.1"
+  dependencies:
+    array-uniq: 1.0.2
+    randombytes: 2.0.3
+  bin:
+    randomstring: bin/randomstring
+  checksum: 501da2ec59638d502dbb66c237ab80790dbb0b50b493347cbf6abc2dfbf6fe08f195d85e37911689bc406f85d31cf9826757398b5af8c9cae7c0ad4f808f3ac0
+  languageName: node
+  linkType: hard
+
 "range-parser@npm:~1.2.1":
   version: 1.2.1
   resolution: "range-parser@npm:1.2.1"
@@ -7232,6 +7268,13 @@ typescript@^4.4.2:
   dependencies:
     prepend-http: ^2.0.0
   checksum: 1040e357750451173132228036aff1fd04abbd43eac1fb3e4fca7495a078bcb8d33cb765fe71ad7e473d9c94d98fd67adca63bd2716c815a2da066198dd37217
+  languageName: node
+  linkType: hard
+
+"urn-lib@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "urn-lib@npm:2.0.0"
+  checksum: fde3f4b8c38483d6229fe49e23cbf9cc012e0b4459d6aacb9bb2f3f1a32992b0e1115122401cca3708598ffa279355182158c7f7c248881ff72dc0f9e9f76d82
   languageName: node
   linkType: hard
 

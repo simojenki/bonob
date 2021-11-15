@@ -1,3 +1,5 @@
+import { BUrn } from "./burn";
+
 export type Credentials = { username: string; password: string };
 
 export function isSuccess(
@@ -25,24 +27,12 @@ export type AuthFailure = {
 export type ArtistSummary = {
   id: string;
   name: string;
-};
-
-export type Images = {
-  small: string | undefined;
-  medium: string | undefined;
-  large: string | undefined;
-};
-
-export const NO_IMAGES: Images = {
-  small: undefined,
-  medium: undefined,
-  large: undefined,
+  image: BUrn | undefined;
 };
 
 export type SimilarArtist = ArtistSummary & { inLibrary: boolean };
 
 export type Artist = ArtistSummary & {
-  image: Images
   albums: AlbumSummary[];
   similarArtists: SimilarArtist[]
 };
@@ -52,7 +42,7 @@ export type AlbumSummary = {
   name: string;
   year: string | undefined;
   genre: Genre | undefined;
-  coverArt: string | undefined;
+  coverArt: BUrn | undefined;
 
   artistName: string | undefined;
   artistId: string | undefined;
@@ -77,7 +67,7 @@ export type Track = {
   duration: number;
   number: number | undefined;
   genre: Genre | undefined;
-  coverArt: string | undefined;
+  coverArt: BUrn | undefined;
   album: AlbumSummary;
   artist: ArtistSummary;
   rating: Rating;
@@ -117,6 +107,7 @@ export type AlbumQuery = Paging & {
 export const artistToArtistSummary = (it: Artist): ArtistSummary => ({
   id: it.id,
   name: it.name,
+  image: it.image
 });
 
 export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
@@ -184,7 +175,7 @@ export interface MusicLibrary {
     range: string | undefined;
   }): Promise<TrackStream>;
   rate(trackId: string, rating: Rating): Promise<boolean>;
-  coverArt(id: string, size?: number): Promise<CoverArt | undefined>;
+  coverArt(coverArtURN: BUrn, size?: number): Promise<CoverArt | undefined>;
   nowPlaying(id: string): Promise<boolean>
   scrobble(id: string): Promise<boolean>
   searchArtists(query: string): Promise<ArtistSummary[]>;

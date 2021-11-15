@@ -3,6 +3,9 @@ import { Express, Request } from "express";
 import { listen } from "soap";
 import { readFileSync } from "fs";
 import path from "path";
+import { pipe } from "fp-ts/lib/function";
+import { option as O } from "fp-ts";
+
 import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
@@ -23,8 +26,9 @@ import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
-import { uniq } from "underscore";
+import _, { uniq } from "underscore";
 import { pSigner, Signer } from "./encryption";
+import { BUrn, formatForURL } from "./burn";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -245,25 +249,26 @@ export const playlistAlbumArtURL = (
   bonobUrl: URLBuilder,
   playlist: Playlist
 ) => {
-  const ids = uniq(
-    playlist.entries.map((it) => it.coverArt).filter((it) => it)
-  );
-  if (ids.length == 0) {
+  const burns: BUrn[] = uniq(playlist.entries.filter(it => it.coverArt != undefined), it => it.album.id).map((it) => it.coverArt!);
+  console.log(`### playlist ${playlist.name} burns -> ${JSON.stringify(burns)}`)
+  if (burns.length == 0) {
     return iconArtURI(bonobUrl, "error");
   } else {
     return bonobUrl.append({
-      pathname: `/art/${ids.slice(0, 9).join("&")}/size/180`,
+      pathname: `/art/${burns.slice(0, 9).map(it => encodeURIComponent(formatForURL(it))).join("&")}/size/180`,
     });
   }
 };
 
 export const defaultAlbumArtURI = (
   bonobUrl: URLBuilder,
-  { coverArt }: { coverArt: string | undefined }
-) =>
-  coverArt
-    ? bonobUrl.append({ pathname: `/art/${coverArt}/size/180` })
-    : iconArtURI(bonobUrl, "vinyl");
+  { coverArt }: { coverArt: BUrn | undefined }
+) => pipe(
+  coverArt,
+  O.fromNullable,
+  O.map(it => bonobUrl.append({ pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180` })),
+  O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
+);
 
 export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
   bonobUrl.append({
@@ -273,7 +278,12 @@ export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
 export const defaultArtistArtURI = (
   bonobUrl: URLBuilder,
   artist: ArtistSummary
-) => bonobUrl.append({ pathname: `/art/artist:${artist.id}/size/180` });
+) => pipe(
+  artist.image,
+  O.fromNullable,
+  O.map(it => bonobUrl.append({ pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180` })),
+  O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
+);
 
 export const sonosifyMimeType = (mimeType: string) =>
   mimeType == "audio/x-flac" ? "audio/flac" : mimeType;

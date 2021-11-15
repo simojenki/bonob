@@ -88,7 +88,8 @@ const app = server(
     applyContextPath: true,
     logRequests: true,
     version,
-    tokenSigner: jwtSigner(config.secret)
+    tokenSigner: jwtSigner(config.secret),
+    externalImageResolver: artistImageFetcher
   }
 );
 

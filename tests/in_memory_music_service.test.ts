@@ -18,6 +18,7 @@ import {
 } from "./builders";
 import _ from "underscore";
 
+
 describe("InMemoryMusicService", () => {
   const service = new InMemoryMusicService();
 
@@ -51,25 +52,7 @@ describe("InMemoryMusicService", () => {
       );
     });
   });
-
-  describe("artistToArtistSummary", () => {
-    it("should map fields correctly", () => {
-      const artist = anArtist({
-        id: uuid(),
-        name: "The Artist",
-        image: {
-          small: "/path/to/small/jpg",
-          medium: "/path/to/medium/jpg",
-          large: "/path/to/large/jpg",
-        },
-      });
-      expect(artistToArtistSummary(artist)).toEqual({
-        id: artist.id,
-        name: artist.name,
-      });
-    });
-  });
-
+  
   describe("Music Library", () => {
     const user = { username: "user100", password: "password100" };
     let musicLibrary: MusicLibrary;
