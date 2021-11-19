@@ -443,7 +443,7 @@ export class Subsonic implements MusicService {
   generateToken = async (credentials: Credentials) =>
     this.getJSON(credentials, "/rest/ping.view")
       .then(() => ({
-        authToken: b64Encode(JSON.stringify(credentials)),
+        serviceToken: b64Encode(JSON.stringify(credentials)),
         userId: credentials.username,
         nickname: credentials.username,
       }))

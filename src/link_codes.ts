@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid';
 
 
 export type Association = {
-  authToken: string
+  serviceToken: string
   userId: string
   nickname: string  
 }

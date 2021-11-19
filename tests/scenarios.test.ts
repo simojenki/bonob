@@ -33,9 +33,10 @@ class LoggedInSonosDriver {
     this.client = client;
     this.token = token;
     this.client.addSoapHeader({
-      credentials: someCredentials(
-        this.token.getDeviceAuthTokenResult.authToken
-      ),
+      credentials: someCredentials({
+        token: this.token.getDeviceAuthTokenResult.authToken,
+        key: this.token.getDeviceAuthTokenResult.privateKey
+      }),
     });
   }
 
@@ -272,7 +273,7 @@ describe("scenarios", () => {
       bonobUrl,
       musicService,
       {
-        linkCodes: () => linkCodes
+        linkCodes: () => linkCodes,
       }
     );
 
