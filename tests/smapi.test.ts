@@ -398,6 +398,60 @@ describe("track", () => {
       },
     });
   });
+
+  describe("when there is no artistId from subsonic", () => {
+    it("should not send an artist id to sonos", () => {
+      const bonobUrl = url("http://localhost:4567/foo?access-token=1234");
+      const someTrack = aTrack({
+        id: uuid(),
+        // audio/x-flac should be mapped to audio/flac
+        mimeType: "audio/x-flac",
+        name: "great song",
+        duration: randomInt(1000),
+        number: randomInt(100),
+        album: anAlbum({
+          name: "great album",
+          id: uuid(),
+          genre: { id: "genre101", name: "some genre" },
+        }),
+        artist: anArtist({ name: "great artist", id: undefined }),
+        coverArt: { system: "subsonic", resource: "887766" },
+        rating: {
+          love: true,
+          stars: 5
+        }
+      });
+  
+      expect(track(bonobUrl, someTrack)).toEqual({
+        itemType: "track",
+        id: `track:${someTrack.id}`,
+        mimeType: "audio/flac",
+        title: someTrack.name,
+  
+        trackMetadata: {
+          album: someTrack.album.name,
+          albumId: `album:${someTrack.album.id}`,
+          albumArtist: someTrack.artist.name,
+          albumArtistId: undefined,
+          albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(formatForURL(someTrack.coverArt!))}/size/180?access-token=1234`,
+          artist: someTrack.artist.name,
+          artistId: undefined,
+          duration: someTrack.duration,
+          genre: someTrack.album.genre?.name,
+          genreId: someTrack.album.genre?.id,
+          trackNumber: someTrack.number,
+        },
+        dynamic: {
+          property: [
+            {
+              name: "rating",
+              value: `${ratingAsInt(someTrack.rating)}`,
+            },
+          ],
+        },
+    });
+    });
+  });
 });
 
 describe("album", () => {
