@@ -126,8 +126,8 @@ describe("InMemoryMusicService", () => {
 
       describe("when it exists", () => {
         it("should provide an artist", async () => {
-          expect(await musicLibrary.artist(artist1.id)).toEqual(artist1);
-          expect(await musicLibrary.artist(artist2.id)).toEqual(artist2);
+          expect(await musicLibrary.artist(artist1.id!)).toEqual(artist1);
+          expect(await musicLibrary.artist(artist2.id!)).toEqual(artist2);
         });
       });
 

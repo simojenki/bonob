@@ -25,7 +25,7 @@ export type AuthFailure = {
 };
 
 export type ArtistSummary = {
-  id: string;
+  id: string | undefined;
   name: string;
   image: BUrn | undefined;
 };

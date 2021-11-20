@@ -18,6 +18,7 @@ import {
   asTrack,
   artistImageURN,
   images,
+  song,
 } from "../src/subsonic";
 
 import axios from "axios";
@@ -627,10 +628,33 @@ describe("artistURN", () => {
 });
 
 describe("asTrack", () => {
-  const album = anAlbum();
-  const track = aTrack();
+  describe("when the song has no artistId", () => {
+    const album = anAlbum();
+    const track = aTrack({ artist: { id: undefined, name: "Not in library so no id", image: undefined }});
+
+    it("should provide no artistId", () => {
+      const result = asTrack(album, { ...asSongJson(track) });
+      expect(result.artist.id).toBeUndefined();
+      expect(result.artist.name).toEqual("Not in library so no id");
+      expect(result.artist.image).toBeUndefined();
+    });
+  });
+
+  describe("when the song has no artist name", () => {
+    const album = anAlbum();
+
+    it("should provide a ? to sonos", () => {
+      const result = asTrack(album, { id: '1' } as any as song);
+      expect(result.artist.id).toBeUndefined();
+      expect(result.artist.name).toEqual("?");
+      expect(result.artist.image).toBeUndefined();
+    });
+  });
 
   describe("invalid rating.stars values", () => {
+    const album = anAlbum();
+    const track = aTrack();
+
     describe("a value greater than 5", () => {
       it("should be returned as 0", () => {
         const result = asTrack(album, { ...asSongJson(track), userRating: 6 });
@@ -861,7 +885,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: `${artist.id}`,
@@ -923,7 +947,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -979,7 +1003,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -1033,7 +1057,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -1090,7 +1114,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -1144,7 +1168,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -1199,7 +1223,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -1255,7 +1279,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -1309,7 +1333,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,
@@ -1361,7 +1385,7 @@ describe("Subsonic", () => {
             .generateToken({ username, password })
             .then((it) => it as AuthSuccess)
             .then((it) => navidrome.login(it.authToken))
-            .then((it) => it.artist(artist.id));
+            .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
             id: artist.id,

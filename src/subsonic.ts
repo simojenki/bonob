@@ -144,12 +144,14 @@ type GetArtistResponse = SubsonicResponse & {
   };
 };
 
-type song = {
+export type song = {
   id: string;
   parent: string | undefined;
   title: string;
   album: string | undefined;
+  albumId: string | undefined;
   artist: string | undefined;
+  artistId: string | undefined;
   track: number | undefined;
   year: string | undefined;
   genre: string | undefined;
@@ -159,8 +161,6 @@ type song = {
   bitRate: number | undefined;
   suffix: string | undefined;
   contentType: string | undefined;
-  albumId: string | undefined;
-  artistId: string | undefined;
   type: string | undefined;
   userRating: number | undefined;
   starred: string | undefined;
@@ -270,9 +270,9 @@ export const asTrack = (album: Album, song: song): Track => ({
   coverArt: coverArtURN(song.coverArt),
   album,
   artist: {
-    id: `${song.artistId!}`,
-    name: song.artist!,
-    image: artistImageURN({ artistId: song.artistId }),
+    id: song.artistId,
+    name: song.artist ? song.artist : "?",
+    image: song.artistId ? artistImageURN({ artistId: song.artistId }) : undefined,
   },
   rating: {
     love: song.starred != undefined,
