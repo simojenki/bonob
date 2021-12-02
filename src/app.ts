@@ -21,7 +21,7 @@ import { JWTSmapiLoginTokens } from "./smapi_auth";
 const config = readConfig();
 const clock = SystemClock;
 
-logger.info(`Starting bonob with config ${JSON.stringify(config)}`);
+logger.info(`Starting bonob with config ${JSON.stringify({ ...config, secret: "*******" })}`);
 
 const bonob = bonobService(
   config.sonos.serviceName,
@@ -89,7 +89,7 @@ const app = server(
     applyContextPath: true,
     logRequests: true,
     version,
-    smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, '1h'),
+    smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher
   }
 );

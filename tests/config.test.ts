@@ -262,6 +262,17 @@ describe("config", () => {
     });
   });
 
+  describe("authTimeout", () => {
+    it("should default to 1h", () => {
+      expect(config().authTimeout).toEqual("1h");
+    });
+
+    it(`should be overridable using BNB_AUTH_TIMEOUT`, () => {
+      process.env["BNB_AUTH_TIMEOUT"] = "33s";
+      expect(config().authTimeout).toEqual("33s");
+    });
+});
+
   describe("sonos", () => {
     describe("serviceName", () => {
       it("should default to bonob", () => {
