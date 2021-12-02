@@ -63,6 +63,7 @@ export default function () {
     port,
     bonobUrl: url(bonobUrl),
     secret: bnbEnvVar("SECRET", { default: "bonob" })!,
+    authTimeout: bnbEnvVar("AUTH_TIMEOUT", { default: "1h" })!,
     icons: {
       foregroundColor: bnbEnvVar("ICON_FOREGROUND_COLOR", {
         validationPattern: COLOR,
