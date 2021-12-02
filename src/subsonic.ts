@@ -208,6 +208,13 @@ type GetStarredResponse = {
   };
 };
 
+export type PingResponse = {
+  status: string,
+  version: string,
+  type: string,
+  serverVersion: string
+}
+
 type Search3Response = SubsonicResponse & {
   searchResult3: {
     artist: artist[];
@@ -383,6 +390,15 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
 const artistIsInLibrary = (artistId: string | undefined) =>
   artistId != undefined && artistId != "-1";
 
+type CredentialsWithType = Credentials & { type: string }
+
+export const asToken = (credentials: CredentialsWithType) => b64Encode(JSON.stringify(credentials))
+export const parseToken = (token: string): CredentialsWithType => JSON.parse(b64Decode(token));
+
+interface SubsonicMusicLibrary extends MusicLibrary {
+  flavour(): string
+}
+
 export class Subsonic implements MusicService {
   url: string;
   streamClientApplication: StreamClientApplication;
@@ -441,15 +457,13 @@ export class Subsonic implements MusicService {
       });
 
   generateToken = async (credentials: Credentials) =>
-    this.getJSON(credentials, "/rest/ping.view")
-      .then(() => ({
-        serviceToken: b64Encode(JSON.stringify(credentials)),
+    this.getJSON<PingResponse>(credentials, "/rest/ping.view")
+      .then(({ type }) => ({
+        serviceToken: asToken({ ...credentials, type }),
         userId: credentials.username,
         nickname: credentials.username,
       }))
       .catch((e) => ({ message: `${e}` }));
-
-  parseToken = (token: string): Credentials => JSON.parse(b64Decode(token));
 
   getArtists = (
     credentials: Credentials
@@ -624,9 +638,10 @@ export class Subsonic implements MusicService {
 
   async login(token: string) {
     const subsonic = this;
-    const credentials: Credentials = this.parseToken(token);
+    const credentials: CredentialsWithType = parseToken(token);
 
-    const musicLibrary: MusicLibrary = {
+    const subsonicMusicLibrary: SubsonicMusicLibrary = {
+      flavour: () => "subsonic",
       artists: (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
         subsonic
           .getArtists(credentials)
@@ -903,6 +918,13 @@ export class Subsonic implements MusicService {
         ),
     };
 
-    return Promise.resolve(musicLibrary);
+    if(credentials.type == "navidrome") {
+      return Promise.resolve({
+        ...subsonicMusicLibrary,
+        flavour: ()=> "navidrome"
+      })
+    } else {
+      return Promise.resolve(subsonicMusicLibrary);
+    }
   }
 }

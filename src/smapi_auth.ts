@@ -108,16 +108,16 @@ export const smapiTokenAsString = (smapiToken: SmapiToken) => b64Encode(JSON.str
 }));
 export const smapiTokenFromString = (smapiTokenString: string): SmapiToken => JSON.parse(b64Decode(smapiTokenString));
 
-export const SMAPI_TOKEN_VERSION = "1";
+export const SMAPI_TOKEN_VERSION = 2;
 
 export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   private readonly clock: Clock;
   private readonly secret: string;
   private readonly expiresIn: string;
-  private readonly version: string;
+  private readonly version: number;
   private readonly keyGenerator: () => string;
 
-  constructor(clock: Clock, secret: string, expiresIn: string, keyGenerator: () => string = uuid, version: string = SMAPI_TOKEN_VERSION) {
+  constructor(clock: Clock, secret: string, expiresIn: string, keyGenerator: () => string = uuid, version: number = SMAPI_TOKEN_VERSION) {
     this.clock = clock;
     this.secret = secret;
     this.expiresIn = expiresIn;

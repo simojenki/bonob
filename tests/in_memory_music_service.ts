@@ -44,6 +44,7 @@ export class InMemoryMusicService implements MusicService {
         serviceToken: b64Encode(JSON.stringify({ username, password })),
         userId: username,
         nickname: username,
+        type: "in-memory"
       });
     } else {
       return Promise.resolve({ message: `Invalid user:${username}` });
