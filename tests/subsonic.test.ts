@@ -792,21 +792,21 @@ describe("Subsonic", () => {
   describe("login", () => {
     describe("when the token is for generic subsonic", () => {
       it("should return a subsonic client", async () => {
-        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "subsonic" }));
+        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "subsonic", bearer: undefined }));
         expect(client.flavour()).toEqual("subsonic");
       });
     });
 
     describe("when the token is for navidrome", () => {
       it("should return a navidrome client", async () => {
-        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "navidrome" }));
+        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "navidrome", bearer: undefined }));
         expect(client.flavour()).toEqual("navidrome");
       });
     });
 
     describe("when the token is for gonic", () => {
       it("should return a subsonic client", async () => {
-        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "gonic" }));
+        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "gonic", bearer: undefined }));
         expect(client.flavour()).toEqual("subsonic");
       });
     });
