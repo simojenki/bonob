@@ -1,4 +1,4 @@
-import { option as O } from "fp-ts";
+import { either as E } from "fp-ts";
 import express, { Express, Request } from "express";
 import * as Eta from "eta";
 import path from "path";
@@ -24,7 +24,7 @@ import {
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, isSuccess } from "./music_service";
 import bindSmapiSoapServiceToExpress from "./smapi";
-import { AccessTokens, AccessTokenPerAuthToken } from "./access_tokens";
+import { APITokens, InMemoryAPITokens } from "./api_tokens";
 import logger from "./logger";
 import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
@@ -34,9 +34,9 @@ import { Icon, ICONS, festivals, features } from "./icon";
 import _, { shuffle } from "underscore";
 import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
-import { jwtSigner, Signer } from "./encryption";
 import { parse } from "./burn";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
+import { JWTSmapiLoginTokens, SmapiAuthTokens, SmapiToken } from "./smapi_auth";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -79,7 +79,7 @@ export class RangeBytesFromFilter extends Transform {
 
 export type ServerOpts = {
   linkCodes: () => LinkCodes;
-  accessTokens: () => AccessTokens;
+  apiTokens: () => APITokens;
   clock: Clock;
   iconColors: {
     foregroundColor: string | undefined;
@@ -88,20 +88,24 @@ export type ServerOpts = {
   applyContextPath: boolean;
   logRequests: boolean;
   version: string;
-  tokenSigner: Signer;
+  smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
   linkCodes: () => new InMemoryLinkCodes(),
-  accessTokens: () => new AccessTokenPerAuthToken(),
+  apiTokens: () => new InMemoryAPITokens(),
   clock: SystemClock,
   iconColors: { foregroundColor: undefined, backgroundColor: undefined },
   applyContextPath: true,
   logRequests: false,
   version: "v?",
-  tokenSigner: jwtSigner(`bonob-${uuid()}`),
-  externalImageResolver: axiosImageFetcher
+  smapiAuthTokens: new JWTSmapiLoginTokens(
+    SystemClock,
+    `bonob-${uuid()}`,
+    "1m"
+  ),
+  externalImageResolver: axiosImageFetcher,
 };
 
 function server(
@@ -114,7 +118,8 @@ function server(
   const serverOpts = { ...DEFAULT_SERVER_OPTS, ...opts };
 
   const linkCodes = serverOpts.linkCodes();
-  const accessTokens = serverOpts.accessTokens();
+  const smapiAuthTokens = serverOpts.smapiAuthTokens;
+  const apiTokens = serverOpts.apiTokens();
   const clock = serverOpts.clock;
 
   const startUpTime = dayjs();
@@ -228,30 +233,33 @@ function server(
         message: lang("invalidLinkCode"),
       });
     } else {
-      return musicService.generateToken({
-        username,
-        password,
-      }).then(authResult => {
-        if (isSuccess(authResult)) {
-          linkCodes.associate(linkCode, authResult);
-          return res.render("success", {
-            lang,
-            message: lang("loginSuccessful"),
-          });
-        } else {
+      return musicService
+        .generateToken({
+          username,
+          password,
+        })
+        .then((authResult) => {
+          if (isSuccess(authResult)) {
+            linkCodes.associate(linkCode, authResult);
+            return res.render("success", {
+              lang,
+              message: lang("loginSuccessful"),
+            });
+          } else {
+            return res.status(403).render("failure", {
+              lang,
+              message: lang("loginFailed"),
+              cause: authResult.message,
+            });
+          }
+        })
+        .catch((e) => {
           return res.status(403).render("failure", {
             lang,
             message: lang("loginFailed"),
-            cause: authResult.message,
+            cause: `Unexpected error occured - ${e}`,
           });
-        }
-      }).catch(e => {
-        return res.status(403).render("failure", {
-          lang,
-          message: lang("loginFailed"),
-          cause: `Unexpected error occured - ${e}`,
         });
-      });
     }
   });
 
@@ -276,23 +284,36 @@ function server(
     const nowPlayingRatingsMatch = (value: number) => {
       const rating = ratingFromInt(value);
       const nextLove = { ...rating, love: !rating.love };
-      const nextStar = { ...rating, stars: (rating.stars === 5 ? 0 : rating.stars + 1) }
+      const nextStar = {
+        ...rating,
+        stars: rating.stars === 5 ? 0 : rating.stars + 1,
+      };
 
-      const loveRatingIcon = bonobUrl.append({pathname: rating.love ? '/love-selected.svg' : '/love-unselected.svg'}).href();
-      const starsRatingIcon = bonobUrl.append({pathname: `/star${rating.stars}.svg`}).href();
+      const loveRatingIcon = bonobUrl
+        .append({
+          pathname: rating.love ? "/love-selected.svg" : "/love-unselected.svg",
+        })
+        .href();
+      const starsRatingIcon = bonobUrl
+        .append({ pathname: `/star${rating.stars}.svg` })
+        .href();
 
       return `<Match propname="rating" value="${value}">
         <Ratings>
-          <Rating Id="${ratingAsInt(nextLove)}" AutoSkip="NEVER" OnSuccessStringId="LOVE_SUCCESS" StringId="LOVE">
+          <Rating Id="${ratingAsInt(
+            nextLove
+          )}" AutoSkip="NEVER" OnSuccessStringId="LOVE_SUCCESS" StringId="LOVE">
             <Icon Controller="universal" LastModified="${LastModified}" Uri="${loveRatingIcon}" />
           </Rating>
-          <Rating Id="${-ratingAsInt(nextStar)}" AutoSkip="NEVER" OnSuccessStringId="STAR_SUCCESS" StringId="STAR">
+          <Rating Id="${-ratingAsInt(
+            nextStar
+          )}" AutoSkip="NEVER" OnSuccessStringId="STAR_SUCCESS" StringId="STAR">
             <Icon Controller="universal" LastModified="${LastModified}" Uri="${starsRatingIcon}" />
           </Rating>
         </Ratings>
-      </Match>`
-    }
-    
+      </Match>`;
+    };
+
     res.type("application/xml").send(`<?xml version="1.0" encoding="utf-8" ?>
     <Presentation>
       <BrowseOptions PageSize="30" />
@@ -348,21 +369,32 @@ function server(
     const trace = uuid();
 
     logger.info(
-      `${trace} bnb<- ${req.method} ${req.path}?${
-        JSON.stringify(req.query)
-      }, headers=${JSON.stringify(req.headers)}`
+      `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
+        req.query
+      )}, headers=${JSON.stringify({ ...req.headers, "authorization": "***" })}`
     );
-    const authToken = pipe(
-      req.query[BONOB_ACCESS_TOKEN_HEADER] as string,
-      O.fromNullable,
-      O.map((accessToken) => accessTokens.authTokenFor(accessToken)),
-      O.getOrElseW(() => undefined)
+
+    const authHeader = E.fromNullable("Missing header");
+    const bearerToken = E.fromNullable("No Bearer token");
+    const serviceToken = pipe(
+      authHeader(req.headers["authorization"] as string),
+      E.chain(authorization => pipe(
+        authorization.match(/Bearer (?<token>.*)/),
+        bearerToken,
+        E.map(match => match[1]!)
+      )),
+      E.chain(bearerToken => pipe(
+        smapiAuthTokens.verify(bearerToken as unknown as SmapiToken),
+        E.mapLeft(_ => "Bearer token failed to verify")
+      )),
+      E.getOrElseW(() => undefined)
     );
-    if (!authToken) {
+
+    if (!serviceToken) {
       return res.status(401).send();
     } else {
       return musicService
-        .login(authToken)
+        .login(serviceToken)
         .then((it) =>
           it
             .stream({
@@ -382,7 +414,7 @@ function server(
             contentType
               .split(";")
               .map((it) => it.trim())
-              .map((it) => sonosifyMimeType(it))
+              .map(sonosifyMimeType)
               .join("; ");
 
           const respondWith = ({
@@ -532,27 +564,31 @@ function server(
   ];
 
   app.get("/art/:burns/size/:size", (req, res) => {
-    const authToken = accessTokens.authTokenFor(
+    const serviceToken = apiTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
     const urns = req.params["burns"]!.split("&").map(parse);
     const size = Number.parseInt(req.params["size"]!);
 
-    if (!authToken) {
+    if (!serviceToken) {
       return res.status(401).send();
     } else if (!(size > 0)) {
       return res.status(400).send();
     }
 
     return musicService
-      .login(authToken)
-      .then((musicLibrary) => Promise.all(urns.map((it) => {
-        if(it.system == "external") {
-          return serverOpts.externalImageResolver(it.resource);
-        } else {
-          return musicLibrary.coverArt(it, size);
-        }
-      })))
+      .login(serviceToken)
+      .then((musicLibrary) =>
+        Promise.all(
+          urns.map((it) => {
+            if (it.system == "external") {
+              return serverOpts.externalImageResolver(it.resource);
+            } else {
+              return musicLibrary.coverArt(it, size);
+            }
+          })
+        )
+      )
       .then((coverArts) => coverArts.filter((it) => it))
       .then(shuffle)
       .then((coverArts) => {
@@ -603,10 +639,10 @@ function server(
     bonobUrl,
     linkCodes,
     musicService,
-    accessTokens,
+    apiTokens,
     clock,
     i8n,
-    serverOpts.tokenSigner
+    serverOpts.smapiAuthTokens
   );
 
   if (serverOpts.applyContextPath) {

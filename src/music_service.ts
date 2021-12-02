@@ -5,7 +5,7 @@ export type Credentials = { username: string; password: string };
 export function isSuccess(
   authResult: AuthSuccess | AuthFailure
 ): authResult is AuthSuccess {
-  return (authResult as AuthSuccess).authToken !== undefined;
+  return (authResult as AuthSuccess).serviceToken !== undefined;
 }
 
 export function isFailure(
@@ -15,7 +15,7 @@ export function isFailure(
 }
 
 export type AuthSuccess = {
-  authToken: string;
+  serviceToken: string;
   userId: string;
   nickname: string;
 };
@@ -156,7 +156,7 @@ export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
 
 export interface MusicService {
   generateToken(credentials: Credentials): Promise<AuthSuccess | AuthFailure>;
-  login(authToken: string): Promise<MusicLibrary>;
+  login(serviceToken: string): Promise<MusicLibrary>;
 }
 
 export interface MusicLibrary {

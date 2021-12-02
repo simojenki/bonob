@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import libxmljs from "libxmljs2";
+import { FixedClock } from "../src/clock";
 
 import {
   contains,
@@ -556,12 +557,11 @@ describe("festivals", () => {
     backgroundColor: "black",
     foregroundColor: "black",
   });
-  let now = dayjs();
-  const clock = { now: () => now };
+  const clock = new FixedClock(dayjs());
 
   describe("on a day that isn't festive", () => {
     beforeEach(() => {
-      now = dayjs("2022/10/12");
+      clock.time = dayjs("2022/10/12");
     });
 
     it("should use the given colors", () => {
@@ -587,7 +587,7 @@ describe("festivals", () => {
 
   describe("on christmas day", () => {
     beforeEach(() => {
-      now = dayjs("2022/12/25");
+      clock.time = dayjs("2022/12/25");
     });
 
     it("should use the christmas theme colors", () => {
@@ -613,7 +613,7 @@ describe("festivals", () => {
 
   describe("on halloween", () => {
     beforeEach(() => {
-      now = dayjs("2022/10/31");
+      clock.time = dayjs("2022/10/31");
     });
 
     it("should use the given colors", () => {
@@ -638,7 +638,7 @@ describe("festivals", () => {
 
   describe("on may 4", () => {
     beforeEach(() => {
-      now = dayjs("2022/5/4");
+      clock.time = dayjs("2022/5/4");
     });
 
     it("should use the undefined colors, so no color", () => {
@@ -664,7 +664,7 @@ describe("festivals", () => {
   describe("on cny", () => {
     describe("2022", () => {
       beforeEach(() => {
-        now = dayjs("2022/02/01");
+        clock.time = dayjs("2022/02/01");
       });
 
       it("should use the cny theme", () => {
@@ -689,7 +689,7 @@ describe("festivals", () => {
 
     describe("2023", () => {
       beforeEach(() => {
-        now = dayjs("2023/01/22");
+        clock.time = dayjs("2023/01/22");
       });
 
       it("should use the cny theme", () => {
@@ -714,7 +714,7 @@ describe("festivals", () => {
 
     describe("2024", () => {
       beforeEach(() => {
-        now = dayjs("2024/02/10");
+        clock.time = dayjs("2024/02/10");
       });
 
       it("should use the cny theme", () => {
@@ -740,7 +740,7 @@ describe("festivals", () => {
 
   describe("on holi", () => {
     beforeEach(() => {
-      now = dayjs("2022/03/18");
+      clock.time = dayjs("2022/03/18");
     });
 
     it("should use the given colors", () => {

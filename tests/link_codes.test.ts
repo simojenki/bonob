@@ -18,7 +18,7 @@ describe("InMemoryLinkCodes", () => {
     describe('when token is valid', () => {
       it('should associate the token', () => {
         const linkCode = linkCodes.mint();
-        const association = { authToken: "token123", nickname: "bob", userId: "1" };
+        const association = { serviceToken: "token123", nickname: "bob", userId: "1" };
 
         linkCodes.associate(linkCode, association);
 
@@ -29,7 +29,7 @@ describe("InMemoryLinkCodes", () => {
     describe('when token is valid', () => {
       it('should throw an error', () => {
         const invalidLinkCode = "invalidLinkCode";
-        const association = { authToken: "token456", nickname: "bob", userId: "1" };
+        const association = { serviceToken: "token456", nickname: "bob", userId: "1" };
 
         expect(() => linkCodes.associate(invalidLinkCode, association)).toThrow(`Invalid linkCode ${invalidLinkCode}`)
       }); 
