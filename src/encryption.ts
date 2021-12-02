@@ -4,54 +4,12 @@ import {
   randomBytes,
   createHash,
 } from "crypto";
-import jwt from "jsonwebtoken";
+
 import jws from "jws";
 
 const ALGORITHM = "aes-256-cbc";
 const IV = randomBytes(16);
 
-function isError(thing: any): thing is Error {
-  return thing.name && thing.message
-}
-
-export type Signer = {
-  sign: (value: string) => string;
-  verify: (token: string) => string;
-};
-
-export const pSigner = (signer: Signer) => ({
-  sign: (value: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      try {
-        return resolve(signer.sign(value));
-      } catch(e) {
-        if(isError(e)) reject(e.message)
-        else reject(`Failed to sign value: ${e}`);
-      }
-    });
-  },
-  verify: (token: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      try {
-        return resolve(signer.verify(token));
-      }catch(e) {
-        if(isError(e)) reject(e.message)
-        else reject(`Failed to verify value: ${e}`);
-      }
-    });
-  }
- });
-
-export const jwtSigner = (secret: string) => ({
-  sign: (value: string) => jwt.sign(value, secret),
-  verify: (token: string) => {
-    try {
-      return jwt.verify(token, secret) as string;
-    } catch (e) {
-      throw new Error(`Failed to verify jwt, try re-authorising account within sonos app`);
-    }
-  },
-});
 
 export type Hash = {
   iv: string;

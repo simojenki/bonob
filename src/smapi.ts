@@ -3,8 +3,8 @@ import { Express, Request } from "express";
 import { listen } from "soap";
 import { readFileSync } from "fs";
 import path from "path";
+import { option as O, either as E } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
-import { option as O } from "fp-ts";
 
 import logger from "./logger";
 
@@ -21,14 +21,20 @@ import {
   slice2,
   Track,
 } from "./music_service";
-import { AccessTokens } from "./access_tokens";
+import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
 import _, { uniq } from "underscore";
-import { pSigner, Signer } from "./encryption";
 import { BUrn, formatForURL } from "./burn";
+import {
+  InvalidTokenError,
+  isSmapiRefreshTokenResultFault,
+  MissingLoginTokenError,
+  SmapiAuthTokens,
+  smapiTokenAsString,
+} from "./smapi_auth";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -60,6 +66,7 @@ const WSDL_FILE = path.resolve(
 export type Credentials = {
   loginToken: {
     token: string;
+    key: string;
     householdId: string;
   };
   deviceId: string;
@@ -150,12 +157,19 @@ export function searchResult(
 class SonosSoap {
   linkCodes: LinkCodes;
   bonobUrl: URLBuilder;
-  tokenSigner: Signer
+  smapiAuthTokens: SmapiAuthTokens;
+  clock: Clock;
 
-  constructor(bonobUrl: URLBuilder, linkCodes: LinkCodes, tokenSigner: Signer) {
+  constructor(
+    bonobUrl: URLBuilder,
+    linkCodes: LinkCodes,
+    smapiAuthTokens: SmapiAuthTokens,
+    clock: Clock
+  ) {
     this.bonobUrl = bonobUrl;
     this.linkCodes = linkCodes;
-    this.tokenSigner = tokenSigner
+    this.smapiAuthTokens = smapiAuthTokens;
+    this.clock = clock;
   }
 
   getAppLink(): GetAppLinkResult {
@@ -184,10 +198,13 @@ class SonosSoap {
   }): GetDeviceAuthTokenResult {
     const association = this.linkCodes.associationFor(linkCode);
     if (association) {
+      const smapiAuthToken = this.smapiAuthTokens.issue(
+        association.serviceToken
+      );
       return {
         getDeviceAuthTokenResult: {
-          authToken: this.tokenSigner.sign(association.authToken),
-          privateKey: "",
+          authToken: smapiAuthToken.token,
+          privateKey: smapiAuthToken.key,
           userInfo: {
             nickname: association.nickname,
             userIdHashCode: crypto
@@ -249,13 +266,18 @@ export const playlistAlbumArtURL = (
   bonobUrl: URLBuilder,
   playlist: Playlist
 ) => {
-  const burns: BUrn[] = uniq(playlist.entries.filter(it => it.coverArt != undefined), it => it.album.id).map((it) => it.coverArt!);
-  console.log(`### playlist ${playlist.name} burns -> ${JSON.stringify(burns)}`)
+  const burns: BUrn[] = uniq(
+    playlist.entries.filter((it) => it.coverArt != undefined),
+    (it) => it.album.id
+  ).map((it) => it.coverArt!);
   if (burns.length == 0) {
     return iconArtURI(bonobUrl, "error");
   } else {
     return bonobUrl.append({
-      pathname: `/art/${burns.slice(0, 9).map(it => encodeURIComponent(formatForURL(it))).join("&")}/size/180`,
+      pathname: `/art/${burns
+        .slice(0, 9)
+        .map((it) => encodeURIComponent(formatForURL(it)))
+        .join("&")}/size/180`,
     });
   }
 };
@@ -263,12 +285,17 @@ export const playlistAlbumArtURL = (
 export const defaultAlbumArtURI = (
   bonobUrl: URLBuilder,
   { coverArt }: { coverArt: BUrn | undefined }
-) => pipe(
-  coverArt,
-  O.fromNullable,
-  O.map(it => bonobUrl.append({ pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180` })),
-  O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
-);
+) =>
+  pipe(
+    coverArt,
+    O.fromNullable,
+    O.map((it) =>
+      bonobUrl.append({
+        pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180`,
+      })
+    ),
+    O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
+  );
 
 export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
   bonobUrl.append({
@@ -278,12 +305,17 @@ export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
 export const defaultArtistArtURI = (
   bonobUrl: URLBuilder,
   artist: ArtistSummary
-) => pipe(
-  artist.image,
-  O.fromNullable,
-  O.map(it => bonobUrl.append({ pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180` })),
-  O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
-);
+) =>
+  pipe(
+    artist.image,
+    O.fromNullable,
+    O.map((it) =>
+      bonobUrl.append({
+        pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180`,
+      })
+    ),
+    O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
+  );
 
 export const sonosifyMimeType = (mimeType: string) =>
   mimeType == "audio/x-flac" ? "audio/flac" : mimeType;
@@ -312,7 +344,7 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
     album: track.album.name,
     albumId: `album:${track.album.id}`,
     albumArtist: track.artist.name,
-    albumArtistId: track.artist.id? `artist:${track.artist.id}` : undefined,
+    albumArtistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
     albumArtURI: defaultAlbumArtURI(bonobUrl, track).href(),
     artist: track.artist.name,
     artistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
@@ -353,12 +385,12 @@ function bindSmapiSoapServiceToExpress(
   bonobUrl: URLBuilder,
   linkCodes: LinkCodes,
   musicService: MusicService,
-  accessTokens: AccessTokens,
+  apiKeys: APITokens,
   clock: Clock,
   i8n: I8N,
-  tokenSigner: Signer,
+  smapiAuthTokens: SmapiAuthTokens
 ) {
-  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, tokenSigner);
+  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock);
 
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
@@ -367,31 +399,47 @@ function bindSmapiSoapServiceToExpress(
       },
     });
 
-    const auth = async (
-      credentials?: Credentials
-    ) => {
-      if (!credentials) {
-        throw {
-          Fault: {
-            faultcode: "Client.LoginUnsupported",
-            faultstring: "Missing credentials...",
-          },
-        };
-      }
+  const auth = (credentials?: Credentials) => {
+    const credentialsFrom = E.fromNullable(new MissingLoginTokenError());
+    return pipe(
+      credentialsFrom(credentials),
+      E.chain((credentials) =>
+        pipe(
+          smapiAuthTokens.verify({
+            token: credentials.loginToken.token,
+            key: credentials.loginToken.key,
+          }),
+          E.map((serviceToken) => ({
+            serviceToken,
+            credentials,
+          }))
+        )
+      ),
+      E.map(({ serviceToken, credentials }) => ({
+        serviceToken,
+        credentials,
+        apiKey: apiKeys.mint(serviceToken),
+      }))
+    );
+  };
 
-      return pSigner(tokenSigner)
-        .verify(credentials.loginToken.token)
-        .then(authToken => ({ authToken, accessToken: accessTokens.mint(authToken) }))
-        .then((tokens) => musicService.login(tokens.authToken).then(musicLibrary => ({ ...tokens, musicLibrary })))
-        .catch((_) => {
-            throw {
-              Fault: {
-                faultcode: "Client.LoginUnauthorized",
-                faultstring: "Failed to authenticate, try Reauthorising your account in the sonos app",
-              },
-            };
-          });
-    };
+  const login = async (credentials?: Credentials) => {
+    const tokens = pipe(
+      auth(credentials),
+      E.getOrElseW((e) => {
+        throw e.toSmapiFault(smapiAuthTokens);
+      })
+    );
+
+    return musicService
+      .login(tokens.serviceToken)
+      .then((musicLibrary) => ({ ...tokens, musicLibrary }))
+      .catch((_) => {
+        throw new InvalidTokenError("Failed to login").toSmapiFault(
+          smapiAuthTokens
+        );
+      });
+  };
 
   const soapyService = listen(
     app,
@@ -410,31 +458,65 @@ function bindSmapiSoapServiceToExpress(
               pollInterval: 60,
             },
           }),
+          refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders) =>
+            pipe(
+              auth(soapyHeaders?.credentials),
+              E.map(({ serviceToken }) => smapiAuthTokens.issue(serviceToken)),
+              E.map((newToken) => ({
+                authToken: newToken.token,
+                privateKey: newToken.key,
+              })),
+              E.orElse((fault) =>
+                pipe(
+                  fault.toSmapiFault(smapiAuthTokens),
+                  E.fromPredicate(isSmapiRefreshTokenResultFault, (_) => fault),
+                  E.map((it) => it.Fault.detail.refreshAuthTokenResult)
+                )
+              ),
+              E.map((newToken) => ({
+                refreshAuthTokenResult: {
+                  authToken: newToken.authToken,
+                  privateKey: newToken.privateKey,
+                },
+              })),
+              E.getOrElseW((fault) => {
+                throw fault.toSmapiFault(smapiAuthTokens);
+              })
+            ),
           getMediaURI: async (
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(({ accessToken, type, typeId }) => ({
+              .then(({ credentials, type, typeId }) => ({
                 getMediaURIResult: bonobUrl
                   .append({
                     pathname: `/stream/${type}/${typeId}`,
-                    searchParams: { bat: accessToken },
                   })
                   .href(),
+                httpHeaders: [
+                  {
+                    httpHeader: {
+                      header: "Authorization",
+                      value: `Bearer ${smapiTokenAsString(
+                        credentials.loginToken
+                      )}`,
+                    },
+                  },
+                ],
               })),
           getMediaMetadata: async (
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(async ({ musicLibrary, accessToken, typeId }) =>
+              .then(async ({ musicLibrary, apiKey, typeId }) =>
                 musicLibrary.track(typeId!).then((it) => ({
-                  getMediaMetadataResult: track(urlWithToken(accessToken), it),
+                  getMediaMetadataResult: track(urlWithToken(apiKey), it),
                 }))
               ),
           search: async (
@@ -442,16 +524,16 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(async ({ musicLibrary, accessToken }) => {
+              .then(async ({ musicLibrary, apiKey }) => {
                 switch (id) {
                   case "albums":
                     return musicLibrary.searchAlbums(term).then((it) =>
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((albumSummary) =>
-                          album(urlWithToken(accessToken), albumSummary)
+                          album(urlWithToken(apiKey), albumSummary)
                         ),
                       })
                     );
@@ -460,7 +542,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((artistSummary) =>
-                          artist(urlWithToken(accessToken), artistSummary)
+                          artist(urlWithToken(apiKey), artistSummary)
                         ),
                       })
                     );
@@ -469,7 +551,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((aTrack) =>
-                          album(urlWithToken(accessToken), aTrack.album)
+                          album(urlWithToken(apiKey), aTrack.album)
                         ),
                       })
                     );
@@ -487,9 +569,9 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(async ({ musicLibrary, accessToken, type, typeId }) => {
+              .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
                 switch (type) {
                   case "artist":
@@ -503,7 +585,7 @@ function bindSmapiSoapServiceToExpress(
                           index: paging._index,
                           total,
                           mediaCollection: page.map((it) =>
-                            album(urlWithToken(accessToken), it)
+                            album(urlWithToken(apiKey), it)
                           ),
                           relatedBrowse:
                             artist.similarArtists.filter((it) => it.inLibrary)
@@ -521,7 +603,7 @@ function bindSmapiSoapServiceToExpress(
                   case "track":
                     return musicLibrary.track(typeId).then((it) => ({
                       getExtendedMetadataResult: {
-                        mediaMetadata: track(urlWithToken(accessToken), it),
+                        mediaMetadata: track(urlWithToken(apiKey), it),
                       },
                     }));
                   case "album":
@@ -533,7 +615,7 @@ function bindSmapiSoapServiceToExpress(
                             userContent: false,
                             renameable: false,
                           },
-                          ...album(urlWithToken(accessToken), it),
+                          ...album(urlWithToken(apiKey), it),
                         },
                         // <mediaCollection readonly="true">
                         //   </mediaCollection>
@@ -559,9 +641,9 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(({ musicLibrary, accessToken, type, typeId }) => {
+              .then(({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
                 const acceptLanguage = headers["accept-language"];
                 logger.debug(
@@ -573,7 +655,7 @@ function bindSmapiSoapServiceToExpress(
                   musicLibrary.albums(q).then((result) => {
                     return getMetadataResult({
                       mediaCollection: result.results.map((it) =>
-                        album(urlWithToken(accessToken), it)
+                        album(urlWithToken(apiKey), it)
                       ),
                       index: paging._index,
                       total: result.total,
@@ -684,7 +766,7 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary.artists(paging).then((result) => {
                       return getMetadataResult({
                         mediaCollection: result.results.map((it) =>
-                          artist(urlWithToken(accessToken), it)
+                          artist(urlWithToken(apiKey), it)
                         ),
                         index: paging._index,
                         total: result.total,
@@ -759,7 +841,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            playlist(urlWithToken(accessToken), it)
+                            playlist(urlWithToken(apiKey), it)
                           ),
                           index: paging._index,
                           total,
@@ -773,7 +855,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaMetadata: page.map((it) =>
-                            track(urlWithToken(accessToken), it)
+                            track(urlWithToken(apiKey), it)
                           ),
                           index: paging._index,
                           total,
@@ -787,7 +869,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            album(urlWithToken(accessToken), it)
+                            album(urlWithToken(apiKey), it)
                           ),
                           index: paging._index,
                           total,
@@ -804,7 +886,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            artist(urlWithToken(accessToken), it)
+                            artist(urlWithToken(apiKey), it)
                           ),
                           index: paging._index,
                           total,
@@ -817,7 +899,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaMetadata: page.map((it) =>
-                            track(urlWithToken(accessToken), it)
+                            track(urlWithToken(apiKey), it)
                           ),
                           index: paging._index,
                           total,
@@ -832,7 +914,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(({ musicLibrary }) =>
                 musicLibrary
                   .createPlaylist(title)
@@ -858,7 +940,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
               .then((_) => ({ deleteContainerResult: {} })),
           addToContainer: async (
@@ -866,7 +948,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
@@ -877,7 +959,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
               .then((it) => ({
                 ...it,
@@ -900,7 +982,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
@@ -912,7 +994,7 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders
           ) =>
-            auth(soapyHeaders?.credentials)
+            login(soapyHeaders?.credentials)
               .then(splitId(id))
               .then(({ musicLibrary, type, typeId }) => {
                 switch (type) {

@@ -10,15 +10,16 @@ import {
   DEFAULT,
   Subsonic,
 } from "./subsonic";
-import { InMemoryAccessTokens, sha256 } from "./access_tokens";
+import { InMemoryAPITokens, sha256 } from "./api_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
 import readConfig from "./config";
 import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
-import { jwtSigner } from "./encryption";
+import { JWTSmapiLoginTokens } from "./smapi_auth";
 
 const config = readConfig();
+const clock = SystemClock;
 
 logger.info(`Starting bonob with config ${JSON.stringify(config)}`);
 
@@ -47,8 +48,8 @@ const subsonic = new Subsonic(
 
 const featureFlagAwareMusicService: MusicService = {
   generateToken: subsonic.generateToken,
-  login: (authToken: string) =>
-    subsonic.login(authToken).then((library) => {
+  login: (serviceToken: string) =>
+    subsonic.login(serviceToken).then((library) => {
       return {
         ...library,
         scrobble: (id: string) => {
@@ -82,13 +83,13 @@ const app = server(
   featureFlagAwareMusicService,
   {
     linkCodes: () => new InMemoryLinkCodes(),
-    accessTokens: () => new InMemoryAccessTokens(sha256(config.secret)),
-    clock: SystemClock,
+    apiTokens: () => new InMemoryAPITokens(sha256(config.secret)),
+    clock,
     iconColors: config.icons,
     applyContextPath: true,
     logRequests: true,
     version,
-    tokenSigner: jwtSigner(config.secret),
+    smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, '1h'),
     externalImageResolver: artistImageFetcher
   }
 );

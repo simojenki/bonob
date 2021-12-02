@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import request from "supertest";
 import Image from "image-js";
 import fs from "fs";
+import { either as E } from "fp-ts";
 import path from "path";
 
 import { MusicService } from "../src/music_service";
@@ -16,7 +17,7 @@ import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
 
 import { aDevice, aService } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
-import { AccessTokens, ExpiringAccessTokens } from "../src/access_tokens";
+import { APITokens, InMemoryAPITokens } from "../src/api_tokens";
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import { Response } from "express";
 import { Transform } from "stream";
@@ -25,6 +26,7 @@ import i8n, { randomLang } from "../src/i8n";
 import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
 import { Clock, SystemClock } from "../src/clock";
 import { formatForURL } from "../src/burn";
+import { ExpiredTokenError, SmapiAuthTokens } from "../src/smapi_auth";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -579,7 +581,7 @@ describe("server", () => {
           associate: jest.fn(),
           associationFor: jest.fn(),
         };
-        const accessTokens = {
+        const apiTokens = {
           mint: jest.fn(),
           authTokenFor: jest.fn(),
         };
@@ -594,7 +596,7 @@ describe("server", () => {
           musicService as unknown as MusicService,
           {
             linkCodes: () => linkCodes as unknown as LinkCodes,
-            accessTokens: () => accessTokens as unknown as AccessTokens,
+            apiTokens: () => apiTokens as unknown as APITokens,
             clock,
           }
         );
@@ -628,14 +630,14 @@ describe("server", () => {
             const username = "jane";
             const password = "password100";
             const linkCode = `linkCode-${uuid()}`;
-            const authToken = {
-              authToken: `authtoken-${uuid()}`,
+            const authSuccess = {
+              serviceToken: `serviceToken-${uuid()}`,
               userId: `${username}-uid`,
               nickname: `${username}-nickname`,
             };
 
             linkCodes.has.mockReturnValue(true);
-            musicService.generateToken.mockResolvedValue(authToken);
+            musicService.generateToken.mockResolvedValue(authSuccess);
             linkCodes.associate.mockReturnValue(true);
 
             const res = await request(server)
@@ -654,7 +656,7 @@ describe("server", () => {
             expect(linkCodes.has).toHaveBeenCalledWith(linkCode);
             expect(linkCodes.associate).toHaveBeenCalledWith(
               linkCode,
-              authToken
+              authSuccess
             );
           });
         });
@@ -731,8 +733,10 @@ describe("server", () => {
           scrobble: jest.fn(),
           nowPlaying: jest.fn(),
         };
-        let now = dayjs();
-        const accessTokens = new ExpiringAccessTokens({ now: () => now });
+        const smapiAuthTokens = {
+          verify: jest.fn(),
+        }
+        const apiTokens = new InMemoryAPITokens();
 
         const server = makeServer(
           jest.fn() as unknown as Sonos,
@@ -741,17 +745,14 @@ describe("server", () => {
           musicService as unknown as MusicService,
           {
             linkCodes: () => new InMemoryLinkCodes(),
-            accessTokens: () => accessTokens,
+            apiTokens: () => apiTokens,
+            smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens
           }
         );
 
-        const authToken = uuid();
+        const serviceToken = uuid();
         const trackId = uuid();
-        let accessToken: string;
-
-        beforeEach(() => {
-          accessToken = accessTokens.mint(authToken);
-        });
+        const smapiAuthToken = `smapiAuthToken-${uuid()}`;
 
         const streamContent = (content: string) => ({
           pipe: (_: Transform) => {
@@ -764,7 +765,7 @@ describe("server", () => {
         });
 
         describe("HEAD requests", () => {
-          describe("when there is no access-token", () => {
+          describe("when there is no Bearer token", () => {
             it("should return a 401", async () => {
               const res = await request(server).head(
                 bonobUrl.append({ pathname: `/stream/track/${trackId}` }).path()
@@ -774,24 +775,27 @@ describe("server", () => {
             });
           });
 
-          describe("when the access-token has expired", () => {
+          describe("when the Bearer token has expired", () => {
             it("should return a 401", async () => {
-              now = now.add(1, "day");
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(smapiAuthToken, 0)))
 
               const res = await request(server).head(
                 bonobUrl
                   .append({
-                    pathname: `/stream/track/${trackId}`,
-                    searchParams: { bat: accessToken },
+                    pathname: `/stream/track/${trackId}`
                   })
-                  .path()
-              );
+                  .path(),
+              ).set('Authorization', `Bearer ${smapiAuthToken}`);
 
               expect(res.status).toEqual(401);
             });
           });
 
-          describe("when the access-token is valid", () => {
+          describe("when the Bearer token is valid", () => {
+            beforeEach(() => {
+              smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
+            });
+
             describe("and the track exists", () => {
               it("should return a 200", async () => {
                 const trackStream = {
@@ -810,9 +814,9 @@ describe("server", () => {
                 const res = await request(server)
                   .head(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
+                      .append({ pathname: `/stream/track/${trackId}`})
                       .path()
-                  );
+                  ).set('Authorization', `Bearer ${smapiAuthToken}`);
 
                 expect(res.status).toEqual(trackStream.status);
                 expect(res.headers["content-type"]).toEqual(
@@ -836,9 +840,10 @@ describe("server", () => {
 
                 const res = await request(server)
                   .head(bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
+                    .append({ pathname: `/stream/track/${trackId}` })
                     .path()
-                    );
+                    )
+                  .set('Authorization', `Bearer ${smapiAuthToken}`);
 
                 expect(res.status).toEqual(404);
                 expect(res.body).toEqual({});
@@ -848,7 +853,7 @@ describe("server", () => {
         });
 
         describe("GET requests", () => {
-          describe("when there is no access-token", () => {
+          describe("when there is no Bearer token", () => {
             it("should return a 401", async () => {
               const res = await request(server).get(
                 bonobUrl.append({ pathname: `/stream/track/${trackId}` }).path()
@@ -858,296 +863,305 @@ describe("server", () => {
             });
           });
 
-          describe("when the access-token has expired", () => {
+          describe("when the Bearer token has expired", () => {
             it("should return a 401", async () => {
-              now = now.add(1, "day");
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(smapiAuthToken, 0)))
 
               const res = await request(server)
                 .get(
                   bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
+                    .append({ pathname: `/stream/track/${trackId}` })
                     .path()
-                );
+                ).set('Authorization', `Bearer ${smapiAuthToken}`);
 
               expect(res.status).toEqual(401);
             });
           });
 
-          describe("when the track doesnt exist", () => {
-            it("should return a 404", async () => {
-              const stream = {
-                status: 404,
-                headers: {},
-                stream: streamContent(""),
-              };
-
-              musicService.login.mockResolvedValue(musicLibrary);
-              musicLibrary.stream.mockResolvedValue(stream);
-
-              const res = await request(server)
-                .get(
-                  bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
-                    .path()
-                );
-
-              expect(res.status).toEqual(404);
-
-              expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
-              expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+          describe("when the Bearer token is valid", () => {
+            beforeEach(() => {
+              smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
             });
-          });
 
-          describe("when sonos does not ask for a range", () => {
-            describe("when the music service does not return a content-range, content-length or accept-ranges", () => {
-              it("should return a 200 with the data, without adding the undefined headers", async () => {
-                const content = "some-track";
-
+            describe("when the track doesnt exist", () => {
+              it("should return a 404", async () => {
                 const stream = {
-                  status: 200,
-                  headers: {
-                    // audio/x-flac should be mapped to audio/flac
-                    "content-type": "audio/x-flac; charset=utf-8",
-                  },
-                  stream: streamContent(content),
+                  status: 404,
+                  headers: {},
+                  stream: streamContent(""),
                 };
-
+  
                 musicService.login.mockResolvedValue(musicLibrary);
                 musicLibrary.stream.mockResolvedValue(stream);
-                musicLibrary.nowPlaying.mockResolvedValue(true);
-
+  
                 const res = await request(server)
                   .get(
                     bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
+                      .append({ pathname: `/stream/track/${trackId}` })
                       .path()
-                  );
-
-                expect(res.status).toEqual(stream.status);
-                expect(res.headers["content-type"]).toEqual(
-                  "audio/flac; charset=utf-8"
-                );
-                expect(res.header["accept-ranges"]).toBeUndefined();
-                expect(res.headers["content-length"]).toEqual(
-                  `${content.length}`
-                );
-                expect(Object.keys(res.headers)).not.toContain("content-range");
-
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                  ).set('Authorization', `Bearer ${smapiAuthToken}`);
+  
+                expect(res.status).toEqual(404);
+  
+                expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
                 expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
               });
             });
-
-            describe("when the music service returns undefined values for content-range, content-length or accept-ranges", () => {
-              it("should return a 200 with the data, without adding the undefined headers", async () => {
-                const stream = {
-                  status: 200,
-                  headers: {
-                    "content-type": "audio/mp3",
-                    "content-length": undefined,
-                    "accept-ranges": undefined,
-                    "content-range": undefined,
-                  },
-                  stream: streamContent(""),
-                };
-
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.stream.mockResolvedValue(stream);
-                musicLibrary.nowPlaying.mockResolvedValue(true);
-
-                const res = await request(server)
-                  .get(
-                    bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
-                      .path()
+  
+            describe("when sonos does not ask for a range", () => {
+              describe("when the music service does not return a content-range, content-length or accept-ranges", () => {
+                it("should return a 200 with the data, without adding the undefined headers", async () => {
+                  const content = "some-track";
+  
+                  const stream = {
+                    status: 200,
+                    headers: {
+                      // audio/x-flac should be mapped to audio/flac
+                      "content-type": "audio/x-flac; charset=utf-8",
+                    },
+                    stream: streamContent(content),
+                  };
+  
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  musicLibrary.stream.mockResolvedValue(stream);
+                  musicLibrary.nowPlaying.mockResolvedValue(true);
+  
+                  const res = await request(server)
+                    .get(
+                      bonobUrl
+                        .append({ pathname: `/stream/track/${trackId}` })
+                        .path()
+                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+  
+                  expect(res.status).toEqual(stream.status);
+                  expect(res.headers["content-type"]).toEqual(
+                    "audio/flac; charset=utf-8"
                   );
-
-                expect(res.status).toEqual(stream.status);
-                expect(res.headers["content-type"]).toEqual(
-                  "audio/mp3; charset=utf-8"
-                );
-                expect(res.header["accept-ranges"]).toEqual(
-                  stream.headers["accept-ranges"]
-                );
-                expect(Object.keys(res.headers)).not.toContain("content-range");
-
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
-                expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
-              });
-            });
-
-            describe("when the music service returns a 200", () => {
-              it("should return a 200 with the data", async () => {
-                const stream = {
-                  status: 200,
-                  headers: {
-                    "content-type": "audio/mp3",
-                    "content-length": "222",
-                    "accept-ranges": "bytes",
-                  },
-                  stream: streamContent(""),
-                };
-
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.stream.mockResolvedValue(stream);
-                musicLibrary.nowPlaying.mockResolvedValue(true);
-
-                const res = await request(server)
-                  .get(
-                    bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
-                      .path()
+                  expect(res.header["accept-ranges"]).toBeUndefined();
+                  expect(res.headers["content-length"]).toEqual(
+                    `${content.length}`
                   );
-
-                expect(res.status).toEqual(stream.status);
-                expect(res.header["content-type"]).toEqual(
-                  `${stream.headers["content-type"]}; charset=utf-8`
-                );
-                expect(res.header["accept-ranges"]).toEqual(
-                  stream.headers["accept-ranges"]
-                );
-                expect(res.header["content-range"]).toBeUndefined();
-
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
-                expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+                  expect(Object.keys(res.headers)).not.toContain("content-range");
+  
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+                });
               });
-            });
-
-            describe("when the music service returns a 206", () => {
-              it("should return a 206 with the data", async () => {
-                const stream = {
-                  status: 206,
-                  headers: {
-                    "content-type": "audio/ogg",
-                    "content-length": "333",
-                    "accept-ranges": "bytez",
-                    "content-range": "100-200",
-                  },
-                  stream: streamContent(""),
-                };
-
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.stream.mockResolvedValue(stream);
-                musicLibrary.nowPlaying.mockResolvedValue(true);
-
-                const res = await request(server)
-                  .get(
-                    bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
-                      .path()
+  
+              describe("when the music service returns undefined values for content-range, content-length or accept-ranges", () => {
+                it("should return a 200 with the data, without adding the undefined headers", async () => {
+                  const stream = {
+                    status: 200,
+                    headers: {
+                      "content-type": "audio/mp3",
+                      "content-length": undefined,
+                      "accept-ranges": undefined,
+                      "content-range": undefined,
+                    },
+                    stream: streamContent(""),
+                  };
+  
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  musicLibrary.stream.mockResolvedValue(stream);
+                  musicLibrary.nowPlaying.mockResolvedValue(true);
+  
+                  const res = await request(server)
+                    .get(
+                      bonobUrl
+                        .append({ pathname: `/stream/track/${trackId}` })
+                        .path()
+                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+  
+                  expect(res.status).toEqual(stream.status);
+                  expect(res.headers["content-type"]).toEqual(
+                    "audio/mp3; charset=utf-8"
                   );
-
-                expect(res.status).toEqual(stream.status);
-                expect(res.header["content-type"]).toEqual(
-                  `${stream.headers["content-type"]}; charset=utf-8`
-                );
-                expect(res.header["accept-ranges"]).toEqual(
-                  stream.headers["accept-ranges"]
-                );
-                expect(res.header["content-range"]).toEqual(
-                  stream.headers["content-range"]
-                );
-
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
-                expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+                  expect(res.header["accept-ranges"]).toEqual(
+                    stream.headers["accept-ranges"]
+                  );
+                  expect(Object.keys(res.headers)).not.toContain("content-range");
+  
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+                });
               });
-            });
-          });
-
-          describe("when sonos does ask for a range", () => {
-            describe("when the music service returns a 200", () => {
-              it("should return a 200 with the data", async () => {
-                const stream = {
-                  status: 200,
-                  headers: {
-                    "content-type": "audio/mp3",
-                    "content-length": "222",
-                    "accept-ranges": "none",
-                  },
-                  stream: streamContent(""),
-                };
-
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.stream.mockResolvedValue(stream);
-                musicLibrary.nowPlaying.mockResolvedValue(true);
-
-                const requestedRange = "40-";
-
-                const res = await request(server)
-                  .get(
-                    bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
-                      .path()
-                  )
-                  .set("Range", requestedRange);
-
-                expect(res.status).toEqual(stream.status);
-                expect(res.header["content-type"]).toEqual(
-                  `${stream.headers["content-type"]}; charset=utf-8`
-                );
-                expect(res.header["accept-ranges"]).toEqual(
-                  stream.headers["accept-ranges"]
-                );
-                expect(res.header["content-range"]).toBeUndefined();
-
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
-                expect(musicLibrary.stream).toHaveBeenCalledWith({
-                  trackId,
-                  range: requestedRange,
+  
+              describe("when the music service returns a 200", () => {
+                it("should return a 200 with the data", async () => {
+                  const stream = {
+                    status: 200,
+                    headers: {
+                      "content-type": "audio/mp3",
+                      "content-length": "222",
+                      "accept-ranges": "bytes",
+                    },
+                    stream: streamContent(""),
+                  };
+  
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  musicLibrary.stream.mockResolvedValue(stream);
+                  musicLibrary.nowPlaying.mockResolvedValue(true);
+  
+                  const res = await request(server)
+                    .get(
+                      bonobUrl
+                        .append({ pathname: `/stream/track/${trackId}` })
+                        .path()
+                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+  
+                  expect(res.status).toEqual(stream.status);
+                  expect(res.header["content-type"]).toEqual(
+                    `${stream.headers["content-type"]}; charset=utf-8`
+                  );
+                  expect(res.header["accept-ranges"]).toEqual(
+                    stream.headers["accept-ranges"]
+                  );
+                  expect(res.header["content-range"]).toBeUndefined();
+  
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+                });
+              });
+  
+              describe("when the music service returns a 206", () => {
+                it("should return a 206 with the data", async () => {
+                  const stream = {
+                    status: 206,
+                    headers: {
+                      "content-type": "audio/ogg",
+                      "content-length": "333",
+                      "accept-ranges": "bytez",
+                      "content-range": "100-200",
+                    },
+                    stream: streamContent(""),
+                  };
+  
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  musicLibrary.stream.mockResolvedValue(stream);
+                  musicLibrary.nowPlaying.mockResolvedValue(true);
+  
+                  const res = await request(server)
+                    .get(
+                      bonobUrl
+                        .append({ pathname: `/stream/track/${trackId}` })
+                        .path()
+                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+  
+                  expect(res.status).toEqual(stream.status);
+                  expect(res.header["content-type"]).toEqual(
+                    `${stream.headers["content-type"]}; charset=utf-8`
+                  );
+                  expect(res.header["accept-ranges"]).toEqual(
+                    stream.headers["accept-ranges"]
+                  );
+                  expect(res.header["content-range"]).toEqual(
+                    stream.headers["content-range"]
+                  );
+  
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
                 });
               });
             });
-
-            describe("when the music service returns a 206", () => {
-              it("should return a 206 with the data", async () => {
-                const stream = {
-                  status: 206,
-                  headers: {
-                    "content-type": "audio/ogg",
-                    "content-length": "333",
-                    "accept-ranges": "bytez",
-                    "content-range": "100-200",
-                  },
-                  stream: streamContent(""),
-                };
-
-                musicService.login.mockResolvedValue(musicLibrary);
-                musicLibrary.stream.mockResolvedValue(stream);
-                musicLibrary.nowPlaying.mockResolvedValue(true);
-
-                const res = await request(server)
-                  .get(
-                    bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`, searchParams: { bat: accessToken } })
-                      .path()
-                  )
-                  .set("Range", "4000-5000");
-
-                expect(res.status).toEqual(stream.status);
-                expect(res.header["content-type"]).toEqual(
-                  `${stream.headers["content-type"]}; charset=utf-8`
-                );
-                expect(res.header["accept-ranges"]).toEqual(
-                  stream.headers["accept-ranges"]
-                );
-                expect(res.header["content-range"]).toEqual(
-                  stream.headers["content-range"]
-                );
-
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
-                expect(musicLibrary.stream).toHaveBeenCalledWith({
-                  trackId,
-                  range: "4000-5000",
+  
+            describe("when sonos does ask for a range", () => {
+              describe("when the music service returns a 200", () => {
+                it("should return a 200 with the data", async () => {
+                  const stream = {
+                    status: 200,
+                    headers: {
+                      "content-type": "audio/mp3",
+                      "content-length": "222",
+                      "accept-ranges": "none",
+                    },
+                    stream: streamContent(""),
+                  };
+  
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  musicLibrary.stream.mockResolvedValue(stream);
+                  musicLibrary.nowPlaying.mockResolvedValue(true);
+  
+                  const requestedRange = "40-";
+  
+                  const res = await request(server)
+                    .get(
+                      bonobUrl
+                        .append({ pathname: `/stream/track/${trackId}` })
+                        .path()
+                    )
+                    .set('Authorization', `Bearer ${smapiAuthToken}`)
+                    .set("Range", requestedRange);
+  
+                  expect(res.status).toEqual(stream.status);
+                  expect(res.header["content-type"]).toEqual(
+                    `${stream.headers["content-type"]}; charset=utf-8`
+                  );
+                  expect(res.header["accept-ranges"]).toEqual(
+                    stream.headers["accept-ranges"]
+                  );
+                  expect(res.header["content-range"]).toBeUndefined();
+  
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.stream).toHaveBeenCalledWith({
+                    trackId,
+                    range: requestedRange,
+                  });
+                });
+              });
+  
+              describe("when the music service returns a 206", () => {
+                it("should return a 206 with the data", async () => {
+                  const stream = {
+                    status: 206,
+                    headers: {
+                      "content-type": "audio/ogg",
+                      "content-length": "333",
+                      "accept-ranges": "bytez",
+                      "content-range": "100-200",
+                    },
+                    stream: streamContent(""),
+                  };
+  
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  musicLibrary.stream.mockResolvedValue(stream);
+                  musicLibrary.nowPlaying.mockResolvedValue(true);
+  
+                  const res = await request(server)
+                    .get(
+                      bonobUrl
+                        .append({ pathname: `/stream/track/${trackId}` })
+                        .path()
+                    )
+                    .set('Authorization', `Bearer ${smapiAuthToken}`)
+                    .set("Range", "4000-5000");
+  
+                  expect(res.status).toEqual(stream.status);
+                  expect(res.header["content-type"]).toEqual(
+                    `${stream.headers["content-type"]}; charset=utf-8`
+                  );
+                  expect(res.header["accept-ranges"]).toEqual(
+                    stream.headers["accept-ranges"]
+                  );
+                  expect(res.header["content-range"]).toEqual(
+                    stream.headers["content-range"]
+                  );
+  
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
+                  expect(musicLibrary.stream).toHaveBeenCalledWith({
+                    trackId,
+                    range: "4000-5000",
+                  });
                 });
               });
             });
           });
+          
         });
       });
 
@@ -1158,8 +1172,7 @@ describe("server", () => {
         const musicLibrary = {
           coverArt: jest.fn(),
         };
-        let now = dayjs();
-        const accessTokens = new ExpiringAccessTokens({ now: () => now });
+        const apiTokens = new InMemoryAPITokens();
 
         const server = makeServer(
           jest.fn() as unknown as Sonos,
@@ -1168,13 +1181,13 @@ describe("server", () => {
           musicService as unknown as MusicService,
           {
             linkCodes: () => new InMemoryLinkCodes(),
-            accessTokens: () => accessTokens,
+            apiTokens: () => apiTokens,
           }
         );
 
-        const authToken = uuid();
+        const serviceToken = uuid();
         const albumId = uuid();
-        let accessToken: string;
+        let apiToken: string;
 
         const coverArtResponse = (
           opt: Partial<{ status: number; contentType: string; data: Buffer }>
@@ -1186,24 +1199,12 @@ describe("server", () => {
         });
 
         beforeEach(() => {
-          accessToken = accessTokens.mint(authToken);
+          apiToken = apiTokens.mint(serviceToken);
         });
 
         describe("when there is no access-token", () => {
           it("should return a 401", async () => {
             const res = await request(server).get(`/art/${encodeURIComponent(formatForURL({ system: "subsonic", resource: "art:whatever" }))}/size/180`);
-
-            expect(res.status).toEqual(401);
-          });
-        });
-
-        describe("when the access-token has expired", () => {
-          it("should return a 401", async () => {
-            now = now.add(1, "day");
-
-            const res = await request(server).get(
-              `/art/${encodeURIComponent(formatForURL({ system: "subsonic", resource: "art:whatever" }))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
-            );
 
             expect(res.status).toEqual(401);
           });
@@ -1219,9 +1220,9 @@ describe("server", () => {
                   musicService.login.mockResolvedValue(musicLibrary);
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(400);
                 });
@@ -1241,16 +1242,16 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(coverArt.status);
                   expect(res.header["content-type"]).toEqual(
                     coverArt.contentType
                   );
 
-                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.coverArt).toHaveBeenCalledWith(
                     coverArtURN,
                     180
@@ -1267,9 +1268,9 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(404);
                 });
@@ -1310,14 +1311,14 @@ describe("server", () => {
                     .get(
                       `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
-                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(200);
                   expect(res.header["content-type"]).toEqual("image/png");
 
-                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   urns.forEach((it) => {
                     expect(musicLibrary.coverArt).toHaveBeenCalledWith(it, 200);
                   });
@@ -1348,9 +1349,9 @@ describe("server", () => {
                     .get(
                       `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
-                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(200);
                   expect(res.header["content-type"]).toEqual(
@@ -1373,9 +1374,9 @@ describe("server", () => {
                     .get(
                       `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
-                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      )}/size/200?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(404);
                 });
@@ -1409,14 +1410,14 @@ describe("server", () => {
                     .get(
                       `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
-                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(200);
                   expect(res.header["content-type"]).toEqual("image/png");
 
-                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   urns.forEach((it) => {
                     expect(musicLibrary.coverArt).toHaveBeenCalledWith(it, 180);
                   });
@@ -1465,14 +1466,14 @@ describe("server", () => {
                     .get(
                       `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
-                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(200);
                   expect(res.header["content-type"]).toEqual("image/png");
 
-                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   urns.forEach((urn) => {
                     expect(musicLibrary.coverArt).toHaveBeenCalledWith(urn, 180);
                   });
@@ -1513,14 +1514,14 @@ describe("server", () => {
                     .get(
                       `/art/${urns.map(it => encodeURIComponent(formatForURL(it))).join(
                         "&"
-                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      )}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(200);
                   expect(res.header["content-type"]).toEqual("image/png");
 
-                  expect(musicService.login).toHaveBeenCalledWith(authToken);
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   urns.forEach((it) => {
                     expect(musicLibrary.coverArt).toHaveBeenCalledWith(it, 180);
                   });
@@ -1540,9 +1541,9 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                   expect(res.status).toEqual(404);
                 });
@@ -1557,9 +1558,9 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/art/artist:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${accessToken}`
+                    `/art/artist:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                   )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, accessToken);
+                  .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
                 expect(res.status).toEqual(500);
               });
@@ -1583,7 +1584,7 @@ describe("server", () => {
             jest.fn() as unknown as MusicService,
             {
               linkCodes: () => new InMemoryLinkCodes(),
-              accessTokens: () => jest.fn() as unknown as AccessTokens,
+              apiTokens: () => jest.fn() as unknown as APITokens,
               clock,
               iconColors,
             }

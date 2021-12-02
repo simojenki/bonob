@@ -2,7 +2,7 @@ import crypto from "crypto";
 import request from "supertest";
 import { Client, createClientAsync } from "soap";
 import { v4 as uuid } from "uuid";
-
+import { either as E } from "fp-ts";
 import { DOMParserImpl } from "xmldom-ts";
 import * as xpath from "xpath-ts";
 import { randomInt } from "crypto";
@@ -26,10 +26,9 @@ import {
   sonosifyMimeType,
   ratingAsInt,
   ratingFromInt,
-  Credentials,
 } from "../src/smapi";
 
-import { keys as i8nKeys } from '../src/i8n';
+import { keys as i8nKeys } from "../src/i8n";
 import {
   aService,
   getAppLinkMessage,
@@ -52,34 +51,36 @@ import {
   MusicService,
   playlistToPlaylistSummary,
 } from "../src/music_service";
-import { AccessTokens } from "../src/access_tokens";
+import { APITokens } from "../src/api_tokens";
 import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
-import { jwtSigner } from "../src/encryption";
 import { formatForURL } from "../src/burn";
 import { range } from "underscore";
+import { FixedClock } from "../src/clock";
+import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, smapiTokenAsString, ToSmapiFault } from "../src/smapi_auth";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
-
 
 describe("rating to and from ints", () => {
   describe("ratingAsInt", () => {
     [
-      { rating: { love: false, stars: 0 }, expectedValue: 100 }, 
-      { rating: { love: true,  stars: 0 }, expectedValue: 101 }, 
-      { rating: { love: false, stars: 1 }, expectedValue: 110 }, 
-      { rating: { love: true,  stars: 1 }, expectedValue: 111 }, 
-      { rating: { love: false, stars: 2 }, expectedValue: 120 }, 
-      { rating: { love: true,  stars: 2 }, expectedValue: 121 }, 
-      { rating: { love: false, stars: 3 }, expectedValue: 130 }, 
-      { rating: { love: true,  stars: 3 }, expectedValue: 131 }, 
-      { rating: { love: false, stars: 4 }, expectedValue: 140 }, 
-      { rating: { love: true,  stars: 4 }, expectedValue: 141 }, 
-      { rating: { love: false, stars: 5 }, expectedValue: 150 }, 
-      { rating: { love: true,  stars: 5 }, expectedValue: 151 }, 
+      { rating: { love: false, stars: 0 }, expectedValue: 100 },
+      { rating: { love: true, stars: 0 }, expectedValue: 101 },
+      { rating: { love: false, stars: 1 }, expectedValue: 110 },
+      { rating: { love: true, stars: 1 }, expectedValue: 111 },
+      { rating: { love: false, stars: 2 }, expectedValue: 120 },
+      { rating: { love: true, stars: 2 }, expectedValue: 121 },
+      { rating: { love: false, stars: 3 }, expectedValue: 130 },
+      { rating: { love: true, stars: 3 }, expectedValue: 131 },
+      { rating: { love: false, stars: 4 }, expectedValue: 140 },
+      { rating: { love: true, stars: 4 }, expectedValue: 141 },
+      { rating: { love: false, stars: 5 }, expectedValue: 150 },
+      { rating: { love: true, stars: 5 }, expectedValue: 151 },
     ].forEach(({ rating, expectedValue }) => {
-      it(`should map ${JSON.stringify(rating)} to a ${expectedValue} and back`, () => {
+      it(`should map ${JSON.stringify(
+        rating
+      )} to a ${expectedValue} and back`, () => {
         const actualValue = ratingAsInt(rating);
         expect(actualValue).toEqual(expectedValue);
         expect(ratingFromInt(actualValue)).toEqual(rating);
@@ -170,8 +171,8 @@ describe("service config", () => {
             `string(/Presentation/BrowseOptions/@PageSize)`,
             xml
           );
-            
-          expect(pageSize).toEqual('30');
+
+          expect(pageSize).toEqual("30");
         });
 
         it("should have an ArtWorkSizeMap for all sizes recommended by sonos", async () => {
@@ -205,36 +206,36 @@ describe("service config", () => {
         describe("NowPlayingRatings", () => {
           it("should have Matches with propname = rating", async () => {
             const xml = await presentationMapXml();
-  
+
             const matchElements = xpath.select(
               `/Presentation/PresentationMap[@type="NowPlayingRatings"]/Match`,
               xml
             ) as Element[];
-  
+
             expect(matchElements.length).toBe(12);
-  
+
             matchElements.forEach((match) => {
               expect(match.getAttributeNode("propname")?.value).toEqual(
                 "rating"
               );
             });
           });
-  
+
           it("should have Rating stringIds that are in strings.xml", async () => {
             const xml = await presentationMapXml();
-  
+
             const ratingElements = xpath.select(
               `/Presentation/PresentationMap[@type="NowPlayingRatings"]/Match/Ratings/Rating`,
               xml
             ) as Element[];
-  
+
             expect(ratingElements.length).toBeGreaterThan(1);
-  
+
             ratingElements.forEach((rating) => {
               const OnSuccessStringId =
                 rating.getAttributeNode("OnSuccessStringId")!.value;
               const StringId = rating.getAttributeNode("StringId")!.value;
-  
+
               expect(i8nKeys()).toContain(OnSuccessStringId);
               expect(i8nKeys()).toContain(StringId);
             });
@@ -242,17 +243,20 @@ describe("service config", () => {
 
           it("should have Rating Ids that are valid ratings as ints", async () => {
             const xml = await presentationMapXml();
-  
+
             const ratingElements = xpath.select(
               `/Presentation/PresentationMap[@type="NowPlayingRatings"]/Match/Ratings/Rating`,
               xml
             ) as Element[];
-  
+
             expect(ratingElements.length).toBeGreaterThan(1);
-  
+
             ratingElements.forEach((ratingElement) => {
-              
-              const rating = ratingFromInt(Math.abs(Number.parseInt(ratingElement.getAttributeNode("Id")!.value)))
+              const rating = ratingFromInt(
+                Math.abs(
+                  Number.parseInt(ratingElement.getAttributeNode("Id")!.value)
+                )
+              );
               expect(rating.love).toBeDefined();
               expect(rating.stars).toBeGreaterThanOrEqual(0);
               expect(rating.stars).toBeLessThanOrEqual(5);
@@ -362,11 +366,11 @@ describe("track", () => {
         genre: { id: "genre101", name: "some genre" },
       }),
       artist: anArtist({ name: "great artist", id: uuid() }),
-      coverArt: {system: "subsonic", resource: "887766"},
+      coverArt: { system: "subsonic", resource: "887766" },
       rating: {
         love: true,
-        stars: 5
-      }
+        stars: 5,
+      },
     });
 
     expect(track(bonobUrl, someTrack)).toEqual({
@@ -380,7 +384,9 @@ describe("track", () => {
         albumId: `album:${someTrack.album.id}`,
         albumArtist: someTrack.artist.name,
         albumArtistId: `artist:${someTrack.artist.id}`,
-        albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(formatForURL(someTrack.coverArt!))}/size/180?access-token=1234`,
+        albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
+          formatForURL(someTrack.coverArt!)
+        )}/size/180?access-token=1234`,
         artist: someTrack.artist.name,
         artistId: `artist:${someTrack.artist.id}`,
         duration: someTrack.duration,
@@ -418,22 +424,24 @@ describe("track", () => {
         coverArt: { system: "subsonic", resource: "887766" },
         rating: {
           love: true,
-          stars: 5
-        }
+          stars: 5,
+        },
       });
-  
+
       expect(track(bonobUrl, someTrack)).toEqual({
         itemType: "track",
         id: `track:${someTrack.id}`,
         mimeType: "audio/flac",
         title: someTrack.name,
-  
+
         trackMetadata: {
           album: someTrack.album.name,
           albumId: `album:${someTrack.album.id}`,
           albumArtist: someTrack.artist.name,
           albumArtistId: undefined,
-          albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(formatForURL(someTrack.coverArt!))}/size/180?access-token=1234`,
+          albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
+            formatForURL(someTrack.coverArt!)
+          )}/size/180?access-token=1234`,
           artist: someTrack.artist.name,
           artistId: undefined,
           duration: someTrack.duration,
@@ -449,7 +457,7 @@ describe("track", () => {
             },
           ],
         },
-    });
+      });
     });
   });
 });
@@ -513,18 +521,34 @@ describe("playlistAlbumArtURL", () => {
   describe("when the playlist has external ids", () => {
     it("should format the url with encrypted urn", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const externalArt1 = { system: "external", resource: "http://example.com/image1.jpg" };
-      const externalArt2 = { system: "external", resource: "http://example.com/image2.jpg" };
+      const externalArt1 = {
+        system: "external",
+        resource: "http://example.com/image1.jpg",
+      };
+      const externalArt2 = {
+        system: "external",
+        resource: "http://example.com/image2.jpg",
+      };
 
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: externalArt1, album: anAlbumSummary({id: "album1"}) }),
-          aTrack({ coverArt: externalArt2, album: anAlbumSummary({id: "album2"}) }),
+          aTrack({
+            coverArt: externalArt1,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: externalArt2,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(externalArt1))}&${encodeURIComponent(formatForURL(externalArt2))}/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${encodeURIComponent(
+          formatForURL(externalArt1)
+        )}&${encodeURIComponent(
+          formatForURL(externalArt2)
+        )}/size/180?search=yes`
       );
     });
   });
@@ -534,18 +558,41 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: undefined, album: anAlbumSummary({id: "album1" }) }),
-          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1" }) }),
-          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2" }) }),
-          aTrack({ coverArt: undefined, album: anAlbumSummary({id: "album2" }) }),
-          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album1" }) }),
-          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album2" }) }),
-          aTrack({ coverArt: undefined, album: anAlbumSummary({id: "album2" }) }),
+          aTrack({
+            coverArt: undefined,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt1,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt2,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
+          aTrack({
+            coverArt: undefined,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
+          aTrack({
+            coverArt: coverArt3,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt4,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
+          aTrack({
+            coverArt: undefined,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${encodeURIComponent(
+          formatForURL(coverArt1)
+        )}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
       );
     });
   });
@@ -555,15 +602,29 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1" }) }),
-          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2" }) }),
-          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album1" }) }),
-          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album2" }) }),
+          aTrack({
+            coverArt: coverArt1,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt2,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
+          aTrack({
+            coverArt: coverArt3,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt4,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${encodeURIComponent(
+          formatForURL(coverArt1)
+        )}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
       );
     });
   });
@@ -573,15 +634,31 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1" }) }),
-          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2" }) }),
-          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album1" }) }),
-          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album3" }) }),
+          aTrack({
+            coverArt: coverArt1,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt2,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
+          aTrack({
+            coverArt: coverArt3,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt4,
+            album: anAlbumSummary({ id: "album3" }),
+          }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(formatForURL(coverArt4))}/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${encodeURIComponent(
+          formatForURL(coverArt1)
+        )}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(
+          formatForURL(coverArt4)
+        )}/size/180?search=yes`
       );
     });
   });
@@ -591,16 +668,35 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: coverArt1, album: anAlbumSummary({id: "album1"} ) }),
-          aTrack({ coverArt: coverArt2, album: anAlbumSummary({id: "album2"} ) }),
-          aTrack({ coverArt: coverArt3, album: anAlbumSummary({id: "album3"} ) }),
-          aTrack({ coverArt: coverArt4, album: anAlbumSummary({id: "album4"} ) }),
-          aTrack({ coverArt: coverArt5, album: anAlbumSummary({id: "album1"} ) }),
+          aTrack({
+            coverArt: coverArt1,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
+          aTrack({
+            coverArt: coverArt2,
+            album: anAlbumSummary({ id: "album2" }),
+          }),
+          aTrack({
+            coverArt: coverArt3,
+            album: anAlbumSummary({ id: "album3" }),
+          }),
+          aTrack({
+            coverArt: coverArt4,
+            album: anAlbumSummary({ id: "album4" }),
+          }),
+          aTrack({
+            coverArt: coverArt5,
+            album: anAlbumSummary({ id: "album1" }),
+          }),
         ],
       });
 
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(formatForURL(coverArt1))}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(formatForURL(coverArt3))}&${encodeURIComponent(formatForURL(coverArt4))}/size/180?search=yes`
+        `http://localhost:1234/context-path/art/${encodeURIComponent(
+          formatForURL(coverArt1)
+        )}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(
+          formatForURL(coverArt3)
+        )}&${encodeURIComponent(formatForURL(coverArt4))}/size/180?search=yes`
       );
     });
   });
@@ -610,21 +706,60 @@ describe("playlistAlbumArtURL", () => {
       const bonobUrl = url("http://localhost:1234/context-path?search=yes");
       const playlist = aPlaylist({
         entries: [
-          aTrack({ coverArt: { system: "subsonic", resource: "1" }, album: anAlbumSummary({ id:"1" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "2" }, album: anAlbumSummary({ id:"2" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "3" }, album: anAlbumSummary({ id:"3" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "4" }, album: anAlbumSummary({ id:"4" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "5" }, album: anAlbumSummary({ id:"5" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "6" }, album: anAlbumSummary({ id:"6" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "7" }, album: anAlbumSummary({ id:"7" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "8" }, album: anAlbumSummary({ id:"8" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "9" }, album: anAlbumSummary({ id:"9" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "10" }, album: anAlbumSummary({ id:"10" }) }),
-          aTrack({ coverArt: { system: "subsonic", resource: "11" }, album: anAlbumSummary({ id:"11" }) }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "1" },
+            album: anAlbumSummary({ id: "1" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "2" },
+            album: anAlbumSummary({ id: "2" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "3" },
+            album: anAlbumSummary({ id: "3" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "4" },
+            album: anAlbumSummary({ id: "4" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "5" },
+            album: anAlbumSummary({ id: "5" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "6" },
+            album: anAlbumSummary({ id: "6" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "7" },
+            album: anAlbumSummary({ id: "7" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "8" },
+            album: anAlbumSummary({ id: "8" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "9" },
+            album: anAlbumSummary({ id: "9" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "10" },
+            album: anAlbumSummary({ id: "10" }),
+          }),
+          aTrack({
+            coverArt: { system: "subsonic", resource: "11" },
+            album: anAlbumSummary({ id: "11" }),
+          }),
         ],
       });
 
-      const burns = range(1, 10).map(i => encodeURIComponent(formatForURL({ system: "subsonic", resource: `${i}` }))).join("&")
+      const burns = range(1, 10)
+        .map((i) =>
+          encodeURIComponent(
+            formatForURL({ system: "subsonic", resource: `${i}` })
+          )
+        )
+        .join("&");
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
         `http://localhost:1234/context-path/art/${burns}/size/180?search=yes`
       );
@@ -640,28 +775,29 @@ describe("defaultAlbumArtURI", () => {
   describe("when there is an album coverArt", () => {
     describe("from subsonic", () => {
       it("should use it", () => {
-        const coverArt = { system: "subsonic", resource: "12345" }
+        const coverArt = { system: "subsonic", resource: "12345" };
         expect(
-          defaultAlbumArtURI(
-            bonobUrl,
-            anAlbum({ coverArt })
-          ).href()
+          defaultAlbumArtURI(bonobUrl, anAlbum({ coverArt })).href()
         ).toEqual(
-          `http://bonob.example.com:8080/context/art/${encodeURIComponent(formatForURL(coverArt))}/size/180?search=yes`
+          `http://bonob.example.com:8080/context/art/${encodeURIComponent(
+            formatForURL(coverArt)
+          )}/size/180?search=yes`
         );
       });
     });
 
     describe("that is external", () => {
       it("should use encrypt it", () => {
-        const coverArt = { system: "external", resource: "http://example.com/someimage.jpg" }
+        const coverArt = {
+          system: "external",
+          resource: "http://example.com/someimage.jpg",
+        };
         expect(
-          defaultAlbumArtURI(
-            bonobUrl,
-            anAlbum({ coverArt })
-          ).href()
+          defaultAlbumArtURI(bonobUrl, anAlbum({ coverArt })).href()
         ).toEqual(
-          `http://bonob.example.com:8080/context/art/${encodeURIComponent(formatForURL(coverArt))}/size/180?search=yes`
+          `http://bonob.example.com:8080/context/art/${encodeURIComponent(
+            formatForURL(coverArt)
+          )}/size/180?search=yes`
         );
       });
     });
@@ -683,7 +819,7 @@ describe("defaultArtistArtURI", () => {
     it("should return an icon", () => {
       const bonobUrl = url("http://localhost:1234/something?s=123");
       const artist = anArtist({ image: undefined });
-  
+
       expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
         `http://localhost:1234/something/icon/vinyl/size/legacy?s=123`
       );
@@ -693,11 +829,13 @@ describe("defaultArtistArtURI", () => {
   describe("when the resource is subsonic", () => {
     it("should use the resource", () => {
       const bonobUrl = url("http://localhost:1234/something?s=123");
-      const image = { system:"subsonic", resource: "art:1234"};
+      const image = { system: "subsonic", resource: "art:1234" };
       const artist = anArtist({ image });
-  
+
       expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-        `http://localhost:1234/something/art/${encodeURIComponent(formatForURL(image))}/size/180?s=123`
+        `http://localhost:1234/something/art/${encodeURIComponent(
+          formatForURL(image)
+        )}/size/180?s=123`
       );
     });
   });
@@ -705,11 +843,16 @@ describe("defaultArtistArtURI", () => {
   describe("when the resource is external", () => {
     it("should encrypt the resource", () => {
       const bonobUrl = url("http://localhost:1234/something?s=123");
-      const image = { system:"external", resource: "http://example.com/something.jpg"};
+      const image = {
+        system: "external",
+        resource: "http://example.com/something.jpg",
+      };
       const artist = anArtist({ image });
-  
+
       expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-        `http://localhost:1234/something/art/${encodeURIComponent(formatForURL(image))}/size/180?s=123`
+        `http://localhost:1234/something/art/${encodeURIComponent(
+          formatForURL(image)
+        )}/size/180?s=123`
       );
     });
   });
@@ -747,27 +890,32 @@ describe("wsdl api", () => {
     nowPlaying: jest.fn(),
     rate: jest.fn(),
   };
-  const accessTokens = {
+  const apiTokens = {
     mint: jest.fn(),
     authTokenFor: jest.fn(),
   };
-  const clock = {
-    now: jest.fn(),
+
+  const smapiAuthTokens = {
+    issue: jest.fn(() => ({ token: `default-smapiToken-${uuid()}`, key: `default-smapiKey-${uuid()}` })),
+    verify: jest.fn<E.Either<ToSmapiFault, string>, []>(() => E.right(`default-serviceToken-${uuid()}`)),
   };
+
+  const clock = new FixedClock();
 
   const bonobUrlWithoutContextPath = url("http://localhost:222");
   const bonobUrlWithContextPath = url("http://localhost:111/path/to/bonob");
 
   [bonobUrlWithoutContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`bonob with url ${bonobUrl}`, () => {
-      const tokenSigner = jwtSigner(`smapi-test-secret-${uuid()}`);
-      const jwtSign = tokenSigner.sign;
-      
-      const authToken = `authToken-${uuid()}`;
-      const accessToken = `accessToken-${uuid()}`;
+      const serviceToken = `serviceToken-${uuid()}`;
+      const apiToken = `apiToken-${uuid()}`;
+      const smapiAuthToken: SmapiToken = {
+        token: `smapiAuthToken.token-${uuid()}`,
+        key: `smapiAuthToken.key-${uuid()}`
+      };
 
       const bonobUrlWithAccessToken = bonobUrl.append({
-        searchParams: { bat: accessToken },
+        searchParams: { bat: apiToken },
       });
 
       const service = bonobService("test-api", 133, bonobUrl, "AppLink");
@@ -778,9 +926,9 @@ describe("wsdl api", () => {
         musicService as unknown as MusicService,
         {
           linkCodes: () => linkCodes as unknown as LinkCodes,
-          accessTokens: () => accessTokens as unknown as AccessTokens,
+          apiTokens: () => apiTokens as unknown as APITokens,
           clock,
-          tokenSigner
+          smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens,
         }
       );
 
@@ -788,6 +936,16 @@ describe("wsdl api", () => {
         jest.clearAllMocks();
         jest.resetAllMocks();
       });
+
+      function setupAuthenticatedRequest(ws: Client) {
+        musicService.login.mockResolvedValue(musicLibrary);
+        smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
+        apiTokens.mint.mockReturnValue(apiToken);
+        ws.addSoapHeader({
+          credentials: someCredentials(smapiAuthToken),
+        });
+        return ws;
+      }
 
       describe("soap api", () => {
         describe("getAppLink", () => {
@@ -828,11 +986,12 @@ describe("wsdl api", () => {
             it("should return a device auth token", async () => {
               const linkCode = uuid();
               const association = {
-                authToken: "authToken",
+                serviceToken: "serviceToken",
                 userId: "uid",
                 nickname: "nick",
               };
               linkCodes.associationFor.mockReturnValue(association);
+              smapiAuthTokens.issue.mockReturnValue(smapiAuthToken);
 
               const ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
@@ -843,8 +1002,8 @@ describe("wsdl api", () => {
 
               expect(result[0]).toEqual({
                 getDeviceAuthTokenResult: {
-                  authToken: jwtSign(association.authToken),
-                  privateKey: "",
+                  authToken: smapiAuthToken.token,
+                  privateKey: smapiAuthToken.key,
                   userInfo: {
                     nickname: association.nickname,
                     userIdHashCode: crypto
@@ -891,7 +1050,7 @@ describe("wsdl api", () => {
         describe("getLastUpdate", () => {
           it("should return a result with some timestamps", async () => {
             const now = dayjs();
-            clock.now.mockReturnValue(now);
+            clock.time = now;
 
             const ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
@@ -911,21 +1070,102 @@ describe("wsdl api", () => {
           });
         });
 
+        describe("refreshAuthToken", () => {
+          describe("when no credentials are provided", () => {
+            itShouldReturnALoginUnsupported((ws) =>
+              ws.refreshAuthTokenAsync({})
+            );
+          });
+
+          describe("when token has expired", () => {
+            it("should return a refreshed auth token", async () => {
+              const oneDayAgo = clock.time.subtract(1, "d");
+              const newSmapiAuthToken = { token: `newToken-${uuid()}`, key: `newKey-${uuid()}` };
+
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, oneDayAgo.unix())));
+              smapiAuthTokens.issue.mockReturnValue(newSmapiAuthToken);
+
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({
+                credentials: someCredentials(smapiAuthToken),
+              });
+
+              const result = await ws.refreshAuthTokenAsync({});
+
+              expect(result[0]).toEqual({
+                refreshAuthTokenResult: {
+                  authToken: newSmapiAuthToken.token,
+                  privateKey: newSmapiAuthToken.key,
+                },
+              });
+            });
+          });
+
+          describe("when the token fails to verify", () => {
+            it("should fail with a sampi fault", async () => {
+              smapiAuthTokens.verify.mockReturnValue(E.left(new InvalidTokenError("Invalid token")));
+
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({
+                credentials: someCredentials(smapiAuthToken),
+              });
+
+              await ws.refreshAuthTokenAsync({})
+              .then(() => fail("shouldnt get here"))
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toEqual({
+                  faultcode: "Client.LoginUnauthorized",
+                  faultstring: "Failed to authenticate, try Re-Authorising your account in the sonos app",                });
+              });
+            });
+          });          
+
+          describe("when existing auth token has not expired", () => {
+            it("should return a refreshed auth token", async () => {
+              const newSmapiAuthToken = { token: `newToken-${uuid()}`, key: `newKey-${uuid()}` };
+              smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
+              smapiAuthTokens.issue.mockReturnValue(newSmapiAuthToken);
+
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({
+                credentials: someCredentials(smapiAuthToken),
+              });
+
+              const result = await ws.refreshAuthTokenAsync({});
+
+              expect(result[0]).toEqual({
+                refreshAuthTokenResult: {
+                  authToken: newSmapiAuthToken.token,
+                  privateKey: newSmapiAuthToken.key
+                },
+              });
+            });
+          });
+        });
+
         describe("search", () => {
-          itShouldHandleInvalidCredentials((ws) => ws.getMetadataAsync({ id: "search", index: 0, count: 0 }));
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.getMetadataAsync({ id: "search", index: 0, count: 0 })
+          );
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
 
             beforeEach(async () => {
-              musicService.login.mockResolvedValue(musicLibrary);
-              accessTokens.mint.mockReturnValue(accessToken);
-
               ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
+              setupAuthenticatedRequest(ws);
             });
 
             describe("searching for albums", () => {
@@ -1023,13 +1263,15 @@ describe("wsdl api", () => {
           });
         });
 
-        async function itShouldReturnALoginUnsupported(action: (ws: Client) => Promise<Client>) {
+        async function itShouldReturnALoginUnsupported(
+          action: (ws: Client) => Promise<Client>
+        ) {
           it("should return a fault of LoginUnsupported", async () => {
             const ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            
+
             await action(ws)
               .then(() => fail("shouldnt get here"))
               .catch((e: any) => {
@@ -1038,59 +1280,105 @@ describe("wsdl api", () => {
                   faultstring: "Missing credentials...",
                 });
               });
-          })
+          });
         }
 
-        async function itShouldReturnAFaultOfLoginUnauthorized(credentials: Credentials, action: (ws: Client) => Promise<Client>) {
+        async function itShouldReturnAFaultOfLoginUnauthorized(
+          verifyResponse: E.Either<ToSmapiFault, string>,
+          action: (ws: Client) => Promise<Client>
+        ) {
           it("should return a fault of LoginUnauthorized", async () => {
+            smapiAuthTokens.verify.mockReturnValue(verifyResponse);
             musicService.login.mockRejectedValue("fail!");
 
             const ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            ws.addSoapHeader({ credentials: someCredentials({ token: 'tokenThatFails', key: `keyThatFails` }) });
 
-            ws.addSoapHeader({
-              credentials,
-            });
             await action(ws)
               .then(() => fail("shouldnt get here"))
               .catch((e: any) => {
                 expect(e.root.Envelope.Body.Fault).toEqual({
                   faultcode: "Client.LoginUnauthorized",
-                  faultstring: "Failed to authenticate, try Reauthorising your account in the sonos app",
+                  faultstring:
+                    "Failed to authenticate, try Re-Authorising your account in the sonos app",
                 });
               });
           });
         }
 
-        function itShouldHandleInvalidCredentials(action: (ws: Client) => Promise<Client>) {
-          describe("when invalid credentials are provided", () => {
+        function itShouldHandleInvalidCredentials(
+          action: (ws: Client) => Promise<Client>
+        ) {
+          describe("when no credentials are provided", () => {
             itShouldReturnALoginUnsupported(action);
           });
-          describe("when invalid credentials are provided", () => {
-            itShouldReturnAFaultOfLoginUnauthorized(someCredentials(jwtSign("someAuthToken")), action);
+
+          describe("when the token fails to verify", () => {
+            itShouldReturnAFaultOfLoginUnauthorized(
+              E.left(new InvalidTokenError("Token Invalid")),
+              action
+            );
           });
-          describe("when invalid jwt is provided", () => {
-            itShouldReturnAFaultOfLoginUnauthorized(someCredentials("not a jwt token"), action);
+
+          describe("when token has expired", () => {
+            it("should return a fault of Client.TokenRefreshRequired with a refreshAuthTokenResult", async () => {
+              const expiry = dayjs().subtract(1, "d");
+              const newToken = {
+                token: `newToken-${uuid()}`,
+                key: `newKey-${uuid()}`
+              };
+  
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, expiry.unix())))
+              smapiAuthTokens.issue.mockReturnValue(newToken)
+              musicService.login.mockRejectedValue(
+                "fail, should not call login!"
+              );
+  
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({
+                credentials: someCredentials(smapiAuthToken),
+              });
+              await action(ws)
+                .then(() => fail("shouldnt get here"))
+                .catch((e: any) => {
+                  expect(e.root.Envelope.Body.Fault).toEqual({
+                    faultcode: "Client.TokenRefreshRequired",
+                    faultstring: "Token has expired",
+                    detail: {
+                      refreshAuthTokenResult: {
+                        authToken: newToken.token,
+                        privateKey: newToken.key,
+                      },
+                    },
+                  });
+                });
+  
+                expect(smapiAuthTokens.verify).toHaveBeenCalledWith(smapiAuthToken);
+                expect(smapiAuthTokens.issue).toHaveBeenCalledWith(serviceToken);
+            });
           });
         }
 
         describe("getMetadata", () => {
-          itShouldHandleInvalidCredentials((ws) => ws.getMetadataAsync({ id: "root", index: 0, count: 0 }))
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.getMetadataAsync({ id: "root", index: 0, count: 0 })
+          );
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
 
             beforeEach(async () => {
-              musicService.login.mockResolvedValue(musicLibrary);
-              accessTokens.mint.mockReturnValue(accessToken);
-
               ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
+              setupAuthenticatedRequest(ws);
             });
 
             describe("asking for the root container", () => {
@@ -1152,10 +1440,7 @@ describe("wsdl api", () => {
                     {
                       id: "recentlyAdded",
                       title: "Recently added",
-                      albumArtURI: iconArtURI(
-                        bonobUrl,
-                        "recentlyAdded"
-                      ).href(),
+                      albumArtURI: iconArtURI(bonobUrl, "recentlyAdded").href(),
                       itemType: "albumList",
                     },
                     {
@@ -1170,10 +1455,7 @@ describe("wsdl api", () => {
                     {
                       id: "mostPlayed",
                       title: "Most played",
-                      albumArtURI: iconArtURI(
-                        bonobUrl,
-                        "mostPlayed"
-                      ).href(),
+                      albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
                     },
                   ];
@@ -1246,10 +1528,7 @@ describe("wsdl api", () => {
                     {
                       id: "recentlyAdded",
                       title: "Onlangs toegevoegd",
-                      albumArtURI: iconArtURI(
-                        bonobUrl,
-                        "recentlyAdded"
-                      ).href(),
+                      albumArtURI: iconArtURI(bonobUrl, "recentlyAdded").href(),
                       itemType: "albumList",
                     },
                     {
@@ -1264,10 +1543,7 @@ describe("wsdl api", () => {
                     {
                       id: "mostPlayed",
                       title: "Meest afgespeeld",
-                      albumArtURI: iconArtURI(
-                        bonobUrl,
-                        "mostPlayed"
-                      ).href(),
+                      albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
                     },
                   ];
@@ -1484,7 +1760,7 @@ describe("wsdl api", () => {
                   expect(musicLibrary.artist).toHaveBeenCalledWith(
                     artistWithManyAlbums.id
                   );
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 });
               });
 
@@ -1520,7 +1796,7 @@ describe("wsdl api", () => {
                   expect(musicLibrary.artist).toHaveBeenCalledWith(
                     artistWithManyAlbums.id
                   );
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 });
               });
             });
@@ -1570,7 +1846,7 @@ describe("wsdl api", () => {
                     _index: index,
                     _count: count,
                   });
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 });
               });
 
@@ -1615,7 +1891,7 @@ describe("wsdl api", () => {
                     _index: index,
                     _count: count,
                   });
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 });
               });
             });
@@ -1673,7 +1949,7 @@ describe("wsdl api", () => {
                       })
                     );
                     expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
-                    expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                    expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                   });
                 });
 
@@ -1703,7 +1979,7 @@ describe("wsdl api", () => {
                       })
                     );
                     expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
-                    expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                    expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                   });
                 });
               });
@@ -1728,7 +2004,7 @@ describe("wsdl api", () => {
                     })
                   );
                   expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 });
               });
 
@@ -1766,7 +2042,7 @@ describe("wsdl api", () => {
                     })
                   );
                   expect(musicLibrary.artist).toHaveBeenCalledWith(artist.id);
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 });
               });
             });
@@ -2403,20 +2679,19 @@ describe("wsdl api", () => {
         });
 
         describe("getExtendedMetadata", () => {
-          itShouldHandleInvalidCredentials((ws) => ws.getExtendedMetadataAsync({ id: "root", index: 0, count: 0 }))
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.getExtendedMetadataAsync({ id: "root", index: 0, count: 0 })
+          );
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
 
             beforeEach(async () => {
-              musicService.login.mockResolvedValue(musicLibrary);
-              accessTokens.mint.mockReturnValue(accessToken);
-
               ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
+              setupAuthenticatedRequest(ws);
             });
 
             describe("asking for an artist", () => {
@@ -2628,7 +2903,12 @@ describe("wsdl api", () => {
                           trackNumber: track.number,
                         },
                         dynamic: {
-                          property: [{ name: "rating", value: `${ratingAsInt(track.rating)}` }],
+                          property: [
+                            {
+                              name: "rating",
+                              value: `${ratingAsInt(track.rating)}`,
+                            },
+                          ],
                         },
                       },
                     },
@@ -2671,7 +2951,12 @@ describe("wsdl api", () => {
                           trackNumber: track.number,
                         },
                         dynamic: {
-                          property: [{ name: "rating", value: `${ratingAsInt(track.rating)}` }],
+                          property: [
+                            {
+                              name: "rating",
+                              value: `${ratingAsInt(track.rating)}`,
+                            },
+                          ],
                         },
                       },
                     },
@@ -2719,20 +3004,19 @@ describe("wsdl api", () => {
         });
 
         describe("getMediaURI", () => {
-          itShouldHandleInvalidCredentials((ws) => ws.getMediaURIAsync({ id: "track:123" }))
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.getMediaURIAsync({ id: "track:123" })
+          );
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
 
             beforeEach(async () => {
-              musicService.login.mockResolvedValue(musicLibrary);
-              accessTokens.mint.mockReturnValue(accessToken);
-
               ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
+              setupAuthenticatedRequest(ws);
             });
 
             describe("asking for a URI to stream a track", () => {
@@ -2747,20 +3031,28 @@ describe("wsdl api", () => {
                   getMediaURIResult: bonobUrl
                     .append({
                       pathname: `/stream/track/${trackId}`,
-                      searchParams: { bat: accessToken },
                     })
                     .href(),
+                  httpHeaders: {
+                    httpHeader: [
+                      {
+                        header: "Authorization",
+                        value: `Bearer ${smapiTokenAsString(smapiAuthToken)}`,
+                      },
+                    ],
+                  },
                 });
 
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
               });
             });
           });
         });
 
         describe("getMediaMetadata", () => {
-          itShouldHandleInvalidCredentials((ws) => ws.getMediaMetadataAsync({ id: "track:123" }))
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.getMediaMetadataAsync({ id: "track:123" })
+          );
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
@@ -2768,15 +3060,12 @@ describe("wsdl api", () => {
             const someTrack = aTrack();
 
             beforeEach(async () => {
-              musicService.login.mockResolvedValue(musicLibrary);
-              accessTokens.mint.mockReturnValue(accessToken);
-              musicLibrary.track.mockResolvedValue(someTrack);
-
               ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
+              setupAuthenticatedRequest(ws);
+              musicLibrary.track.mockResolvedValue(someTrack);
             });
 
             describe("asking for media metadata for a track", () => {
@@ -2788,13 +3077,13 @@ describe("wsdl api", () => {
                 expect(root[0]).toEqual({
                   getMediaMetadataResult: track(
                     bonobUrl.with({
-                      searchParams: { bat: accessToken },
+                      searchParams: { bat: apiToken },
                     }),
                     someTrack
                   ),
                 });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.track).toHaveBeenCalledWith(someTrack.id);
               });
             });
@@ -2805,70 +3094,72 @@ describe("wsdl api", () => {
           let ws: Client;
 
           beforeEach(async () => {
-            musicService.login.mockResolvedValue(musicLibrary);
-            accessTokens.mint.mockReturnValue(accessToken);
-
             ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          itShouldHandleInvalidCredentials((ws) => ws.createContainerAsync({ title: "foobar" }))
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.createContainerAsync({ title: "foobar" })
+          );
 
           describe("when valid credentials are provided", () => {
+            beforeEach(() => {
+              setupAuthenticatedRequest(ws);
+            });
+
             describe("with only a title", () => {
               const title = "aNewPlaylist";
               const idOfNewPlaylist = uuid();
-  
+
               it("should create a playlist", async () => {
                 musicLibrary.createPlaylist.mockResolvedValue({
                   id: idOfNewPlaylist,
                   name: title,
                 });
-  
+
                 const result = await ws.createContainerAsync({
                   title,
                 });
-  
+
                 expect(result[0]).toEqual({
                   createContainerResult: {
                     id: `playlist:${idOfNewPlaylist}`,
                     updateId: null,
                   },
                 });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
               });
             });
-  
+
             describe("with a title and a seed track", () => {
               const title = "aNewPlaylist2";
               const trackId = "track123";
               const idOfNewPlaylist = "playlistId";
-  
+
               it("should create a playlist with the track", async () => {
                 musicLibrary.createPlaylist.mockResolvedValue({
                   id: idOfNewPlaylist,
                   name: title,
                 });
                 musicLibrary.addToPlaylist.mockResolvedValue(true);
-  
+
                 const result = await ws.createContainerAsync({
                   title,
                   seedId: `track:${trackId}`,
                 });
-  
+
                 expect(result[0]).toEqual({
                   createContainerResult: {
                     id: `playlist:${idOfNewPlaylist}`,
                     updateId: null,
                   },
                 });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.createPlaylist).toHaveBeenCalledWith(title);
                 expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
                   idOfNewPlaylist,
@@ -2885,29 +3176,31 @@ describe("wsdl api", () => {
           let ws: Client;
 
           beforeEach(async () => {
-            musicService.login.mockResolvedValue(musicLibrary);
-            accessTokens.mint.mockReturnValue(accessToken);
-
             ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          itShouldHandleInvalidCredentials((ws) => ws.deleteContainerAsync({ id: "foobar" }))
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.deleteContainerAsync({ id: "foobar" })
+          );
 
           describe("when valid credentials are provided", () => {
+            beforeEach(() => {
+              setupAuthenticatedRequest(ws);
+            });
+
             it("should delete the playlist", async () => {
               musicLibrary.deletePlaylist.mockResolvedValue(true);
-  
+
               const result = await ws.deleteContainerAsync({
                 id,
               });
-  
+
               expect(result[0]).toEqual({ deleteContainerResult: null });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+              expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+              expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
               expect(musicLibrary.deletePlaylist).toHaveBeenCalledWith(id);
             });
           });
@@ -2920,32 +3213,34 @@ describe("wsdl api", () => {
           let ws: Client;
 
           beforeEach(async () => {
-            musicService.login.mockResolvedValue(musicLibrary);
-            accessTokens.mint.mockReturnValue(accessToken);
-
             ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          itShouldHandleInvalidCredentials((ws) => ws.addToContainerAsync({ id: "foobar", parentId: "parentId" }))
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.addToContainerAsync({ id: "foobar", parentId: "parentId" })
+          );
 
           describe("when valid credentials are provided", () => {
+            beforeEach(() => {
+              setupAuthenticatedRequest(ws);
+            });
+
             it("should add the item to the playlist", async () => {
               musicLibrary.addToPlaylist.mockResolvedValue(true);
-  
+
               const result = await ws.addToContainerAsync({
                 id: `track:${trackId}`,
                 parentId: `parent:${playlistId}`,
               });
-  
+
               expect(result[0]).toEqual({
                 addToContainerResult: { updateId: null },
               });
-              expect(musicService.login).toHaveBeenCalledWith(authToken);
-              expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+              expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+              expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
               expect(musicLibrary.addToPlaylist).toHaveBeenCalledWith(
                 playlistId,
                 trackId
@@ -2958,38 +3253,40 @@ describe("wsdl api", () => {
           let ws: Client;
 
           beforeEach(async () => {
-            musicService.login.mockResolvedValue(musicLibrary);
-            accessTokens.mint.mockReturnValue(accessToken);
-
             ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          itShouldHandleInvalidCredentials((ws) => ws.removeFromContainerAsync({
-            id: `playlist:123`,
-            indices: `1,6,9`,
-          }));
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.removeFromContainerAsync({
+              id: `playlist:123`,
+              indices: `1,6,9`,
+            })
+          );
 
           describe("when valid credentials are provided", () => {
+            beforeEach(() => {
+              setupAuthenticatedRequest(ws);
+            });
+
             describe("removing tracks from a playlist", () => {
               const playlistId = "parent123";
-  
+
               it("should remove the track from playlist", async () => {
                 musicLibrary.removeFromPlaylist.mockResolvedValue(true);
-  
+
                 const result = await ws.removeFromContainerAsync({
                   id: `playlist:${playlistId}`,
                   indices: `1,6,9`,
                 });
-  
+
                 expect(result[0]).toEqual({
                   removeFromContainerResult: { updateId: null },
                 });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.removeFromPlaylist).toHaveBeenCalledWith(
                   playlistId,
                   [1, 6, 9]
@@ -3003,7 +3300,7 @@ describe("wsdl api", () => {
               const playlist3 = aPlaylist({ id: "p3" });
               const playlist4 = aPlaylist({ id: "p4" });
               const playlist5 = aPlaylist({ id: "p5" });
-  
+
               it("should delete the playlist", async () => {
                 musicLibrary.playlists.mockResolvedValue([
                   playlist1,
@@ -3013,17 +3310,17 @@ describe("wsdl api", () => {
                   playlist5,
                 ]);
                 musicLibrary.deletePlaylist.mockResolvedValue(true);
-  
+
                 const result = await ws.removeFromContainerAsync({
                   id: `playlists`,
                   indices: `0,2,4`,
                 });
-  
+
                 expect(result[0]).toEqual({
                   removeFromContainerResult: { updateId: null },
                 });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.deletePlaylist).toHaveBeenCalledTimes(3);
                 expect(musicLibrary.deletePlaylist).toHaveBeenNthCalledWith(
                   1,
@@ -3046,61 +3343,69 @@ describe("wsdl api", () => {
           let ws: Client;
 
           beforeEach(async () => {
-            musicService.login.mockResolvedValue(musicLibrary);
-            accessTokens.mint.mockReturnValue(accessToken);
-
             ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          itShouldHandleInvalidCredentials((ws) => ws.rateItemAsync({
-            id: `track:123`,
-            rating: 4,
-          }));
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.rateItemAsync({
+              id: `track:123`,
+              rating: 4,
+            })
+          );
 
           describe("when valid credentials are provided", () => {
+            beforeEach(() => {
+              setupAuthenticatedRequest(ws);
+            });
+
             describe("rating a track with a positive rating value", () => {
               const trackId = "123";
               const ratingIntValue = 31;
-  
+
               it("should give the track a love", async () => {
                 musicLibrary.rate.mockResolvedValue(true);
-  
+
                 const result = await ws.rateItemAsync({
                   id: `track:${trackId}`,
                   rating: ratingIntValue,
                 });
-  
+
                 expect(result[0]).toEqual({
                   rateItemResult: { shouldSkip: false },
                 });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(ratingIntValue));
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
+                expect(musicLibrary.rate).toHaveBeenCalledWith(
+                  trackId,
+                  ratingFromInt(ratingIntValue)
+                );
               });
             });
-  
+
             describe("rating a track with a negative rating value", () => {
               const trackId = "123";
               const ratingIntValue = -20;
-  
+
               it("should give the track a love", async () => {
                 musicLibrary.rate.mockResolvedValue(true);
-  
+
                 const result = await ws.rateItemAsync({
                   id: `track:${trackId}`,
                   rating: ratingIntValue,
                 });
-  
+
                 expect(result[0]).toEqual({
                   rateItemResult: { shouldSkip: false },
                 });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
-                expect(musicLibrary.rate).toHaveBeenCalledWith(trackId, ratingFromInt(Math.abs(ratingIntValue)));
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
+                expect(musicLibrary.rate).toHaveBeenCalledWith(
+                  trackId,
+                  ratingFromInt(Math.abs(ratingIntValue))
+                );
               });
             });
           });
@@ -3110,25 +3415,27 @@ describe("wsdl api", () => {
           let ws: Client;
 
           beforeEach(async () => {
-            musicService.login.mockResolvedValue(musicLibrary);
-            accessTokens.mint.mockReturnValue(accessToken);
-
             ws = await createClientAsync(`${service.uri}?wsdl`, {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials(jwtSign(authToken)) });
           });
 
-          itShouldHandleInvalidCredentials((ws) => ws.setPlayedSecondsAsync({
-            id: `track:123`,
-            seconds: `33`,
-          }));
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.setPlayedSecondsAsync({
+              id: `track:123`,
+              seconds: `33`,
+            })
+          );
 
           describe("when valid credentials are provided", () => {
+            beforeEach(() => {
+              setupAuthenticatedRequest(ws);
+            });
+
             describe("when id is for a track", () => {
               const trackId = "123456";
-  
+
               function itShouldScroble({
                 trackId,
                 secondsPlayed,
@@ -3138,20 +3445,20 @@ describe("wsdl api", () => {
               }) {
                 it("should scrobble", async () => {
                   musicLibrary.scrobble.mockResolvedValue(true);
-  
+
                   const result = await ws.setPlayedSecondsAsync({
                     id: `track:${trackId}`,
                     seconds: `${secondsPlayed}`,
                   });
-  
+
                   expect(result[0]).toEqual({ setPlayedSecondsResult: null });
-                  expect(musicService.login).toHaveBeenCalledWith(authToken);
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
                   expect(musicLibrary.scrobble).toHaveBeenCalledWith(trackId);
                 });
               }
-  
+
               function itShouldNotScroble({
                 trackId,
                 secondsPlayed,
@@ -3159,95 +3466,95 @@ describe("wsdl api", () => {
                 trackId: string;
                 secondsPlayed: number;
               }) {
-                it("should scrobble", async () => {
+                it("should not scrobble", async () => {
                   const result = await ws.setPlayedSecondsAsync({
                     id: `track:${trackId}`,
                     seconds: `${secondsPlayed}`,
                   });
-  
+
                   expect(result[0]).toEqual({ setPlayedSecondsResult: null });
-                  expect(musicService.login).toHaveBeenCalledWith(authToken);
-                  expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                  expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
                   expect(musicLibrary.scrobble).not.toHaveBeenCalled();
                 });
               }
-  
+
               describe("when the track length is 30 seconds", () => {
                 beforeEach(() => {
                   musicLibrary.track.mockResolvedValue(
                     aTrack({ id: trackId, duration: 30 })
                   );
                 });
-  
+
                 describe("when the played length is 30 seconds", () => {
                   itShouldScroble({ trackId, secondsPlayed: 30 });
                 });
-  
+
                 describe("when the played length is > 30 seconds", () => {
                   itShouldScroble({ trackId, secondsPlayed: 90 });
                 });
-  
+
                 describe("when the played length is < 30 seconds", () => {
                   itShouldNotScroble({ trackId, secondsPlayed: 29 });
                 });
               });
-  
+
               describe("when the track length is > 30 seconds", () => {
                 beforeEach(() => {
                   musicLibrary.track.mockResolvedValue(
                     aTrack({ id: trackId, duration: 31 })
                   );
                 });
-  
+
                 describe("when the played length is 30 seconds", () => {
                   itShouldScroble({ trackId, secondsPlayed: 30 });
                 });
-  
+
                 describe("when the played length is > 30 seconds", () => {
                   itShouldScroble({ trackId, secondsPlayed: 90 });
                 });
-  
+
                 describe("when the played length is < 30 seconds", () => {
                   itShouldNotScroble({ trackId, secondsPlayed: 29 });
                 });
               });
-  
+
               describe("when the track length is 29 seconds", () => {
                 beforeEach(() => {
                   musicLibrary.track.mockResolvedValue(
                     aTrack({ id: trackId, duration: 29 })
                   );
                 });
-  
+
                 describe("when the played length is 29 seconds", () => {
                   itShouldScroble({ trackId, secondsPlayed: 30 });
                 });
-  
+
                 describe("when the played length is > 29 seconds", () => {
                   itShouldScroble({ trackId, secondsPlayed: 30 });
                 });
-  
+
                 describe("when the played length is 10 seconds", () => {
                   itShouldScroble({ trackId, secondsPlayed: 10 });
                 });
-  
+
                 describe("when the played length is < 10 seconds", () => {
                   itShouldNotScroble({ trackId, secondsPlayed: 9 });
                 });
               });
             });
-  
+
             describe("when the id is for something that isnt a track", () => {
               it("should not scrobble", async () => {
                 const result = await ws.setPlayedSecondsAsync({
                   id: `album:666`,
                   seconds: "100",
                 });
-  
+
                 expect(result[0]).toEqual({ setPlayedSecondsResult: null });
-                expect(musicService.login).toHaveBeenCalledWith(authToken);
-                expect(accessTokens.mint).toHaveBeenCalledWith(authToken);
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.scrobble).not.toHaveBeenCalled();
               });
             });

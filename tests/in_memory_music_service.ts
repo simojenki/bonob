@@ -41,7 +41,7 @@ export class InMemoryMusicService implements MusicService {
       this.users[username] == password
     ) {
       return Promise.resolve({
-        authToken: b64Encode(JSON.stringify({ username, password })),
+        serviceToken: b64Encode(JSON.stringify({ username, password })),
         userId: username,
         nickname: username,
       });
@@ -50,8 +50,8 @@ export class InMemoryMusicService implements MusicService {
     }
   }
 
-  login(token: string): Promise<MusicLibrary> {
-    const credentials = JSON.parse(b64Decode(token)) as Credentials;
+  login(serviceToken: string): Promise<MusicLibrary> {
+    const credentials = JSON.parse(b64Decode(serviceToken)) as Credentials;
     if (this.users[credentials.username] != credentials.password)
       return Promise.reject("Invalid auth token");
 

@@ -33,7 +33,7 @@ describe("InMemoryMusicService", () => {
       expect(token.userId).toEqual(credentials.username);
       expect(token.nickname).toEqual(credentials.username);
 
-      const musicLibrary = service.login(token.authToken);
+      const musicLibrary = service.login(token.serviceToken);
 
       expect(musicLibrary).toBeDefined();
     });
@@ -47,7 +47,7 @@ describe("InMemoryMusicService", () => {
 
       service.clear();
 
-      return expect(service.login(token.authToken)).rejects.toEqual(
+      return expect(service.login(token.serviceToken)).rejects.toEqual(
         "Invalid auth token"
       );
     });
@@ -63,7 +63,7 @@ describe("InMemoryMusicService", () => {
       service.hasUser(user);
 
       const token = (await service.generateToken(user)) as AuthSuccess;
-      musicLibrary = (await service.login(token.authToken)) as MusicLibrary;
+      musicLibrary = (await service.login(token.serviceToken)) as MusicLibrary;
     });
 
     describe("artists", () => {

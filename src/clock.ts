@@ -14,3 +14,15 @@ export interface Clock {
 }
 
 export const SystemClock = { now: () => dayjs() };
+
+export class FixedClock implements Clock {
+  time: Dayjs;
+  
+  constructor(time: Dayjs = dayjs()) {
+    this.time = time;
+  }
+
+  add = (t: number, unit: dayjs.UnitTypeShort) => this.time = this.time.add(t, unit)
+
+  now = () => this.time;
+}

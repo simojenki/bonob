@@ -1,23 +1,23 @@
 {
-    "extends": "../tsconfig.json",
-    "compilerOptions": {
-      "target": "es2019",
-      "baseUrl": "./",
-      "module": "commonjs",
-      "experimentalDecorators": true,
-      "strictPropertyInitialization": false,
-      "isolatedModules": false,
-      "strict": true,
-      "noImplicitAny": false,
-      "typeRoots" : [
-        "../typings",
-        "../node_modules/@types"
-      ]
-    },
-    "exclude": [
-      "../node_modules"
-    ],
-    "include": [
-      "./**/*.ts"
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "target": "es2019",
+    "baseUrl": "./",
+    "module": "commonjs",
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
+    "isolatedModules": false,
+    "strict": true,
+    "noImplicitAny": false,
+    "typeRoots" : [
+      "../typings",
+      "../node_modules/@types"
     ]
-  }
+  },
+  "exclude": [
+    "../node_modules"
+  ],
+  "include": [
+    "./**/*.ts"
+  ]
+}
