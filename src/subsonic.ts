@@ -208,6 +208,13 @@ type GetStarredResponse = {
   };
 };
 
+export type PingResponse = {
+  status: string,
+  version: string,
+  type: string,
+  serverVersion: string
+}
+
 type Search3Response = SubsonicResponse & {
   searchResult3: {
     artist: artist[];
@@ -383,6 +390,16 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
 const artistIsInLibrary = (artistId: string | undefined) =>
   artistId != undefined && artistId != "-1";
 
+type SubsonicCredentials = Credentials & { type: string, bearer: string | undefined }
+
+export const asToken = (credentials: SubsonicCredentials) => b64Encode(JSON.stringify(credentials))
+export const parseToken = (token: string): SubsonicCredentials => JSON.parse(b64Decode(token));
+
+interface SubsonicMusicLibrary extends MusicLibrary {
+  flavour(): string
+  bearerToken(): Promise<string | undefined>
+}
+
 export class Subsonic implements MusicService {
   url: string;
   streamClientApplication: StreamClientApplication;
@@ -441,15 +458,15 @@ export class Subsonic implements MusicService {
       });
 
   generateToken = async (credentials: Credentials) =>
-    this.getJSON(credentials, "/rest/ping.view")
-      .then(() => ({
-        serviceToken: b64Encode(JSON.stringify(credentials)),
+    this.getJSON<PingResponse>(credentials, "/rest/ping.view")
+      .then(({ type }) => this.libraryFor({ ...credentials, type }).then(library => ({ type, library })))
+      .then(({ library, type }) => library.bearerToken().then(bearer => ({ bearer, type })))
+      .then(({ bearer, type }) => ({
+        serviceToken: asToken({ ...credentials, bearer, type }),
         userId: credentials.username,
         nickname: credentials.username,
       }))
       .catch((e) => ({ message: `${e}` }));
-
-  parseToken = (token: string): Credentials => JSON.parse(b64Decode(token));
 
   getArtists = (
     credentials: Credentials
@@ -622,11 +639,14 @@ export class Subsonic implements MusicService {
   //       albums: it.album.map(asAlbum),
   //     }));
 
-  async login(token: string) {
-    const subsonic = this;
-    const credentials: Credentials = this.parseToken(token);
+  login = async (token: string) => this.libraryFor(parseToken(token))
 
-    const musicLibrary: MusicLibrary = {
+  private libraryFor = (credentials: Credentials & { type: string }) => {
+    const subsonic = this;
+
+    const genericSubsonic: SubsonicMusicLibrary = {
+      flavour: () => "subsonic",
+      bearerToken: () => Promise.resolve(undefined),
       artists: (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
         subsonic
           .getArtists(credentials)
@@ -903,6 +923,13 @@ export class Subsonic implements MusicService {
         ),
     };
 
-    return Promise.resolve(musicLibrary);
+    if(credentials.type == "navidrome") {
+      return Promise.resolve({
+        ...genericSubsonic,
+        flavour: ()=> "navidrome"
+      })
+    } else {
+      return Promise.resolve(genericSubsonic);
+    }
   }
 }
