@@ -459,30 +459,30 @@ function bindSmapiSoapServiceToExpress(
             },
           }),
           refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders) =>
-            pipe(
-              auth(soapyHeaders?.credentials),
-              E.map(({ serviceToken }) => smapiAuthTokens.issue(serviceToken)),
-              E.map((newToken) => ({
-                authToken: newToken.token,
-                privateKey: newToken.key,
-              })),
-              E.orElse((fault) =>
-                pipe(
-                  fault.toSmapiFault(smapiAuthTokens),
-                  E.fromPredicate(isSmapiRefreshTokenResultFault, (_) => fault),
-                  E.map((it) => it.Fault.detail.refreshAuthTokenResult)
-                )
-              ),
-              E.map((newToken) => ({
-                refreshAuthTokenResult: {
-                  authToken: newToken.authToken,
-                  privateKey: newToken.privateKey,
-                },
-              })),
-              E.getOrElseW((fault) => {
-                throw fault.toSmapiFault(smapiAuthTokens);
-              })
+          pipe(
+            auth(soapyHeaders?.credentials),
+            E.map(({ serviceToken }) => smapiAuthTokens.issue(serviceToken)),
+            E.map((newToken) => ({
+              authToken: newToken.token,
+              privateKey: newToken.key,
+            })),
+            E.orElse((fault) =>
+              pipe(
+                fault.toSmapiFault(smapiAuthTokens),
+                E.fromPredicate(isSmapiRefreshTokenResultFault, (_) => fault),
+                E.map((it) => it.Fault.detail.refreshAuthTokenResult)
+              )
             ),
+            E.map((newToken) => ({
+              refreshAuthTokenResult: {
+                authToken: newToken.authToken,
+                privateKey: newToken.privateKey,
+              },
+            })),
+            E.getOrElseW((fault) => {
+              throw fault.toSmapiFault(smapiAuthTokens);
+            })
+          ),
           getMediaURI: async (
             { id }: { id: string },
             _,

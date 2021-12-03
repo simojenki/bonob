@@ -36,7 +36,7 @@ import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
 import { parse } from "./burn";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
-import { JWTSmapiLoginTokens, SmapiAuthTokens, SmapiToken } from "./smapi_auth";
+import { JWTSmapiLoginTokens, SmapiAuthTokens, smapiTokenFromString } from "./smapi_auth";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -371,7 +371,7 @@ function server(
     logger.info(
       `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query
-      )}, headers=${JSON.stringify({ ...req.headers, "authorization": "***" })}`
+      )}, headers=${JSON.stringify({ ...req.headers, "authorization": "*****" })}`
     );
 
     const authHeader = E.fromNullable("Missing header");
@@ -384,7 +384,7 @@ function server(
         E.map(match => match[1]!)
       )),
       E.chain(bearerToken => pipe(
-        smapiAuthTokens.verify(bearerToken as unknown as SmapiToken),
+        smapiAuthTokens.verify(smapiTokenFromString(bearerToken)),
         E.mapLeft(_ => "Bearer token failed to verify")
       )),
       E.getOrElseW(() => undefined)
