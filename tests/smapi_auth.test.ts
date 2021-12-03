@@ -96,26 +96,26 @@ describe("auth", () => {
         it("should return an error", () => {
           const authToken = uuid();
 
-          const v1SmapiTokens = new JWTSmapiLoginTokens(
+          const vXSmapiTokens = new JWTSmapiLoginTokens(
             clock,
             secret,
             expiresIn,
             () => uuid(),
-            "1"
+            SMAPI_TOKEN_VERSION
           );
 
-          const v2SmapiTokens = new JWTSmapiLoginTokens(
+          const vXPlus1SmapiTokens = new JWTSmapiLoginTokens(
             clock,
             secret,
             expiresIn,
             () => uuid(),
-            "2"
+            SMAPI_TOKEN_VERSION + 1
           );
 
-          const v1Token = v1SmapiTokens.issue(authToken);
-          expect(v1SmapiTokens.verify(v1Token)).toEqual(E.right(authToken));
+          const v1Token = vXSmapiTokens.issue(authToken);
+          expect(vXSmapiTokens.verify(v1Token)).toEqual(E.right(authToken));
 
-          const result = v2SmapiTokens.verify(v1Token);
+          const result = vXPlus1SmapiTokens.verify(v1Token);
           expect(result).toEqual(
             E.left(new InvalidTokenError("invalid signature"))
           );

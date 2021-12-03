@@ -19,6 +19,9 @@ import {
   artistImageURN,
   images,
   song,
+  PingResponse,
+  parseToken,
+  asToken,
 } from "../src/subsonic";
 
 import axios from "axios";
@@ -558,7 +561,19 @@ const FAILURE = {
   },
 };
 
-const PING_OK = subsonicOK({});
+
+
+const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
+  "subsonic-response": {
+    status: "ok",
+    version: "1.16.1",
+    type: "navidrome",
+    serverVersion: "0.45.1 (c55e6590)",
+    ...pingResponse
+  }
+})
+
+const PING_OK = pingJson({ status: "ok" });
 
 describe("artistURN", () => {
   describe("when artist URL is", () => {
@@ -729,6 +744,29 @@ describe("Subsonic", () => {
         expect(token.nickname).toEqual(username);
         expect(token.userId).toEqual(username);
 
+        expect(parseToken(token.serviceToken)).toEqual({ username, password, type: PING_OK["subsonic-response"].type })
+
+        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+          params: asURLSearchParams(authParamsPlusJson),
+          headers,
+        });
+      });
+
+      it("should store the type of the subsonic server on the token", async () => {
+        const type = "someSubsonicClone";
+        (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type })));
+
+        const token = (await navidrome.generateToken({
+          username,
+          password,
+        })) as AuthSuccess;
+
+        expect(token.serviceToken).toBeDefined();
+        expect(token.nickname).toEqual(username);
+        expect(token.userId).toEqual(username);
+
+        expect(parseToken(token.serviceToken)).toEqual({ username, password, type })
+
         expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
           params: asURLSearchParams(authParamsPlusJson),
           headers,
@@ -747,6 +785,29 @@ describe("Subsonic", () => {
         expect(token).toEqual({
           message: "Subsonic error:Wrong username or password",
         });
+      });
+    });
+  });
+
+  describe("login", () => {
+    describe("when the token is for generic subsonic", () => {
+      it("should return a subsonic client", async () => {
+        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "subsonic", bearer: undefined }));
+        expect(client.flavour()).toEqual("subsonic");
+      });
+    });
+
+    describe("when the token is for navidrome", () => {
+      it("should return a navidrome client", async () => {
+        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "navidrome", bearer: undefined }));
+        expect(client.flavour()).toEqual("navidrome");
+      });
+    });
+
+    describe("when the token is for gonic", () => {
+      it("should return a subsonic client", async () => {
+        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "gonic", bearer: undefined }));
+        expect(client.flavour()).toEqual("subsonic");
       });
     });
   });
