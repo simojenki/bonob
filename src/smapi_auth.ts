@@ -57,17 +57,17 @@ export class InvalidTokenError extends Error implements ToSmapiFault {
 
 export class ExpiredTokenError extends Error implements ToSmapiFault {
   _tag = "ExpiredTokenError";
-  authToken: string;
+  serviceToken: string;
   expiredAt: number;
 
-  constructor(authToken: string, expiredAt: number) {
+  constructor(serviceToken: string, expiredAt: number) {
     super("SMAPI token has expired");
-    this.authToken = authToken;
+    this.serviceToken = serviceToken;
     this.expiredAt = expiredAt;
   }
 
   toSmapiFault = (smapiAuthTokens: SmapiAuthTokens) => {
-    const newToken = smapiAuthTokens.issue(this.authToken)
+    const newToken = smapiAuthTokens.issue(this.serviceToken)
     return {
       Fault: {
         faultcode: "Client.TokenRefreshRequired",
@@ -142,8 +142,8 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
       return right((jwt.verify(smapiToken.token, this.secret + this.version + smapiToken.key) as any).serviceToken);
     } catch (e) {
       if(isTokenExpiredError(e)) {
-        const x = ((jwt.verify(smapiToken.token, this.secret + this.version + smapiToken.key, { ignoreExpiration: true })) as any).serviceToken;
-        return left(new ExpiredTokenError(x, e.expiredAt))
+        const serviceToken = ((jwt.verify(smapiToken.token, this.secret + this.version + smapiToken.key, { ignoreExpiration: true })) as any).serviceToken;
+        return left(new ExpiredTokenError(serviceToken, e.expiredAt))
       } else if(isError(e))
         return left(new InvalidTokenError(e.message));
       else

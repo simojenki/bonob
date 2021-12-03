@@ -26,7 +26,7 @@ import i8n, { randomLang } from "../src/i8n";
 import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
 import { Clock, SystemClock } from "../src/clock";
 import { formatForURL } from "../src/burn";
-import { ExpiredTokenError, SmapiAuthTokens } from "../src/smapi_auth";
+import { ExpiredTokenError, SmapiAuthTokens, SmapiToken, smapiTokenAsString } from "../src/smapi_auth";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -750,9 +750,9 @@ describe("server", () => {
           }
         );
 
-        const serviceToken = uuid();
-        const trackId = uuid();
-        const smapiAuthToken = `smapiAuthToken-${uuid()}`;
+        const serviceToken = `serviceToken-${uuid()}`;
+        const trackId = `t-${uuid()}`;
+        const smapiAuthToken: SmapiToken = { token: `token-${uuid()}`, key: `key-${uuid()}` };
 
         const streamContent = (content: string) => ({
           pipe: (_: Transform) => {
@@ -777,7 +777,7 @@ describe("server", () => {
 
           describe("when the Bearer token has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(smapiAuthToken, 0)))
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, 0)))
 
               const res = await request(server).head(
                 bonobUrl
@@ -785,7 +785,7 @@ describe("server", () => {
                     pathname: `/stream/track/${trackId}`
                   })
                   .path(),
-              ).set('Authorization', `Bearer ${smapiAuthToken}`);
+              ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
 
               expect(res.status).toEqual(401);
             });
@@ -816,7 +816,7 @@ describe("server", () => {
                     bonobUrl
                       .append({ pathname: `/stream/track/${trackId}`})
                       .path()
-                  ).set('Authorization', `Bearer ${smapiAuthToken}`);
+                  ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
 
                 expect(res.status).toEqual(trackStream.status);
                 expect(res.headers["content-type"]).toEqual(
@@ -843,7 +843,7 @@ describe("server", () => {
                     .append({ pathname: `/stream/track/${trackId}` })
                     .path()
                     )
-                  .set('Authorization', `Bearer ${smapiAuthToken}`);
+                  .set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
 
                 expect(res.status).toEqual(404);
                 expect(res.body).toEqual({});
@@ -865,14 +865,14 @@ describe("server", () => {
 
           describe("when the Bearer token has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(smapiAuthToken, 0)))
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, 0)))
 
               const res = await request(server)
                 .get(
                   bonobUrl
                     .append({ pathname: `/stream/track/${trackId}` })
                     .path()
-                ).set('Authorization', `Bearer ${smapiAuthToken}`);
+                ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
 
               expect(res.status).toEqual(401);
             });
@@ -899,7 +899,7 @@ describe("server", () => {
                     bonobUrl
                       .append({ pathname: `/stream/track/${trackId}` })
                       .path()
-                  ).set('Authorization', `Bearer ${smapiAuthToken}`);
+                  ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
   
                 expect(res.status).toEqual(404);
   
@@ -931,7 +931,7 @@ describe("server", () => {
                       bonobUrl
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
-                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+                    ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -971,7 +971,7 @@ describe("server", () => {
                       bonobUrl
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
-                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+                    ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -1009,7 +1009,7 @@ describe("server", () => {
                       bonobUrl
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
-                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+                    ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
@@ -1048,7 +1048,7 @@ describe("server", () => {
                       bonobUrl
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
-                    ).set('Authorization', `Bearer ${smapiAuthToken}`);
+                    ).set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
@@ -1093,7 +1093,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('Authorization', `Bearer ${smapiAuthToken}`)
+                    .set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`)
                     .set("Range", requestedRange);
   
                   expect(res.status).toEqual(stream.status);
@@ -1137,7 +1137,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('Authorization', `Bearer ${smapiAuthToken}`)
+                    .set('Authorization', `Bearer ${smapiTokenAsString(smapiAuthToken)}`)
                     .set("Range", "4000-5000");
   
                   expect(res.status).toEqual(stream.status);
