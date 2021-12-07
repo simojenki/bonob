@@ -2,7 +2,7 @@ import crypto from "crypto";
 import request from "supertest";
 import { Client, createClientAsync } from "soap";
 import { v4 as uuid } from "uuid";
-import { either as E } from "fp-ts";
+import { either as E, taskEither as TE } from "fp-ts";
 import { DOMParserImpl } from "xmldom-ts";
 import * as xpath from "xpath-ts";
 import { randomInt } from "crypto";
@@ -861,6 +861,7 @@ describe("defaultArtistArtURI", () => {
 describe("wsdl api", () => {
   const musicService = {
     generateToken: jest.fn(),
+    refreshToken: jest.fn(),
     login: jest.fn(),
   };
   const linkCodes = {
@@ -1079,10 +1080,11 @@ describe("wsdl api", () => {
 
           describe("when token has expired", () => {
             it("should return a refreshed auth token", async () => {
-              const oneDayAgo = clock.time.subtract(1, "d");
+              const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
               const newSmapiAuthToken = { token: `newToken-${uuid()}`, key: `newKey-${uuid()}` };
 
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, oneDayAgo.unix())));
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)));
+              musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }));
               smapiAuthTokens.issue.mockReturnValue(newSmapiAuthToken);
 
               const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -1101,6 +1103,9 @@ describe("wsdl api", () => {
                   privateKey: newSmapiAuthToken.key,
                 },
               });
+
+              expect(musicService.refreshToken).toHaveBeenCalledWith(serviceToken);
+              expect(smapiAuthTokens.issue).toHaveBeenCalledWith(refreshedServiceToken);
             });
           });
 
@@ -1128,8 +1133,11 @@ describe("wsdl api", () => {
 
           describe("when existing auth token has not expired", () => {
             it("should return a refreshed auth token", async () => {
+              const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
               const newSmapiAuthToken = { token: `newToken-${uuid()}`, key: `newKey-${uuid()}` };
+
               smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
+              musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }));
               smapiAuthTokens.issue.mockReturnValue(newSmapiAuthToken);
 
               const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -1148,6 +1156,9 @@ describe("wsdl api", () => {
                   privateKey: newSmapiAuthToken.key
                 },
               });
+
+              expect(musicService.refreshToken).toHaveBeenCalledWith(serviceToken);
+              expect(smapiAuthTokens.issue).toHaveBeenCalledWith(refreshedServiceToken);
             });
           });
         });
@@ -1325,13 +1336,14 @@ describe("wsdl api", () => {
 
           describe("when token has expired", () => {
             it("should return a fault of Client.TokenRefreshRequired with a refreshAuthTokenResult", async () => {
-              const expiry = dayjs().subtract(1, "d");
+              const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
               const newToken = {
                 token: `newToken-${uuid()}`,
                 key: `newKey-${uuid()}`
               };
   
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, expiry.unix())))
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
+              musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }))
               smapiAuthTokens.issue.mockReturnValue(newToken)
               musicService.login.mockRejectedValue(
                 "fail, should not call login!"
@@ -1360,7 +1372,8 @@ describe("wsdl api", () => {
                 });
   
                 expect(smapiAuthTokens.verify).toHaveBeenCalledWith(smapiAuthToken);
-                expect(smapiAuthTokens.issue).toHaveBeenCalledWith(serviceToken);
+                expect(musicService.refreshToken).toHaveBeenCalledWith(serviceToken);
+                expect(smapiAuthTokens.issue).toHaveBeenCalledWith(refreshedServiceToken);
             });
           });
         }

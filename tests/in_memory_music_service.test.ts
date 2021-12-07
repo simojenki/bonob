@@ -1,6 +1,8 @@
+import { taskEither as TE } from "fp-ts";
+import { pipe } from "fp-ts/lib/function";
+
 import { InMemoryMusicService } from "./in_memory_music_service";
 import {
-  AuthSuccess,
   MusicLibrary,
   artistToArtistSummary,
   albumToAlbumSummary,
@@ -28,7 +30,10 @@ describe("InMemoryMusicService", () => {
 
       service.hasUser(credentials);
 
-      const token = (await service.generateToken(credentials)) as AuthSuccess;
+      const token = await pipe(
+        service.generateToken(credentials),
+        TE.getOrElse(e => { throw e })
+      )();
 
       expect(token.userId).toEqual(credentials.username);
       expect(token.nickname).toEqual(credentials.username);
@@ -43,7 +48,10 @@ describe("InMemoryMusicService", () => {
 
       service.hasUser(credentials);
 
-      const token = (await service.generateToken(credentials)) as AuthSuccess;
+      const token = await pipe(
+        service.generateToken(credentials),
+        TE.getOrElse(e => { throw e })
+      )();
 
       service.clear();
 
@@ -62,7 +70,11 @@ describe("InMemoryMusicService", () => {
 
       service.hasUser(user);
 
-      const token = (await service.generateToken(user)) as AuthSuccess;
+      const token = await pipe(
+        service.generateToken(user),
+        TE.getOrElse(e => { throw e })
+      )();
+
       musicLibrary = (await service.login(token.serviceToken)) as MusicLibrary;
     });
 
