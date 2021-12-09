@@ -1,4 +1,4 @@
-import { either as E } from "fp-ts";
+import { either as E, taskEither as TE } from "fp-ts";
 import express, { Express, Request } from "express";
 import * as Eta from "eta";
 import path from "path";
@@ -22,7 +22,7 @@ import {
   ratingAsInt,
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
-import { MusicService, isSuccess } from "./music_service";
+import { MusicService, AuthFailure, AuthSuccess } from "./music_service";
 import bindSmapiSoapServiceToExpress from "./smapi";
 import { APITokens, InMemoryAPITokens } from "./api_tokens";
 import logger from "./logger";
@@ -36,7 +36,11 @@ import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
 import { parse } from "./burn";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
-import { JWTSmapiLoginTokens, SmapiAuthTokens, smapiTokenFromString } from "./smapi_auth";
+import {
+  JWTSmapiLoginTokens,
+  SmapiAuthTokens,
+  smapiTokenFromString,
+} from "./smapi_auth";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -233,33 +237,36 @@ function server(
         message: lang("invalidLinkCode"),
       });
     } else {
-      return musicService
-        .generateToken({
+      return pipe(
+        musicService.generateToken({
           username,
           password,
-        })
-        .then((authResult) => {
-          if (isSuccess(authResult)) {
-            linkCodes.associate(linkCode, authResult);
-            return res.render("success", {
-              lang,
-              message: lang("loginSuccessful"),
-            });
-          } else {
-            return res.status(403).render("failure", {
+        }),
+        TE.match(
+          (e: AuthFailure) => ({
+            status: 403,
+            template: "failure",
+            params: {
               lang,
               message: lang("loginFailed"),
-              cause: authResult.message,
-            });
+              cause: e.message,
+            },
+          }),
+          (success: AuthSuccess) => {
+            linkCodes.associate(linkCode, success);
+            return {
+              status: 200,
+              template: "success",
+              params: {
+                lang,
+                message: lang("loginSuccessful"),
+              },
+            };
           }
-        })
-        .catch((e) => {
-          return res.status(403).render("failure", {
-            lang,
-            message: lang("loginFailed"),
-            cause: `Unexpected error occured - ${e}`,
-          });
-        });
+        )
+      )().then(({ status, template, params }) =>
+        res.status(status).render(template, params)
+      );
     }
   });
 
@@ -371,22 +378,26 @@ function server(
     logger.info(
       `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query
-      )}, headers=${JSON.stringify({ ...req.headers, "authorization": "*****" })}`
+      )}, headers=${JSON.stringify({ ...req.headers, authorization: "*****" })}`
     );
 
     const authHeader = E.fromNullable("Missing header");
     const bearerToken = E.fromNullable("No Bearer token");
     const serviceToken = pipe(
       authHeader(req.headers["authorization"] as string),
-      E.chain(authorization => pipe(
-        authorization.match(/Bearer (?<token>.*)/),
-        bearerToken,
-        E.map(match => match[1]!)
-      )),
-      E.chain(bearerToken => pipe(
-        smapiAuthTokens.verify(smapiTokenFromString(bearerToken)),
-        E.mapLeft(_ => "Bearer token failed to verify")
-      )),
+      E.chain((authorization) =>
+        pipe(
+          authorization.match(/Bearer (?<token>.*)/),
+          bearerToken,
+          E.map((match) => match[1]!)
+        )
+      ),
+      E.chain((bearerToken) =>
+        pipe(
+          smapiAuthTokens.verify(smapiTokenFromString(bearerToken)),
+          E.mapLeft((_) => "Bearer token failed to verify")
+        )
+      ),
       E.getOrElseW(() => undefined)
     );
 

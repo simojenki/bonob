@@ -1,4 +1,4 @@
-import { option as O } from "fp-ts";
+import { option as O, taskEither as TE } from "fp-ts";
 import * as A from "fp-ts/Array";
 import { fromEquals } from "fp-ts/lib/Eq";
 import { pipe } from "fp-ts/lib/function";
@@ -34,21 +34,25 @@ export class InMemoryMusicService implements MusicService {
   generateToken({
     username,
     password,
-  }: Credentials): Promise<AuthSuccess | AuthFailure> {
+  }: Credentials): TE.TaskEither<AuthFailure, AuthSuccess> {
     if (
       username != undefined &&
       password != undefined &&
       this.users[username] == password
     ) {
-      return Promise.resolve({
+      return TE.right({
         serviceToken: b64Encode(JSON.stringify({ username, password })),
         userId: username,
         nickname: username,
         type: "in-memory"
       });
     } else {
-      return Promise.resolve({ message: `Invalid user:${username}` });
+      return TE.left(new AuthFailure(`Invalid user:${username}`));
     }
+  }
+
+  refreshToken(serviceToken: string): TE.TaskEither<AuthFailure, AuthSuccess> {
+    return this.generateToken(JSON.parse(b64Decode(serviceToken)))
   }
 
   login(serviceToken: string): Promise<MusicLibrary> {

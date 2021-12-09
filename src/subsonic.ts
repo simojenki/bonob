@@ -1,4 +1,4 @@
-import { option as O } from "fp-ts";
+import { option as O, taskEither as TE } from "fp-ts";
 import * as A from "fp-ts/Array";
 import { ordString } from "fp-ts/lib/Ord";
 import { pipe } from "fp-ts/lib/function";
@@ -19,6 +19,7 @@ import {
   Rating,
   AlbumQueryType,
   Artist,
+  AuthFailure,
 } from "./music_service";
 import sharp from "sharp";
 import _ from "underscore";
@@ -209,11 +210,11 @@ type GetStarredResponse = {
 };
 
 export type PingResponse = {
-  status: string,
-  version: string,
-  type: string,
-  serverVersion: string
-}
+  status: string;
+  version: string;
+  type: string;
+  serverVersion: string;
+};
 
 type Search3Response = SubsonicResponse & {
   searchResult3: {
@@ -234,12 +235,13 @@ type IdName = {
   name: string;
 };
 
-const coverArtURN = (coverArt: string | undefined): BUrn | undefined => pipe(
-  coverArt,
-  O.fromNullable,
-  O.map((it: string) => ({ system: "subsonic", resource: `art:${it}` })),
-  O.getOrElseW(() => undefined)
-)
+const coverArtURN = (coverArt: string | undefined): BUrn | undefined =>
+  pipe(
+    coverArt,
+    O.fromNullable,
+    O.map((it: string) => ({ system: "subsonic", resource: `art:${it}` })),
+    O.getOrElseW(() => undefined)
+  );
 
 export const artistImageURN = (
   spec: Partial<{
@@ -255,7 +257,7 @@ export const artistImageURN = (
   if (deets.artistImageURL && isValidImage(deets.artistImageURL)) {
     return {
       system: "external",
-      resource: deets.artistImageURL
+      resource: deets.artistImageURL,
     };
   } else if (artistIsInLibrary(deets.artistId)) {
     return {
@@ -279,7 +281,9 @@ export const asTrack = (album: Album, song: song): Track => ({
   artist: {
     id: song.artistId,
     name: song.artist ? song.artist : "?",
-    image: song.artistId ? artistImageURN({ artistId: song.artistId }) : undefined,
+    image: song.artistId
+      ? artistImageURN({ artistId: song.artistId })
+      : undefined,
   },
   rating: {
     love: song.starred != undefined,
@@ -390,14 +394,21 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
 const artistIsInLibrary = (artistId: string | undefined) =>
   artistId != undefined && artistId != "-1";
 
-type SubsonicCredentials = Credentials & { type: string, bearer: string | undefined }
+type SubsonicCredentials = Credentials & {
+  type: string;
+  bearer: string | undefined;
+};
 
-export const asToken = (credentials: SubsonicCredentials) => b64Encode(JSON.stringify(credentials))
-export const parseToken = (token: string): SubsonicCredentials => JSON.parse(b64Decode(token));
+export const asToken = (credentials: SubsonicCredentials) =>
+  b64Encode(JSON.stringify(credentials));
+export const parseToken = (token: string): SubsonicCredentials =>
+  JSON.parse(b64Decode(token));
 
 interface SubsonicMusicLibrary extends MusicLibrary {
-  flavour(): string
-  bearerToken(): Promise<string | undefined>
+  flavour(): string;
+  bearerToken(
+    credentials: Credentials
+  ): TE.TaskEither<Error, string | undefined>;
 }
 
 export class Subsonic implements MusicService {
@@ -457,16 +468,40 @@ export class Subsonic implements MusicService {
         else return json as unknown as T;
       });
 
-  generateToken = async (credentials: Credentials) =>
-    this.getJSON<PingResponse>(credentials, "/rest/ping.view")
-      .then(({ type }) => this.libraryFor({ ...credentials, type }).then(library => ({ type, library })))
-      .then(({ library, type }) => library.bearerToken().then(bearer => ({ bearer, type })))
-      .then(({ bearer, type }) => ({
+  generateToken = (credentials: Credentials) =>
+    pipe(
+      TE.tryCatch(
+        () =>
+          this.getJSON<PingResponse>(
+            _.pick(credentials, "username", "password"),
+            "/rest/ping.view"
+          ),
+        (e) => new AuthFailure(e as string)
+      ),
+      TE.chain(({ type }) =>
+        pipe(
+          TE.tryCatch(
+            () => this.libraryFor({ ...credentials, type }),
+            () => new AuthFailure("Failed to get library")
+          ),
+          TE.map((library) => ({ type, library }))
+        )
+      ),
+      TE.chain(({ library, type }) =>
+        pipe(
+          library.bearerToken(credentials),
+          TE.map((bearer) => ({ bearer, type }))
+        )
+      ),
+      TE.map(({ bearer, type }) => ({
         serviceToken: asToken({ ...credentials, bearer, type }),
         userId: credentials.username,
         nickname: credentials.username,
       }))
-      .catch((e) => ({ message: `${e}` }));
+    );
+
+  refreshToken = (serviceToken: string) =>
+    this.generateToken(parseToken(serviceToken));
 
   getArtists = (
     credentials: Credentials
@@ -639,14 +674,16 @@ export class Subsonic implements MusicService {
   //       albums: it.album.map(asAlbum),
   //     }));
 
-  login = async (token: string) => this.libraryFor(parseToken(token))
+  login = async (token: string) => this.libraryFor(parseToken(token));
 
-  private libraryFor = (credentials: Credentials & { type: string }) => {
+  private libraryFor = (
+    credentials: Credentials & { type: string }
+  ): Promise<SubsonicMusicLibrary> => {
     const subsonic = this;
 
     const genericSubsonic: SubsonicMusicLibrary = {
       flavour: () => "subsonic",
-      bearerToken: () => Promise.resolve(undefined),
+      bearerToken: (_: Credentials) => TE.right(undefined),
       artists: (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
         subsonic
           .getArtists(credentials)
@@ -766,13 +803,7 @@ export class Subsonic implements MusicService {
         Promise.resolve(coverArtURN)
           .then((it) => assertSystem(it, "subsonic"))
           .then((it) => it.resource.split(":")[1]!)
-          .then((it) =>
-            subsonic.getCoverArt(
-              credentials,
-              it,
-              size
-            )
-          )
+          .then((it) => subsonic.getCoverArt(credentials, it, size))
           .then((res) => ({
             contentType: res.headers["content-type"],
             data: Buffer.from(res.data, "binary"),
@@ -923,13 +954,25 @@ export class Subsonic implements MusicService {
         ),
     };
 
-    if(credentials.type == "navidrome") {
+    if (credentials.type == "navidrome") {
       return Promise.resolve({
         ...genericSubsonic,
-        flavour: ()=> "navidrome"
-      })
+        flavour: () => "navidrome",
+        bearerToken: (credentials: Credentials) =>
+          pipe(
+            TE.tryCatch(
+              () =>
+                axios.post(
+                  `${this.url}/auth/login`,
+                  _.pick(credentials, "username", "password")
+                ),
+              () => new AuthFailure("Failed to get bearerToken")
+            ),
+            TE.map((it) => it.data.token as string | undefined)
+          ),
+      });
     } else {
       return Promise.resolve(genericSubsonic);
     }
-  }
+  };
 }

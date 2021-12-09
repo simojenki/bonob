@@ -177,8 +177,7 @@ describe("auth", () => {
         expect(result).toEqual(
           E.left(
             new ExpiredTokenError(
-              authToken,
-              tokenIssuedAt.add(30, "seconds").unix()
+              authToken
             )
           )
         );

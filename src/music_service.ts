@@ -1,18 +1,7 @@
 import { BUrn } from "./burn";
+import { taskEither as TE } from "fp-ts";
 
 export type Credentials = { username: string; password: string };
-
-export function isSuccess(
-  authResult: AuthSuccess | AuthFailure
-): authResult is AuthSuccess {
-  return (authResult as AuthSuccess).serviceToken !== undefined;
-}
-
-export function isFailure(
-  authResult: any | AuthFailure
-): authResult is AuthFailure {
-  return (authResult as AuthFailure).message !== undefined;
-}
 
 export type AuthSuccess = {
   serviceToken: string;
@@ -20,8 +9,10 @@ export type AuthSuccess = {
   nickname: string;
 };
 
-export type AuthFailure = {
-  message: string;
+export class AuthFailure extends Error {
+  constructor(message: string) {
+    super(message);
+  }
 };
 
 export type ArtistSummary = {
@@ -155,7 +146,8 @@ export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
   );
 
 export interface MusicService {
-  generateToken(credentials: Credentials): Promise<AuthSuccess | AuthFailure>;
+  generateToken(credentials: Credentials): TE.TaskEither<AuthFailure, AuthSuccess>;
+  refreshToken(serviceToken: string): TE.TaskEither<AuthFailure, AuthSuccess>;
   login(serviceToken: string): Promise<MusicLibrary>;
 }
 

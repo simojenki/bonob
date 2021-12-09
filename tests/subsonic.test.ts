@@ -3,8 +3,8 @@ import { v4 as uuid } from "uuid";
 import tmp from "tmp";
 import fse from "fs-extra";
 import path from "path";
-import { pipe } from "fp-ts/lib/function";
-import { option as O } from "fp-ts";
+import {  pipe } from "fp-ts/lib/function";
+import { option as O, taskEither as TE, task as T, either as E } from "fp-ts";
 
 import {
   isValidImage,
@@ -36,7 +36,6 @@ jest.mock("randomstring");
 import {
   Album,
   Artist,
-  AuthSuccess,
   albumToAlbumSummary,
   asArtistAlbumPairs,
   Track,
@@ -47,6 +46,8 @@ import {
   Playlist,
   SimilarArtist,
   Rating,
+  Credentials,
+  AuthFailure,
 } from "../src/music_service";
 import {
   aGenre,
@@ -382,7 +383,7 @@ const subsonicOK = (body: any = {}) => ({
   "subsonic-response": {
     status: "ok",
     version: "1.16.1",
-    type: "navidrome",
+    type: "subsonic",
     serverVersion: "0.45.1 (c55e6590)",
     ...body,
   },
@@ -536,7 +537,7 @@ const error = (code: string, message: string) => ({
   "subsonic-response": {
     status: "failed",
     version: "1.16.1",
-    type: "navidrome",
+    type: "subsonic",
     serverVersion: "0.45.1 (c55e6590)",
     error: { code, message },
   },
@@ -546,7 +547,7 @@ const EMPTY = {
   "subsonic-response": {
     status: "ok",
     version: "1.16.1",
-    type: "navidrome",
+    type: "subsonic",
     serverVersion: "0.45.1 (c55e6590)",
   },
 };
@@ -555,7 +556,7 @@ const FAILURE = {
   "subsonic-response": {
     status: "failed",
     version: "1.16.1",
-    type: "navidrome",
+    type: "subsonic",
     serverVersion: "0.45.1 (c55e6590)",
     error: { code: 10, message: 'Missing required parameter "v"' },
   },
@@ -567,7 +568,7 @@ const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
   "subsonic-response": {
     status: "ok",
     version: "1.16.1",
-    type: "navidrome",
+    type: "subsonic",
     serverVersion: "0.45.1 (c55e6590)",
     ...pingResponse
   }
@@ -688,12 +689,12 @@ describe("asTrack", () => {
 
 describe("Subsonic", () => {
   const url = "http://127.0.0.22:4567";
-  const username = "user1";
-  const password = "pass1";
+  const username = `user1-${uuid()}`;
+  const password = `pass1-${uuid()}`;
   const salt = "saltysalty";
 
   const streamClientApplication = jest.fn();
-  const navidrome = new Subsonic(
+  const subsonic = new Subsonic(
     url,
     streamClientApplication
   );
@@ -730,46 +731,85 @@ describe("Subsonic", () => {
     "User-Agent": "bonob",
   };
 
+  const tokenFor = (credentials: Credentials) => pipe(
+    subsonic.generateToken(credentials),
+    TE.fold(e => { throw e }, T.of)
+  )
+
+  const login = (credentials: Credentials) => tokenFor(credentials)()
+  .then((it) => subsonic.login(it.serviceToken))
+
   describe("generateToken", () => {
     describe("when the credentials are valid", () => {
-      it("should be able to generate a token and then login using it", async () => {
-        (axios.get as jest.Mock).mockResolvedValue(ok(PING_OK));
+      describe("when the backend is generic subsonic", () => {
+        it("should be able to generate a token and then login using it", async () => {
+          (axios.get as jest.Mock).mockResolvedValue(ok(PING_OK));
+  
+          const token = await tokenFor({
+            username,
+            password,
+          })()
+  
+          expect(token.serviceToken).toBeDefined();
+          expect(token.nickname).toEqual(username);
+          expect(token.userId).toEqual(username);
+  
+          expect(parseToken(token.serviceToken)).toEqual({ username, password, type: PING_OK["subsonic-response"].type })
+  
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          });
+        });
 
-        const token = (await navidrome.generateToken({
-          username,
-          password,
-        })) as AuthSuccess;
-
-        expect(token.serviceToken).toBeDefined();
-        expect(token.nickname).toEqual(username);
-        expect(token.userId).toEqual(username);
-
-        expect(parseToken(token.serviceToken)).toEqual({ username, password, type: PING_OK["subsonic-response"].type })
-
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-          params: asURLSearchParams(authParamsPlusJson),
-          headers,
+        it("should store the type of the subsonic server on the token", async () => {
+          const type = "someSubsonicClone";
+          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type })));
+  
+          const token = await tokenFor({
+            username,
+            password,
+          })()
+  
+          expect(token.serviceToken).toBeDefined();
+          expect(token.nickname).toEqual(username);
+          expect(token.userId).toEqual(username);
+  
+          expect(parseToken(token.serviceToken)).toEqual({ username, password, type })
+  
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          });
         });
       });
 
-      it("should store the type of the subsonic server on the token", async () => {
-        const type = "someSubsonicClone";
-        (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type })));
+      describe("when the backend is navidrome", () => {
+        it("should login to nd and get the nd bearer token", async () => {
+          const navidromeToken = `nd-${uuid()}`;
 
-        const token = (await navidrome.generateToken({
-          username,
-          password,
-        })) as AuthSuccess;
-
-        expect(token.serviceToken).toBeDefined();
-        expect(token.nickname).toEqual(username);
-        expect(token.userId).toEqual(username);
-
-        expect(parseToken(token.serviceToken)).toEqual({ username, password, type })
-
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-          params: asURLSearchParams(authParamsPlusJson),
-          headers,
+          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type: "navidrome" })));
+          (axios.post as jest.Mock).mockResolvedValue(ok({ token: navidromeToken }));
+  
+          const token = await tokenFor({
+            username,
+            password,
+          })()
+  
+          expect(token.serviceToken).toBeDefined();
+          expect(token.nickname).toEqual(username);
+          expect(token.userId).toEqual(username);
+  
+          expect(parseToken(token.serviceToken)).toEqual({ username, password, type: "navidrome", bearer: navidromeToken })
+  
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          });
+          expect(axios.post).toHaveBeenCalledWith(`${url}/auth/login`, {
+            username,
+            password,
+          });
         });
       });
     });
@@ -781,10 +821,85 @@ describe("Subsonic", () => {
           data: error("40", "Wrong username or password"),
         });
 
-        const token = await navidrome.generateToken({ username, password });
-        expect(token).toEqual({
-          message: "Subsonic error:Wrong username or password",
+        const token = await subsonic.generateToken({ username, password })();
+        expect(token).toEqual(E.left(new AuthFailure("Subsonic error:Wrong username or password")));
+      });
+    });
+  });
+
+  describe("refreshToken", () => {
+    describe("when the credentials are valid", () => {
+      describe("when the backend is generic subsonic", () => {
+        it("should be able to generate a token and then login using it", async () => {
+          const type = `subsonic-clone-${uuid()}`;
+          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type })));
+  
+          const credentials = { username, password, type: "foo", bearer: undefined };
+          const originalToken = asToken(credentials)
+
+          const refreshedToken = await pipe(
+            subsonic.refreshToken(originalToken),
+            TE.fold(e => { throw e }, T.of)
+          )();
+  
+          expect(refreshedToken.serviceToken).toBeDefined();
+          expect(refreshedToken.nickname).toEqual(credentials.username);
+          expect(refreshedToken.userId).toEqual(credentials.username);
+  
+          expect(parseToken(refreshedToken.serviceToken)).toEqual({ username, password, type })
+  
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          });
         });
+      });
+
+      describe("when the backend is navidrome", () => {
+        it("should login to nd and get the nd bearer token", async () => {
+          const navidromeToken = `nd-${uuid()}`;
+
+          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type: "navidrome" })));
+          (axios.post as jest.Mock).mockResolvedValue(ok({ token: navidromeToken }));
+  
+          const credentials = { username, password, type: "navidrome", bearer: undefined };
+          const originalToken = asToken(credentials)
+
+          const refreshedToken = await pipe(
+            subsonic.refreshToken(originalToken),
+            TE.fold(e => { throw e }, T.of)
+          )();
+  
+          expect(refreshedToken.serviceToken).toBeDefined();
+          expect(refreshedToken.nickname).toEqual(username);
+          expect(refreshedToken.userId).toEqual(username);
+  
+          expect(parseToken(refreshedToken.serviceToken)).toEqual({ username, password, type: "navidrome", bearer: navidromeToken })
+  
+          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          });
+          expect(axios.post).toHaveBeenCalledWith(`${url}/auth/login`, {
+            username,
+            password,
+          });
+        });
+      });
+    });
+
+    describe("when the credentials are not valid", () => {
+      it("should be able to generate a token and then login using it", async () => {
+        (axios.get as jest.Mock).mockResolvedValue({
+          status: 200,
+          data: error("40", "Wrong username or password"),
+        });
+
+        const credentials = { username, password, type: "foo", bearer: undefined };
+        const originalToken = asToken(credentials)
+
+        const token = await subsonic.refreshToken(originalToken)();
+        expect(token).toEqual(E.left(new AuthFailure("Subsonic error:Wrong username or password")));
       });
     });
   });
@@ -792,21 +907,21 @@ describe("Subsonic", () => {
   describe("login", () => {
     describe("when the token is for generic subsonic", () => {
       it("should return a subsonic client", async () => {
-        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "subsonic", bearer: undefined }));
+        const client = await subsonic.login(asToken({ username: "foo", password: "bar", type: "subsonic", bearer: undefined }));
         expect(client.flavour()).toEqual("subsonic");
       });
     });
 
     describe("when the token is for navidrome", () => {
       it("should return a navidrome client", async () => {
-        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "navidrome", bearer: undefined }));
+        const client = await subsonic.login(asToken({ username: "foo", password: "bar", type: "navidrome", bearer: undefined }));
         expect(client.flavour()).toEqual("navidrome");
       });
     });
 
     describe("when the token is for gonic", () => {
       it("should return a subsonic client", async () => {
-        const client = await navidrome.login(asToken({ username: "foo", password: "bar", type: "gonic", bearer: undefined }));
+        const client = await subsonic.login(asToken({ username: "foo", password: "bar", type: "gonic", bearer: undefined }));
         expect(client.flavour()).toEqual("subsonic");
       });
     });
@@ -821,10 +936,7 @@ describe("Subsonic", () => {
       });
 
       it("should return empty array", async () => {
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.genres());
 
         expect(result).toEqual([]);
@@ -851,10 +963,7 @@ describe("Subsonic", () => {
       });
 
       it("should return them alphabetically sorted", async () => {
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.genres());
 
         expect(result).toEqual([{ id: b64Encode("genre1"), name: "genre1" }]);
@@ -884,10 +993,7 @@ describe("Subsonic", () => {
       });
 
       it("should return them alphabetically sorted", async () => {
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.genres());
 
         expect(result).toEqual([
@@ -942,10 +1048,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1004,10 +1107,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1060,10 +1160,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1114,10 +1211,7 @@ describe("Subsonic", () => {
         });
 
         it("should return remove the dodgy looking image uris and return urn for artist:id", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1171,10 +1265,7 @@ describe("Subsonic", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1225,10 +1316,7 @@ describe("Subsonic", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1280,10 +1368,7 @@ describe("Subsonic", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1336,10 +1421,7 @@ describe("Subsonic", () => {
         });
 
         it("should return it", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1390,10 +1472,7 @@ describe("Subsonic", () => {
         });
 
         it("should return it", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1442,10 +1521,7 @@ describe("Subsonic", () => {
         });
 
         it("should return it", async () => {
-          const result: Artist = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result: Artist = await login({ username, password })
             .then((it) => it.artist(artist.id!));
 
           expect(result).toEqual({
@@ -1507,10 +1583,7 @@ describe("Subsonic", () => {
       });
 
       it("should return empty", async () => {
-        const artists = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const artists = await login({ username, password })
           .then((it) => it.artists({ _index: 0, _count: 100 }));
 
         expect(artists).toEqual({
@@ -1536,10 +1609,7 @@ describe("Subsonic", () => {
       });
 
       it("should return empty", async () => {
-        const artists = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const artists = await login({ username, password })
           .then((it) => it.artists({ _index: 0, _count: 100 }));
 
         expect(artists).toEqual({
@@ -1577,10 +1647,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the single artist", async () => {
-          const artists = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const artists = await login({ username, password })
             .then((it) => it.artists({ _index: 0, _count: 100 }));
 
           const expectedResults = [{
@@ -1619,10 +1686,7 @@ describe("Subsonic", () => {
         });
 
         it("should return all the artists", async () => {
-          const artists = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const artists = await login({ username, password })
             .then((it) => it.artists({ _index: 0, _count: 100 }));
 
           const expectedResults = [artist1, artist2, artist3, artist4].map(
@@ -1655,10 +1719,7 @@ describe("Subsonic", () => {
         });
 
         it("should return only the correct page of artists", async () => {
-          const artists = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const artists = await login({ username, password })
             .then((it) => it.artists({ _index: 1, _count: 2 }));
 
           const expectedResults = [artist2, artist3].map((it) => ({
@@ -1717,10 +1778,7 @@ describe("Subsonic", () => {
             genre: b64Encode("Pop"),
             type: "byGenre",
           };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
@@ -1772,10 +1830,7 @@ describe("Subsonic", () => {
             _count: 100,
             type: "recentlyAdded",
           };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
@@ -1826,10 +1881,7 @@ describe("Subsonic", () => {
             _count: 100,
             type: "recentlyPlayed",
           };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
@@ -1871,10 +1923,7 @@ describe("Subsonic", () => {
 
         it("should pass the filter to navidrome", async () => {
           const q: AlbumQuery = { _index: 0, _count: 100, type: "mostPlayed" };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
@@ -1916,10 +1965,7 @@ describe("Subsonic", () => {
 
         it("should pass the filter to navidrome", async () => {
           const q: AlbumQuery = { _index: 0, _count: 100, type: "starred" };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
@@ -1970,10 +2016,7 @@ describe("Subsonic", () => {
           _count: 100,
           type: "alphabeticalByArtist",
         };
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.albums(q));
 
         expect(result).toEqual({
@@ -2023,10 +2066,7 @@ describe("Subsonic", () => {
           _count: 100,
           type: "alphabeticalByArtist",
         };
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.albums(q));
 
         expect(result).toEqual({
@@ -2091,10 +2131,7 @@ describe("Subsonic", () => {
             _count: 100,
             type: "alphabeticalByArtist",
           };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
@@ -2145,10 +2182,7 @@ describe("Subsonic", () => {
             _count: 2,
             type: "alphabeticalByArtist",
           };
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.albums(q));
 
           expect(result).toEqual({
@@ -2221,10 +2255,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
@@ -2281,10 +2312,7 @@ describe("Subsonic", () => {
               _count: 2,
               type: "alphabeticalByArtist",
             };
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
@@ -2340,10 +2368,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
@@ -2409,10 +2434,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
@@ -2476,10 +2498,7 @@ describe("Subsonic", () => {
               _count: 2,
               type: "alphabeticalByArtist",
             };
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
@@ -2541,10 +2560,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.albums(q));
 
             expect(result).toEqual({
@@ -2599,10 +2615,7 @@ describe("Subsonic", () => {
       });
 
       it("should return the album", async () => {
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.album(album.id));
 
         expect(result).toEqual(album);
@@ -2680,10 +2693,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the album", async () => {
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.tracks(album.id));
 
           expect(result).toEqual([track1, track2, track3, track4]);
@@ -2730,10 +2740,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the album", async () => {
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.tracks(album.id));
 
           expect(result).toEqual([track]);
@@ -2768,10 +2775,7 @@ describe("Subsonic", () => {
         });
 
         it("should empty array", async () => {
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.tracks(album.id));
 
           expect(result).toEqual([]);
@@ -2819,10 +2823,7 @@ describe("Subsonic", () => {
               Promise.resolve(ok(getAlbumJson(artist, album, [])))
             );
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.track(track.id));
 
           expect(result).toEqual({
@@ -2869,10 +2870,7 @@ describe("Subsonic", () => {
               Promise.resolve(ok(getAlbumJson(artist, album, [])))
             );
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.track(track.id));
 
           expect(result).toEqual({
@@ -2944,10 +2942,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.stream({ trackId, range: undefined }));
 
           expect(result.headers).toEqual({
@@ -2986,10 +2981,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.stream({ trackId, range: undefined }));
 
           expect(result.headers).toEqual({
@@ -3030,10 +3022,7 @@ describe("Subsonic", () => {
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.stream({ trackId, range: undefined }));
 
             expect(result.headers).toEqual({
@@ -3079,10 +3068,7 @@ describe("Subsonic", () => {
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-            const musicLibrary = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken));
+            const musicLibrary = await login({ username, password });
 
             return expect(
               musicLibrary.stream({ trackId, range: undefined })
@@ -3104,10 +3090,7 @@ describe("Subsonic", () => {
               )
               .mockImplementationOnce(() => Promise.reject("IO error occured"));
 
-            const musicLibrary = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken));
+            const musicLibrary = await login({ username, password });
 
             return expect(
               musicLibrary.stream({ trackId, range: undefined })
@@ -3145,10 +3128,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.stream({ trackId, range }));
 
           expect(result.headers).toEqual({
@@ -3198,10 +3178,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          await login({ username, password })
             .then((it) => it.stream({ trackId, range: undefined }));
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
@@ -3243,10 +3220,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          await login({ username, password })
             .then((it) => it.stream({ trackId, range }));
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
@@ -3285,10 +3259,7 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.coverArt(coverArtURN));
 
           expect(result).toEqual({
@@ -3324,10 +3295,7 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.coverArt(coverArtURN, size));
 
           expect(result).toEqual({
@@ -3355,10 +3323,7 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.coverArt({ system: "external", resource: "http://localhost:404" }, size));
 
           expect(result).toBeUndefined();
@@ -3374,10 +3339,7 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.coverArt(covertArtURN, 190));
 
           expect(result).toBeUndefined();
@@ -3401,10 +3363,7 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.coverArt(covertArtURN));
 
           expect(result).toEqual({
@@ -3434,10 +3393,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.coverArt(covertArtURN));
 
             expect(result).toBeUndefined();
@@ -3464,10 +3420,7 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.coverArt(covertArtURN, size));
 
           expect(result).toEqual({
@@ -3498,10 +3451,7 @@ describe("Subsonic", () => {
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.coverArt(covertArtURN, size));
 
             expect(result).toBeUndefined();
@@ -3515,10 +3465,7 @@ describe("Subsonic", () => {
     const trackId = uuid();
 
     const rate = (trackId: string, rating: Rating) =>
-      navidrome
-        .generateToken({ username, password })
-        .then((it) => it as AuthSuccess)
-        .then((it) => navidrome.login(it.serviceToken))
+      login({ username, password })
         .then((it) => it.rate(trackId, rating));
 
     const artist = anArtist();
@@ -3763,10 +3710,7 @@ describe("Subsonic", () => {
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.scrobble(id));
 
         expect(result).toEqual(true);
@@ -3795,10 +3739,7 @@ describe("Subsonic", () => {
             })
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.scrobble(id));
 
         expect(result).toEqual(false);
@@ -3824,10 +3765,7 @@ describe("Subsonic", () => {
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.nowPlaying(id));
 
         expect(result).toEqual(true);
@@ -3856,10 +3794,7 @@ describe("Subsonic", () => {
             })
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.nowPlaying(id));
 
         expect(result).toEqual(false);
@@ -3887,10 +3822,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getSearchResult3Json({ artists: [artist1] })))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchArtists("foo"));
 
         expect(result).toEqual([artistToArtistSummary(artist1)]);
@@ -3921,10 +3853,7 @@ describe("Subsonic", () => {
             )
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchArtists("foo"));
 
         expect(result).toEqual([
@@ -3953,10 +3882,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getSearchResult3Json({ artists: [] })))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchArtists("foo"));
 
         expect(result).toEqual([]);
@@ -3992,10 +3918,7 @@ describe("Subsonic", () => {
             )
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchAlbums("foo"));
 
         expect(result).toEqual([albumToAlbumSummary(album)]);
@@ -4042,10 +3965,7 @@ describe("Subsonic", () => {
             )
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchAlbums("moo"));
 
         expect(result).toEqual([
@@ -4074,10 +3994,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getSearchResult3Json({ albums: [] })))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchAlbums("foo"));
 
         expect(result).toEqual([]);
@@ -4123,10 +4040,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist, album, [])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchTracks("foo"));
 
         expect(result).toEqual([track]);
@@ -4198,10 +4112,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist2, album2, [])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchTracks("moo"));
 
         expect(result).toEqual([track1, track2]);
@@ -4227,10 +4138,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getSearchResult3Json({ tracks: [] })))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.searchTracks("foo"));
 
         expect(result).toEqual([]);
@@ -4261,10 +4169,7 @@ describe("Subsonic", () => {
               Promise.resolve(ok(getPlayListsJson([playlist])))
             );
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.playlists());
 
           expect(result).toEqual([playlist]);
@@ -4289,10 +4194,7 @@ describe("Subsonic", () => {
               Promise.resolve(ok(getPlayListsJson(playlists)))
             );
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.playlists());
 
           expect(result).toEqual(playlists);
@@ -4312,10 +4214,7 @@ describe("Subsonic", () => {
               Promise.resolve(ok(getPlayListsJson([])))
             );
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
             .then((it) => it.playlists());
 
           expect(result).toEqual([]);
@@ -4340,10 +4239,7 @@ describe("Subsonic", () => {
             );
 
           return expect(
-            navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            login({ username, password })
               .then((it) => it.playlist(id))
           ).rejects.toEqual("Subsonic error:data not found");
         });
@@ -4396,10 +4292,7 @@ describe("Subsonic", () => {
                 )
               );
 
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.playlist(id));
 
             expect(result).toEqual({
@@ -4433,10 +4326,7 @@ describe("Subsonic", () => {
                 Promise.resolve(ok(getPlayListJson(playlist)))
               );
 
-            const result = await navidrome
-              .generateToken({ username, password })
-              .then((it) => it as AuthSuccess)
-              .then((it) => navidrome.login(it.serviceToken))
+            const result = await login({ username, password })
               .then((it) => it.playlist(playlist.id));
 
             expect(result).toEqual(playlist);
@@ -4464,10 +4354,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(createPlayListJson({ id, name })))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+        const result = await login({ username, password })
           .then((it) => it.createPlaylist(name));
 
         expect(result).toEqual({ id, name });
@@ -4491,10 +4378,7 @@ describe("Subsonic", () => {
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
           .then((it) => it.deletePlaylist(id));
 
         expect(result).toEqual(true);
@@ -4519,11 +4403,8 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
-            .then((it) => it.addToPlaylist(playlistId, trackId));
+            const result = await login({ username, password })
+              .then((it) => it.addToPlaylist(playlistId, trackId));
 
           expect(result).toEqual(true);
 
@@ -4547,11 +4428,8 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
-            .then((it) => it.removeFromPlaylist(playlistId, indicies));
+            const result = await login({ username, password })
+              .then((it) => it.removeFromPlaylist(playlistId, indicies));
 
           expect(result).toEqual(true);
 
@@ -4597,10 +4475,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
           .then((it) => it.similarSongs(id));
 
         expect(result).toEqual([track1]);
@@ -4670,10 +4545,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
           .then((it) => it.similarSongs(id));
 
         expect(result).toEqual([track1, track2, track3]);
@@ -4700,10 +4572,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getSimilarSongsJson([])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
           .then((it) => it.similarSongs(id));
 
         expect(result).toEqual([]);
@@ -4731,10 +4600,7 @@ describe("Subsonic", () => {
           );
 
         return expect(
-          navidrome
-            .generateToken({ username, password })
-            .then((it) => it as AuthSuccess)
-            .then((it) => navidrome.login(it.serviceToken))
+          login({ username, password })
             .then((it) => it.similarSongs(id))
         ).rejects.toEqual("Subsonic error:data not found");
       });
@@ -4773,10 +4639,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
           .then((it) => it.topSongs(artistId));
 
         expect(result).toEqual([track1]);
@@ -4843,10 +4706,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+          const result = await login({ username, password })
           .then((it) => it.topSongs(artistId));
 
         expect(result).toEqual([track1, track2, track3]);
@@ -4885,10 +4745,8 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getTopSongsJson([])))
           );
 
-        const result = await navidrome
-          .generateToken({ username, password })
-          .then((it) => it as AuthSuccess)
-          .then((it) => navidrome.login(it.serviceToken))
+
+          const result = await login({ username, password })
           .then((it) => it.topSongs(artistId));
 
         expect(result).toEqual([]);

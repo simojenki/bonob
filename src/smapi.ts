@@ -3,7 +3,7 @@ import { Express, Request } from "express";
 import { listen } from "soap";
 import { readFileSync } from "fs";
 import path from "path";
-import { option as O, either as E } from "fp-ts";
+import { option as O, either as E, taskEither as TE, task as T } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 
 import logger from "./logger";
@@ -29,11 +29,12 @@ import { ICON, iconForGenre } from "./icon";
 import _, { uniq } from "underscore";
 import { BUrn, formatForURL } from "./burn";
 import {
-  InvalidTokenError,
-  isSmapiRefreshTokenResultFault,
+  isExpiredTokenError,
   MissingLoginTokenError,
   SmapiAuthTokens,
   smapiTokenAsString,
+  SMAPI_FAULT_LOGIN_UNAUTHORIZED,
+  ToSmapiFault,
 } from "./smapi_auth";
 
 export const LOGIN_ROUTE = "/login";
@@ -379,6 +380,16 @@ type SoapyHeaders = {
   credentials?: Credentials;
 };
 
+type Auth = {
+  serviceToken: string;
+  credentials: Credentials;
+  apiKey: string;
+};
+
+function isAuth(thing: any): thing is Auth {
+  return thing.serviceToken;
+}
+
 function bindSmapiSoapServiceToExpress(
   app: Express,
   soapPath: string,
@@ -399,7 +410,7 @@ function bindSmapiSoapServiceToExpress(
       },
     });
 
-  const auth = (credentials?: Credentials) => {
+  const auth = (credentials?: Credentials): E.Either<ToSmapiFault, Auth> => {
     const credentialsFrom = E.fromNullable(new MissingLoginTokenError());
     return pipe(
       credentialsFrom(credentials),
@@ -424,21 +435,40 @@ function bindSmapiSoapServiceToExpress(
   };
 
   const login = async (credentials?: Credentials) => {
-    const tokens = pipe(
+    const authOrFail = pipe(
       auth(credentials),
-      E.getOrElseW((e) => {
-        throw e.toSmapiFault(smapiAuthTokens);
-      })
+      E.getOrElseW((fault) => fault)
     );
-
-    return musicService
-      .login(tokens.serviceToken)
-      .then((musicLibrary) => ({ ...tokens, musicLibrary }))
-      .catch((_) => {
-        throw new InvalidTokenError("Failed to login").toSmapiFault(
-          smapiAuthTokens
-        );
-      });
+    if (isAuth(authOrFail)) {
+      return musicService
+        .login(authOrFail.serviceToken)
+        .then((musicLibrary) => ({ ...authOrFail, musicLibrary }))
+        .catch((_) => {
+          throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
+        });
+    } else if (isExpiredTokenError(authOrFail)) {
+      throw await pipe(
+        musicService.refreshToken(authOrFail.expiredToken),
+        TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
+        TE.map((newToken) => ({
+          Fault: {
+            faultcode: "Client.TokenRefreshRequired",
+            faultstring: "Token has expired",
+            detail: {
+              refreshAuthTokenResult: {
+                authToken: newToken.token,
+                privateKey: newToken.key,
+              },
+            },
+          },
+        })),
+        TE.getOrElse(() =>
+          T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED)
+        )
+      )();
+    } else {
+      throw authOrFail.toSmapiFault();
+    }
   };
 
   const soapyService = listen(
@@ -458,31 +488,34 @@ function bindSmapiSoapServiceToExpress(
               pollInterval: 60,
             },
           }),
-          refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders) =>
-          pipe(
-            auth(soapyHeaders?.credentials),
-            E.map(({ serviceToken }) => smapiAuthTokens.issue(serviceToken)),
-            E.map((newToken) => ({
-              authToken: newToken.token,
-              privateKey: newToken.key,
-            })),
-            E.orElse((fault) =>
-              pipe(
-                fault.toSmapiFault(smapiAuthTokens),
-                E.fromPredicate(isSmapiRefreshTokenResultFault, (_) => fault),
-                E.map((it) => it.Fault.detail.refreshAuthTokenResult)
-              )
-            ),
-            E.map((newToken) => ({
-              refreshAuthTokenResult: {
-                authToken: newToken.authToken,
-                privateKey: newToken.privateKey,
-              },
-            })),
-            E.getOrElseW((fault) => {
-              throw fault.toSmapiFault(smapiAuthTokens);
-            })
-          ),
+          refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders) => {
+            const serviceToken = pipe(
+              auth(soapyHeaders?.credentials),
+              E.fold(
+                (fault) =>
+                  isExpiredTokenError(fault)
+                    ? E.right(fault.expiredToken)
+                    : E.left(fault),
+                (creds) => E.right(creds.serviceToken)
+              ),
+              E.getOrElseW((fault) => {
+                throw fault.toSmapiFault();
+              })
+            );
+            return pipe(
+              musicService.refreshToken(serviceToken),
+              TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
+              TE.map((it) => ({
+                refreshAuthTokenResult: {
+                  authToken: it.token,
+                  privateKey: it.key,
+                },
+              })),
+              TE.getOrElse((_) => {
+                throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
+              })
+            )();
+          },
           getMediaURI: async (
             { id }: { id: string },
             _,

@@ -3,10 +3,10 @@ import dayjs from "dayjs";
 import request from "supertest";
 import Image from "image-js";
 import fs from "fs";
-import { either as E } from "fp-ts";
+import { either as E, taskEither as TE } from "fp-ts";
 import path from "path";
 
-import { MusicService } from "../src/music_service";
+import { AuthFailure, MusicService } from "../src/music_service";
 import makeServer, {
   BONOB_ACCESS_TOKEN_HEADER,
   RangeBytesFromFilter,
@@ -637,7 +637,7 @@ describe("server", () => {
             };
 
             linkCodes.has.mockReturnValue(true);
-            musicService.generateToken.mockResolvedValue(authSuccess);
+            musicService.generateToken.mockReturnValue(TE.right(authSuccess))
             linkCodes.associate.mockReturnValue(true);
 
             const res = await request(server)
@@ -669,7 +669,7 @@ describe("server", () => {
             const message = `Invalid user:${username}`;
 
             linkCodes.has.mockReturnValue(true);
-            musicService.generateToken.mockResolvedValue({ message });
+            musicService.generateToken.mockReturnValue(TE.left(new AuthFailure(message)))
 
             const res = await request(server)
               .post(bonobUrl.append({ pathname: "/login" }).pathname())
@@ -680,27 +680,6 @@ describe("server", () => {
 
             expect(res.text).toContain(lang("loginFailed"));
             expect(res.text).toContain(message);
-          });
-        });
-
-        describe("when an unexpected failure occurs", () => {
-          it("should return 403 with message", async () => {
-            const username = "userDoesntExist";
-            const password = "password";
-            const linkCode = uuid();
-
-            linkCodes.has.mockReturnValue(true);
-            musicService.generateToken.mockRejectedValue("BOOOOOOM");
-
-            const res = await request(server)
-              .post(bonobUrl.append({ pathname: "/login" }).pathname())
-              .set("accept-language", acceptLanguage)
-              .type("form")
-              .send({ username, password, linkCode })
-              .expect(403);
-
-            expect(res.text).toContain(lang("loginFailed"));
-            expect(res.text).toContain('Unexpected error occured - BOOOOOOM');
           });
         });
 
@@ -777,7 +756,7 @@ describe("server", () => {
 
           describe("when the Bearer token has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, 0)))
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
 
               const res = await request(server).head(
                 bonobUrl
@@ -865,7 +844,7 @@ describe("server", () => {
 
           describe("when the Bearer token has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken, 0)))
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
 
               const res = await request(server)
                 .get(

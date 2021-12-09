@@ -1,17 +1,25 @@
-import { Either, left, right } from "fp-ts/lib/Either";
+import { either as E } from "fp-ts";
 import jwt from "jsonwebtoken";
 import { v4 as uuid } from "uuid";
 import { b64Decode, b64Encode } from "./b64";
 import { Clock } from "./clock";
 
-export type SmapiFault = { Fault: { faultcode: string, faultstring: string } }
-export type SmapiRefreshTokenResultFault = SmapiFault & { Fault: { detail: { refreshAuthTokenResult: { authToken: string, privateKey: string  } }} }
+export type SmapiFault = { Fault: { faultcode: string; faultstring: string } };
+export type SmapiRefreshTokenResultFault = SmapiFault & {
+  Fault: {
+    detail: {
+      refreshAuthTokenResult: { authToken: string; privateKey: string };
+    };
+  };
+};
 
 function isError(thing: any): thing is Error {
-  return thing.name && thing.message
+  return thing.name && thing.message;
 }
 
-export function isSmapiRefreshTokenResultFault(fault: SmapiFault): fault is SmapiRefreshTokenResultFault {
+export function isSmapiRefreshTokenResultFault(
+  fault: SmapiFault
+): fault is SmapiRefreshTokenResultFault {
   return (fault.Fault as any).detail?.refreshAuthTokenResult != undefined;
 }
 
@@ -21,8 +29,24 @@ export type SmapiToken = {
 };
 
 export interface ToSmapiFault {
-  toSmapiFault(smapiAuthTokens: SmapiAuthTokens): SmapiFault
+  _tag: string;
+  toSmapiFault(): SmapiFault
 }
+
+export const SMAPI_FAULT_LOGIN_UNAUTHORIZED = {
+  Fault: {
+    faultcode: "Client.LoginUnauthorized",
+    faultstring:
+      "Failed to authenticate, try Re-Authorising your account in the sonos app",
+  },
+};
+
+export const SMAPI_FAULT_LOGIN_UNSUPPORTED = {
+  Fault: {
+    faultcode: "Client.LoginUnsupported",
+    faultstring: "Missing credentials...",
+  },
+};
 
 export class MissingLoginTokenError extends Error implements ToSmapiFault {
   _tag = "MissingLoginTokenError";
@@ -31,12 +55,7 @@ export class MissingLoginTokenError extends Error implements ToSmapiFault {
     super("Missing Login Token");
   }
 
-  toSmapiFault = (_: SmapiAuthTokens) => ({
-    Fault: {
-      faultcode: "Client.LoginUnsupported",
-      faultstring: "Missing credentials...",
-    },
-  })
+  toSmapiFault = () => SMAPI_FAULT_LOGIN_UNSUPPORTED;
 }
 
 
@@ -47,66 +66,54 @@ export class InvalidTokenError extends Error implements ToSmapiFault {
     super(message);
   }
 
-  toSmapiFault = (_: SmapiAuthTokens) => ({
-    Fault: {
-      faultcode: "Client.LoginUnauthorized",
-      faultstring: "Failed to authenticate, try Re-Authorising your account in the sonos app",
-    },
-  })
-}
-
-export class ExpiredTokenError extends Error implements ToSmapiFault {
-  _tag = "ExpiredTokenError";
-  serviceToken: string;
-  expiredAt: number;
-
-  constructor(serviceToken: string, expiredAt: number) {
-    super("SMAPI token has expired");
-    this.serviceToken = serviceToken;
-    this.expiredAt = expiredAt;
-  }
-
-  toSmapiFault = (smapiAuthTokens: SmapiAuthTokens) => {
-    const newToken = smapiAuthTokens.issue(this.serviceToken)
-    return {
-      Fault: {
-        faultcode: "Client.TokenRefreshRequired",
-        faultstring: "Token has expired",
-        detail: {
-          refreshAuthTokenResult: {
-            authToken: newToken.token,
-            privateKey: newToken.key,
-          },
-        },
-      }
-    };
-  }
+  toSmapiFault = () => SMAPI_FAULT_LOGIN_UNAUTHORIZED;
 }
 
 export function isExpiredTokenError(thing: any): thing is ExpiredTokenError {
   return thing._tag == "ExpiredTokenError";
 }
 
+export class ExpiredTokenError extends Error implements ToSmapiFault {
+  _tag = "ExpiredTokenError";
+  expiredToken: string;
+
+  constructor(expiredToken: string) {
+    super("SMAPI token has expired");
+    this.expiredToken = expiredToken;
+  }
+
+  toSmapiFault = () => ({
+    Fault: {
+      faultcode: "Client.TokenRefreshRequired",
+      faultstring: "Token has expired",
+    },
+  });
+}
+
 export type SmapiAuthTokens = {
   issue: (serviceToken: string) => SmapiToken;
-  verify: (smapiToken: SmapiToken) => Either<ToSmapiFault, string>;
+  verify: (smapiToken: SmapiToken) => E.Either<ToSmapiFault, string>;
 };
 
 type TokenExpiredError = {
-  name: string,
-  message: string,
-  expiredAt: number
-}
+  name: string;
+  message: string;
+  expiredAt: number;
+};
 
 function isTokenExpiredError(thing: any): thing is TokenExpiredError {
-  return thing.name == 'TokenExpiredError';
+  return thing.name == "TokenExpiredError";
 }
 
-export const smapiTokenAsString = (smapiToken: SmapiToken) => b64Encode(JSON.stringify({
-  token: smapiToken.token,
-  key: smapiToken.key
-}));
-export const smapiTokenFromString = (smapiTokenString: string): SmapiToken => JSON.parse(b64Decode(smapiTokenString));
+export const smapiTokenAsString = (smapiToken: SmapiToken) =>
+  b64Encode(
+    JSON.stringify({
+      token: smapiToken.token,
+      key: smapiToken.key,
+    })
+  );
+export const smapiTokenFromString = (smapiTokenString: string): SmapiToken =>
+  JSON.parse(b64Decode(smapiTokenString));
 
 export const SMAPI_TOKEN_VERSION = 2;
 
@@ -117,7 +124,13 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   private readonly version: number;
   private readonly keyGenerator: () => string;
 
-  constructor(clock: Clock, secret: string, expiresIn: string, keyGenerator: () => string = uuid, version: number = SMAPI_TOKEN_VERSION) {
+  constructor(
+    clock: Clock,
+    secret: string,
+    expiresIn: string,
+    keyGenerator: () => string = uuid,
+    version: number = SMAPI_TOKEN_VERSION
+  ) {
     this.clock = clock;
     this.secret = secret;
     this.expiresIn = expiresIn;
@@ -137,17 +150,28 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
     };
   };
 
-  verify = (smapiToken: SmapiToken): Either<ToSmapiFault, string> => {
+  verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
     try {
-      return right((jwt.verify(smapiToken.token, this.secret + this.version + smapiToken.key) as any).serviceToken);
+      return E.right(
+        (
+          jwt.verify(
+            smapiToken.token,
+            this.secret + this.version + smapiToken.key
+          ) as any
+        ).serviceToken
+      );
     } catch (e) {
-      if(isTokenExpiredError(e)) {
-        const serviceToken = ((jwt.verify(smapiToken.token, this.secret + this.version + smapiToken.key, { ignoreExpiration: true })) as any).serviceToken;
-        return left(new ExpiredTokenError(serviceToken, e.expiredAt))
-      } else if(isError(e))
-        return left(new InvalidTokenError(e.message));
-      else
-        return left(new InvalidTokenError("Failed to verify token"))
+      if (isTokenExpiredError(e)) {
+        const serviceToken = (
+          jwt.verify(
+            smapiToken.token,
+            this.secret + this.version + smapiToken.key,
+            { ignoreExpiration: true }
+          ) as any
+        ).serviceToken;
+        return E.left(new ExpiredTokenError(serviceToken));
+      } else if (isError(e)) return E.left(new InvalidTokenError(e.message));
+      else return E.left(new InvalidTokenError("Failed to verify token"));
     }
   };
 }

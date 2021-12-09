@@ -48,6 +48,7 @@ const subsonic = new Subsonic(
 
 const featureFlagAwareMusicService: MusicService = {
   generateToken: subsonic.generateToken,
+  refreshToken: subsonic.refreshToken,
   login: (serviceToken: string) =>
     subsonic.login(serviceToken).then((library) => {
       return {
