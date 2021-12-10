@@ -366,6 +366,54 @@ export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
   albumArtURI: defaultArtistArtURI(bonobUrl, artist).href(),
 });
 
+export const scrollIndicesFrom = (artists: ArtistSummary[]) => {
+  const indicies: Record<string, number | undefined> = {
+    "A":undefined,
+    "B":undefined,
+    "C":undefined,
+    "D":undefined,
+    "E":undefined,
+    "F":undefined,
+    "G":undefined,
+    "H":undefined,
+    "I":undefined,
+    "J":undefined,
+    "K":undefined,
+    "L":undefined,
+    "M":undefined,
+    "N":undefined,
+    "O":undefined,
+    "P":undefined,
+    "Q":undefined,
+    "R":undefined,
+    "S":undefined,
+    "T":undefined,
+    "U":undefined,
+    "V":undefined,
+    "W":undefined,
+    "X":undefined,
+    "Y":undefined,
+    "Z":undefined,
+  }
+  const sortedNames = artists.map(artist => artist.name.toUpperCase()).sort();
+  for(var i = 0; i < sortedNames.length; i++) {
+    const char = sortedNames[i]![0]!;
+    if(Object.keys(indicies).includes(char) && indicies[char] == undefined) {
+      indicies[char] = i;
+    }
+  }
+  var lastIndex = 0;
+  const result: string[] = [];
+  Object.entries(indicies).forEach(([letter, index]) => {
+    result.push(letter);
+    if(index) {
+      lastIndex = index;
+    }
+    result.push(`${lastIndex}`);
+  })
+  return result.join(",")
+}
+
 function splitId<T>(id: string) {
   const [type, typeId] = id.split(":");
   return (t: T) => ({
@@ -707,6 +755,7 @@ function bindSmapiSoapServiceToExpress(
                           title: lang("artists"),
                           albumArtURI: iconArtURI(bonobUrl, "artists").href(),
                           itemType: "container",
+                          canScroll: true,
                         },
                         {
                           id: "albums",
@@ -945,6 +994,23 @@ function bindSmapiSoapServiceToExpress(
                     throw `Unsupported getMetadata id=${id}`;
                 }
               }),
+          getScrollIndices: async (
+            { id }: { id: string },
+            _,
+            soapyHeaders: SoapyHeaders
+          ) => {
+            switch(id) {
+              case "artists": {
+                return login(soapyHeaders?.credentials)
+                  .then(({ musicLibrary }) => musicLibrary.artists({ _index: 0, _count: 999999999 }))
+                  .then((artists) => ({
+                    getScrollIndicesResult: scrollIndicesFrom(artists.results)
+                  }))
+                }
+              default: 
+                throw `Unsupported getScrollIndices id=${id}`;
+            }
+          },
           createContainer: async (
             { title, seedId }: { title: string; seedId: string | undefined },
             _,

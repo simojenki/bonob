@@ -26,6 +26,7 @@ import {
   sonosifyMimeType,
   ratingAsInt,
   ratingFromInt,
+  scrollIndicesFrom,
 } from "../src/smapi";
 
 import { keys as i8nKeys } from "../src/i8n";
@@ -56,7 +57,7 @@ import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
 import { formatForURL } from "../src/burn";
-import { range } from "underscore";
+import _, { range } from "underscore";
 import { FixedClock } from "../src/clock";
 import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
 
@@ -860,6 +861,29 @@ describe("defaultArtistArtURI", () => {
   });
 });
 
+describe("scrollIndicesFrom", () => {
+  describe("artists", () => {
+    it("should be scroll indicies", () => {
+      const artistNames = [
+        "10,000 Maniacs",
+        "99 Bacon Sandwiches",
+        "Aerosmith",
+        "Bob Marley",
+        "beatles", // intentionally lower case
+        "Cans",
+        "egg heads", // intentionally lower case
+        "Moon Cakes",
+        "Moon Boots",
+        "Numpty",
+        "Yellow brick road"
+      ]
+      const scrollIndicies = scrollIndicesFrom(_.shuffle(artistNames).map(name => anArtist({ name })))
+
+      expect(scrollIndicies).toEqual("A,2,B,3,C,5,D,5,E,6,F,6,G,6,H,6,I,6,J,6,K,6,L,6,M,7,N,9,O,9,P,9,Q,9,R,9,S,9,T,9,U,9,V,9,W,9,X,9,Y,10,Z,10")
+    });
+  });
+});
+
 describe("wsdl api", () => {
   const musicService = {
     generateToken: jest.fn(),
@@ -1410,6 +1434,7 @@ describe("wsdl api", () => {
                       title: "Artists",
                       albumArtURI: iconArtURI(bonobUrl, "artists").href(),
                       itemType: "container",
+                      canScroll: true,
                     },
                     {
                       id: "albums",
@@ -1498,6 +1523,7 @@ describe("wsdl api", () => {
                       title: "Artiesten",
                       albumArtURI: iconArtURI(bonobUrl, "artists").href(),
                       itemType: "container",
+                      canScroll: true,
                     },
                     {
                       id: "albums",
@@ -3109,6 +3135,48 @@ describe("wsdl api", () => {
               });
             });
           });
+        });
+
+        describe("getScrollIndices", () => {
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.getScrollIndicesAsync({ id: `artists` })
+          );
+
+          describe("for artists", () => {
+            let ws: Client;
+
+            const artist1 = anArtist({ name: "Aerosmith" });
+            const artist2 = anArtist({ name: "Bob Marley" });
+            const artist3 = anArtist({ name: "Beatles" });
+            const artist4 = anArtist({ name: "Cat Empire" });
+            const artist5 = anArtist({ name: "Metallica" });
+            const artist6 = anArtist({ name: "Yellow Brick Road" });
+
+            beforeEach(async () => {
+              ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              setupAuthenticatedRequest(ws);
+              musicLibrary.artists.mockResolvedValue({
+                results: [artist1, artist2, artist3, artist4, artist5, artist6],
+                total: 6
+              });
+            });
+
+            it("should return paging information", async () => {
+              const root = await ws.getScrollIndicesAsync({
+                id: `artists`,
+              });
+
+              expect(root[0]).toEqual({
+                getScrollIndicesResult: scrollIndicesFrom([artist1, artist2, artist3, artist4, artist5, artist6])
+              });
+              expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+              expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
+              expect(musicLibrary.artists).toHaveBeenCalledWith({ _index: 0, _count: 999999999 });
+            });
+        });
         });
 
         describe("createContainer", () => {
