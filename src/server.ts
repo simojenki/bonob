@@ -39,7 +39,6 @@ import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
-  smapiTokenFromString,
 } from "./smapi_auth";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
@@ -378,28 +377,23 @@ function server(
     logger.info(
       `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query
-      )}, headers=${JSON.stringify({ ...req.headers, authorization: "*****" })}`
+      )}, headers=${JSON.stringify({ ...req.headers, "bnbt": "*****", "bnbk": "*****" })}`
     );
 
-    const authHeader = E.fromNullable("Missing header");
-    const bearerToken = E.fromNullable("No Bearer token");
     const serviceToken = pipe(
-      authHeader(req.headers["authorization"] as string),
-      E.chain((authorization) =>
+      E.fromNullable("Missing bnbt header")(req.headers["bnbt"] as string),
+      E.chain(token => pipe(
+        E.fromNullable("Missing bnbk header")(req.headers["bnbk"] as string),
+        E.map(key => ({ token, key }))
+      )),
+      E.chain((auth) =>
         pipe(
-          authorization.match(/Bearer (?<token>.*)/),
-          bearerToken,
-          E.map((match) => match[1]!)
-        )
-      ),
-      E.chain((bearerToken) =>
-        pipe(
-          smapiAuthTokens.verify(smapiTokenFromString(bearerToken)),
-          E.mapLeft((_) => "Bearer token failed to verify")
+          smapiAuthTokens.verify(auth),
+          E.mapLeft((_) => "Auth token failed to verify")
         )
       ),
       E.getOrElseW(() => undefined)
-    );
+    )
 
     if (!serviceToken) {
       return res.status(401).send();

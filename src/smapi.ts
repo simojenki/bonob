@@ -32,7 +32,6 @@ import {
   isExpiredTokenError,
   MissingLoginTokenError,
   SmapiAuthTokens,
-  smapiTokenAsString,
   SMAPI_FAULT_LOGIN_UNAUTHORIZED,
   ToSmapiFault,
 } from "./smapi_auth";
@@ -532,10 +531,14 @@ function bindSmapiSoapServiceToExpress(
                 httpHeaders: [
                   {
                     httpHeader: {
-                      header: "Authorization",
-                      value: `Bearer ${smapiTokenAsString(
-                        credentials.loginToken
-                      )}`,
+                      header: "bnbt",
+                      value: credentials.loginToken.token,
+                    },
+                  },
+                  {
+                    httpHeader: {
+                      header: "bnbk",
+                      value: credentials.loginToken.key,
                     },
                   },
                 ],
