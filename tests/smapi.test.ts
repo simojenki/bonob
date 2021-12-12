@@ -58,7 +58,7 @@ import { iconForGenre } from "../src/icon";
 import { formatForURL } from "../src/burn";
 import { range } from "underscore";
 import { FixedClock } from "../src/clock";
-import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, smapiTokenAsString, ToSmapiFault } from "../src/smapi_auth";
+import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
@@ -3046,14 +3046,20 @@ describe("wsdl api", () => {
                       pathname: `/stream/track/${trackId}`,
                     })
                     .href(),
-                  httpHeaders: {
-                    httpHeader: [
-                      {
-                        header: "Authorization",
-                        value: `Bearer ${smapiTokenAsString(smapiAuthToken)}`,
-                      },
-                    ],
-                  },
+                  httpHeaders: [
+                    {
+                      httpHeader: [{
+                          header: "bnbt",
+                          value: smapiAuthToken.token,
+                      }],
+                    },
+                    {
+                      httpHeader: [{
+                          header: "bnbk",
+                          value: smapiAuthToken.key,
+                      }],
+                    }
+                  ],
                 });
 
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);
