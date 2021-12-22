@@ -169,7 +169,7 @@ function server(
           removeRegistrationRoute: bonobUrl
             .append({ pathname: REMOVE_REGISTRATION_ROUTE })
             .pathname(),
-          version: opts.version,
+          version: serverOpts.version || DEFAULT_SERVER_OPTS.version,
         });
       }
     );

@@ -16,6 +16,8 @@ COPY yarn.lock .
 COPY .yarnrc.yml .
 COPY .yarn/releases ./.yarn/releases
 
+ENV JEST_TIMEOUT=30000
+
 RUN apk add --no-cache --update --virtual .gyp \
         vips-dev \
         python3 \

@@ -63,24 +63,25 @@ describe("auth", () => {
 
     const expiresIn = "1h";
     const secret = `secret-${uuid()}`;
-    const smapiLoginTokens = new JWTSmapiLoginTokens(clock, secret, expiresIn);
+    const key = uuid();
+    const smapiLoginTokens = new JWTSmapiLoginTokens(clock, secret, expiresIn, () => key);
 
     describe("issuing a new token", () => {
       it("should issue a token that can then be verified", () => {
-        const serviceToken = uuid();
+        const serviceToken = `service-token-${uuid()}`;
 
         const smapiToken = smapiLoginTokens.issue(serviceToken);
 
-        expect(smapiToken.token).toEqual(
-          jwt.sign(
-            {
-              serviceToken,
-              iat: Math.floor(clock.now().toDate().getDate() / 1000),
-            },
-            secret + SMAPI_TOKEN_VERSION + smapiToken.key,
-            { expiresIn }
-          )
+        const expected = jwt.sign(
+          {
+            serviceToken,
+            iat: clock.now().unix(),
+          },
+          secret + SMAPI_TOKEN_VERSION + key,
+          { expiresIn }
         );
+
+        expect(smapiToken.token).toEqual(expected);
         expect(smapiToken.token).not.toContain(serviceToken);
         expect(smapiToken.token).not.toContain(secret);
         expect(smapiToken.token).not.toContain(":");
@@ -100,7 +101,7 @@ describe("auth", () => {
             clock,
             secret,
             expiresIn,
-            () => uuid(),
+            uuid,
             SMAPI_TOKEN_VERSION
           );
 
