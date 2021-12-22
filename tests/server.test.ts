@@ -13,7 +13,7 @@ import makeServer, {
   rangeFilterFor,
 } from "../src/server";
 
-import { SONOS_DISABLED, Sonos, Device } from "../src/sonos";
+import { Device, Sonos, SONOS_DISABLED } from "../src/sonos";
 
 import { aDevice, aService } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
@@ -165,7 +165,10 @@ describe("RangeBytesFromFilter", () => {
   });
 });
 
+
 describe("server", () => {
+  jest.setTimeout(Number.parseInt(process.env["JEST_TIMEOUT"] || "2000"));
+  
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetAllMocks();
@@ -182,25 +185,46 @@ describe("server", () => {
   [bonobUrlWithNoContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`a bonobUrl of ${bonobUrl}`, () => {
       describe("/", () => {
-        describe("displaying of version", () => {
-          const server = makeServer(
-            SONOS_DISABLED,
-            aService(),
-            bonobUrl,
-            new InMemoryMusicService(),
-            {
-              version: "v123.456",
-            }
-          );
+        describe("version", () => {
+          describe("when specified", () => {
+            const server = makeServer(
+              SONOS_DISABLED,
+              aService(),
+              bonobUrl,
+              new InMemoryMusicService(),
+              {
+                version: "v123.456",
+              }
+            );
+  
+            it("should display it", async () => {
+              const res = await request(server)
+                .get(bonobUrl.append({ pathname: "/" }).pathname())
+                .set("accept-language", acceptLanguage)
+                .send();
+  
+              expect(res.status).toEqual(200);
+              expect(res.text).toContain('v123.456');
+            });
+          });
 
-          it("should display it", async () => {
-            const res = await request(server)
-              .get(bonobUrl.append({ pathname: "/" }).pathname())
-              .set("accept-language", acceptLanguage)
-              .send();
-
-            expect(res.status).toEqual(200);
-            expect(res.text).toMatch(/v123\.456/);
+          describe("when not specified", () => {
+            const server = makeServer(
+              SONOS_DISABLED,
+              aService(),
+              bonobUrl,
+              new InMemoryMusicService()
+            );
+  
+            it("should display the default", async () => {
+              const res = await request(server)
+                .get(bonobUrl.append({ pathname: "/" }).pathname())
+                .set("accept-language", acceptLanguage)
+                .send();
+  
+              expect(res.status).toEqual(200);
+              expect(res.text).toContain("v?");
+            });
           });
         });
 
