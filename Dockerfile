@@ -1,4 +1,4 @@
-FROM node:16.6-alpine as build
+FROM node:16-bullseye as build
 
 WORKDIR /bonob
 
@@ -17,23 +17,28 @@ COPY .yarnrc.yml .
 COPY .yarn/releases ./.yarn/releases
 
 ENV JEST_TIMEOUT=30000
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apk add --no-cache --update --virtual .gyp \
-        vips-dev \
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get -y install --no-install-recommends \
+        libvips-dev \
         python3 \
         make \
         git \
         g++ && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
     yarn install --immutable && \
     yarn gitinfo && \
     yarn test --no-cache && \
     yarn build
 
 
-
-FROM node:16.6-alpine
+FROM node:16-bullseye
 
 ENV BNB_PORT=4534
+ENV DEBIAN_FRONTEND=noninteractive
 
 EXPOSE $BNB_PORT
 
@@ -48,7 +53,11 @@ COPY --from=build /bonob/.gitinfo ./
 COPY web ./web
 COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl ./src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
 
-RUN apk add --no-cache --update vips
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get -y install --no-install-recommends libvips && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 USER nobody 
 WORKDIR /bonob/src
