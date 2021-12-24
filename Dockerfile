@@ -39,6 +39,7 @@ FROM node:16-bullseye
 
 ENV BNB_PORT=4534
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
 
 EXPOSE $BNB_PORT
 
@@ -55,7 +56,7 @@ COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl ./src/Sonoswsdl-1.19.4-20190411
 
 RUN apt-get update && \
     apt-get -y upgrade && \
-    apt-get -y install --no-install-recommends libvips && \
+    apt-get -y install --no-install-recommends libvips tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
