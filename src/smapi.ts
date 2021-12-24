@@ -19,6 +19,7 @@ import {
   Playlist,
   Rating,
   slice2,
+  Sortable,
   Track,
 } from "./music_service";
 import { APITokens } from "./api_tokens";
@@ -366,7 +367,7 @@ export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
   albumArtURI: defaultArtistArtURI(bonobUrl, artist).href(),
 });
 
-export const scrollIndicesFrom = (artists: ArtistSummary[]) => {
+export const scrollIndicesFrom = (things: Sortable[]) => {
   const indicies: Record<string, number | undefined> = {
     "A":undefined,
     "B":undefined,
@@ -395,9 +396,9 @@ export const scrollIndicesFrom = (artists: ArtistSummary[]) => {
     "Y":undefined,
     "Z":undefined,
   }
-  const sortedNames = artists.map(artist => artist.name.toUpperCase()).sort();
-  for(var i = 0; i < sortedNames.length; i++) {
-    const char = sortedNames[i]![0]!;
+  const upperNames = things.map(thing => thing.sortName.toUpperCase());
+  for(var i = 0; i < upperNames.length; i++) {
+    const char = upperNames[i]![0]!;
     if(Object.keys(indicies).includes(char) && indicies[char] == undefined) {
       indicies[char] = i;
     }
@@ -1002,7 +1003,7 @@ function bindSmapiSoapServiceToExpress(
             switch(id) {
               case "artists": {
                 return login(soapyHeaders?.credentials)
-                  .then(({ musicLibrary }) => musicLibrary.artists({ _index: 0, _count: 999999999 }))
+                  .then(({ musicLibrary }) => musicLibrary.artists({ _index: 0, _count: undefined }))
                   .then((artists) => ({
                     getScrollIndicesResult: scrollIndicesFrom(artists.results)
                   }))

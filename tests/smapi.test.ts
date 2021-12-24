@@ -863,24 +863,49 @@ describe("defaultArtistArtURI", () => {
 
 describe("scrollIndicesFrom", () => {
   describe("artists", () => {
-    it("should be scroll indicies", () => {
-      const artistNames = [
-        "10,000 Maniacs",
-        "99 Bacon Sandwiches",
-        "Aerosmith",
-        "Bob Marley",
-        "beatles", // intentionally lower case
-        "Cans",
-        "egg heads", // intentionally lower case
-        "Moon Cakes",
-        "Moon Boots",
-        "Numpty",
-        "Yellow brick road"
-      ]
-      const scrollIndicies = scrollIndicesFrom(_.shuffle(artistNames).map(name => anArtist({ name })))
-
-      expect(scrollIndicies).toEqual("A,2,B,3,C,5,D,5,E,6,F,6,G,6,H,6,I,6,J,6,K,6,L,6,M,7,N,9,O,9,P,9,Q,9,R,9,S,9,T,9,U,9,V,9,W,9,X,9,Y,10,Z,10")
+    describe("when sortName is the same as name", () => {
+      it("should be scroll indicies", () => {
+        const artistNames = [
+          "10,000 Maniacs",
+          "99 Bacon Sandwiches",
+          "[something with square brackets]",
+          "Aerosmith",
+          "Bob Marley",
+          "beatles", // intentionally lower case
+          "Cans",
+          "egg heads", // intentionally lower case
+          "Moon Cakes",
+          "Moon Boots",
+          "Numpty",
+          "Yellow brick road"
+        ]
+        const scrollIndicies = scrollIndicesFrom(artistNames.map(name => ({ name, sortName: name })))
+  
+        expect(scrollIndicies).toEqual("A,3,B,4,C,6,D,6,E,7,F,7,G,7,H,7,I,7,J,7,K,7,L,7,M,8,N,10,O,10,P,10,Q,10,R,10,S,10,T,10,U,10,V,10,W,10,X,10,Y,11,Z,11")
+      });
     });
+
+    describe("when sortName is different to the name name", () => {
+      it("should be scroll indicies", () => {
+        const artistSortNames = [
+          "10,000 Maniacs",
+          "99 Bacon Sandwiches",
+          "[something with square brackets]",
+          "Aerosmith",
+          "Bob Marley",
+          "beatles", // intentionally lower case
+          "Cans",
+          "egg heads", // intentionally lower case
+          "Moon Cakes",
+          "Moon Boots",
+          "Numpty",
+          "Yellow brick road"
+        ]
+        const scrollIndicies = scrollIndicesFrom(artistSortNames.map(name => ({ name: uuid(), sortName: name })))
+  
+        expect(scrollIndicies).toEqual("A,3,B,4,C,6,D,6,E,7,F,7,G,7,H,7,I,7,J,7,K,7,L,7,M,8,N,10,O,10,P,10,Q,10,R,10,S,10,T,10,U,10,V,10,W,10,X,10,Y,11,Z,11")
+      });
+    })
   });
 });
 
@@ -3152,6 +3177,9 @@ describe("wsdl api", () => {
             const artist5 = anArtist({ name: "Metallica" });
             const artist6 = anArtist({ name: "Yellow Brick Road" });
 
+            const artists = [artist1, artist2, artist3, artist4, artist5, artist6];
+            const artistsWithSortName = artists.map(it => ({ ...it, sortName: it.name }));
+
             beforeEach(async () => {
               ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
@@ -3159,7 +3187,7 @@ describe("wsdl api", () => {
               });
               setupAuthenticatedRequest(ws);
               musicLibrary.artists.mockResolvedValue({
-                results: [artist1, artist2, artist3, artist4, artist5, artist6],
+                results: artistsWithSortName,
                 total: 6
               });
             });
@@ -3170,11 +3198,11 @@ describe("wsdl api", () => {
               });
 
               expect(root[0]).toEqual({
-                getScrollIndicesResult: scrollIndicesFrom([artist1, artist2, artist3, artist4, artist5, artist6])
+                getScrollIndicesResult: scrollIndicesFrom(artistsWithSortName)
               });
               expect(musicService.login).toHaveBeenCalledWith(serviceToken);
               expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
-              expect(musicLibrary.artists).toHaveBeenCalledWith({ _index: 0, _count: 999999999 });
+              expect(musicLibrary.artists).toHaveBeenCalledWith({ _index: 0, _count: undefined });
             });
         });
         });

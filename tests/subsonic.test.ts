@@ -22,6 +22,8 @@ import {
   PingResponse,
   parseToken,
   asToken,
+  artistSummaryFromNDArtist,
+  SubsonicCredentials,
 } from "../src/subsonic";
 
 import axios from "axios";
@@ -46,7 +48,6 @@ import {
   Playlist,
   SimilarArtist,
   Rating,
-  Credentials,
   AuthFailure,
 } from "../src/music_service";
 import {
@@ -576,6 +577,78 @@ const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
 
 const PING_OK = pingJson({ status: "ok" });
 
+describe("artistSummaryFromNDArtist", () => {
+  describe("when the orderArtistName is undefined", () => {
+    it("should use name", () => {
+      const artist = {
+        id: uuid(),
+        name: `name ${uuid()}`,
+        orderArtistName: undefined,
+        largeImageUrl: 'http://example.com/something.jpg'
+      }
+      expect(artistSummaryFromNDArtist(artist)).toEqual({
+        id: artist.id,
+        name: artist.name,
+        sortName: artist.name,
+        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
+      })
+    });
+  });
+
+  describe("when the artist image is valid", () => {
+    it("should create an ArtistSummary with Sortable", () => {
+      const artist = {
+        id: uuid(),
+        name: `name ${uuid()}`,
+        orderArtistName: `orderArtistName ${uuid()}`,
+        largeImageUrl: 'http://example.com/something.jpg'
+      }
+      expect(artistSummaryFromNDArtist(artist)).toEqual({
+        id: artist.id,
+        name: artist.name,
+        sortName: artist.orderArtistName,
+        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
+      })
+    });
+  });
+
+  describe("when the artist image is not valid", () => {
+    it("should create an ArtistSummary with Sortable", () => {
+      const artist = {
+        id: uuid(),
+        name: `name ${uuid()}`,
+        orderArtistName: `orderArtistName ${uuid()}`,
+        largeImageUrl: `http://example.com/${DODGY_IMAGE_NAME}`
+      }
+
+      expect(artistSummaryFromNDArtist(artist)).toEqual({
+        id: artist.id,
+        name: artist.name,
+        sortName: artist.orderArtistName,
+        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
+      });
+    });
+  });
+
+  describe("when the artist image is missing", () => {
+    it("should create an ArtistSummary with Sortable", () => {
+      const artist = {
+        id: uuid(),
+        name: `name ${uuid()}`,
+        orderArtistName: `orderArtistName ${uuid()}`,
+        largeImageUrl: undefined
+      }
+
+      expect(artistSummaryFromNDArtist(artist)).toEqual({
+        id: artist.id,
+        name: artist.name,
+        sortName: artist.orderArtistName,
+        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
+      });
+    });
+  });
+});
+
 describe("artistURN", () => {
   describe("when artist URL is", () => {
     describe("a valid external URL", () => {
@@ -731,13 +804,19 @@ describe("Subsonic", () => {
     "User-Agent": "bonob",
   };
 
-  const tokenFor = (credentials: Credentials) => pipe(
-    subsonic.generateToken(credentials),
+  const tokenFor = (credentials: Partial<SubsonicCredentials>) => pipe(
+    subsonic.generateToken({
+      username: "some username",
+      password: "some password",
+      bearer: undefined,
+      type: "subsonic",
+      ...credentials
+    }),
     TE.fold(e => { throw e }, T.of)
   )
 
-  const login = (credentials: Credentials) => tokenFor(credentials)()
-  .then((it) => subsonic.login(it.serviceToken))
+  const login = (credentials: Partial<SubsonicCredentials> = {}) => tokenFor(credentials)()
+    .then((it) => subsonic.login(it.serviceToken))
 
   describe("generateToken", () => {
     describe("when the credentials are valid", () => {
@@ -1555,187 +1634,364 @@ describe("Subsonic", () => {
   });
 
   describe("getting artists", () => {
-    describe("when there are indexes, but no artists", () => {
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(
-                subsonicOK({
-                  artists: {
-                    index: [
-                      {
-                        name: "#",
-                      },
-                      {
-                        name: "A",
-                      },
-                      {
-                        name: "B",
-                      },
-                    ],
-                  },
-                })
-              )
-            )
-          );
-      });
-
-      it("should return empty", async () => {
-        const artists = await login({ username, password })
-          .then((it) => it.artists({ _index: 0, _count: 100 }));
-
-        expect(artists).toEqual({
-          results: [],
-          total: 0,
-        });
-      });
-    });
-
-    describe("when there no indexes and no artists", () => {
-      beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(
-                subsonicOK({
-                  artists: {},
-                })
-              )
-            )
-          );
-      });
-
-      it("should return empty", async () => {
-        const artists = await login({ username, password })
-          .then((it) => it.artists({ _index: 0, _count: 100 }));
-
-        expect(artists).toEqual({
-          results: [],
-          total: 0,
-        });
-      });
-    });
-
-    describe("when there is one index and one artist", () => {
-      const artist1 = anArtist({albums:[anAlbum(), anAlbum(), anAlbum(), anAlbum()]});
-
-      const asArtistsJson = subsonicOK({
-        artists: {
-          index: [
-            {
-              name: "#",
-              artist: [
-                {
-                  id: artist1.id,
-                  name: artist1.name,
-                  albumCount: artist1.albums.length,
-                },
-              ],
-            },
-          ],
-        },
-      });
-
-      describe("when it all fits on one page", () => {
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() => Promise.resolve(ok(asArtistsJson)));
-        });
-
-        it("should return the single artist", async () => {
-          const artists = await login({ username, password })
-            .then((it) => it.artists({ _index: 0, _count: 100 }));
-
-          const expectedResults = [{
-            id: artist1.id,
-            image: artist1.image,
-            name: artist1.name,
-          }];
-
-          expect(artists).toEqual({
-            results: expectedResults,
-            total: 1,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
-            headers,
-          });
-        });
-      });
-    });
-
-    describe("when there are artists", () => {
-      const artist1 = anArtist({ name: "A Artist", albums:[anAlbum()] });
-      const artist2 = anArtist({ name: "B Artist" });
-      const artist3 = anArtist({ name: "C Artist" });
-      const artist4 = anArtist({ name: "D Artist" });
-      const artists = [artist1, artist2, artist3, artist4];
-
-      describe("when no paging is in effect", () => {
+    describe("when subsonic flavour is generic", () => {
+      describe("when there are indexes, but no artists", () => {
         beforeEach(() => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson(artists)))
+              Promise.resolve(
+                ok(
+                  subsonicOK({
+                    artists: {
+                      index: [
+                        {
+                          name: "#",
+                        },
+                        {
+                          name: "A",
+                        },
+                        {
+                          name: "B",
+                        },
+                      ],
+                    },
+                  })
+                )
+              )
             );
         });
-
-        it("should return all the artists", async () => {
+  
+        it("should return empty", async () => {
           const artists = await login({ username, password })
             .then((it) => it.artists({ _index: 0, _count: 100 }));
-
-          const expectedResults = [artist1, artist2, artist3, artist4].map(
-            (it) => ({
+  
+          expect(artists).toEqual({
+            results: [],
+            total: 0,
+          });
+        });
+      });
+  
+      describe("when there no indexes and no artists", () => {
+        beforeEach(() => {
+          mockGET
+            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+            .mockImplementationOnce(() =>
+              Promise.resolve(
+                ok(
+                  subsonicOK({
+                    artists: {},
+                  })
+                )
+              )
+            );
+        });
+  
+        it("should return empty", async () => {
+          const artists = await login({ username, password })
+            .then((it) => it.artists({ _index: 0, _count: 100 }));
+  
+          expect(artists).toEqual({
+            results: [],
+            total: 0,
+          });
+        });
+      });
+  
+      describe("when there is one index and one artist", () => {
+        const artist1 = anArtist({albums:[anAlbum(), anAlbum(), anAlbum(), anAlbum()]});
+  
+        const asArtistsJson = subsonicOK({
+          artists: {
+            index: [
+              {
+                name: "#",
+                artist: [
+                  {
+                    id: artist1.id,
+                    name: artist1.name,
+                    albumCount: artist1.albums.length,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+  
+        describe("when it all fits on one page", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() => Promise.resolve(ok(asArtistsJson)));
+          });
+  
+          it("should return the single artist", async () => {
+            const artists = await login({ username, password })
+              .then((it) => it.artists({ _index: 0, _count: 100 }));
+  
+            const expectedResults = [{
+              id: artist1.id,
+              image: artist1.image,
+              name: artist1.name,
+              sortName: artist1.name
+            }];
+  
+            expect(artists).toEqual({
+              results: expectedResults,
+              total: 1,
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParamsPlusJson),
+              headers,
+            });
+          });
+        });
+      });
+  
+      describe("when there are artists", () => {
+        const artist1 = anArtist({ name: "A Artist", albums:[anAlbum()] });
+        const artist2 = anArtist({ name: "B Artist" });
+        const artist3 = anArtist({ name: "C Artist" });
+        const artist4 = anArtist({ name: "D Artist" });
+        const artists = [artist1, artist2, artist3, artist4];
+  
+        describe("when no paging is in effect", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(asArtistsJson(artists)))
+              );
+          });
+  
+          it("should return all the artists", async () => {
+            const artists = await login({ username, password })
+              .then((it) => it.artists({ _index: 0, _count: 100 }));
+  
+            const expectedResults = [artist1, artist2, artist3, artist4].map(
+              (it) => ({
+                id: it.id,
+                image: it.image,
+                name: it.name,
+                sortName: it.name,
+              })
+            );
+  
+            expect(artists).toEqual({
+              results: expectedResults,
+              total: 4,
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParamsPlusJson),
+              headers,
+            });
+          });
+        });
+  
+        describe("when paging specified", () => {
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(asArtistsJson(artists)))
+              );
+          });
+  
+          it("should return only the correct page of artists", async () => {
+            const artists = await login({ username, password })
+              .then((it) => it.artists({ _index: 1, _count: 2 }));
+  
+            const expectedResults = [artist2, artist3].map((it) => ({
               id: it.id,
               image: it.image,
               name: it.name,
-            })
-          );
+              sortName: it.name,
+            }));
+  
+            expect(artists).toEqual({ results: expectedResults, total: 4 });
+  
+            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+              params: asURLSearchParams(authParamsPlusJson),
+              headers,
+            });
+          });
+        });
+      });
+    });
+   
+    describe("when the subsonic type is navidrome", () => {
+      const ndArtist1 = {
+        id: uuid(),
+        name: "Artist1",
+        orderArtistName: "Artist1",
+        largeImageUrl: "http://example.com/artist1/image.jpg"
+      };
+      const ndArtist2 = {
+        id: uuid(),
+        name: "Artist2",
+        orderArtistName: "The Artist2",
+        largeImageUrl: undefined
+      };
+      const ndArtist3 = {
+        id: uuid(),
+        name: "Artist3",
+        orderArtistName: "An Artist3",
+        largeImageUrl: `http://example.com/artist3/${DODGY_IMAGE_NAME}`
+      };
+      const ndArtist4 = {
+        id: uuid(),
+        name: "Artist4",
+        orderArtistName: "An Artist4",
+        largeImageUrl: `http://example.com/artist4/${DODGY_IMAGE_NAME}`
+      };
+      const bearer = `bearer-${uuid()}`;
 
+      describe("when no paging is specified", () => {
+        beforeEach(() => {
+          (axios.get as jest.Mock)
+            .mockImplementationOnce(() => Promise.resolve(ok(pingJson({ type: "navidrome" }))))
+            .mockImplementationOnce(() =>
+              Promise.resolve({
+                  status: 200, 
+                  data: [
+                    ndArtist1,
+                    ndArtist2,
+                    ndArtist3,
+                    ndArtist4,
+                  ],
+                  headers: {
+                    "x-total-count": "4"
+                  }
+                })
+            );
+
+          (axios.post as jest.Mock).mockResolvedValue(ok({ token: bearer }));
+        });
+  
+        it("should fetch all artists", async () => {
+          const artists = await login({ username, password, bearer, type: "navidrome" })
+            .then((it) => it.artists({ _index: undefined, _count: undefined }));
+  
           expect(artists).toEqual({
-            results: expectedResults,
+            results: [
+              artistSummaryFromNDArtist(ndArtist1),
+              artistSummaryFromNDArtist(ndArtist2),
+              artistSummaryFromNDArtist(ndArtist3),
+              artistSummaryFromNDArtist(ndArtist4),
+            ],
             total: 4,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
-            headers,
+          expect(axios.get).toHaveBeenCalledWith(`${url}/api/artist`, {
+            params: asURLSearchParams({
+              _sort: "name",
+              _order: "ASC",
+              _start: "0"
+            }),
+            headers: {
+              "User-Agent": "bonob",
+              "x-nd-authorization": `Bearer ${bearer}`,
+            },
           });
         });
       });
 
-      describe("when paging specified", () => {
+      describe("when start index is specified", () => {
         beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          (axios.get as jest.Mock)
+            .mockImplementationOnce(() => Promise.resolve(ok(pingJson({ type: "navidrome" }))))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson(artists)))
+              Promise.resolve({
+                status: 200, 
+                data: [
+                  ndArtist3,
+                  ndArtist4,
+                ],
+                headers: {
+                  "x-total-count": "5"
+                }
+              })
             );
+
+          (axios.post as jest.Mock).mockResolvedValue(ok({ token: bearer }));
         });
+  
+        it("should fetch all artists", async () => {
+          const artists = await login({ username, password, bearer, type: "navidrome" })
+            .then((it) => it.artists({ _index: 2, _count: undefined }));
+  
+          expect(artists).toEqual({
+            results: [
+              artistSummaryFromNDArtist(ndArtist3),
+              artistSummaryFromNDArtist(ndArtist4),
+            ],
+            total: 5,
+          });
 
-        it("should return only the correct page of artists", async () => {
-          const artists = await login({ username, password })
-            .then((it) => it.artists({ _index: 1, _count: 2 }));
-
-          const expectedResults = [artist2, artist3].map((it) => ({
-            id: it.id,
-            image: it.image,
-            name: it.name,
-          }));
-
-          expect(artists).toEqual({ results: expectedResults, total: 4 });
-
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
-            headers,
+          expect(axios.get).toHaveBeenCalledWith(`${url}/api/artist`, {
+            params: asURLSearchParams({
+              _sort: "name",
+              _order: "ASC",
+              _start: "2"
+            }),
+            headers: {
+              "User-Agent": "bonob",
+              "x-nd-authorization": `Bearer ${bearer}`,
+            },
           });
         });
       });
+
+      describe("when start index and count is specified", () => {
+        beforeEach(() => {
+          (axios.get as jest.Mock)
+            .mockImplementationOnce(() => Promise.resolve(ok(pingJson({ type: "navidrome" }))))
+            .mockImplementationOnce(() =>
+              Promise.resolve({
+                status: 200, 
+                data: [
+                  ndArtist3,
+                  ndArtist4,
+                ],
+                headers: {
+                  "x-total-count": "5"
+                }
+              })
+            );
+
+          (axios.post as jest.Mock).mockResolvedValue(ok({ token: bearer }));
+        });
+  
+        it("should fetch all artists", async () => {
+          const artists = await login({ username, password, bearer, type: "navidrome" })
+            .then((it) => it.artists({ _index: 2, _count: 23 }));
+  
+          expect(artists).toEqual({
+            results: [
+              artistSummaryFromNDArtist(ndArtist3),
+              artistSummaryFromNDArtist(ndArtist4),
+            ],
+            total: 5,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(`${url}/api/artist`, {
+            params: asURLSearchParams({
+              _sort: "name",
+              _order: "ASC",
+              _start: "2",
+              _end: "25"
+            }),
+            headers: {
+              "User-Agent": "bonob",
+              "x-nd-authorization": `Bearer ${bearer}`,
+            },
+          });
+        });
+      });
+
     });
   });
 

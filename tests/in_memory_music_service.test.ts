@@ -6,6 +6,7 @@ import {
   MusicLibrary,
   artistToArtistSummary,
   albumToAlbumSummary,
+  Artist,
 } from "../src/music_service";
 import { v4 as uuid } from "uuid";
 import {
@@ -78,6 +79,11 @@ describe("InMemoryMusicService", () => {
       musicLibrary = (await service.login(token.serviceToken)) as MusicLibrary;
     });
 
+    const artistToArtistSummaryWithSortName = (artist: Artist) => ({
+      ...artistToArtistSummary(artist),
+      sortName: artist.name
+    })
+
     describe("artists", () => {
       const artist1 = anArtist();
       const artist2 = anArtist();
@@ -95,11 +101,11 @@ describe("InMemoryMusicService", () => {
             await musicLibrary.artists({ _index: 0, _count: 100 })
           ).toEqual({
             results: [
-              artistToArtistSummary(artist1),
-              artistToArtistSummary(artist2),
-              artistToArtistSummary(artist3),
-              artistToArtistSummary(artist4),
-              artistToArtistSummary(artist5),
+              artistToArtistSummaryWithSortName(artist1),
+              artistToArtistSummaryWithSortName(artist2),
+              artistToArtistSummaryWithSortName(artist3),
+              artistToArtistSummaryWithSortName(artist4),
+              artistToArtistSummaryWithSortName(artist5),
             ],
             total: 5,
           });
@@ -110,8 +116,8 @@ describe("InMemoryMusicService", () => {
         it("should provide an array of artists", async () => {
           expect(await musicLibrary.artists({ _index: 2, _count: 2 })).toEqual({
             results: [
-              artistToArtistSummary(artist3),
-              artistToArtistSummary(artist4),
+              artistToArtistSummaryWithSortName(artist3),
+              artistToArtistSummaryWithSortName(artist4),
             ],
             total: 5,
           });
@@ -121,7 +127,7 @@ describe("InMemoryMusicService", () => {
       describe("fetching the last page", () => {
         it("should provide an array of artists", async () => {
           expect(await musicLibrary.artists({ _index: 4, _count: 2 })).toEqual({
-            results: [artistToArtistSummary(artist5)],
+            results: [artistToArtistSummaryWithSortName(artist5)],
             total: 5,
           });
         });
