@@ -158,6 +158,7 @@ BNB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it ha
 BNB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
 BNB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
 BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
+TZ | UTC | Your timezone from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) ie. 'Australia/Melbourne'
 
 ## Initialising service within sonos app
 
