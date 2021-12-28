@@ -174,6 +174,20 @@ TZ | UTC | Your timezone from the [tz database](https://en.wikipedia.org/wiki/Li
 - You should now be able to play music on your sonos devices from you subsonic clone
 - Within the subsonic clone a new player will be created, 'bonob (username)', so you can configure transcoding specifically for sonos
 
+## Re-registering your bonob service with sonos App
+
+Generally speaking you will not need to do this very often.  However on occassion bonob will change the implementation of the authentication between sonos and bonob, which will require a re-registration.  Your sonos app will complain about not being able to browse the service, to re-register execute the following steps (taken from the iOS app);
+
+- Open the sonos app
+- Settings -> Services & Voice
+- Your bonob service, will likely have name of either 'bonob' or $BNB_SONOS_SERVICE_NAME
+- Reauthorize Account
+- Authorize
+- Enter credentials, you should see 'Login Successful!'
+- Done
+
+Service should now be registered and everything should work as expected.
+
 ## Implementing a different music source other than a subsonic clone
 
 - Implement the MusicService/MusicLibrary interface
