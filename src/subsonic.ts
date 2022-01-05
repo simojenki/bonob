@@ -203,13 +203,6 @@ type GetSongResponse = {
   song: song;
 };
 
-type GetStarredResponse = {
-  starred2: {
-    song: song[];
-    album: album[];
-  };
-};
-
 export type PingResponse = {
   status: string;
   version: string;
@@ -445,8 +438,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   bearerToken = (_: Credentials) => TE.right(undefined);
 
   artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
-    this.subsonic
-      .getArtists(this.credentials)
+    this.getArtists()
       .then(slice2(q))
       .then(([page, total]) => ({
         total,
@@ -459,13 +451,12 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       }));
 
   artist = async (id: string): Promise<Artist> =>
-    this.subsonic.getArtistWithInfo(this.credentials, id);
+    this.getArtistWithInfo(id);
 
   albums = async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
-    this.subsonic.getAlbumList2(this.credentials, q);
+    this.getAlbumList2(q);
 
-  album = (id: string): Promise<Album> =>
-    this.subsonic.getAlbum(this.credentials, id);
+  album = (id: string): Promise<Album> => this.getAlbum(id);
 
   genres = () =>
     this.subsonic
@@ -490,14 +481,13 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
         (album.song || []).map((song) => asTrack(asAlbum(album), song))
       );
 
-  track = (trackId: string) =>
-    this.subsonic.getTrack(this.credentials, trackId);
+  track = (trackId: string) => this.getTrack(trackId);
 
   rate = (trackId: string, rating: Rating) =>
     Promise.resolve(true)
       .then(() => {
         if (rating.stars >= 0 && rating.stars <= 5) {
-          return this.subsonic.getTrack(this.credentials, trackId);
+          return this.getTrack(trackId);
         } else {
           throw `Invalid rating.stars value of ${rating.stars}`;
         }
@@ -535,7 +525,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     trackId: string;
     range: string | undefined;
   }) =>
-    this.subsonic.getTrack(this.credentials, trackId).then((track) =>
+    this.getTrack(trackId).then((track) =>
       this.subsonic
         .get(
           this.credentials,
@@ -575,7 +565,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     Promise.resolve(coverArtURN)
       .then((it) => assertSystem(it, "subsonic"))
       .then((it) => it.resource.split(":")[1]!)
-      .then((it) => this.subsonic.getCoverArt(this.credentials, it, size))
+      .then((it) => this.getCoverArt(this.credentials, it, size))
       .then((res) => ({
         contentType: res.headers["content-type"],
         data: Buffer.from(res.data, "binary"),
@@ -604,9 +594,8 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       .catch(() => false);
 
   searchArtists = async (query: string) =>
-    this.subsonic
-      .search3(this.credentials, { query, artistCount: 20 })
-      .then(({ artists }) =>
+    this.search3({ query, artistCount: 20 }).then(
+      ({ artists }) =>
         artists.map((artist) => ({
           id: artist.id,
           name: artist.name,
@@ -615,21 +604,17 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
             artistImageURL: artist.artistImageUrl,
           }),
         }))
-      );
+    );
 
   searchAlbums = async (query: string) =>
-    this.subsonic
-      .search3(this.credentials, { query, albumCount: 20 })
-      .then(({ albums }) => this.subsonic.toAlbumSummary(albums));
+    this.search3({ query, albumCount: 20 }).then(
+      ({ albums }) => this.toAlbumSummary(albums)
+    );
 
   searchTracks = async (query: string) =>
-    this.subsonic
-      .search3(this.credentials, { query, songCount: 20 })
-      .then(({ songs }) =>
-        Promise.all(
-          songs.map((it) => this.subsonic.getTrack(this.credentials, it.id))
-        )
-      );
+    this.search3({ query, songCount: 20 }).then(({ songs }) =>
+      Promise.all(songs.map((it) => this.getTrack(it.id)))
+    );
 
   playlists = async () =>
     this.subsonic
@@ -710,15 +695,15 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       .then((songs) =>
         Promise.all(
           songs.map((song) =>
-            this.subsonic
-              .getAlbum(this.credentials, song.albumId!)
-              .then((album) => asTrack(album, song))
+            this.getAlbum(song.albumId!).then((album) =>
+              asTrack(album, song)
+            )
           )
         )
       );
 
   topSongs = async (artistId: string) =>
-    this.subsonic.getArtist(this.credentials, artistId).then(({ name }) =>
+    this.getArtist(artistId).then(({ name }) =>
       this.subsonic
         .getJSON<GetTopSongsResponse>(this.credentials, "/rest/getTopSongs", {
           artist: name,
@@ -728,13 +713,181 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
         .then((songs) =>
           Promise.all(
             songs.map((song) =>
-              this.subsonic
-                .getAlbum(this.credentials, song.albumId!)
-                .then((album) => asTrack(album, song))
+              this.getAlbum(song.albumId!).then((album) =>
+                asTrack(album, song)
+              )
             )
           )
         )
     );
+
+  private getArtists = (): Promise<(IdName & { albumCount: number; image: BUrn | undefined })[]> =>
+    this.subsonic
+      .getJSON<GetArtistsResponse>(this.credentials, "/rest/getArtists")
+      .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
+      .then((artists) =>
+        artists.map((artist) => ({
+          id: `${artist.id}`,
+          name: artist.name,
+          albumCount: artist.albumCount,
+          image: artistImageURN({
+            artistId: artist.id,
+            artistImageURL: artist.artistImageUrl,
+          }),
+        }))
+      );
+
+  private getArtistInfo = (
+    id: string
+  ): Promise<{
+    similarArtist: (ArtistSummary & { inLibrary: boolean })[];
+    images: {
+      s: string | undefined;
+      m: string | undefined;
+      l: string | undefined;
+    };
+  }> =>
+    this.subsonic
+      .getJSON<GetArtistInfoResponse>(this.credentials, "/rest/getArtistInfo2", {
+        id,
+        count: 50,
+        includeNotPresent: true,
+      })
+      .then((it) => it.artistInfo2)
+      .then((it) => ({
+        images: {
+          s: it.smallImageUrl,
+          m: it.mediumImageUrl,
+          l: it.largeImageUrl,
+        },
+        similarArtist: (it.similarArtist || []).map((artist) => ({
+          id: `${artist.id}`,
+          name: artist.name,
+          inLibrary: artistIsInLibrary(artist.id),
+          image: artistImageURN({
+            artistId: artist.id,
+            artistImageURL: artist.artistImageUrl,
+          }),
+        })),
+      }));
+
+  private getAlbum = (id: string): Promise<Album> =>
+    this.subsonic
+      .getJSON<GetAlbumResponse>(this.credentials, "/rest/getAlbum", { id })
+      .then((it) => it.album)
+      .then((album) => ({
+        id: album.id,
+        name: album.name,
+        year: album.year,
+        genre: maybeAsGenre(album.genre),
+        artistId: album.artistId,
+        artistName: album.artist,
+        coverArt: coverArtURN(album.coverArt),
+      }));
+
+  private getArtist = (
+    id: string
+  ): Promise<
+    IdName & { artistImageUrl: string | undefined; albums: AlbumSummary[] }
+  > =>
+    this.subsonic
+      .getJSON<GetArtistResponse>(this.credentials, "/rest/getArtist", {
+        id,
+      })
+      .then((it) => it.artist)
+      .then((it) => ({
+        id: it.id,
+        name: it.name,
+        artistImageUrl: it.artistImageUrl,
+        albums: this.toAlbumSummary(it.album || []),
+      }));
+
+  private getArtistWithInfo = (id: string) =>
+    Promise.all([
+      this.getArtist(id),
+      this.getArtistInfo(id),
+    ]).then(([artist, artistInfo]) => ({
+      id: artist.id,
+      name: artist.name,
+      image: artistImageURN({
+        artistId: artist.id,
+        artistImageURL: [
+          artist.artistImageUrl,
+          artistInfo.images.l,
+          artistInfo.images.m,
+          artistInfo.images.s,
+        ].find(isValidImage),
+      }),
+      albums: artist.albums,
+      similarArtists: artistInfo.similarArtist,
+    }));
+
+  private getCoverArt = (credentials: Credentials, id: string, size?: number) =>
+    this.subsonic.get(
+      credentials,
+      "/rest/getCoverArt",
+      size ? { id, size } : { id },
+      {
+        headers: { "User-Agent": "bonob" },
+        responseType: "arraybuffer",
+      }
+    );
+
+  private getTrack = (id: string) =>
+    this.subsonic
+      .getJSON<GetSongResponse>(this.credentials, "/rest/getSong", {
+        id,
+      })
+      .then((it) => it.song)
+      .then((song) =>
+        this.getAlbum(song.albumId!).then((album) =>
+          asTrack(album, song)
+        )
+      );
+
+  private toAlbumSummary = (albumList: album[]): AlbumSummary[] =>
+    albumList.map((album) => ({
+      id: album.id,
+      name: album.name,
+      year: album.year,
+      genre: maybeAsGenre(album.genre),
+      artistId: album.artistId,
+      artistName: album.artist,
+      coverArt: coverArtURN(album.coverArt),
+    }));
+
+  private search3 = (q: any) =>
+    this.subsonic
+      .getJSON<Search3Response>(this.credentials, "/rest/search3", {
+        artistCount: 0,
+        albumCount: 0,
+        songCount: 0,
+        ...q,
+      })
+      .then((it) => ({
+        artists: it.searchResult3.artist || [],
+        albums: it.searchResult3.album || [],
+        songs: it.searchResult3.song || [],
+      }));
+
+  private getAlbumList2 = (q: AlbumQuery) =>
+    Promise.all([
+      this.getArtists().then((it) =>
+        _.inject(it, (total, artist) => total + artist.albumCount, 0)
+      ),
+      this.subsonic
+        .getJSON<GetAlbumListResponse>(this.credentials, "/rest/getAlbumList2", {
+          type: AlbumQueryTypeToSubsonicType[q.type],
+          ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+          size: 500,
+          offset: q._index,
+        })
+        .then((response) => response.albumList2.album || [])
+        .then(this.toAlbumSummary),
+    ]).then(([total, albums]) => ({
+      results: albums.slice(0, q._count),
+      total: albums.length == 500 ? total : (q._index || 0) + albums.length,
+    }));
 }
 
 export class Subsonic implements MusicService {
@@ -828,177 +981,6 @@ export class Subsonic implements MusicService {
 
   refreshToken = (serviceToken: string) =>
     this.generateToken(parseToken(serviceToken));
-
-  getArtists = (
-    credentials: Credentials
-  ): Promise<(IdName & { albumCount: number; image: BUrn | undefined })[]> =>
-    this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
-      .then((artists) =>
-        artists.map((artist) => ({
-          id: `${artist.id}`,
-          name: artist.name,
-          albumCount: artist.albumCount,
-          image: artistImageURN({
-            artistId: artist.id,
-            artistImageURL: artist.artistImageUrl,
-          }),
-        }))
-      );
-
-  getArtistInfo = (
-    credentials: Credentials,
-    id: string
-  ): Promise<{
-    similarArtist: (ArtistSummary & { inLibrary: boolean })[];
-    images: {
-      s: string | undefined;
-      m: string | undefined;
-      l: string | undefined;
-    };
-  }> =>
-    this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo2", {
-      id,
-      count: 50,
-      includeNotPresent: true,
-    })
-      .then((it) => it.artistInfo2)
-      .then((it) => ({
-        images: {
-          s: it.smallImageUrl,
-          m: it.mediumImageUrl,
-          l: it.largeImageUrl,
-        },
-        similarArtist: (it.similarArtist || []).map((artist) => ({
-          id: `${artist.id}`,
-          name: artist.name,
-          inLibrary: artistIsInLibrary(artist.id),
-          image: artistImageURN({
-            artistId: artist.id,
-            artistImageURL: artist.artistImageUrl,
-          }),
-        })),
-      }));
-
-  getAlbum = (credentials: Credentials, id: string): Promise<Album> =>
-    this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
-      .then((it) => it.album)
-      .then((album) => ({
-        id: album.id,
-        name: album.name,
-        year: album.year,
-        genre: maybeAsGenre(album.genre),
-        artistId: album.artistId,
-        artistName: album.artist,
-        coverArt: coverArtURN(album.coverArt),
-      }));
-
-  getArtist = (
-    credentials: Credentials,
-    id: string
-  ): Promise<
-    IdName & { artistImageUrl: string | undefined; albums: AlbumSummary[] }
-  > =>
-    this.getJSON<GetArtistResponse>(credentials, "/rest/getArtist", {
-      id,
-    })
-      .then((it) => it.artist)
-      .then((it) => ({
-        id: it.id,
-        name: it.name,
-        artistImageUrl: it.artistImageUrl,
-        albums: this.toAlbumSummary(it.album || []),
-      }));
-
-  getArtistWithInfo = (credentials: Credentials, id: string) =>
-    Promise.all([
-      this.getArtist(credentials, id),
-      this.getArtistInfo(credentials, id),
-    ]).then(([artist, artistInfo]) => ({
-      id: artist.id,
-      name: artist.name,
-      image: artistImageURN({
-        artistId: artist.id,
-        artistImageURL: [
-          artist.artistImageUrl,
-          artistInfo.images.l,
-          artistInfo.images.m,
-          artistInfo.images.s,
-        ].find(isValidImage),
-      }),
-      albums: artist.albums,
-      similarArtists: artistInfo.similarArtist,
-    }));
-
-  getCoverArt = (credentials: Credentials, id: string, size?: number) =>
-    this.get(credentials, "/rest/getCoverArt", size ? { id, size } : { id }, {
-      headers: { "User-Agent": "bonob" },
-      responseType: "arraybuffer",
-    });
-
-  getTrack = (credentials: Credentials, id: string) =>
-    this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
-      id,
-    })
-      .then((it) => it.song)
-      .then((song) =>
-        this.getAlbum(credentials, song.albumId!).then((album) =>
-          asTrack(album, song)
-        )
-      );
-
-  getStarred = (credentials: Credentials) =>
-    this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2").then(
-      (it) => new Set(it.starred2.song.map((it) => it.id))
-    );
-
-  toAlbumSummary = (albumList: album[]): AlbumSummary[] =>
-    albumList.map((album) => ({
-      id: album.id,
-      name: album.name,
-      year: album.year,
-      genre: maybeAsGenre(album.genre),
-      artistId: album.artistId,
-      artistName: album.artist,
-      coverArt: coverArtURN(album.coverArt),
-    }));
-
-  search3 = (credentials: Credentials, q: any) =>
-    this.getJSON<Search3Response>(credentials, "/rest/search3", {
-      artistCount: 0,
-      albumCount: 0,
-      songCount: 0,
-      ...q,
-    }).then((it) => ({
-      artists: it.searchResult3.artist || [],
-      albums: it.searchResult3.album || [],
-      songs: it.searchResult3.song || [],
-    }));
-
-  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) =>
-    Promise.all([
-      this.getArtists(credentials).then((it) =>
-        _.inject(it, (total, artist) => total + artist.albumCount, 0)
-      ),
-      this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
-        type: AlbumQueryTypeToSubsonicType[q.type],
-        ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-        size: 500,
-        offset: q._index,
-      })
-        .then((response) => response.albumList2.album || [])
-        .then(this.toAlbumSummary),
-    ]).then(([total, albums]) => ({
-      results: albums.slice(0, q._count),
-      total: albums.length == 500 ? total : (q._index || 0) + albums.length,
-    }));
-
-  // getStarred2 = (credentials: Credentials): Promise<{ albums: Album[] }> =>
-  //   this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2")
-  //     .then((it) => it.starred2)
-  //     .then((it) => ({
-  //       albums: it.album.map(asAlbum),
-  //     }));
 
   login = async (token: string) => this.libraryFor(parseToken(token));
 

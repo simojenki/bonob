@@ -375,11 +375,6 @@ const getAlbumJson = (artist: Artist, album: Album, tracks: Track[]) =>
 
 const getSongJson = (track: Track) => subsonicOK({ song: asSongJson(track) });
 
-// const getStarredJson = ({ albums }: { albums: Album[] }) => subsonicOK({starred2: {
-//   album: albums.map(it => asAlbumJson({ id: it.artistId, name: it.artistName }, it, [])),
-//   song: [],
-// }})
-
 const subsonicOK = (body: any = {}) => ({
   "subsonic-response": {
     status: "ok",
