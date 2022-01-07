@@ -11,7 +11,6 @@ import {
   DODGY_IMAGE_NAME,
   asGenre,
   appendMimeTypeToClientFor,
-  asURLSearchParams,
   asTrack,
   artistImageURN,
   images,
@@ -58,6 +57,7 @@ import {
 } from "./builders";
 import { b64Encode } from "../src/b64";
 import { BUrn } from "../src/burn";
+import { asURLSearchParams } from "../src/utils";
 
 describe("t", () => {
   it("should be an md5 of the password and the salt", () => {
@@ -117,52 +117,6 @@ describe("appendMimeTypeToUserAgentFor", () => {
           "bonob"
         );
       });
-    });
-  });
-});
-
-describe("asURLSearchParams", () => {
-  describe("empty q", () => {
-    it("should return empty params", () => {
-      const q = {};
-      const expected = new URLSearchParams();
-      expect(asURLSearchParams(q)).toEqual(expected);
-    });
-  });
-
-  describe("singular params", () => {
-    it("should append each", () => {
-      const q = {
-        a: 1,
-        b: "bee",
-        c: false,
-        d: true,
-      };
-      const expected = new URLSearchParams();
-      expected.append("a", "1");
-      expected.append("b", "bee");
-      expected.append("c", "false");
-      expected.append("d", "true");
-
-      expect(asURLSearchParams(q)).toEqual(expected);
-    });
-  });
-
-  describe("list params", () => {
-    it("should append each", () => {
-      const q = {
-        a: [1, "two", false, true],
-        b: "yippee",
-      };
-
-      const expected = new URLSearchParams();
-      expected.append("a", "1");
-      expected.append("a", "two");
-      expected.append("a", "false");
-      expected.append("a", "true");
-      expected.append("b", "yippee");
-
-      expect(asURLSearchParams(q)).toEqual(expected);
     });
   });
 });

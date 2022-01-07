@@ -30,6 +30,7 @@ import logger from "./logger";
 import { assertSystem, BUrn } from "./burn";
 import { artist } from "./smapi";
 import { axiosImageFetcher, ImageFetcher } from "./images";
+import { asURLSearchParams } from "./utils";
 
 
 export const t = (password: string, s: string) =>
@@ -330,16 +331,6 @@ export function appendMimeTypeToClientFor(mimeTypes: string[]) {
   return (track: Track) =>
     mimeTypes.includes(track.mimeType) ? `bonob+${track.mimeType}` : "bonob";
 }
-
-export const asURLSearchParams = (q: any) => {
-  const urlSearchParams = new URLSearchParams();
-  Object.keys(q).forEach((k) => {
-    _.flatten([q[k]]).forEach((v) => {
-      urlSearchParams.append(k, `${v}`);
-    });
-  });
-  return urlSearchParams;
-};
 
 const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   alphabeticalByArtist: "alphabeticalByArtist",

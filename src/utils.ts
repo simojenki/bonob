@@ -1,3 +1,5 @@
+import { flatten } from "underscore";
+
 export const BROWSER_HEADERS = {
   accept:
     "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -7,6 +9,18 @@ export const BROWSER_HEADERS = {
   "user-agent":
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",
 };
+
+
+export const asURLSearchParams = (q: any) => {
+  const urlSearchParams = new URLSearchParams();
+  Object.keys(q).forEach((k) => {
+    flatten([q[k]]).forEach((v) => {
+      urlSearchParams.append(k, `${v}`);
+    });
+  });
+  return urlSearchParams;
+};
+
 
 export function takeWithRepeats<T>(things:T[], count: number) {
   const result = [];
