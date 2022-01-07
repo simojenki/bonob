@@ -17,7 +17,7 @@ import {
 } from "../src/music_service";
 
 import { b64Encode } from "../src/b64";
-import { artistImageURN } from "../src/subsonic";
+import { artistImageURN } from "../src/subsonic/generic";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
