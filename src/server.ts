@@ -35,7 +35,7 @@ import _, { shuffle } from "underscore";
 import morgan from "morgan";
 import { takeWithRepeats } from "./utils";
 import { parse } from "./burn";
-import { axiosImageFetcher, ImageFetcher } from "./subsonic";
+import { axiosImageFetcher, ImageFetcher } from "./images";
 import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,

@@ -15,17 +15,13 @@ import {
   AlbumSummary,
   Genre,
   Track,
-  CoverArt,
   Rating,
   AlbumQueryType,
   Artist,
   AuthFailure,
   Sortable,
 } from "./music_service";
-import sharp from "sharp";
 import _ from "underscore";
-import fse from "fs-extra";
-import path from "path";
 
 import axios, { AxiosRequestConfig } from "axios";
 import randomstring from "randomstring";
@@ -33,16 +29,8 @@ import { b64Encode, b64Decode } from "./b64";
 import logger from "./logger";
 import { assertSystem, BUrn } from "./burn";
 import { artist } from "./smapi";
+import { axiosImageFetcher, ImageFetcher } from "./images";
 
-export const BROWSER_HEADERS = {
-  accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-  "accept-encoding": "gzip, deflate, br",
-  "accept-language": "en-GB,en;q=0.5",
-  "upgrade-insecure-requests": "1",
-  "user-agent":
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",
-};
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -352,45 +340,6 @@ export const asURLSearchParams = (q: any) => {
   });
   return urlSearchParams;
 };
-
-export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
-
-export const cachingImageFetcher =
-  (cacheDir: string, delegate: ImageFetcher) =>
-  async (url: string): Promise<CoverArt | undefined> => {
-    const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
-    return fse
-      .readFile(filename)
-      .then((data) => ({ contentType: "image/png", data }))
-      .catch(() =>
-        delegate(url).then((image) => {
-          if (image) {
-            return sharp(image.data)
-              .png()
-              .toBuffer()
-              .then((png) => {
-                return fse
-                  .writeFile(filename, png)
-                  .then(() => ({ contentType: "image/png", data: png }));
-              });
-          } else {
-            return undefined;
-          }
-        })
-      );
-  };
-
-export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
-  axios
-    .get(url, {
-      headers: BROWSER_HEADERS,
-      responseType: "arraybuffer",
-    })
-    .then((res) => ({
-      contentType: res.headers["content-type"],
-      data: Buffer.from(res.data, "binary"),
-    }))
-    .catch(() => undefined);
 
 const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   alphabeticalByArtist: "alphabeticalByArtist",
@@ -893,6 +842,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
 export class Subsonic implements MusicService {
   url: string;
   streamClientApplication: StreamClientApplication;
+  // todo: why is this in here?
   externalImageFetcher: ImageFetcher;
 
   constructor(

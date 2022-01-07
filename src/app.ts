@@ -5,8 +5,6 @@ import logger from "./logger";
 
 import {
   appendMimeTypeToClientFor,
-  axiosImageFetcher,
-  cachingImageFetcher,
   DEFAULT,
   Subsonic,
 } from "./subsonic";
@@ -17,6 +15,7 @@ import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
 import { JWTSmapiLoginTokens } from "./smapi_auth";
+import { axiosImageFetcher, cachingImageFetcher } from "./images";
 
 const config = readConfig();
 const clock = SystemClock;
