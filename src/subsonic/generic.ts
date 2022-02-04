@@ -3,13 +3,16 @@ import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/lib/function";
 import { ordString } from "fp-ts/lib/Ord";
 import { inject } from 'underscore';
+import _ from "underscore";
 
 import logger from "../logger";
 import { b64Decode, b64Encode } from "../b64";
 import { assertSystem, BUrn } from "../burn";
 
-import { Album, AlbumQuery, AlbumQueryType, AlbumSummary, Artist, ArtistQuery, Credentials, Genre, Rating, Result, slice2, Sortable, Track } from "../music_service";
-import Subsonic, { DODGY_IMAGE_NAME, SubsonicCredentials, SubsonicMusicLibrary, SubsonicResponse, USER_AGENT } from "../subsonic";
+import { Album, AlbumQuery, AlbumQueryType, AlbumSummary, Artist, ArtistQuery, ArtistSummary, AuthFailure, Credentials, Genre, IdName, Rating, Result, slice2, Sortable, Track } from "../music_service";
+import Subsonic, { artistSummaryFromNDArtist, DODGY_IMAGE_NAME, NDArtist, SubsonicCredentials, SubsonicMusicLibrary, SubsonicResponse, USER_AGENT } from "../subsonic";
+import axios from "axios";
+import { asURLSearchParams } from "../utils";
 
 
 type album = {
@@ -81,14 +84,6 @@ type artistInfo = images & {
   similarArtist: artist[];
 };
 
-type IdName = {
-  id: string;
-  name: string;
-};
-
-type ArtistSummary = IdName & {
-  image: BUrn | undefined;
-};
 
 export type song = {
   id: string;
@@ -272,9 +267,11 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
 
   flavour = () => "subsonic";
 
-  bearerToken = (_: Credentials) => TE.right(undefined);
+  bearerToken = (_: Credentials): TE.TaskEither<Error, string | undefined> => TE.right(undefined);
 
-  artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
+  artists = async (
+    q: ArtistQuery
+  ): Promise<Result<ArtistSummary & Sortable>> =>
     this.getArtists()
       .then(slice2(q))
       .then(([page, total]) => ({
@@ -725,4 +722,67 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       results: albums.slice(0, q._count),
       total: albums.length == 500 ? total : (q._index || 0) + albums.length,
     }));
+};
+
+export class NaivdromeMusicLibrary extends SubsonicGenericMusicLibrary {
+
+  constructor(subsonic: Subsonic, credentials: SubsonicCredentials) {
+    super(subsonic, credentials);
+  }
+
+  flavour = () => "navidrome";
+
+  bearerToken = (credentials: Credentials): TE.TaskEither<Error, string | undefined> =>
+    pipe(
+      TE.tryCatch(
+        () =>
+          axios.post(
+            `${this.subsonic.url}/auth/login`,
+            _.pick(credentials, "username", "password")
+          ),
+        () => new AuthFailure("Failed to get bearerToken")
+      ),
+      TE.map((it) => it.data.token as string | undefined)
+    );
+
+  artists = async (
+    q: ArtistQuery
+  ): Promise<Result<ArtistSummary & Sortable>> => {
+    let params: any = {
+      _sort: "name",
+      _order: "ASC",
+      _start: q._index || "0",
+    };
+    if (q._count) {
+      params = {
+        ...params,
+        _end: (q._index || 0) + q._count,
+      };
+    }
+
+    const x: Promise<Result<ArtistSummary & Sortable>> =  axios
+      .get(`${this.subsonic.url}/api/artist`, {
+        params: asURLSearchParams(params),
+        headers: {
+          "User-Agent": USER_AGENT,
+          "x-nd-authorization": `Bearer ${this.credentials.bearer}`,
+        },
+      })
+      .catch((e) => {
+        throw `Navidrome failed with: ${e}`;
+      })
+      .then((response) => {
+        if (response.status != 200 && response.status != 206) {
+          throw `Navidrome failed with a ${
+            response.status || "no!"
+          } status`;
+        } else return response;
+      })
+      .then((it) => ({
+        results: (it.data as NDArtist[]).map(artistSummaryFromNDArtist),
+        total: Number.parseInt(it.headers["x-total-count"] || "0"),
+      }));
+
+      return x;
+    }
 }

@@ -4,8 +4,6 @@ import { Md5 } from "ts-md5/dist/md5";
 import {
   Credentials,
   MusicService,
-  Result,
-  ArtistQuery,
   MusicLibrary,
   Track,
   AuthFailure,
@@ -19,8 +17,7 @@ import randomstring from "randomstring";
 import { b64Encode, b64Decode } from "./b64";
 import { axiosImageFetcher, ImageFetcher } from "./images";
 import { asURLSearchParams } from "./utils";
-import { artistImageURN, SubsonicGenericMusicLibrary } from "./subsonic/generic";
-
+import { artistImageURN, NaivdromeMusicLibrary, SubsonicGenericMusicLibrary } from "./subsonic/generic";
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -96,6 +93,7 @@ export type SubsonicCredentials = Credentials & {
 
 export const asToken = (credentials: SubsonicCredentials) =>
   b64Encode(JSON.stringify(credentials));
+  
 export const parseToken = (token: string): SubsonicCredentials =>
   JSON.parse(b64Decode(token));
 
@@ -216,66 +214,10 @@ export class Subsonic implements MusicService {
   private libraryFor = (
     credentials: SubsonicCredentials
   ): Promise<SubsonicMusicLibrary> => {
-    const genericSubsonic: SubsonicMusicLibrary =
-      new SubsonicGenericMusicLibrary(this, credentials);
-
     if (credentials.type == "navidrome") {
-      return Promise.resolve({
-        ...genericSubsonic,
-        flavour: () => "navidrome",
-        bearerToken: (credentials: Credentials) =>
-          pipe(
-            TE.tryCatch(
-              () =>
-                axios.post(
-                  `${this.url}/auth/login`,
-                  _.pick(credentials, "username", "password")
-                ),
-              () => new AuthFailure("Failed to get bearerToken")
-            ),
-            TE.map((it) => it.data.token as string | undefined)
-          ),
-        artists: async (
-          q: ArtistQuery
-        ): Promise<Result<ArtistSummary & Sortable>> => {
-          let params: any = {
-            _sort: "name",
-            _order: "ASC",
-            _start: q._index || "0",
-          };
-          if (q._count) {
-            params = {
-              ...params,
-              _end: (q._index || 0) + q._count,
-            };
-          }
-
-          return axios
-            .get(`${this.url}/api/artist`, {
-              params: asURLSearchParams(params),
-              headers: {
-                "User-Agent": USER_AGENT,
-                "x-nd-authorization": `Bearer ${credentials.bearer}`,
-              },
-            })
-            .catch((e) => {
-              throw `Navidrome failed with: ${e}`;
-            })
-            .then((response) => {
-              if (response.status != 200 && response.status != 206) {
-                throw `Navidrome failed with a ${
-                  response.status || "no!"
-                } status`;
-              } else return response;
-            })
-            .then((it) => ({
-              results: (it.data as NDArtist[]).map(artistSummaryFromNDArtist),
-              total: Number.parseInt(it.headers["x-total-count"] || "0"),
-            }));
-        },
-      });
+      return Promise.resolve(new NaivdromeMusicLibrary(this, credentials));
     } else {
-      return Promise.resolve(genericSubsonic);
+      return Promise.resolve(new SubsonicGenericMusicLibrary(this, credentials));
     }
   };
 }

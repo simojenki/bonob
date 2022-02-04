@@ -15,7 +15,13 @@ export class AuthFailure extends Error {
   }
 };
 
+export type IdName = {
+  id: string;
+  name: string;
+};
+
 export type ArtistSummary = {
+  // todo: why can this be undefined?
   id: string | undefined;
   name: string;
   image: BUrn | undefined;
