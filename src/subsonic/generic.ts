@@ -10,9 +10,10 @@ import { b64Decode, b64Encode } from "../b64";
 import { assertSystem, BUrn } from "../burn";
 
 import { Album, AlbumQuery, AlbumQueryType, AlbumSummary, Artist, ArtistQuery, ArtistSummary, AuthFailure, Credentials, Genre, IdName, Rating, Result, slice2, Sortable, Track } from "../music_service";
-import Subsonic, { artistSummaryFromNDArtist, DODGY_IMAGE_NAME, NDArtist, SubsonicCredentials, SubsonicMusicLibrary, SubsonicResponse, USER_AGENT } from "../subsonic";
+import Subsonic, { DODGY_IMAGE_NAME, SubsonicCredentials, SubsonicMusicLibrary, SubsonicResponse, USER_AGENT } from "../subsonic";
 import axios from "axios";
 import { asURLSearchParams } from "../utils";
+import { artistSummaryFromNDArtist, NDArtist } from "./navidrome";
 
 
 type album = {

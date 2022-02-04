@@ -7,12 +7,10 @@ import { taskEither as TE, task as T, either as E } from "fp-ts";
 import {
   Subsonic,
   t,
-  DODGY_IMAGE_NAME,
   appendMimeTypeToClientFor,
   PingResponse,
   parseToken,
   asToken,
-  artistSummaryFromNDArtist,
   SubsonicCredentials,
 } from "../src/subsonic";
 
@@ -30,7 +28,6 @@ import {
   aTrack,
 } from "./builders";
 import { asURLSearchParams } from "../src/utils";
-import { artistImageURN } from "../src/subsonic/generic";
 
 describe("t", () => {
   it("should be an md5 of the password and the salt", () => {
@@ -130,78 +127,6 @@ const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
 })
 
 const PING_OK = pingJson({ status: "ok" });
-
-describe("artistSummaryFromNDArtist", () => {
-  describe("when the orderArtistName is undefined", () => {
-    it("should use name", () => {
-      const artist = {
-        id: uuid(),
-        name: `name ${uuid()}`,
-        orderArtistName: undefined,
-        largeImageUrl: 'http://example.com/something.jpg'
-      }
-      expect(artistSummaryFromNDArtist(artist)).toEqual({
-        id: artist.id,
-        name: artist.name,
-        sortName: artist.name,
-        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
-      })
-    });
-  });
-
-  describe("when the artist image is valid", () => {
-    it("should create an ArtistSummary with Sortable", () => {
-      const artist = {
-        id: uuid(),
-        name: `name ${uuid()}`,
-        orderArtistName: `orderArtistName ${uuid()}`,
-        largeImageUrl: 'http://example.com/something.jpg'
-      }
-      expect(artistSummaryFromNDArtist(artist)).toEqual({
-        id: artist.id,
-        name: artist.name,
-        sortName: artist.orderArtistName,
-        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
-      })
-    });
-  });
-
-  describe("when the artist image is not valid", () => {
-    it("should create an ArtistSummary with Sortable", () => {
-      const artist = {
-        id: uuid(),
-        name: `name ${uuid()}`,
-        orderArtistName: `orderArtistName ${uuid()}`,
-        largeImageUrl: `http://example.com/${DODGY_IMAGE_NAME}`
-      }
-
-      expect(artistSummaryFromNDArtist(artist)).toEqual({
-        id: artist.id,
-        name: artist.name,
-        sortName: artist.orderArtistName,
-        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
-      });
-    });
-  });
-
-  describe("when the artist image is missing", () => {
-    it("should create an ArtistSummary with Sortable", () => {
-      const artist = {
-        id: uuid(),
-        name: `name ${uuid()}`,
-        orderArtistName: `orderArtistName ${uuid()}`,
-        largeImageUrl: undefined
-      }
-
-      expect(artistSummaryFromNDArtist(artist)).toEqual({
-        id: artist.id,
-        name: artist.name,
-        sortName: artist.orderArtistName,
-        image: artistImageURN({ artistId: artist.id, artistImageURL: artist.largeImageUrl })
-      });
-    });
-  });
-});
 
 describe("Subsonic", () => {
   const url = "http://127.0.0.22:4567";

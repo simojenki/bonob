@@ -1,23 +1,21 @@
 import { taskEither as TE } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 import { Md5 } from "ts-md5/dist/md5";
+import axios, { AxiosRequestConfig } from "axios";
+import randomstring from "randomstring";
+import _ from "underscore";
+
 import {
   Credentials,
   MusicService,
   MusicLibrary,
   Track,
   AuthFailure,
-  Sortable,
-  ArtistSummary,
-} from "./music_service";
-import _ from "underscore";
-
-import axios, { AxiosRequestConfig } from "axios";
-import randomstring from "randomstring";
-import { b64Encode, b64Decode } from "./b64";
-import { axiosImageFetcher, ImageFetcher } from "./images";
-import { asURLSearchParams } from "./utils";
-import { artistImageURN, NaivdromeMusicLibrary, SubsonicGenericMusicLibrary } from "./subsonic/generic";
+} from "../music_service";
+import { b64Encode, b64Decode } from "../b64";
+import { axiosImageFetcher, ImageFetcher } from "../images";
+import { asURLSearchParams } from "../utils";
+import { NaivdromeMusicLibrary, SubsonicGenericMusicLibrary } from "./generic";
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -63,12 +61,6 @@ export function isError(
   return (subsonicResponse as SubsonicError).error !== undefined;
 }
 
-export type NDArtist = {
-  id: string;
-  name: string;
-  orderArtistName: string | undefined;
-  largeImageUrl: string | undefined;
-};
 
 
 
@@ -103,18 +95,6 @@ export interface SubsonicMusicLibrary extends MusicLibrary {
     credentials: Credentials
   ): TE.TaskEither<Error, string | undefined>;
 }
-
-export const artistSummaryFromNDArtist = (
-  artist: NDArtist
-): ArtistSummary & Sortable => ({
-  id: artist.id,
-  name: artist.name,
-  sortName: artist.orderArtistName || artist.name,
-  image: artistImageURN({
-    artistId: artist.id,
-    artistImageURL: artist.largeImageUrl,
-  }),
-});
 
 export class Subsonic implements MusicService {
   url: string;
