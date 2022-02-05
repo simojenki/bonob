@@ -374,7 +374,7 @@ export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
       responseType: "arraybuffer",
     })
     .then((res) => ({
-      contentType: res.headers["content-type"],
+      contentType: res.headers["content-type"]!,
       data: Buffer.from(res.data, "binary"),
     }))
     .catch(() => undefined);
@@ -791,10 +791,10 @@ export class Subsonic implements MusicService {
             .then((res) => ({
               status: res.status,
               headers: {
-                "content-type": res.headers["content-type"],
-                "content-length": res.headers["content-length"],
-                "content-range": res.headers["content-range"],
-                "accept-ranges": res.headers["accept-ranges"],
+                "content-type": res.headers["content-type"]!,
+                "content-length": res.headers["content-length"]!,
+                "content-range": res.headers["content-range"]!,
+                "accept-ranges": res.headers["accept-ranges"]!,
               },
               stream: res.data,
             }))
@@ -805,7 +805,7 @@ export class Subsonic implements MusicService {
           .then((it) => it.resource.split(":")[1]!)
           .then((it) => subsonic.getCoverArt(credentials, it, size))
           .then((res) => ({
-            contentType: res.headers["content-type"],
+            contentType: res.headers["content-type"]!,
             data: Buffer.from(res.data, "binary"),
           }))
           .catch((e) => {
