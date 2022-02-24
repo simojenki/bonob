@@ -209,10 +209,10 @@ In this case you could set;
 BNB_SUBSONIC_CUSTOM_CLIENTS="audio/flac"
 ```
 
-This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie [Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz);
+This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie [Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz) or [this](https://stackoverflow.com/questions/52119489/ffmpeg-limit-audio-sample-rate);
 
 ```bash
-ffmpeg -i %s -af aresample=resampler=soxr:out_sample_fmt=s16:out_sample_rate=48000 -f flac -
+ffmpeg -i %s -af aformat=sample_fmts=s16:sample_rates=44100|48000 -f flac -
 ```
 
 ### Changing Icon colors
