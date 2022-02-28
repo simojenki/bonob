@@ -27,8 +27,8 @@ services:
       BNB_URL: http://192.168.1.111:4534  
       BNB_SECRET: changeme
       BNB_SONOS_SERVICE_ID: 246 
-      BNB_SONOS_AUTO_REGISTER: "true"
-      BNB_SONOS_DEVICE_DISCOVERY: "true"
+      BNB_SONOS_AUTO_REGISTER: true
+      BNB_SONOS_DEVICE_DISCOVERY: true
       # ip address of one of your sonos devices
       BNB_SONOS_SEED_HOST: 192.168.1.121
       BNB_SUBSONIC_URL: http://navidrome:4533

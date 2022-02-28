@@ -96,42 +96,35 @@ describe("config", () => {
     propertyGetter: (config: any) => any
   ) {
     describe(name, () => {
-      function expecting({
-        value,
-        expected,
-      }: {
-        value: string;
-        expected: boolean;
-      }) {
-        describe(`when value is '${value}'`, () => {
-          it(`should be ${expected}`, () => {
-            process.env[envVar] = value;
-            expect(propertyGetter(config())).toEqual(expected);
-          });
-        });
-      }
-
-      expecting({ value: "", expected: expectedDefault });
-      expecting({ value: "true", expected: true });
-      expecting({ value: "false", expected: false });
-      expecting({ value: "foo", expected: false });
+      it.each([
+        [expectedDefault, ""],
+        [expectedDefault, undefined],
+        [true, "true"],
+        [false, "false"],
+        [false, "foo"],
+      ])("should be %s when env var is '%s'", (expected, value) => {
+        process.env[envVar] = value;
+        expect(propertyGetter(config())).toEqual(expected);
+      })
     });
   }
 
   describe("bonobUrl", () => {
-    ["BNB_URL", "BONOB_URL", "BONOB_WEB_ADDRESS"].forEach((key) => {
-      describe(`when ${key} is specified`, () => {
+      describe.each([
+        "BNB_URL", 
+        "BONOB_URL", 
+        "BONOB_WEB_ADDRESS"
+      ])("when %s is specified", (k) => {
         it("should be used", () => {
           const url = "http://bonob1.example.com:8877/";
 
           process.env["BNB_URL"] = "";
           process.env["BONOB_URL"] = "";
           process.env["BONOB_WEB_ADDRESS"] = "";
-          process.env[key] = url;
+          process.env[k] = url;
 
           expect(config().bonobUrl.href()).toEqual(url);
         });
-      });
     });
 
     describe("when none of BNB_URL, BONOB_URL, BONOB_WEB_ADDRESS are specified", () => {
@@ -165,87 +158,89 @@ describe("config", () => {
 
   describe("icons", () => {
     describe("foregroundColor", () => {
-      ["BNB_ICON_FOREGROUND_COLOR", "BONOB_ICON_FOREGROUND_COLOR"].forEach(
-        (k) => {
-          describe(`when ${k} is not specified`, () => {
-            it(`should default to undefined`, () => {
-              expect(config().icons.foregroundColor).toEqual(undefined);
-            });
+      describe.each([
+        "BNB_ICON_FOREGROUND_COLOR",
+        "BONOB_ICON_FOREGROUND_COLOR",
+      ])("%s", (k) => {
+        describe(`when ${k} is not specified`, () => {
+          it(`should default to undefined`, () => {
+            expect(config().icons.foregroundColor).toEqual(undefined);
           });
+        });
 
-          describe(`when ${k} is ''`, () => {
-            it(`should default to undefined`, () => {
-              process.env[k] = "";
-              expect(config().icons.foregroundColor).toEqual(undefined);
-            });
+        describe(`when ${k} is ''`, () => {
+          it(`should default to undefined`, () => {
+            process.env[k] = "";
+            expect(config().icons.foregroundColor).toEqual(undefined);
           });
+        });
 
-          describe(`when ${k} is specified as a color`, () => {
-            it(`should use it`, () => {
-              process.env[k] = "pink";
-              expect(config().icons.foregroundColor).toEqual("pink");
-            });
+        describe(`when ${k} is specified as a color`, () => {
+          it(`should use it`, () => {
+            process.env[k] = "pink";
+            expect(config().icons.foregroundColor).toEqual("pink");
           });
+        });
 
-          describe(`when ${k} is specified as hex`, () => {
-            it(`should use it`, () => {
-              process.env[k] = "#1db954";
-              expect(config().icons.foregroundColor).toEqual("#1db954");
-            });
+        describe(`when ${k} is specified as hex`, () => {
+          it(`should use it`, () => {
+            process.env[k] = "#1db954";
+            expect(config().icons.foregroundColor).toEqual("#1db954");
           });
+        });
 
-          describe(`when ${k} is an invalid string`, () => {
-            it(`should blow up`, () => {
-              process.env[k] = "!dfasd";
-              expect(() => config()).toThrow(
-                `Invalid value specified for 'BNB_ICON_FOREGROUND_COLOR', must match ${COLOR}`
-              );
-            });
+        describe(`when ${k} is an invalid string`, () => {
+          it(`should blow up`, () => {
+            process.env[k] = "!dfasd";
+            expect(() => config()).toThrow(
+              `Invalid value specified for 'BNB_ICON_FOREGROUND_COLOR', must match ${COLOR}`
+            );
           });
-        }
-      );
+        });
+      });
     });
 
     describe("backgroundColor", () => {
-      ["BNB_ICON_BACKGROUND_COLOR", "BONOB_ICON_BACKGROUND_COLOR"].forEach(
-        (k) => {
-          describe(`when ${k} is not specified`, () => {
-            it(`should default to undefined`, () => {
-              expect(config().icons.backgroundColor).toEqual(undefined);
-            });
+      describe.each([
+        "BNB_ICON_BACKGROUND_COLOR",
+        "BONOB_ICON_BACKGROUND_COLOR",
+      ])("%s", (k) => {
+        describe(`when ${k} is not specified`, () => {
+          it(`should default to undefined`, () => {
+            expect(config().icons.backgroundColor).toEqual(undefined);
           });
+        });
 
-          describe(`when ${k} is ''`, () => {
-            it(`should default to undefined`, () => {
-              process.env[k] = "";
-              expect(config().icons.backgroundColor).toEqual(undefined);
-            });
+        describe(`when ${k} is ''`, () => {
+          it(`should default to undefined`, () => {
+            process.env[k] = "";
+            expect(config().icons.backgroundColor).toEqual(undefined);
           });
+        });
 
-          describe(`when ${k} is specified as a color`, () => {
-            it(`should use it`, () => {
-              process.env[k] = "blue";
-              expect(config().icons.backgroundColor).toEqual("blue");
-            });
+        describe(`when ${k} is specified as a color`, () => {
+          it(`should use it`, () => {
+            process.env[k] = "blue";
+            expect(config().icons.backgroundColor).toEqual("blue");
           });
+        });
 
-          describe(`when ${k} is specified as hex`, () => {
-            it(`should use it`, () => {
-              process.env[k] = "#1db954";
-              expect(config().icons.backgroundColor).toEqual("#1db954");
-            });
+        describe(`when ${k} is specified as hex`, () => {
+          it(`should use it`, () => {
+            process.env[k] = "#1db954";
+            expect(config().icons.backgroundColor).toEqual("#1db954");
           });
+        });
 
-          describe(`when ${k} is an invalid string`, () => {
-            it(`should blow up`, () => {
-              process.env[k] = "!red";
-              expect(() => config()).toThrow(
-                `Invalid value specified for 'BNB_ICON_BACKGROUND_COLOR', must match ${COLOR}`
-              );
-            });
+        describe(`when ${k} is an invalid string`, () => {
+          it(`should blow up`, () => {
+            process.env[k] = "!red";
+            expect(() => config()).toThrow(
+              `Invalid value specified for 'BNB_ICON_BACKGROUND_COLOR', must match ${COLOR}`
+            );
           });
-        }
-      );
+        });
+      });
     });
   });
 
@@ -254,9 +249,12 @@ describe("config", () => {
       expect(config().secret).toEqual("bonob");
     });
 
-    ["BNB_SECRET", "BONOB_SECRET"].forEach((key) => {
-      it(`should be overridable using ${key}`, () => {
-        process.env[key] = "new secret";
+    describe.each([
+      "BNB_SECRET", 
+      "BONOB_SECRET"
+    ])("%s", (k) => {
+      it(`should be overridable using ${k}`, () => {
+        process.env[k] = "new secret";
         expect(config().secret).toEqual("new secret");
       });
     });
@@ -271,7 +269,7 @@ describe("config", () => {
       process.env["BNB_AUTH_TIMEOUT"] = "33s";
       expect(config().authTimeout).toEqual("33s");
     });
-});
+  });
 
   describe("sonos", () => {
     describe("serviceName", () => {
@@ -279,91 +277,114 @@ describe("config", () => {
         expect(config().sonos.serviceName).toEqual("bonob");
       });
 
-      ["BNB_SONOS_SERVICE_NAME", "BONOB_SONOS_SERVICE_NAME"].forEach((k) => {
-        it("should be overridable", () => {
-          process.env[k] = "foobar1000";
-          expect(config().sonos.serviceName).toEqual("foobar1000");
-        });
-      });
+      describe.each([
+        "BNB_SONOS_SERVICE_NAME", 
+        "BONOB_SONOS_SERVICE_NAME"
+      ])(
+        "%s",
+        (k) => {
+          it("should be overridable", () => {
+            process.env[k] = "foobar1000";
+            expect(config().sonos.serviceName).toEqual("foobar1000");
+          });
+        }
+      );
     });
 
-    ["BNB_SONOS_DEVICE_DISCOVERY", "BONOB_SONOS_DEVICE_DISCOVERY"].forEach(
-      (k) => {
-        describeBooleanConfigValue(
-          "deviceDiscovery",
-          k,
-          true,
-          (config) => config.sonos.discovery.enabled
-        );
-      }
-    );
+    describe.each([
+      "BNB_SONOS_DEVICE_DISCOVERY",
+      "BONOB_SONOS_DEVICE_DISCOVERY",
+    ])("%s", (k) => {
+      describeBooleanConfigValue(
+        "deviceDiscovery",
+        k,
+        true,
+        (config) => config.sonos.discovery.enabled
+      );
+    });
 
     describe("seedHost", () => {
       it("should default to undefined", () => {
         expect(config().sonos.discovery.seedHost).toBeUndefined();
       });
 
-      ["BNB_SONOS_SEED_HOST", "BONOB_SONOS_SEED_HOST"].forEach((k) => {
-        it("should be overridable", () => {
-          process.env[k] = "123.456.789.0";
-          expect(config().sonos.discovery.seedHost).toEqual("123.456.789.0");
-        });
-      });
-    });
-
-    ["BNB_SONOS_AUTO_REGISTER", "BONOB_SONOS_AUTO_REGISTER"].forEach((k) => {
-      describeBooleanConfigValue(
-        "autoRegister",
-        k,
-        false,
-        (config) => config.sonos.autoRegister
+      describe.each([
+        "BNB_SONOS_SEED_HOST", 
+        "BONOB_SONOS_SEED_HOST"
+      ])(
+        "%s",
+        (k) => {
+          it("should be overridable", () => {
+            process.env[k] = "123.456.789.0";
+            expect(config().sonos.discovery.seedHost).toEqual("123.456.789.0");
+          });
+        }
       );
     });
+
+    describe.each([
+      "BNB_SONOS_AUTO_REGISTER", 
+      "BONOB_SONOS_AUTO_REGISTER"
+    ])(
+      "%s",
+      (k) => {
+        describeBooleanConfigValue(
+          "autoRegister",
+          k,
+          false,
+          (config) => config.sonos.autoRegister
+        );
+      }
+    );
 
     describe("sid", () => {
       it("should default to 246", () => {
         expect(config().sonos.sid).toEqual(246);
       });
 
-      ["BNB_SONOS_SERVICE_ID", "BONOB_SONOS_SERVICE_ID"].forEach((k) => {
-        it("should be overridable", () => {
-          process.env[k] = "786";
-          expect(config().sonos.sid).toEqual(786);
-        });
-      });
+      describe.each([
+        "BNB_SONOS_SERVICE_ID", 
+        "BONOB_SONOS_SERVICE_ID"
+      ])(
+        "%s",
+        (k) => {
+          it("should be overridable", () => {
+            process.env[k] = "786";
+            expect(config().sonos.sid).toEqual(786);
+          });
+        }
+      );
     });
   });
 
   describe("subsonic", () => {
     describe("url", () => {
-      ["BNB_SUBSONIC_URL", "BONOB_SUBSONIC_URL", "BONOB_NAVIDROME_URL"].forEach(
-        (k) => {
-          describe(`when ${k} is not specified`, () => {
-            it(`should default to http://${hostname()}:4533`, () => {
-              expect(config().subsonic.url).toEqual(
-                `http://${hostname()}:4533`
-              );
-            });
+      describe.each([
+        "BNB_SUBSONIC_URL",
+        "BONOB_SUBSONIC_URL",
+        "BONOB_NAVIDROME_URL",
+      ])("%s", (k) => {
+        describe(`when ${k} is not specified`, () => {
+          it(`should default to http://${hostname()}:4533`, () => {
+            expect(config().subsonic.url).toEqual(`http://${hostname()}:4533`);
           });
+        });
 
-          describe(`when ${k} is ''`, () => {
-            it(`should default to http://${hostname()}:4533`, () => {
-              process.env[k] = "";
-              expect(config().subsonic.url).toEqual(
-                `http://${hostname()}:4533`
-              );
-            });
+        describe(`when ${k} is ''`, () => {
+          it(`should default to http://${hostname()}:4533`, () => {
+            process.env[k] = "";
+            expect(config().subsonic.url).toEqual(`http://${hostname()}:4533`);
           });
+        });
 
-          describe(`when ${k} is specified`, () => {
-            it(`should use it for ${k}`, () => {
-              const url = "http://navidrome.example.com:1234";
-              process.env[k] = url;
-              expect(config().subsonic.url).toEqual(url);
-            });
+        describe(`when ${k} is specified`, () => {
+          it(`should use it for ${k}`, () => {
+            const url = "http://navidrome.example.com:1234";
+            process.env[k] = url;
+            expect(config().subsonic.url).toEqual(url);
           });
-        }
-      );
+        });
+      });
     });
 
     describe("customClientsFor", () => {
@@ -371,11 +392,11 @@ describe("config", () => {
         expect(config().subsonic.customClientsFor).toBeUndefined();
       });
 
-      [
+      describe.each([
         "BNB_SUBSONIC_CUSTOM_CLIENTS",
         "BONOB_SUBSONIC_CUSTOM_CLIENTS",
         "BONOB_NAVIDROME_CUSTOM_CLIENTS",
-      ].forEach((k) => {
+      ])("%s", (k) => {
         it(`should be overridable for ${k}`, () => {
           process.env[k] = "whoop/whoop";
           expect(config().subsonic.customClientsFor).toEqual("whoop/whoop");
@@ -395,7 +416,10 @@ describe("config", () => {
     });
   });
 
-  ["BNB_SCROBBLE_TRACKS", "BONOB_SCROBBLE_TRACKS"].forEach((k) => {
+  describe.each([
+    "BNB_SCROBBLE_TRACKS", 
+    "BONOB_SCROBBLE_TRACKS"
+  ])("%s", (k) => {
     describeBooleanConfigValue(
       "scrobbleTracks",
       k,
@@ -404,12 +428,18 @@ describe("config", () => {
     );
   });
 
-  ["BNB_REPORT_NOW_PLAYING", "BONOB_REPORT_NOW_PLAYING"].forEach((k) => {
-    describeBooleanConfigValue(
-      "reportNowPlaying",
-      k,
-      true,
-      (config) => config.reportNowPlaying
-    );
-  });
+  describe.each([
+    "BNB_REPORT_NOW_PLAYING", 
+    "BONOB_REPORT_NOW_PLAYING"
+  ])(
+    "%s",
+    (k) => {
+      describeBooleanConfigValue(
+        "reportNowPlaying",
+        k,
+        true,
+        (config) => config.reportNowPlaying
+      );
+    }
+  );
 });
