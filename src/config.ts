@@ -5,20 +5,22 @@ import url from "./url_builder";
 export const WORD = /^\w+$/;
 export const COLOR = /^#?\w+$/;
 
-type EnvVarOpts = {
-  default: string | undefined;
+type EnvVarOpts<T> = {
+  default: T | undefined;
   legacy: string[] | undefined;
   validationPattern: RegExp | undefined;
+  parser: ((value: string) => T) | undefined
 };
 
-export function envVar(
+export function envVar<T>(
   name: string,
-  opts: Partial<EnvVarOpts> = {
+  opts: Partial<EnvVarOpts<T>> = {
     default: undefined,
     legacy: undefined,
     validationPattern: undefined,
+    parser: undefined
   }
-) {
+): T {
   const result = [name, ...(opts.legacy || [])]
     .map((it) => ({ key: it, value: process.env[it] }))
     .find((it) => it.value);
@@ -36,17 +38,28 @@ export function envVar(
     logger.warn(`Configuration key '${result.key}' is deprecated, replace with '${name}'`)
   }
 
-  return result?.value || opts.default;
+  let value: T | undefined = undefined;
+
+  if(result?.value && opts.parser) {
+    value = opts.parser(result?.value)
+  } else if(result?.value)
+    value = result?.value as any as T
+
+  return value == undefined ? opts.default as T : value;
 }
 
-export const bnbEnvVar = (key: string, opts: Partial<EnvVarOpts> = {}) =>
+export const bnbEnvVar = <T>(key: string, opts: Partial<EnvVarOpts<T>> = {}) =>
   envVar(`BNB_${key}`, {
     ...opts,
     legacy: [`BONOB_${key}`, ...(opts.legacy || [])],
   });
 
+const asBoolean = (value: string) => value == "true";
+
+const asInt = (value: string) => Number.parseInt(value);
+
 export default function () {
-  const port = +bnbEnvVar("PORT", { default: "4534" })!;
+  const port = bnbEnvVar<number>("PORT", { default: 4534, parser: asInt })!;
   const bonobUrl = bnbEnvVar("URL", {
     legacy: ["BONOB_WEB_ADDRESS"],
     default: `http://${hostname()}:${port}`,
@@ -62,34 +75,34 @@ export default function () {
   return {
     port,
     bonobUrl: url(bonobUrl),
-    secret: bnbEnvVar("SECRET", { default: "bonob" })!,
-    authTimeout: bnbEnvVar("AUTH_TIMEOUT", { default: "1h" })!,
+    secret: bnbEnvVar<string>("SECRET", { default: "bonob" })!,
+    authTimeout: bnbEnvVar<string>("AUTH_TIMEOUT", { default: "1h" })!,
     icons: {
-      foregroundColor: bnbEnvVar("ICON_FOREGROUND_COLOR", {
+      foregroundColor: bnbEnvVar<string>("ICON_FOREGROUND_COLOR", {
         validationPattern: COLOR,
       }),
-      backgroundColor: bnbEnvVar("ICON_BACKGROUND_COLOR", {
+      backgroundColor: bnbEnvVar<string>("ICON_BACKGROUND_COLOR", {
         validationPattern: COLOR,
       }),
     },
     sonos: {
-      serviceName: bnbEnvVar("SONOS_SERVICE_NAME", { default: "bonob" })!,
+      serviceName: bnbEnvVar<string>("SONOS_SERVICE_NAME", { default: "bonob" })!,
       discovery: {
         enabled:
-          bnbEnvVar("SONOS_DEVICE_DISCOVERY", { default: "true" }) == "true",
-        seedHost: bnbEnvVar("SONOS_SEED_HOST"),
+          bnbEnvVar<boolean>("SONOS_DEVICE_DISCOVERY", { default: true, parser: asBoolean }),
+        seedHost: bnbEnvVar<string>("SONOS_SEED_HOST"),
       },
       autoRegister:
-        bnbEnvVar("SONOS_AUTO_REGISTER", { default: "false" }) == "true",
-      sid: Number(bnbEnvVar("SONOS_SERVICE_ID", { default: "246" })),
+        bnbEnvVar<boolean>("SONOS_AUTO_REGISTER", { default: false, parser: asBoolean }),
+      sid: bnbEnvVar<number>("SONOS_SERVICE_ID", { default: 246, parser: asInt }),
     },
     subsonic: {
       url: bnbEnvVar("SUBSONIC_URL", { legacy: ["BONOB_NAVIDROME_URL"], default: `http://${hostname()}:4533` })!,
-      customClientsFor: bnbEnvVar("SUBSONIC_CUSTOM_CLIENTS", { legacy: ["BONOB_NAVIDROME_CUSTOM_CLIENTS"] }),
-      artistImageCache: bnbEnvVar("SUBSONIC_ARTIST_IMAGE_CACHE"),
+      customClientsFor: bnbEnvVar<string>("SUBSONIC_CUSTOM_CLIENTS", { legacy: ["BONOB_NAVIDROME_CUSTOM_CLIENTS"] }),
+      artistImageCache: bnbEnvVar<string>("SUBSONIC_ARTIST_IMAGE_CACHE"),
     },
-    scrobbleTracks: bnbEnvVar("SCROBBLE_TRACKS", { default: "true" }) == "true",
+    scrobbleTracks: bnbEnvVar<boolean>("SCROBBLE_TRACKS", { default: true, parser: asBoolean }),
     reportNowPlaying:
-      bnbEnvVar("REPORT_NOW_PLAYING", { default: "true" }) == "true",
+      bnbEnvVar<boolean>("REPORT_NOW_PLAYING", { default: true, parser: asBoolean }),
   };
 }
