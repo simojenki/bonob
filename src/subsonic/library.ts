@@ -10,7 +10,7 @@ import { b64Decode, b64Encode } from "../b64";
 import { assertSystem, BUrn } from "../burn";
 
 import { Album, AlbumQuery, AlbumQueryType, AlbumSummary, Artist, ArtistQuery, ArtistSummary, AuthFailure, Credentials, Genre, IdName, Rating, Result, slice2, Sortable, Track } from "../music_service";
-import Subsonic, { DODGY_IMAGE_NAME, SubsonicCredentials, SubsonicMusicLibrary, SubsonicResponse, USER_AGENT } from "../subsonic";
+import Subsonic, { DODGY_IMAGE_NAME, SubsonicCredentials, SubsonicMusicLibrary, SubsonicResponse, USER_AGENT } from ".";
 import axios from "axios";
 import { asURLSearchParams } from "../utils";
 import { artistSummaryFromNDArtist, NDArtist } from "./navidrome";
@@ -725,65 +725,59 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     }));
 };
 
-export class NaivdromeMusicLibrary extends SubsonicGenericMusicLibrary {
-
-  constructor(subsonic: Subsonic, credentials: SubsonicCredentials) {
-    super(subsonic, credentials);
-  }
-
-  flavour = () => "navidrome";
-
-  bearerToken = (credentials: Credentials): TE.TaskEither<Error, string | undefined> =>
+export const navidromeMusicLibrary = (url: string, subsonicLibrary: SubsonicMusicLibrary, subsonicCredentials: SubsonicCredentials): SubsonicMusicLibrary => ({
+  ...subsonicLibrary,
+  flavour: () => "navidrome",
+  bearerToken: (credentials: Credentials): TE.TaskEither<Error, string | undefined> =>
     pipe(
       TE.tryCatch(
         () =>
           axios.post(
-            `${this.subsonic.url}/auth/login`,
+            `${url}/auth/login`,
             _.pick(credentials, "username", "password")
           ),
         () => new AuthFailure("Failed to get bearerToken")
       ),
       TE.map((it) => it.data.token as string | undefined)
-    );
-
-  artists = async (
-    q: ArtistQuery
-  ): Promise<Result<ArtistSummary & Sortable>> => {
-    let params: any = {
-      _sort: "name",
-      _order: "ASC",
-      _start: q._index || "0",
-    };
-    if (q._count) {
-      params = {
-        ...params,
-        _end: (q._index || 0) + q._count,
+    ),
+    artists:  async (
+      q: ArtistQuery
+    ): Promise<Result<ArtistSummary & Sortable>> => {
+      let params: any = {
+        _sort: "name",
+        _order: "ASC",
+        _start: q._index || "0",
       };
-    }
-
-    const x: Promise<Result<ArtistSummary & Sortable>> =  axios
-      .get(`${this.subsonic.url}/api/artist`, {
-        params: asURLSearchParams(params),
-        headers: {
-          "User-Agent": USER_AGENT,
-          "x-nd-authorization": `Bearer ${this.credentials.bearer}`,
-        },
-      })
-      .catch((e) => {
-        throw `Navidrome failed with: ${e}`;
-      })
-      .then((response) => {
-        if (response.status != 200 && response.status != 206) {
-          throw `Navidrome failed with a ${
-            response.status || "no!"
-          } status`;
-        } else return response;
-      })
-      .then((it) => ({
-        results: (it.data as NDArtist[]).map(artistSummaryFromNDArtist),
-        total: Number.parseInt(it.headers["x-total-count"] || "0"),
-      }));
-
-      return x;
-    }
-}
+      if (q._count) {
+        params = {
+          ...params,
+          _end: (q._index || 0) + q._count,
+        };
+      }
+  
+      const x: Promise<Result<ArtistSummary & Sortable>> =  axios
+        .get(`${url}/api/artist`, {
+          params: asURLSearchParams(params),
+          headers: {
+            "User-Agent": USER_AGENT,
+            "x-nd-authorization": `Bearer ${subsonicCredentials.bearer}`,
+          },
+        })
+        .catch((e) => {
+          throw `Navidrome failed with: ${e}`;
+        })
+        .then((response) => {
+          if (response.status != 200 && response.status != 206) {
+            throw `Navidrome failed with a ${
+              response.status || "no!"
+            } status`;
+          } else return response;
+        })
+        .then((it) => ({
+          results: (it.data as NDArtist[]).map(artistSummaryFromNDArtist),
+          total: Number.parseInt(it.headers["x-total-count"] || "0"),
+        }));
+  
+        return x;
+      }
+})

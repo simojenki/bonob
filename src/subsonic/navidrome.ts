@@ -1,5 +1,5 @@
 import { ArtistSummary, Sortable } from "../music_service";
-import { artistImageURN } from "./generic";
+import { artistImageURN } from "./library";
 
 export type NDArtist = {
   id: string;

@@ -12,7 +12,7 @@ jest.mock("randomstring");
 import { aGenre, anAlbum, anArtist, aPlaylist, aPlaylistSummary, aSimilarArtist, aTrack, POP, ROCK } from "../builders";
 import { BUrn } from "../../src/burn";
 import { Album, AlbumQuery, AlbumSummary, albumToAlbumSummary, Artist, artistToArtistSummary, asArtistAlbumPairs, Playlist, PlaylistSummary, Rating, SimilarArtist, Track } from "../../src/music_service";
-import { artistImageURN, asGenre, asTrack, images, isValidImage, song, SubsonicGenericMusicLibrary } from "../../src/subsonic/generic";
+import { artistImageURN, asGenre, asTrack, images, isValidImage, song, SubsonicGenericMusicLibrary } from "../../src/subsonic/library";
 import { EMPTY, error, FAILURE, subsonicOK, ok } from "../subsonic.test";
 import Subsonic, { DODGY_IMAGE_NAME, t } from "../../src/subsonic";
 import { asURLSearchParams } from "../../src/utils";

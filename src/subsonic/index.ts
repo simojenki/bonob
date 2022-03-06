@@ -15,7 +15,7 @@ import {
 import { b64Encode, b64Decode } from "../b64";
 import { axiosImageFetcher, ImageFetcher } from "../images";
 import { asURLSearchParams } from "../utils";
-import { NaivdromeMusicLibrary, SubsonicGenericMusicLibrary } from "./generic";
+import { navidromeMusicLibrary, SubsonicGenericMusicLibrary } from "./library";
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -194,10 +194,11 @@ export class Subsonic implements MusicService {
   private libraryFor = (
     credentials: SubsonicCredentials
   ): Promise<SubsonicMusicLibrary> => {
+    const subsonicGenericLibrary = new SubsonicGenericMusicLibrary(this, credentials);
     if (credentials.type == "navidrome") {
-      return Promise.resolve(new NaivdromeMusicLibrary(this, credentials));
+      return Promise.resolve(navidromeMusicLibrary(this.url, subsonicGenericLibrary, credentials));
     } else {
-      return Promise.resolve(new SubsonicGenericMusicLibrary(this, credentials));
+      return Promise.resolve(subsonicGenericLibrary);
     }
   };
 }

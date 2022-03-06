@@ -31,6 +31,7 @@ const bonob = bonobService(
 
 const sonosSystem = sonos(config.sonos.discovery);
 
+// todo: just pass in the customClientsForStringArray into subsonic and make it sort it out.
 const streamUserAgent = config.subsonic.customClientsFor
   ? appendMimeTypeToClientFor(config.subsonic.customClientsFor.split(","))
   : DEFAULT;
