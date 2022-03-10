@@ -209,10 +209,16 @@ In this case you could set;
 BNB_SUBSONIC_CUSTOM_CLIENTS="audio/flac"
 ```
 
-This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie [Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz) or [this](https://stackoverflow.com/questions/52119489/ffmpeg-limit-audio-sample-rate);
+This would result in 2 players in Navidrome, one called 'bonob', the other called 'bonob+audio/flac'.  You could then configure a custom flac transcoder in Navidrome that re-samples the flacs to a sonos supported format, ie [Using something like this](https://stackoverflow.com/questions/41420391/ffmpeg-flac-24-bit-96khz-to-16-bit-48khz) or [this](https://stackoverflow.com/questions/52119489/ffmpeg-limit-audio-sample-rate):
 
 ```bash
-ffmpeg -i %s -af aformat=sample_fmts=s16:sample_rates=44100|48000 -f flac -
+ffmpeg -i %s -af aformat=sample_fmts=s16|s32:sample_rates=8000|11025|16000|22050|24000|32000|44100|48000 -f flac -
+```
+
+**Note for Sonos S1:** [24-bit depth is only supported by Sonos S2](https://support.sonos.com/s/article/79?language=en_US), so if your system is still on Sonos S1, transcoding should convert all FLACs to 16-bit:
+
+```bash
+ffmpeg -i %s -af aformat=sample_fmts=s16:sample_rates=8000|11025|16000|22050|24000|32000|44100|48000 -f flac -
 ```
 
 ### Changing Icon colors
