@@ -17,7 +17,7 @@ import {
 import { b64Encode, b64Decode } from "../b64";
 import { axiosImageFetcher, ImageFetcher } from "../images";
 import { navidromeMusicLibrary, SubsonicGenericMusicLibrary } from "./library";
-import { http, getJSON  as getJSON2 } from "./http";
+import { getJSON  as getJSON2 } from "./subsonic_http";
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -61,6 +61,7 @@ export function isError(
   return (subsonicResponse as SubsonicError).error !== undefined;
 }
 
+// todo: is this a good name?
 export type StreamClientApplication = (track: Track) => string;
 
 export const DEFAULT_CLIENT_APPLICATION = "bonob";
@@ -94,9 +95,12 @@ export interface SubsonicMusicLibrary extends MusicLibrary {
 
 export class Subsonic implements MusicService {
   url: string;
+
+  // todo: does this need to be in here now?
   streamClientApplication: StreamClientApplication;
   // todo: why is this in here?
   externalImageFetcher: ImageFetcher;
+
   base: Http;
 
   constructor(
@@ -113,9 +117,6 @@ export class Subsonic implements MusicService {
       headers: { "User-Agent": "bonob" },
     });
   }
-
-  // todo: delete
-  http = (credentials: Credentials) => http(this.url, credentials);
 
   authenticated = (credentials: Credentials, wrap: Http = this.base) =>
     http2(wrap, {
@@ -168,8 +169,7 @@ export class Subsonic implements MusicService {
     credentials: SubsonicCredentials
   ): Promise<SubsonicMusicLibrary> => {
     const subsonicGenericLibrary = new SubsonicGenericMusicLibrary(
-      this,
-      credentials,
+      this.streamClientApplication,
       this.authenticated(credentials, this.base)
     );
     if (credentials.type == "navidrome") {

@@ -44,7 +44,7 @@ import {
   SubsonicGenericMusicLibrary,
 } from "../../src/subsonic/library";
 import { EMPTY, error, FAILURE, subsonicOK, ok } from "../subsonic.test";
-import Subsonic, { DODGY_IMAGE_NAME, t } from "../../src/subsonic";
+import { DODGY_IMAGE_NAME, t } from "../../src/subsonic";
 import { b64Encode } from "../../src/b64";
 import { http as http2 } from "../../src/http";
 
@@ -490,7 +490,6 @@ describe("SubsonicGenericMusicLibrary", () => {
   const salt = "saltysalty";
 
   const streamClientApplication = jest.fn();
-  const subsonic = new Subsonic(url, streamClientApplication)
 
   const authParams = {
     u: username,
@@ -510,13 +509,7 @@ describe("SubsonicGenericMusicLibrary", () => {
   };
 
   const generic = new SubsonicGenericMusicLibrary(
-    subsonic,
-    {
-      username,
-      password,
-      type: 'subsonic',
-      bearer: undefined
-    },
+    streamClientApplication,
     // todo: all this stuff doesnt need to be defaulted in here.
     http2(mockAxios, {
       baseURL,

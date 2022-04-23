@@ -27,8 +27,9 @@ import {
   Sortable,
   Track,
 } from "../music_service";
-import Subsonic, {
+import {
   DODGY_IMAGE_NAME,
+  StreamClientApplication,
   SubsonicCredentials,
   SubsonicMusicLibrary,
   SubsonicResponse,
@@ -38,8 +39,8 @@ import axios from "axios";
 import { asURLSearchParams } from "../utils";
 import { artistSummaryFromNDArtist, NDArtist } from "./navidrome";
 //todo: rename http2 -> http
-import { Http, http as http2 } from "../http";
-import { getRaw2 } from "./http";
+import { Http, http as http2, RequestParams } from "../http";
+import { getRaw2, getJSON as getJSON2 } from "./subsonic_http";
 
 type album = {
   id: string;
@@ -275,19 +276,21 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
   );
 
 export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
-  subsonic: Subsonic;
-  credentials: SubsonicCredentials;
+  streamClientApplication: StreamClientApplication;
   http: Http;
 
   constructor(
-    subsonic: Subsonic,
-    credentials: SubsonicCredentials,
+    streamClientApplication: StreamClientApplication,
     http: Http
   ) {
-    this.subsonic = subsonic;
-    this.credentials = credentials;
+    this.streamClientApplication = streamClientApplication;
     this.http = http;
   }
+
+  GET = (query: Partial<RequestParams>) => ({
+    asRAW: () => getRaw2(http2(this.http, query)),
+    asJSON: <T>() => getJSON2<T>(http2(this.http, query)),
+  });
 
   flavour = () => "subsonic";
 
@@ -315,8 +318,10 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   album = (id: string): Promise<Album> => this.getAlbum(id);
 
   genres = () =>
-    this.subsonic
-      .getJSON<GetGenresResponse>(this.credentials, "/rest/getGenres")
+    this.GET({
+      url: "/rest/getGenres",
+    })
+      .asJSON<GetGenresResponse>()
       .then((it) =>
         pipe(
           it.genres.genre || [],
@@ -328,10 +333,13 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       );
 
   tracks = (albumId: string) =>
-    this.subsonic
-      .getJSON<GetAlbumResponse>(this.credentials, "/rest/getAlbum", {
+    this.GET({
+      url: "/rest/getAlbum",
+      params: {
         id: albumId,
-      })
+      },
+    })
+      .asJSON<GetAlbumResponse>()
       .then((it) => it.album)
       .then((album) =>
         (album.song || []).map((song) => asTrack(asAlbum(album), song))
@@ -352,21 +360,23 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
         const thingsToUpdate = [];
         if (track.rating.love != rating.love) {
           thingsToUpdate.push(
-            this.subsonic.getJSON(
-              this.credentials,
-              `/rest/${rating.love ? "star" : "unstar"}`,
-              {
+            this.GET({
+              url: `/rest/${rating.love ? "star" : "unstar"}`,
+              params: {
                 id: trackId,
-              }
-            )
+              },
+            }).asJSON()
           );
         }
         if (track.rating.stars != rating.stars) {
           thingsToUpdate.push(
-            this.subsonic.getJSON(this.credentials, `/rest/setRating`, {
-              id: trackId,
-              rating: rating.stars,
-            })
+            this.GET({
+              url: `/rest/setRating`,
+              params: {
+                id: trackId,
+                rating: rating.stars,
+              },
+            }).asJSON()
           );
         }
         return Promise.all(thingsToUpdate);
@@ -383,27 +393,26 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   }) =>
     // todo: all these headers and stuff can be rolled into httpeee
     this.getTrack(trackId).then((track) =>
-      getRaw2(
-          http2(this.http, {
-            url: `/rest/stream`,
-            params: {
-              id: trackId,
-              c: this.subsonic.streamClientApplication(track),
-            },
-            headers: pipe(
-              range,
-              O.fromNullable,
-              O.map((range) => ({
-                // "User-Agent": USER_AGENT,
-                Range: range,
-              })),
-              O.getOrElse(() => ({
-                // "User-Agent": USER_AGENT,
-              }))
-            ),
-            responseType: "stream",
-          })
-        )
+      this.GET({
+        url: "/rest/stream",
+        params: {
+          id: trackId,
+          c: this.streamClientApplication(track),
+        },
+        headers: pipe(
+          range,
+          O.fromNullable,
+          O.map((range) => ({
+            // "User-Agent": USER_AGENT,
+            Range: range,
+          })),
+          O.getOrElse(() => ({
+            // "User-Agent": USER_AGENT,
+          }))
+        ),
+        responseType: "stream",
+      })
+        .asRAW()
         .then((res) => ({
           status: res.status,
           headers: {
@@ -420,7 +429,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     Promise.resolve(coverArtURN)
       .then((it) => assertSystem(it, "subsonic"))
       .then((it) => it.resource.split(":")[1]!)
-      .then((it) => this.getCoverArt(this.credentials, it, size))
+      .then((it) => this.getCoverArt(it, size))
       .then((res) => ({
         contentType: res.headers["content-type"],
         data: Buffer.from(res.data, "binary"),
@@ -433,20 +442,26 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       });
 
   scrobble = async (id: string) =>
-    this.subsonic
-      .getJSON(this.credentials, `/rest/scrobble`, {
+    this.GET({
+      url: `/rest/scrobble`,
+      params: {
         id,
         submission: true,
-      })
+      },
+    })
+      .asJSON()
       .then((_) => true)
       .catch(() => false);
 
   nowPlaying = async (id: string) =>
-    this.subsonic
-      .getJSON(this.credentials, `/rest/scrobble`, {
+    this.GET({
+      url: `/rest/scrobble`,
+      params: {
         id,
         submission: false,
-      })
+      },
+    })
+      .asJSON()
       .then((_) => true)
       .catch(() => false);
 
@@ -473,18 +488,21 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     );
 
   playlists = async () =>
-    this.subsonic
-      .getJSON<GetPlaylistsResponse>(this.credentials, "/rest/getPlaylists")
+    this.GET({ url: "/rest/getPlaylists" })
+      .asJSON<GetPlaylistsResponse>()
       .then((it) => it.playlists.playlist || [])
       .then((playlists) =>
         playlists.map((it) => ({ id: it.id, name: it.name }))
       );
 
   playlist = async (id: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/getPlaylist", {
+    this.GET({
+      url: "/rest/getPlaylist",
+      params: {
         id,
-      })
+      },
+    })
+      .asJSON<GetPlaylistResponse>()
       .then((it) => it.playlist)
       .then((playlist) => {
         let trackNumber = 1;
@@ -510,43 +528,54 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       });
 
   createPlaylist = async (name: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/createPlaylist", {
+    this.GET({
+      url: "/rest/createPlaylist",
+      params: {
         name,
-      })
+      },
+    })
+      .asJSON<GetPlaylistResponse>()
       .then((it) => it.playlist)
       .then((it) => ({ id: it.id, name: it.name }));
 
   deletePlaylist = async (id: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/deletePlaylist", {
+    this.GET({
+      url: "/rest/deletePlaylist",
+      params: {
         id,
-      })
+      },
+    })
+      .asJSON<GetPlaylistResponse>()
       .then((_) => true);
 
   addToPlaylist = async (playlistId: string, trackId: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/updatePlaylist", {
+    this.GET({
+      url: "/rest/updatePlaylist",
+      params: {
         playlistId,
         songIdToAdd: trackId,
-      })
+      },
+    })
+      .asJSON<GetPlaylistResponse>()
       .then((_) => true);
 
   removeFromPlaylist = async (playlistId: string, indicies: number[]) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/updatePlaylist", {
+    this.GET({
+      url: "/rest/updatePlaylist",
+      params: {
         playlistId,
         songIndexToRemove: indicies,
-      })
+      },
+    })
+      .asJSON<GetPlaylistResponse>()
       .then((_) => true);
 
   similarSongs = async (id: string) =>
-    this.subsonic
-      .getJSON<GetSimilarSongsResponse>(
-        this.credentials,
-        "/rest/getSimilarSongs2",
-        { id, count: 50 }
-      )
+    this.GET({
+      url: "/rest/getSimilarSongs2",
+      params: { id, count: 50 },
+    })
+      .asJSON<GetSimilarSongsResponse>()
       .then((it) => it.similarSongs2.song || [])
       .then((songs) =>
         Promise.all(
@@ -558,11 +587,14 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
 
   topSongs = async (artistId: string) =>
     this.getArtist(artistId).then(({ name }) =>
-      this.subsonic
-        .getJSON<GetTopSongsResponse>(this.credentials, "/rest/getTopSongs", {
+      this.GET({
+        url: "/rest/getTopSongs",
+        params: {
           artist: name,
           count: 50,
-        })
+        },
+      })
+        .asJSON<GetTopSongsResponse>()
         .then((it) => it.topSongs.song || [])
         .then((songs) =>
           Promise.all(
@@ -576,8 +608,8 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   private getArtists = (): Promise<
     (IdName & { albumCount: number; image: BUrn | undefined })[]
   > =>
-    this.subsonic
-      .getJSON<GetArtistsResponse>(this.credentials, "/rest/getArtists")
+    this.GET({ url: "/rest/getArtists" })
+      .asJSON<GetArtistsResponse>()
       .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
       .then((artists) =>
         artists.map((artist) => ({
@@ -601,16 +633,15 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       l: string | undefined;
     };
   }> =>
-    this.subsonic
-      .getJSON<GetArtistInfoResponse>(
-        this.credentials,
-        "/rest/getArtistInfo2",
-        {
-          id,
-          count: 50,
-          includeNotPresent: true,
-        }
-      )
+    this.GET({
+      url: "/rest/getArtistInfo2",
+      params: {
+        id,
+        count: 50,
+        includeNotPresent: true,
+      },
+    })
+      .asJSON<GetArtistInfoResponse>()
       .then((it) => it.artistInfo2)
       .then((it) => ({
         images: {
@@ -630,8 +661,8 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       }));
 
   private getAlbum = (id: string): Promise<Album> =>
-    this.subsonic
-      .getJSON<GetAlbumResponse>(this.credentials, "/rest/getAlbum", { id })
+    this.GET({ url: "/rest/getAlbum", params: { id } })
+      .asJSON<GetAlbumResponse>()
       .then((it) => it.album)
       .then((album) => ({
         id: album.id,
@@ -648,10 +679,13 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   ): Promise<
     IdName & { artistImageUrl: string | undefined; albums: AlbumSummary[] }
   > =>
-    this.subsonic
-      .getJSON<GetArtistResponse>(this.credentials, "/rest/getArtist", {
+    this.GET({
+      url: "/rest/getArtist",
+      params: {
         id,
-      })
+      },
+    })
+      .asJSON<GetArtistResponse>()
       .then((it) => it.artist)
       .then((it) => ({
         id: it.id,
@@ -679,18 +713,21 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       })
     );
 
-  private getCoverArt = (credentials: Credentials, id: string, size?: number) =>
-    getRaw2(http2(this.subsonic.authenticated(credentials), {
+  private getCoverArt = (id: string, size?: number) =>
+    this.GET({
       url: "/rest/getCoverArt",
       params: { id, size },
       responseType: "arraybuffer",
-    }));
+    }).asRAW();
 
   private getTrack = (id: string) =>
-    this.subsonic
-      .getJSON<GetSongResponse>(this.credentials, "/rest/getSong", {
+    this.GET({
+      url: "/rest/getSong",
+      params: {
         id,
-      })
+      },
+    })
+      .asJSON<GetSongResponse>()
       .then((it) => it.song)
       .then((song) =>
         this.getAlbum(song.albumId!).then((album) => asTrack(album, song))
@@ -708,13 +745,16 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     }));
 
   private search3 = (q: any) =>
-    this.subsonic
-      .getJSON<Search3Response>(this.credentials, "/rest/search3", {
+    this.GET({
+      url: "/rest/search3",
+      params: {
         artistCount: 0,
         albumCount: 0,
         songCount: 0,
         ...q,
-      })
+      },
+    })
+      .asJSON<Search3Response>()
       .then((it) => ({
         artists: it.searchResult3.artist || [],
         albums: it.searchResult3.album || [],
@@ -726,17 +766,16 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       this.getArtists().then((it) =>
         inject(it, (total, artist) => total + artist.albumCount, 0)
       ),
-      this.subsonic
-        .getJSON<GetAlbumListResponse>(
-          this.credentials,
-          "/rest/getAlbumList2",
-          {
-            type: AlbumQueryTypeToSubsonicType[q.type],
-            ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-            size: 500,
-            offset: q._index,
-          }
-        )
+      this.GET({
+        url: "/rest/getAlbumList2",
+        params: {
+          type: AlbumQueryTypeToSubsonicType[q.type],
+          ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+          size: 500,
+          offset: q._index,
+        },
+      })
+        .asJSON<GetAlbumListResponse>()
         .then((response) => response.albumList2.album || [])
         .then(this.toAlbumSummary),
     ]).then(([total, albums]) => ({
@@ -758,11 +797,12 @@ export const navidromeMusicLibrary = (
     pipe(
       TE.tryCatch(
         () =>
+          // todo: not hardcode axios in here
           axios({
-            method: 'post',
+            method: "post",
             baseURL: url,
             url: `/auth/login`,
-            data: _.pick(credentials, "username", "password")
+            data: _.pick(credentials, "username", "password"),
           }),
         () => new AuthFailure("Failed to get bearerToken")
       ),

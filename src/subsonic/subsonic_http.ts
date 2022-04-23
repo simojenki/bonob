@@ -54,28 +54,6 @@ export interface HTTP {
   ): Promise<HttpResponse>;
 }
 
-// export const basic = (opts : AxiosRequestConfig) => axios(opts);
-
-// function whatDoesItLookLike() {
-//   const basic = axios;
-
-//   const authenticatedClient = httpee(axios, chain(
-//     baseUrl("http://foobar"),
-//     subsonicAuth({username: 'bob', password: 'foo'})
-//   ));
-//   const jsonClient = httpee(authenticatedClient, formatJson())
-
-//   jsonClient({ })
-
-// }
-
-// .then((response) => response.data as SubsonicEnvelope)
-//       .then((json) => json["subsonic-response"])
-//       .then((json) => {
-//         if (isError(json)) throw `Subsonic error:${json.error.message}`;
-//         else return json as unknown as T;
-//       });
-
 export const raw = (response: AxiosPromise<any>) =>
   response
     .catch((e) => {
@@ -87,7 +65,6 @@ export const raw = (response: AxiosPromise<any>) =>
       } else return response;
     });
 
-    // todo: delete
 export const getRaw2 = (http: Http) => 
   http({ method: "get" })
     .catch((e) => {
