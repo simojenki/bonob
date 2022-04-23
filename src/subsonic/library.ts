@@ -38,9 +38,8 @@ import {
 import axios from "axios";
 import { asURLSearchParams } from "../utils";
 import { artistSummaryFromNDArtist, NDArtist } from "./navidrome";
-//todo: rename http2 -> http
-import { Http, http as http2, RequestParams } from "../http";
-import { getRaw2, getJSON as getJSON2 } from "./subsonic_http";
+import { Http, http as newHttp, RequestParams } from "../http";
+import { getRaw2, getJSON } from "./subsonic_http";
 
 type album = {
   id: string;
@@ -288,8 +287,8 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   }
 
   GET = (query: Partial<RequestParams>) => ({
-    asRAW: () => getRaw2(http2(this.subsonicHttp, query)),
-    asJSON: <T>() => getJSON2<T>(http2(this.subsonicHttp, query)),
+    asRAW: () => getRaw2(newHttp(this.subsonicHttp, query)),
+    asJSON: <T>() => getJSON<T>(newHttp(this.subsonicHttp, query)),
   });
 
   flavour = () => "subsonic";

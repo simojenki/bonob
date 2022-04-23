@@ -3,7 +3,7 @@ import {
   SubsonicEnvelope,
 } from ".";
 // todo: rename http2 to http
-import { Http, http as http2 } from "../http";
+import { Http, http as newHttp } from "../http";
 
 export type HttpResponse = {
   data: any;
@@ -23,7 +23,7 @@ export const getRaw2 = (http: Http) =>
     });
 
 export const getJSON = async <T>(http: Http): Promise<T> =>
-  getRaw2(http2(http, { params: { f: "json" } })).then(asJSON) as Promise<T>;
+  getRaw2(newHttp(http, { params: { f: "json" } })).then(asJSON) as Promise<T>;
 
 export const asJSON = <T>(response: HttpResponse): T => {
   const subsonicResponse = (response.data as SubsonicEnvelope)[
@@ -33,5 +33,6 @@ export const asJSON = <T>(response: HttpResponse): T => {
     throw `Subsonic error:${subsonicResponse.error.message}`;
   else return subsonicResponse as unknown as T;
 };
+
 
 

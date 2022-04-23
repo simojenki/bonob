@@ -5,7 +5,7 @@ import axios from "axios";
 import randomstring from "randomstring";
 import _ from "underscore";
 // todo: rename http2 to http
-import { Http, http as http2 } from "../http";
+import { Http, http as http2, RequestParams } from "../http";
 
 import {
   Credentials,
@@ -17,7 +17,7 @@ import {
 import { b64Encode, b64Decode } from "../b64";
 import { axiosImageFetcher, ImageFetcher } from "../images";
 import { navidromeMusicLibrary, SubsonicGenericMusicLibrary } from "./library";
-import { getJSON  as getJSON2 } from "./subsonic_http";
+import { getJSON  as getJSON } from "./subsonic_http";
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -126,16 +126,14 @@ export class Subsonic implements MusicService {
       },
     });
 
-  getJSON = async <T>(
-    credentials: Credentials,
-    url: string,
-    params: {} = {}
-  ): Promise<T> => getJSON2(http2(this.authenticatedSubsonicHttp(credentials), { url, params }));
+  GET = (query: Partial<RequestParams>) => ({
+    asJSON: <T>() => getJSON<T>(http2(this.subsonicHttp, query)),
+  });
 
   generateToken = (credentials: Credentials) =>
     pipe(
       TE.tryCatch(
-        () => getJSON2<PingResponse>(http2(this.authenticatedSubsonicHttp(credentials), { url: "/rest/ping.view" })),
+        () => getJSON<PingResponse>(http2(this.authenticatedSubsonicHttp(credentials), { url: "/rest/ping.view" })),
         (e) => new AuthFailure(e as string)
       ),
       TE.chain(({ type }) =>
