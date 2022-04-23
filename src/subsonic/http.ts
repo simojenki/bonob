@@ -6,7 +6,8 @@ import {
   t_and_s,
   USER_AGENT,
 } from ".";
-import { Http, http2 } from "../http";
+// todo: rename http2 to http
+import { Http, http as http2 } from "../http";
 import { Credentials } from "../music_service";
 import { asURLSearchParams } from "../utils";
 

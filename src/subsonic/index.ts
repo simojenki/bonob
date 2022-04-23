@@ -4,7 +4,8 @@ import { Md5 } from "ts-md5/dist/md5";
 import axios from "axios";
 import randomstring from "randomstring";
 import _ from "underscore";
-import { Http, http2 } from "../http";
+// todo: rename http2 to http
+import { Http, http as http2 } from "../http";
 
 import {
   Credentials,

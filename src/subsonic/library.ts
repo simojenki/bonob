@@ -37,7 +37,8 @@ import Subsonic, {
 import axios from "axios";
 import { asURLSearchParams } from "../utils";
 import { artistSummaryFromNDArtist, NDArtist } from "./navidrome";
-import { Http, http2 } from "../http";
+//todo: rename http2 -> http
+import { Http, http as http2 } from "../http";
 import { getRaw2 } from "./http";
 
 type album = {

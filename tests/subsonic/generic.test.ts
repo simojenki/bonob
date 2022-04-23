@@ -46,7 +46,7 @@ import {
 import { EMPTY, error, FAILURE, subsonicOK, ok } from "../subsonic.test";
 import Subsonic, { DODGY_IMAGE_NAME, t } from "../../src/subsonic";
 import { b64Encode } from "../../src/b64";
-import { http2 } from "../../src/http";
+import { http as http2 } from "../../src/http";
 
 const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
   pipe(

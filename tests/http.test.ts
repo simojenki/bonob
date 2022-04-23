@@ -1,154 +1,6 @@
-import {
-  
-  http2,
-} from "../src/http";
+import { http, } from "../src/http";
 
-// describe("request modifiers", () => {
-//   describe("baseUrl", () => {
-//     it.each([
-//       [
-//         { data: "bob" },
-//         "http://example.com",
-//         { data: "bob", baseURL: "http://example.com" },
-//       ],
-//       [
-//         { baseURL: "http://originalBaseUrl.example.com" },
-//         "http://example.com",
-//         { baseURL: "http://example.com" },
-//       ],
-//     ])(
-//       "should apply the baseUrl",
-//       (requestConfig: any, value: string, expected: any) => {
-//         expect(baseUrl(value)(requestConfig)).toEqual(expected);
-//       }
-//     );
-//   });
-
-//   describe("params", () => {
-//     it.each([
-//       [
-//         { data: "bob" },
-//         { param1: "value1", param2: "value2" },
-//         { data: "bob", params: { param1: "value1", param2: "value2" } },
-//       ],
-//       [
-//         { data: "bob", params: { orig1: "origValue1" } },
-//         {},
-//         { data: "bob", params: { orig1: "origValue1" } },
-//       ],
-//       [
-//         { data: "bob", params: { orig1: "origValue1" } },
-//         { param1: "value1", param2: "value2" },
-//         {
-//           data: "bob",
-//           params: { orig1: "origValue1", param1: "value1", param2: "value2" },
-//         },
-//       ],
-//     ])(
-//       "should apply the params",
-//       (requestConfig: any, newParams: any, expected: any) => {
-//         expect(params(newParams)(requestConfig)).toEqual(expected);
-//       }
-//     );
-//   });
-
-//   describe("headers", () => {
-//     it.each([
-//       [
-//         { data: "bob" },
-//         { h1: "value1", h2: "value2" },
-//         { data: "bob", headers: { h1: "value1", h2: "value2" } },
-//       ],
-//       [
-//         { data: "bob", headers: { orig1: "origValue1" } },
-//         {},
-//         { data: "bob", headers: { orig1: "origValue1" } },
-//       ],
-//       [
-//         { data: "bob", headers: { orig1: "origValue1" } },
-//         { h1: "value1", h2: "value2" },
-//         {
-//           data: "bob",
-//           headers: { orig1: "origValue1", h1: "value1", h2: "value2" },
-//         },
-//       ],
-//     ])(
-//       "should apply the headers",
-//       (requestConfig: any, newParams: any, expected: any) => {
-//         expect(headers(newParams)(requestConfig)).toEqual(expected);
-//       }
-//     );
-//   });
-
-//   describe("chain", () => {
-//     it.each([
-//       [
-//         { data: "bob" },
-//         [params({ param1: "value1", param2: "value2" })],
-//         { data: "bob", params: { param1: "value1", param2: "value2" } },
-//       ],
-//       [
-//         { data: "bob" },
-//         [params({ param1: "value1" }), params({ param2: "value2" })],
-//         { data: "bob", params: { param1: "value1", param2: "value2" } },
-//       ],
-//       [{ data: "bob" }, [], { data: "bob" }],
-//     ])(
-//       "should apply the chain",
-//       (requestConfig: any, newParams: RequestModifier[], expected: any) => {
-//         expect(chain(...newParams)(requestConfig)).toEqual(expected);
-//       }
-//     );
-//   });
-
-//   describe("wrapping", () => {
-//     const mockAxios = jest.fn();
-
-//     describe("baseURL", () => {
-//       const base = http(
-//         mockAxios,
-//         baseUrl("http://original.example.com")
-//       );
-
-//       describe("when no baseURL passed in when being invoked", () => {
-//         it("should use the original value", () => {
-//           base({})
-//           expect(mockAxios).toHaveBeenCalledWith({ baseURL: "http://original.example.com" });
-//         });
-//       });
-
-//       describe("when a new baseURL is passed in when being invoked", () => {
-//         it("should use the new value", () => {
-//           base({ baseURL: "http://new.example.com" })
-//           expect(mockAxios).toHaveBeenCalledWith({ baseURL: "http://new.example.com" });
-//         });
-//       });
-//     });
-
-//     describe("params", () => {
-//       const base = http(
-//         mockAxios,
-//         params({ a: "1", b: "2" })
-//       );
-
-//       it("should apply the modified when invoked", () => {
-//         base({ method: 'get' });
-//         expect(mockAxios).toHaveBeenCalledWith({ method: 'get', params: { a: "1", b: "2" }});
-//       });
-
-//       describe("wrapping the base", () => {
-//         const wrapped = http(base, params({ b: "2b", c: "3" }));
-
-//         it("should the wrapped values as priority", () => {
-//           wrapped({ method: 'get', params: { a: "1b", c: "3b", d: "4" } });
-//           expect(mockAxios).toHaveBeenCalledWith({ method: 'get', params: { a: "1b", b: "2b", c: "3b", d: "4" }});
-//         });
-//       });
-//     });
-//   });
-// });
-
-describe("http2", () => {
+describe("http", () => {
   const mockAxios = jest.fn();
 
   beforeEach(() => {
@@ -166,7 +18,7 @@ describe("http2", () => {
       return thing;
     };
 
-    const base = http2(mockAxios, getValue('base'));
+    const base = http(mockAxios, getValue('base'));
 
     describe("using default", () => {
       it("should use the default", () => {
@@ -183,8 +35,8 @@ describe("http2", () => {
     });
 
     describe("wrapping", () => {
-      const firstLayer = http2(base, getValue('level1'));
-      const secondLayer = http2(firstLayer, getValue('level2'));
+      const firstLayer = http(base, getValue('level1'));
+      const secondLayer = http(firstLayer, getValue('level2'));
 
       describe("when the outter call provides a value", () => {
         it("should apply it", () => {
@@ -203,7 +55,7 @@ describe("http2", () => {
   });
 
   describe("requestType", () => {
-    const base = http2(mockAxios, { responseType: 'stream' });
+    const base = http(mockAxios, { responseType: 'stream' });
 
     describe("using default", () => {
       it("should use the default", () => {
@@ -220,8 +72,8 @@ describe("http2", () => {
     });
 
     describe("wrapping", () => {
-      const firstLayer = http2(base, { responseType: 'arraybuffer' });
-      const secondLayer = http2(firstLayer, { responseType: 'blob' });
+      const firstLayer = http(base, { responseType: 'arraybuffer' });
+      const secondLayer = http(firstLayer, { responseType: 'blob' });
 
       describe("when the outter call provides a value", () => {
         it("should apply it", () => {
@@ -248,7 +100,7 @@ describe("http2", () => {
       thing[field] = values;
       return thing;
     }
-    const base = http2(mockAxios, getValues({ a: 1, b: 2, c: 3, d: 4 }));
+    const base = http(mockAxios, getValues({ a: 1, b: 2, c: 3, d: 4 }));
 
     describe("using default", () => {
       it("should use the default", () => {
@@ -265,8 +117,8 @@ describe("http2", () => {
     });
 
     describe("wrapping", () => {
-      const firstLayer = http2(base, getValues({ b: 22 }));
-      const secondLayer = http2(firstLayer, getValues({ c: 33 }));
+      const firstLayer = http(base, getValues({ b: 22 }));
+      const secondLayer = http(firstLayer, getValues({ c: 33 }));
 
       describe("when the outter call provides a value", () => {
         it("should apply it", () => {
