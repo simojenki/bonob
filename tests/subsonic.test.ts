@@ -17,7 +17,6 @@ import {
 import axios from "axios";
 jest.mock("axios");
 
-
 import randomstring from "randomstring";
 jest.mock("randomstring");
 
@@ -27,7 +26,6 @@ import {
 import {
   aTrack,
 } from "./builders";
-import { asURLSearchParams } from "../src/utils";
 
 describe("t", () => {
   it("should be an md5 of the password and the salt", () => {
@@ -129,7 +127,10 @@ const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
 const PING_OK = pingJson({ status: "ok" });
 
 describe("Subsonic", () => {
+  const mockAxios = axios as unknown as jest.Mock;
+
   const url = "http://127.0.0.22:4567";
+  const baseURL = url;
   const username = `user1-${uuid()}`;
   const password = `pass1-${uuid()}`;
   const salt = "saltysalty";
@@ -141,16 +142,12 @@ describe("Subsonic", () => {
   );
 
   const mockRandomstring = jest.fn();
-  const mockGET = jest.fn();
-  const mockPOST = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetAllMocks();
 
     randomstring.generate = mockRandomstring;
-    axios.get = mockGET;
-    axios.post = mockPOST;
 
     mockRandomstring.mockReturnValue(salt);
   });
@@ -187,7 +184,7 @@ describe("Subsonic", () => {
     describe("when the credentials are valid", () => {
       describe("when the backend is generic subsonic", () => {
         it("should be able to generate a token and then login using it", async () => {
-          (axios.get as jest.Mock).mockResolvedValue(ok(PING_OK));
+          (mockAxios as jest.Mock).mockResolvedValue(ok(PING_OK));
   
           const token = await tokenFor({
             username,
@@ -200,15 +197,18 @@ describe("Subsonic", () => {
   
           expect(parseToken(token.serviceToken)).toEqual({ username, password, type: PING_OK["subsonic-response"].type })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/ping.view`,
+            params: authParamsPlusJson,
             headers,
           });
         });
 
         it("should store the type of the subsonic server on the token", async () => {
           const type = "someSubsonicClone";
-          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type })));
+          mockAxios.mockResolvedValue(ok(pingJson({ type })));
   
           const token = await tokenFor({
             username,
@@ -221,8 +221,11 @@ describe("Subsonic", () => {
   
           expect(parseToken(token.serviceToken)).toEqual({ username, password, type })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/ping.view`,
+            params: authParamsPlusJson,
             headers,
           });
         });
@@ -232,8 +235,9 @@ describe("Subsonic", () => {
         it("should login to nd and get the nd bearer token", async () => {
           const navidromeToken = `nd-${uuid()}`;
 
-          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type: "navidrome" })));
-          (axios.post as jest.Mock).mockResolvedValue(ok({ token: navidromeToken }));
+          mockAxios
+            .mockResolvedValueOnce(ok(pingJson({ type: "navidrome" })))
+            .mockResolvedValueOnce(ok({ token: navidromeToken }));
   
           const token = await tokenFor({
             username,
@@ -246,13 +250,21 @@ describe("Subsonic", () => {
   
           expect(parseToken(token.serviceToken)).toEqual({ username, password, type: "navidrome", bearer: navidromeToken })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/ping.view`,
+            params: authParamsPlusJson,
             headers,
           });
-          expect(axios.post).toHaveBeenCalledWith(`${url}/auth/login`, {
-            username,
-            password,
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'post',
+            baseURL,
+            url: `/auth/login`,
+            data: {
+              username,
+              password,
+            }
           });
         });
       });
@@ -260,7 +272,7 @@ describe("Subsonic", () => {
 
     describe("when the credentials are not valid", () => {
       it("should be able to generate a token and then login using it", async () => {
-        (axios.get as jest.Mock).mockResolvedValue({
+        mockAxios.mockResolvedValue({
           status: 200,
           data: error("40", "Wrong username or password"),
         });
@@ -276,7 +288,7 @@ describe("Subsonic", () => {
       describe("when the backend is generic subsonic", () => {
         it("should be able to generate a token and then login using it", async () => {
           const type = `subsonic-clone-${uuid()}`;
-          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type })));
+          mockAxios.mockResolvedValue(ok(pingJson({ type })));
   
           const credentials = { username, password, type: "foo", bearer: undefined };
           const originalToken = asToken(credentials)
@@ -292,8 +304,11 @@ describe("Subsonic", () => {
   
           expect(parseToken(refreshedToken.serviceToken)).toEqual({ username, password, type })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method:'get',
+            baseURL,
+            url: `/rest/ping.view`,
+            params: authParamsPlusJson,
             headers,
           });
         });
@@ -303,8 +318,9 @@ describe("Subsonic", () => {
         it("should login to nd and get the nd bearer token", async () => {
           const navidromeToken = `nd-${uuid()}`;
 
-          (axios.get as jest.Mock).mockResolvedValue(ok(pingJson({ type: "navidrome" })));
-          (axios.post as jest.Mock).mockResolvedValue(ok({ token: navidromeToken }));
+          mockAxios
+            .mockResolvedValueOnce(ok(pingJson({ type: "navidrome" })))
+            .mockResolvedValueOnce(ok({ token: navidromeToken }));
   
           const credentials = { username, password, type: "navidrome", bearer: undefined };
           const originalToken = asToken(credentials)
@@ -320,13 +336,21 @@ describe("Subsonic", () => {
   
           expect(parseToken(refreshedToken.serviceToken)).toEqual({ username, password, type: "navidrome", bearer: navidromeToken })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/ping.view`,
+            params: authParamsPlusJson,
             headers,
           });
-          expect(axios.post).toHaveBeenCalledWith(`${url}/auth/login`, {
-            username,
-            password,
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'post',
+            baseURL,
+            url: `/auth/login`,
+            data: {
+              username,
+              password,
+            }
           });
         });
       });
@@ -334,7 +358,7 @@ describe("Subsonic", () => {
 
     describe("when the credentials are not valid", () => {
       it("should be able to generate a token and then login using it", async () => {
-        (axios.get as jest.Mock).mockResolvedValue({
+        mockAxios.mockResolvedValue({
           status: 200,
           data: error("40", "Wrong username or password"),
         });

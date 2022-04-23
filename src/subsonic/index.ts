@@ -1,9 +1,10 @@
 import { taskEither as TE } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 import { Md5 } from "ts-md5/dist/md5";
-import axios, { AxiosRequestConfig } from "axios";
+import axios from "axios";
 import randomstring from "randomstring";
 import _ from "underscore";
+import { Http, http2 } from "../http";
 
 import {
   Credentials,
@@ -14,8 +15,8 @@ import {
 } from "../music_service";
 import { b64Encode, b64Decode } from "../b64";
 import { axiosImageFetcher, ImageFetcher } from "../images";
-import { asURLSearchParams } from "../utils";
 import { navidromeMusicLibrary, SubsonicGenericMusicLibrary } from "./library";
+import { http, getJSON  as getJSON2 } from "./http";
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -31,9 +32,7 @@ export const t_and_s = (password: string) => {
 // todo: this is an ND thing
 export const DODGY_IMAGE_NAME = "2a96cbd8b46e442fc41c2b86b821562f.png";
 
-
-
-type SubsonicEnvelope = {
+export type SubsonicEnvelope = {
   "subsonic-response": SubsonicResponse;
 };
 
@@ -61,9 +60,6 @@ export function isError(
   return (subsonicResponse as SubsonicError).error !== undefined;
 }
 
-
-
-
 export type StreamClientApplication = (track: Track) => string;
 
 export const DEFAULT_CLIENT_APPLICATION = "bonob";
@@ -77,7 +73,6 @@ export function appendMimeTypeToClientFor(mimeTypes: string[]) {
     mimeTypes.includes(track.mimeType) ? `bonob+${track.mimeType}` : "bonob";
 }
 
-
 export type SubsonicCredentials = Credentials & {
   type: string;
   bearer: string | undefined;
@@ -85,7 +80,7 @@ export type SubsonicCredentials = Credentials & {
 
 export const asToken = (credentials: SubsonicCredentials) =>
   b64Encode(JSON.stringify(credentials));
-  
+
 export const parseToken = (token: string): SubsonicCredentials =>
   JSON.parse(b64Decode(token));
 
@@ -101,6 +96,7 @@ export class Subsonic implements MusicService {
   streamClientApplication: StreamClientApplication;
   // todo: why is this in here?
   externalImageFetcher: ImageFetcher;
+  base: Http;
 
   constructor(
     url: string,
@@ -110,58 +106,34 @@ export class Subsonic implements MusicService {
     this.url = url;
     this.streamClientApplication = streamClientApplication;
     this.externalImageFetcher = externalImageFetcher;
+    this.base = http2(axios, {
+      baseURL: this.url,
+      params: { v: "1.16.1", c: DEFAULT_CLIENT_APPLICATION },
+      headers: { "User-Agent": "bonob" },
+    });
   }
 
-  get = async (
-    { username, password }: Credentials,
-    path: string,
-    q: {} = {},
-    config: AxiosRequestConfig | undefined = {}
-  ) =>
-    axios
-      .get(`${this.url}${path}`, {
-        params: asURLSearchParams({
-          u: username,
-          v: "1.16.1",
-          c: DEFAULT_CLIENT_APPLICATION,
-          ...t_and_s(password),
-          ...q,
-        }),
-        headers: {
-          "User-Agent": USER_AGENT,
-        },
-        ...config,
-      })
-      .catch((e) => {
-        throw `Subsonic failed with: ${e}`;
-      })
-      .then((response) => {
-        if (response.status != 200 && response.status != 206) {
-          throw `Subsonic failed with a ${response.status || "no!"} status`;
-        } else return response;
-      });
+  // todo: delete
+  http = (credentials: Credentials) => http(this.url, credentials);
+
+  authenticated = (credentials: Credentials, wrap: Http = this.base) =>
+    http2(wrap, {
+      params: {
+        u: credentials.username,
+        ...t_and_s(credentials.password),
+      },
+    });
 
   getJSON = async <T>(
-    { username, password }: Credentials,
-    path: string,
-    q: {} = {}
-  ): Promise<T> =>
-    this.get({ username, password }, path, { f: "json", ...q })
-      .then((response) => response.data as SubsonicEnvelope)
-      .then((json) => json["subsonic-response"])
-      .then((json) => {
-        if (isError(json)) throw `Subsonic error:${json.error.message}`;
-        else return json as unknown as T;
-      });
+    credentials: Credentials,
+    url: string,
+    params: {} = {}
+  ): Promise<T> => getJSON2(http2(this.authenticated(credentials), { url, params }));
 
   generateToken = (credentials: Credentials) =>
     pipe(
       TE.tryCatch(
-        () =>
-          this.getJSON<PingResponse>(
-            _.pick(credentials, "username", "password"),
-            "/rest/ping.view"
-          ),
+        () => getJSON2<PingResponse>(http2(this.authenticated(credentials), { url: "/rest/ping.view" })),
         (e) => new AuthFailure(e as string)
       ),
       TE.chain(({ type }) =>
@@ -194,9 +166,15 @@ export class Subsonic implements MusicService {
   private libraryFor = (
     credentials: SubsonicCredentials
   ): Promise<SubsonicMusicLibrary> => {
-    const subsonicGenericLibrary = new SubsonicGenericMusicLibrary(this, credentials);
+    const subsonicGenericLibrary = new SubsonicGenericMusicLibrary(
+      this,
+      credentials,
+      this.authenticated(credentials, this.base)
+    );
     if (credentials.type == "navidrome") {
-      return Promise.resolve(navidromeMusicLibrary(this.url, subsonicGenericLibrary, credentials));
+      return Promise.resolve(
+        navidromeMusicLibrary(this.url, subsonicGenericLibrary, credentials)
+      );
     } else {
       return Promise.resolve(subsonicGenericLibrary);
     }

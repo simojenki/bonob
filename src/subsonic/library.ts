@@ -2,19 +2,43 @@ import { option as O, taskEither as TE } from "fp-ts";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/lib/function";
 import { ordString } from "fp-ts/lib/Ord";
-import { inject } from 'underscore';
+import { inject } from "underscore";
 import _ from "underscore";
 
 import logger from "../logger";
 import { b64Decode, b64Encode } from "../b64";
-import { assertSystem, BUrn } from "../burn";
+import { assertSystem, BUrn, format } from "../burn";
 
-import { Album, AlbumQuery, AlbumQueryType, AlbumSummary, Artist, ArtistQuery, ArtistSummary, AuthFailure, Credentials, Genre, IdName, Rating, Result, slice2, Sortable, Track } from "../music_service";
-import Subsonic, { DODGY_IMAGE_NAME, SubsonicCredentials, SubsonicMusicLibrary, SubsonicResponse, USER_AGENT } from ".";
+import {
+  Album,
+  AlbumQuery,
+  AlbumQueryType,
+  AlbumSummary,
+  Artist,
+  ArtistQuery,
+  ArtistSummary,
+  AuthFailure,
+  Credentials,
+  Genre,
+  IdName,
+  Rating,
+  Result,
+  slice2,
+  Sortable,
+  Track,
+} from "../music_service";
+import Subsonic, {
+  DODGY_IMAGE_NAME,
+  SubsonicCredentials,
+  SubsonicMusicLibrary,
+  SubsonicResponse,
+  USER_AGENT,
+} from ".";
 import axios from "axios";
 import { asURLSearchParams } from "../utils";
 import { artistSummaryFromNDArtist, NDArtist } from "./navidrome";
-
+import { Http, http2 } from "../http";
+import { getRaw2 } from "./http";
 
 type album = {
   id: string;
@@ -60,7 +84,6 @@ type GetGenresResponse = SubsonicResponse & {
   };
 };
 
-
 type GetArtistInfoResponse = SubsonicResponse & {
   artistInfo2: artistInfo;
 };
@@ -70,7 +93,6 @@ type GetArtistResponse = SubsonicResponse & {
     album: album[];
   };
 };
-
 
 export type images = {
   smallImageUrl: string | undefined;
@@ -84,7 +106,6 @@ type artistInfo = images & {
   lastFmUrl: string | undefined;
   similarArtist: artist[];
 };
-
 
 export type song = {
   id: string;
@@ -143,7 +164,6 @@ type GetSongResponse = {
   song: song;
 };
 
-
 type Search3Response = SubsonicResponse & {
   searchResult3: {
     artist: artist[];
@@ -164,13 +184,11 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   starred: "highest",
 };
 
-
 export const isValidImage = (url: string | undefined) =>
   url != undefined && !url.endsWith(DODGY_IMAGE_NAME);
 
 const artistIsInLibrary = (artistId: string | undefined) =>
   artistId != undefined && artistId != "-1";
-
 
 const coverArtURN = (coverArt: string | undefined): BUrn | undefined =>
   pipe(
@@ -180,8 +198,7 @@ const coverArtURN = (coverArt: string | undefined): BUrn | undefined =>
     O.getOrElseW(() => undefined)
   );
 
-
-  // todo: is this the right place for this??
+// todo: is this the right place for this??
 export const artistImageURN = (
   spec: Partial<{
     artistId: string | undefined;
@@ -256,23 +273,27 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
     O.getOrElseW(() => undefined)
   );
 
-
 export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   subsonic: Subsonic;
   credentials: SubsonicCredentials;
+  http: Http;
 
-  constructor(subsonic: Subsonic, credentials: SubsonicCredentials) {
+  constructor(
+    subsonic: Subsonic,
+    credentials: SubsonicCredentials,
+    http: Http
+  ) {
     this.subsonic = subsonic;
     this.credentials = credentials;
+    this.http = http;
   }
 
   flavour = () => "subsonic";
 
-  bearerToken = (_: Credentials): TE.TaskEither<Error, string | undefined> => TE.right(undefined);
+  bearerToken = (_: Credentials): TE.TaskEither<Error, string | undefined> =>
+    TE.right(undefined);
 
-  artists = async (
-    q: ArtistQuery
-  ): Promise<Result<ArtistSummary & Sortable>> =>
+  artists = async (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
     this.getArtists()
       .then(slice2(q))
       .then(([page, total]) => ({
@@ -285,8 +306,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
         })),
       }));
 
-  artist = async (id: string): Promise<Artist> =>
-    this.getArtistWithInfo(id);
+  artist = async (id: string): Promise<Artist> => this.getArtistWithInfo(id);
 
   albums = async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
     this.getAlbumList2(q);
@@ -360,29 +380,28 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     trackId: string;
     range: string | undefined;
   }) =>
+    // todo: all these headers and stuff can be rolled into httpeee
     this.getTrack(trackId).then((track) =>
-      this.subsonic
-        .get(
-          this.credentials,
-          `/rest/stream`,
-          {
-            id: trackId,
-            c: this.subsonic.streamClientApplication(track),
-          },
-          {
+      getRaw2(
+          http2(this.http, {
+            url: `/rest/stream`,
+            params: {
+              id: trackId,
+              c: this.subsonic.streamClientApplication(track),
+            },
             headers: pipe(
               range,
               O.fromNullable,
               O.map((range) => ({
-                "User-Agent": USER_AGENT,
+                // "User-Agent": USER_AGENT,
                 Range: range,
               })),
               O.getOrElse(() => ({
-                "User-Agent": USER_AGENT,
+                // "User-Agent": USER_AGENT,
               }))
             ),
             responseType: "stream",
-          }
+          })
         )
         .then((res) => ({
           status: res.status,
@@ -406,7 +425,9 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
         data: Buffer.from(res.data, "binary"),
       }))
       .catch((e) => {
-        logger.error(`Failed getting coverArt for urn:'${coverArtURN}': ${e}`);
+        logger.error(
+          `Failed getting coverArt for '${format(coverArtURN)}': ${e}`
+        );
         return undefined;
       });
 
@@ -429,21 +450,20 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       .catch(() => false);
 
   searchArtists = async (query: string) =>
-    this.search3({ query, artistCount: 20 }).then(
-      ({ artists }) =>
-        artists.map((artist) => ({
-          id: artist.id,
-          name: artist.name,
-          image: artistImageURN({
-            artistId: artist.id,
-            artistImageURL: artist.artistImageUrl,
-          }),
-        }))
+    this.search3({ query, artistCount: 20 }).then(({ artists }) =>
+      artists.map((artist) => ({
+        id: artist.id,
+        name: artist.name,
+        image: artistImageURN({
+          artistId: artist.id,
+          artistImageURL: artist.artistImageUrl,
+        }),
+      }))
     );
 
   searchAlbums = async (query: string) =>
-    this.search3({ query, albumCount: 20 }).then(
-      ({ albums }) => this.toAlbumSummary(albums)
+    this.search3({ query, albumCount: 20 }).then(({ albums }) =>
+      this.toAlbumSummary(albums)
     );
 
   searchTracks = async (query: string) =>
@@ -530,9 +550,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       .then((songs) =>
         Promise.all(
           songs.map((song) =>
-            this.getAlbum(song.albumId!).then((album) =>
-              asTrack(album, song)
-            )
+            this.getAlbum(song.albumId!).then((album) => asTrack(album, song))
           )
         )
       );
@@ -548,15 +566,15 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
         .then((songs) =>
           Promise.all(
             songs.map((song) =>
-              this.getAlbum(song.albumId!).then((album) =>
-                asTrack(album, song)
-              )
+              this.getAlbum(song.albumId!).then((album) => asTrack(album, song))
             )
           )
         )
     );
 
-  private getArtists = (): Promise<(IdName & { albumCount: number; image: BUrn | undefined })[]> =>
+  private getArtists = (): Promise<
+    (IdName & { albumCount: number; image: BUrn | undefined })[]
+  > =>
     this.subsonic
       .getJSON<GetArtistsResponse>(this.credentials, "/rest/getArtists")
       .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
@@ -583,11 +601,15 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     };
   }> =>
     this.subsonic
-      .getJSON<GetArtistInfoResponse>(this.credentials, "/rest/getArtistInfo2", {
-        id,
-        count: 50,
-        includeNotPresent: true,
-      })
+      .getJSON<GetArtistInfoResponse>(
+        this.credentials,
+        "/rest/getArtistInfo2",
+        {
+          id,
+          count: 50,
+          includeNotPresent: true,
+        }
+      )
       .then((it) => it.artistInfo2)
       .then((it) => ({
         images: {
@@ -638,35 +660,30 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       }));
 
   private getArtistWithInfo = (id: string) =>
-    Promise.all([
-      this.getArtist(id),
-      this.getArtistInfo(id),
-    ]).then(([artist, artistInfo]) => ({
-      id: artist.id,
-      name: artist.name,
-      image: artistImageURN({
-        artistId: artist.id,
-        artistImageURL: [
-          artist.artistImageUrl,
-          artistInfo.images.l,
-          artistInfo.images.m,
-          artistInfo.images.s,
-        ].find(isValidImage),
-      }),
-      albums: artist.albums,
-      similarArtists: artistInfo.similarArtist,
-    }));
+    Promise.all([this.getArtist(id), this.getArtistInfo(id)]).then(
+      ([artist, artistInfo]) => ({
+        id: artist.id,
+        name: artist.name,
+        image: artistImageURN({
+          artistId: artist.id,
+          artistImageURL: [
+            artist.artistImageUrl,
+            artistInfo.images.l,
+            artistInfo.images.m,
+            artistInfo.images.s,
+          ].find(isValidImage),
+        }),
+        albums: artist.albums,
+        similarArtists: artistInfo.similarArtist,
+      })
+    );
 
   private getCoverArt = (credentials: Credentials, id: string, size?: number) =>
-    this.subsonic.get(
-      credentials,
-      "/rest/getCoverArt",
-      size ? { id, size } : { id },
-      {
-        headers: { "User-Agent": "bonob" },
-        responseType: "arraybuffer",
-      }
-    );
+    getRaw2(http2(this.subsonic.authenticated(credentials), {
+      url: "/rest/getCoverArt",
+      params: { id, size },
+      responseType: "arraybuffer",
+    }));
 
   private getTrack = (id: string) =>
     this.subsonic
@@ -675,9 +692,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       })
       .then((it) => it.song)
       .then((song) =>
-        this.getAlbum(song.albumId!).then((album) =>
-          asTrack(album, song)
-        )
+        this.getAlbum(song.albumId!).then((album) => asTrack(album, song))
       );
 
   private toAlbumSummary = (albumList: album[]): AlbumSummary[] =>
@@ -711,73 +726,83 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
         inject(it, (total, artist) => total + artist.albumCount, 0)
       ),
       this.subsonic
-        .getJSON<GetAlbumListResponse>(this.credentials, "/rest/getAlbumList2", {
-          type: AlbumQueryTypeToSubsonicType[q.type],
-          ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-          size: 500,
-          offset: q._index,
-        })
+        .getJSON<GetAlbumListResponse>(
+          this.credentials,
+          "/rest/getAlbumList2",
+          {
+            type: AlbumQueryTypeToSubsonicType[q.type],
+            ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+            size: 500,
+            offset: q._index,
+          }
+        )
         .then((response) => response.albumList2.album || [])
         .then(this.toAlbumSummary),
     ]).then(([total, albums]) => ({
       results: albums.slice(0, q._count),
       total: albums.length == 500 ? total : (q._index || 0) + albums.length,
     }));
-};
+}
 
-export const navidromeMusicLibrary = (url: string, subsonicLibrary: SubsonicMusicLibrary, subsonicCredentials: SubsonicCredentials): SubsonicMusicLibrary => ({
+export const navidromeMusicLibrary = (
+  url: string,
+  subsonicLibrary: SubsonicMusicLibrary,
+  subsonicCredentials: SubsonicCredentials
+): SubsonicMusicLibrary => ({
   ...subsonicLibrary,
   flavour: () => "navidrome",
-  bearerToken: (credentials: Credentials): TE.TaskEither<Error, string | undefined> =>
+  bearerToken: (
+    credentials: Credentials
+  ): TE.TaskEither<Error, string | undefined> =>
     pipe(
       TE.tryCatch(
         () =>
-          axios.post(
-            `${url}/auth/login`,
-            _.pick(credentials, "username", "password")
-          ),
+          axios({
+            method: 'post',
+            baseURL: url,
+            url: `/auth/login`,
+            data: _.pick(credentials, "username", "password")
+          }),
         () => new AuthFailure("Failed to get bearerToken")
       ),
       TE.map((it) => it.data.token as string | undefined)
     ),
-    artists:  async (
-      q: ArtistQuery
-    ): Promise<Result<ArtistSummary & Sortable>> => {
-      let params: any = {
-        _sort: "name",
-        _order: "ASC",
-        _start: q._index || "0",
+  artists: async (
+    q: ArtistQuery
+  ): Promise<Result<ArtistSummary & Sortable>> => {
+    let params: any = {
+      _sort: "name",
+      _order: "ASC",
+      _start: q._index || "0",
+    };
+    if (q._count) {
+      params = {
+        ...params,
+        _end: (q._index || 0) + q._count,
       };
-      if (q._count) {
-        params = {
-          ...params,
-          _end: (q._index || 0) + q._count,
-        };
-      }
-  
-      const x: Promise<Result<ArtistSummary & Sortable>> =  axios
-        .get(`${url}/api/artist`, {
-          params: asURLSearchParams(params),
-          headers: {
-            "User-Agent": USER_AGENT,
-            "x-nd-authorization": `Bearer ${subsonicCredentials.bearer}`,
-          },
-        })
-        .catch((e) => {
-          throw `Navidrome failed with: ${e}`;
-        })
-        .then((response) => {
-          if (response.status != 200 && response.status != 206) {
-            throw `Navidrome failed with a ${
-              response.status || "no!"
-            } status`;
-          } else return response;
-        })
-        .then((it) => ({
-          results: (it.data as NDArtist[]).map(artistSummaryFromNDArtist),
-          total: Number.parseInt(it.headers["x-total-count"] || "0"),
-        }));
-  
-        return x;
-      }
-})
+    }
+
+    const x: Promise<Result<ArtistSummary & Sortable>> = axios
+      .get(`${url}/api/artist`, {
+        params: asURLSearchParams(params),
+        headers: {
+          "User-Agent": USER_AGENT,
+          "x-nd-authorization": `Bearer ${subsonicCredentials.bearer}`,
+        },
+      })
+      .catch((e) => {
+        throw `Navidrome failed with: ${e}`;
+      })
+      .then((response) => {
+        if (response.status != 200 && response.status != 206) {
+          throw `Navidrome failed with a ${response.status || "no!"} status`;
+        } else return response;
+      })
+      .then((it) => ({
+        results: (it.data as NDArtist[]).map(artistSummaryFromNDArtist),
+        total: Number.parseInt(it.headers["x-total-count"] || "0"),
+      }));
+
+    return x;
+  },
+});

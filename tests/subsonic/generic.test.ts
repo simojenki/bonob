@@ -1,30 +1,60 @@
-import {  pipe } from "fp-ts/lib/function";
+import { pipe } from "fp-ts/lib/function";
 import { option as O } from "fp-ts";
 import { v4 as uuid } from "uuid";
 
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 jest.mock("axios");
-
 
 import randomstring from "randomstring";
 jest.mock("randomstring");
 
-import { aGenre, anAlbum, anArtist, aPlaylist, aPlaylistSummary, aSimilarArtist, aTrack, POP, ROCK } from "../builders";
+import {
+  aGenre,
+  anAlbum,
+  anArtist,
+  aPlaylist,
+  aPlaylistSummary,
+  aSimilarArtist,
+  aTrack,
+  POP,
+  ROCK,
+} from "../builders";
 import { BUrn } from "../../src/burn";
-import { Album, AlbumQuery, AlbumSummary, albumToAlbumSummary, Artist, artistToArtistSummary, asArtistAlbumPairs, Playlist, PlaylistSummary, Rating, SimilarArtist, Track } from "../../src/music_service";
-import { artistImageURN, asGenre, asTrack, images, isValidImage, song, SubsonicGenericMusicLibrary } from "../../src/subsonic/library";
+import {
+  Album,
+  AlbumQuery,
+  AlbumSummary,
+  albumToAlbumSummary,
+  Artist,
+  artistToArtistSummary,
+  asArtistAlbumPairs,
+  Playlist,
+  PlaylistSummary,
+  Rating,
+  SimilarArtist,
+  Track,
+} from "../../src/music_service";
+import {
+  artistImageURN,
+  asGenre,
+  asTrack,
+  images,
+  isValidImage,
+  song,
+  SubsonicGenericMusicLibrary,
+} from "../../src/subsonic/library";
 import { EMPTY, error, FAILURE, subsonicOK, ok } from "../subsonic.test";
 import Subsonic, { DODGY_IMAGE_NAME, t } from "../../src/subsonic";
-import { asURLSearchParams } from "../../src/utils";
 import { b64Encode } from "../../src/b64";
+import { http2 } from "../../src/http";
 
-
-const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) => pipe(
-  coverArt,
-  O.fromNullable,
-  O.map(it => it.resource.split(":")[1]),
-  O.getOrElseW(() => "")
-)
+const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
+  pipe(
+    coverArt,
+    O.fromNullable,
+    O.map((it) => it.resource.split(":")[1]),
+    O.getOrElseW(() => "")
+  );
 
 const asAlbumJson = (
   artist: { id: string | undefined; name: string | undefined },
@@ -76,7 +106,6 @@ const asSongJson = (track: Track) => ({
   year: "",
 });
 
-
 const asSimilarArtistJson = (similarArtist: SimilarArtist) => {
   if (similarArtist.inLibrary)
     return {
@@ -114,7 +143,7 @@ const getAlbumListJson = (albums: [Artist, Album][]) =>
     },
   });
 
-type ArtistExtras = { artistImageUrl: string | undefined }
+type ArtistExtras = { artistImageUrl: string | undefined };
 
 const asArtistJson = (
   artist: Artist,
@@ -127,7 +156,10 @@ const asArtistJson = (
   ...extras,
 });
 
-const getArtistJson = (artist: Artist, extras: ArtistExtras = { artistImageUrl: undefined }) =>
+const getArtistJson = (
+  artist: Artist,
+  extras: ArtistExtras = { artistImageUrl: undefined }
+) =>
   subsonicOK({
     artist: asArtistJson(artist, extras),
   });
@@ -149,7 +181,6 @@ const getAlbumJson = (artist: Artist, album: Album, tracks: Track[]) =>
   subsonicOK({ album: asAlbumJson(artist, album, tracks) });
 
 const getSongJson = (track: Track) => subsonicOK({ song: asSongJson(track) });
-
 
 const getSimilarSongsJson = (tracks: Track[]) =>
   subsonicOK({ similarSongs2: { song: tracks.map(asSongJson) } });
@@ -320,8 +351,14 @@ describe("artistImageURN", () => {
     describe("a valid external URL", () => {
       it("should return an external URN", () => {
         expect(
-          artistImageURN({ artistId: "someArtistId", artistImageURL: "http://example.com/image.jpg" })
-        ).toEqual({ system: "external", resource: "http://example.com/image.jpg" });
+          artistImageURN({
+            artistId: "someArtistId",
+            artistImageURL: "http://example.com/image.jpg",
+          })
+        ).toEqual({
+          system: "external",
+          resource: "http://example.com/image.jpg",
+        });
       });
     });
 
@@ -331,7 +368,7 @@ describe("artistImageURN", () => {
           expect(
             artistImageURN({
               artistId: "someArtistId",
-              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`
+              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`,
             })
           ).toEqual({ system: "subsonic", resource: "art:someArtistId" });
         });
@@ -342,7 +379,7 @@ describe("artistImageURN", () => {
           expect(
             artistImageURN({
               artistId: "-1",
-              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`
+              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`,
             })
           ).toBeUndefined();
         });
@@ -353,7 +390,7 @@ describe("artistImageURN", () => {
           expect(
             artistImageURN({
               artistId: undefined,
-              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`
+              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`,
             })
           ).toBeUndefined();
         });
@@ -363,19 +400,28 @@ describe("artistImageURN", () => {
     describe("undefined", () => {
       describe("and artistId is valid", () => {
         it("should return artist art by artist id URN", () => {
-          expect(artistImageURN({ artistId: "someArtistId", artistImageURL: undefined })).toEqual({system:"subsonic", resource:"art:someArtistId"});
+          expect(
+            artistImageURN({
+              artistId: "someArtistId",
+              artistImageURL: undefined,
+            })
+          ).toEqual({ system: "subsonic", resource: "art:someArtistId" });
         });
       });
 
       describe("and artistId is -1", () => {
         it("should return error icon", () => {
-          expect(artistImageURN({ artistId: "-1", artistImageURL: undefined })).toBeUndefined();
+          expect(
+            artistImageURN({ artistId: "-1", artistImageURL: undefined })
+          ).toBeUndefined();
         });
       });
 
       describe("and artistId is undefined", () => {
         it("should return error icon", () => {
-          expect(artistImageURN({ artistId: undefined, artistImageURL: undefined })).toBeUndefined();
+          expect(
+            artistImageURN({ artistId: undefined, artistImageURL: undefined })
+          ).toBeUndefined();
         });
       });
     });
@@ -385,7 +431,13 @@ describe("artistImageURN", () => {
 describe("asTrack", () => {
   describe("when the song has no artistId", () => {
     const album = anAlbum();
-    const track = aTrack({ artist: { id: undefined, name: "Not in library so no id", image: undefined }});
+    const track = aTrack({
+      artist: {
+        id: undefined,
+        name: "Not in library so no id",
+        image: undefined,
+      },
+    });
 
     it("should provide no artistId", () => {
       const result = asTrack(album, { ...asSongJson(track) });
@@ -399,7 +451,7 @@ describe("asTrack", () => {
     const album = anAlbum();
 
     it("should provide a ? to sonos", () => {
-      const result = asTrack(album, { id: '1' } as any as song);
+      const result = asTrack(album, { id: "1" } as any as song);
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("?");
       expect(result.artist.image).toBeUndefined();
@@ -427,38 +479,18 @@ describe("asTrack", () => {
 });
 
 describe("SubsonicGenericMusicLibrary", () => {
+  const mockAxios = axios as unknown as jest.Mock;
   const mockRandomstring = jest.fn();
-  const mockGET = jest.fn();
   const mockPOST = jest.fn();
-  
+
   const url = "http://127.0.0.22:4567";
+  const baseURL = url;
   const username = `user1-${uuid()}`;
   const password = `pass1-${uuid()}`;
   const salt = "saltysalty";
 
   const streamClientApplication = jest.fn();
   const subsonic = new Subsonic(url, streamClientApplication)
-  const generic = new SubsonicGenericMusicLibrary(
-    subsonic,
-    {
-      username, 
-      password,
-      type: 'subsonic',
-      bearer: undefined
-    }
-  );
-
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.resetAllMocks();
-
-    randomstring.generate = mockRandomstring;
-    axios.get = mockGET;
-    axios.post = mockPOST;
-
-    mockRandomstring.mockReturnValue(salt);
-  });
 
   const authParams = {
     u: username,
@@ -477,11 +509,51 @@ describe("SubsonicGenericMusicLibrary", () => {
     "User-Agent": "bonob",
   };
 
+  const generic = new SubsonicGenericMusicLibrary(
+    subsonic,
+    {
+      username,
+      password,
+      type: 'subsonic',
+      bearer: undefined
+    },
+    // todo: all this stuff doesnt need to be defaulted in here.
+    http2(mockAxios, {
+      baseURL,
+      params: authParams,
+      headers
+    })
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetAllMocks();
+
+    randomstring.generate = mockRandomstring;
+    axios.post = mockPOST;
+
+    mockRandomstring.mockReturnValue(salt);
+  });
+
+
+  const streamRequest = (opts: Pick<AxiosRequestConfig, "url" | "params">) => ({
+    baseURL,
+    method: "get",
+    url: opts.url,
+    params: {
+      ...authParams,
+      ...opts.params,
+    },
+    headers,
+    responseType: "arraybuffer",
+  });
+
   describe("getting genres", () => {
     describe("when there are none", () => {
       beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(getGenresJson([]))));
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getGenresJson([])))
+        );
       });
 
       it("should return empty array", async () => {
@@ -489,8 +561,11 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         expect(result).toEqual([]);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: asURLSearchParams(authParamsPlusJson),
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getGenres`,
+          params: authParamsPlusJson,
           headers,
         });
       });
@@ -503,10 +578,9 @@ describe("SubsonicGenericMusicLibrary", () => {
       ];
 
       beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getGenresJson(genres)))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getGenresJson(genres)))
+        );
       });
 
       it("should return them alphabetically sorted", async () => {
@@ -514,8 +588,11 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         expect(result).toEqual([{ id: b64Encode("genre1"), name: "genre1" }]);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: asURLSearchParams(authParamsPlusJson),
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getGenres`,
+          params: authParamsPlusJson,
           headers,
         });
       });
@@ -531,10 +608,9 @@ describe("SubsonicGenericMusicLibrary", () => {
       ];
 
       beforeEach(() => {
-        mockGET
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getGenresJson(genres)))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getGenresJson(genres)))
+        );
       });
 
       it("should return them alphabetically sorted", async () => {
@@ -547,8 +623,11 @@ describe("SubsonicGenericMusicLibrary", () => {
           { id: b64Encode("g4"), name: "g4" },
         ]);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
-          params: asURLSearchParams(authParamsPlusJson),
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getGenres`,
+          params: authParamsPlusJson,
           headers,
         });
       });
@@ -581,7 +660,7 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -596,26 +675,32 @@ describe("SubsonicGenericMusicLibrary", () => {
           expect(result).toEqual({
             id: `${artist.id}`,
             name: artist.name,
-            image: { system:"subsonic", resource:`art:${artist.id}` },
+            image: { system: "subsonic", resource: `art:${artist.id}` },
             albums: artist.albums,
             similarArtists: artist.similarArtists,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
@@ -638,7 +723,7 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -653,26 +738,32 @@ describe("SubsonicGenericMusicLibrary", () => {
           expect(result).toEqual({
             id: artist.id,
             name: artist.name,
-            image: { system:"subsonic", resource:`art:${artist.id}` },
+            image: { system: "subsonic", resource: `art:${artist.id}` },
             albums: artist.albums,
             similarArtists: artist.similarArtists,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
@@ -689,7 +780,7 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -704,26 +795,32 @@ describe("SubsonicGenericMusicLibrary", () => {
           expect(result).toEqual({
             id: artist.id,
             name: artist.name,
-            image: { system:"subsonic", resource: `art:${artist.id}` },
+            image: { system: "subsonic", resource: `art:${artist.id}` },
             albums: artist.albums,
             similarArtists: artist.similarArtists,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
@@ -738,12 +835,22 @@ describe("SubsonicGenericMusicLibrary", () => {
         const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl })))
+              Promise.resolve(
+                ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl }))
+              )
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist, { smallImageUrl: dodgyImageUrl, mediumImageUrl: dodgyImageUrl, largeImageUrl: dodgyImageUrl})))
+              Promise.resolve(
+                ok(
+                  getArtistInfoJson(artist, {
+                    smallImageUrl: dodgyImageUrl,
+                    mediumImageUrl: dodgyImageUrl,
+                    largeImageUrl: dodgyImageUrl,
+                  })
+                )
+              )
             );
         });
 
@@ -761,21 +868,27 @@ describe("SubsonicGenericMusicLibrary", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
@@ -790,12 +903,27 @@ describe("SubsonicGenericMusicLibrary", () => {
         const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: 'http://example.com:1234/good/looking/image.png' })))
+              Promise.resolve(
+                ok(
+                  getArtistJson(artist, {
+                    artistImageUrl:
+                      "http://example.com:1234/good/looking/image.png",
+                  })
+                )
+              )
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist, { smallImageUrl: dodgyImageUrl, mediumImageUrl: dodgyImageUrl, largeImageUrl: dodgyImageUrl })))
+              Promise.resolve(
+                ok(
+                  getArtistInfoJson(artist, {
+                    smallImageUrl: dodgyImageUrl,
+                    mediumImageUrl: dodgyImageUrl,
+                    largeImageUrl: dodgyImageUrl,
+                  })
+                )
+              )
             );
         });
 
@@ -805,30 +933,39 @@ describe("SubsonicGenericMusicLibrary", () => {
           expect(result).toEqual({
             id: artist.id,
             name: artist.name,
-            image: { system: "external", resource: 'http://example.com:1234/good/looking/image.png' },
+            image: {
+              system: "external",
+              resource: "http://example.com:1234/good/looking/image.png",
+            },
             albums: artist.albums,
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
-      });      
+      });
 
       describe("and has a good large external image uri from getArtistInfo route", () => {
         const artist: Artist = anArtist({
@@ -839,12 +976,23 @@ describe("SubsonicGenericMusicLibrary", () => {
         const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl })))
+              Promise.resolve(
+                ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl }))
+              )
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist, { smallImageUrl: dodgyImageUrl, mediumImageUrl: dodgyImageUrl, largeImageUrl: 'http://example.com:1234/good/large/image.png' })))
+              Promise.resolve(
+                ok(
+                  getArtistInfoJson(artist, {
+                    smallImageUrl: dodgyImageUrl,
+                    mediumImageUrl: dodgyImageUrl,
+                    largeImageUrl:
+                      "http://example.com:1234/good/large/image.png",
+                  })
+                )
+              )
             );
         });
 
@@ -854,31 +1002,39 @@ describe("SubsonicGenericMusicLibrary", () => {
           expect(result).toEqual({
             id: artist.id,
             name: artist.name,
-            image: { system: "external", resource: 'http://example.com:1234/good/large/image.png' },
+            image: {
+              system: "external",
+              resource: "http://example.com:1234/good/large/image.png",
+            },
             albums: artist.albums,
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
-      });   
-      
+      });
 
       describe("and has a good medium external image uri from getArtistInfo route", () => {
         const artist: Artist = anArtist({
@@ -889,12 +1045,23 @@ describe("SubsonicGenericMusicLibrary", () => {
         const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl })))
+              Promise.resolve(
+                ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl }))
+              )
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist, { smallImageUrl: dodgyImageUrl, mediumImageUrl: 'http://example.com:1234/good/medium/image.png', largeImageUrl: dodgyImageUrl })))
+              Promise.resolve(
+                ok(
+                  getArtistInfoJson(artist, {
+                    smallImageUrl: dodgyImageUrl,
+                    mediumImageUrl:
+                      "http://example.com:1234/good/medium/image.png",
+                    largeImageUrl: dodgyImageUrl,
+                  })
+                )
+              )
             );
         });
 
@@ -904,30 +1071,39 @@ describe("SubsonicGenericMusicLibrary", () => {
           expect(result).toEqual({
             id: artist.id,
             name: artist.name,
-            image: { system:"external", resource: 'http://example.com:1234/good/medium/image.png' },
+            image: {
+              system: "external",
+              resource: "http://example.com:1234/good/medium/image.png",
+            },
             albums: artist.albums,
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
-      });       
+      });
 
       describe("and has multiple albums", () => {
         const album1: Album = anAlbum({ genre: asGenre("Pop") });
@@ -940,7 +1116,7 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -960,21 +1136,27 @@ describe("SubsonicGenericMusicLibrary", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
@@ -989,7 +1171,7 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1009,21 +1191,27 @@ describe("SubsonicGenericMusicLibrary", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
@@ -1036,7 +1224,7 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
 
         beforeEach(() => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1056,21 +1244,27 @@ describe("SubsonicGenericMusicLibrary", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtist`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtistInfo2`,
+            params: {
               ...authParamsPlusJson,
               id: artist.id,
               count: 50,
               includeNotPresent: true,
-            }),
+            },
             headers,
           });
         });
@@ -1082,69 +1276,67 @@ describe("SubsonicGenericMusicLibrary", () => {
     describe("when subsonic flavour is generic", () => {
       describe("when there are indexes, but no artists", () => {
         beforeEach(() => {
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  subsonicOK({
-                    artists: {
-                      index: [
-                        {
-                          name: "#",
-                        },
-                        {
-                          name: "A",
-                        },
-                        {
-                          name: "B",
-                        },
-                      ],
-                    },
-                  })
-                )
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                subsonicOK({
+                  artists: {
+                    index: [
+                      {
+                        name: "#",
+                      },
+                      {
+                        name: "A",
+                      },
+                      {
+                        name: "B",
+                      },
+                    ],
+                  },
+                })
               )
-            );
+            )
+          );
         });
-  
+
         it("should return empty", async () => {
           const artists = await generic.artists({ _index: 0, _count: 100 });
-  
+
           expect(artists).toEqual({
             results: [],
             total: 0,
           });
         });
       });
-  
+
       describe("when there no indexes and no artists", () => {
         beforeEach(() => {
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  subsonicOK({
-                    artists: {},
-                  })
-                )
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                subsonicOK({
+                  artists: {},
+                })
               )
-            );
+            )
+          );
         });
-  
+
         it("should return empty", async () => {
           const artists = await generic.artists({ _index: 0, _count: 100 });
-  
+
           expect(artists).toEqual({
             results: [],
             total: 0,
           });
         });
       });
-  
+
       describe("when there is one index and one artist", () => {
-        const artist1 = anArtist({albums:[anAlbum(), anAlbum(), anAlbum(), anAlbum()]});
-  
+        const artist1 = anArtist({
+          albums: [anAlbum(), anAlbum(), anAlbum(), anAlbum()],
+        });
+
         const asArtistsJson = subsonicOK({
           artists: {
             index: [
@@ -1161,56 +1353,59 @@ describe("SubsonicGenericMusicLibrary", () => {
             ],
           },
         });
-  
+
         describe("when it all fits on one page", () => {
           beforeEach(() => {
-            mockGET
-              
-              .mockImplementationOnce(() => Promise.resolve(ok(asArtistsJson)));
+            mockAxios.mockImplementationOnce(() =>
+              Promise.resolve(ok(asArtistsJson))
+            );
           });
-  
+
           it("should return the single artist", async () => {
             const artists = await generic.artists({ _index: 0, _count: 100 });
-  
-            const expectedResults = [{
-              id: artist1.id,
-              image: artist1.image,
-              name: artist1.name,
-              sortName: artist1.name
-            }];
-  
+
+            const expectedResults = [
+              {
+                id: artist1.id,
+                image: artist1.image,
+                name: artist1.name,
+                sortName: artist1.name,
+              },
+            ];
+
             expect(artists).toEqual({
               results: expectedResults,
               total: 1,
             });
-  
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
           });
         });
       });
-  
+
       describe("when there are artists", () => {
-        const artist1 = anArtist({ name: "A Artist", albums:[anAlbum()] });
+        const artist1 = anArtist({ name: "A Artist", albums: [anAlbum()] });
         const artist2 = anArtist({ name: "B Artist" });
         const artist3 = anArtist({ name: "C Artist" });
         const artist4 = anArtist({ name: "D Artist" });
         const artists = [artist1, artist2, artist3, artist4];
-  
+
         describe("when no paging is in effect", () => {
           beforeEach(() => {
-            mockGET
-              
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(asArtistsJson(artists)))
-              );
+            mockAxios.mockImplementationOnce(() =>
+              Promise.resolve(ok(asArtistsJson(artists)))
+            );
           });
-  
+
           it("should return all the artists", async () => {
             const artists = await generic.artists({ _index: 0, _count: 100 });
-  
+
             const expectedResults = [artist1, artist2, artist3, artist4].map(
               (it) => ({
                 id: it.id,
@@ -1219,49 +1414,53 @@ describe("SubsonicGenericMusicLibrary", () => {
                 sortName: it.name,
               })
             );
-  
+
             expect(artists).toEqual({
               results: expectedResults,
               total: 4,
             });
-  
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
           });
         });
-  
+
         describe("when paging specified", () => {
           beforeEach(() => {
-            mockGET
-              
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(asArtistsJson(artists)))
-              );
+            mockAxios.mockImplementationOnce(() =>
+              Promise.resolve(ok(asArtistsJson(artists)))
+            );
           });
-  
+
           it("should return only the correct page of artists", async () => {
             const artists = await generic.artists({ _index: 1, _count: 2 });
-  
+
             const expectedResults = [artist2, artist3].map((it) => ({
               id: it.id,
               image: it.image,
               name: it.name,
               sortName: it.name,
             }));
-  
+
             expect(artists).toEqual({ results: expectedResults, total: 4 });
-  
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
           });
         });
       });
     });
-   
+
     // todo: put this test back
     // describe("when the subsonic type is navidrome", () => {
     //   const ndArtist1 = {
@@ -1296,7 +1495,7 @@ describe("SubsonicGenericMusicLibrary", () => {
     //         .mockImplementationOnce(() => Promise.resolve(ok(pingJson({ type: "navidrome" }))))
     //         .mockImplementationOnce(() =>
     //           Promise.resolve({
-    //               status: 200, 
+    //               status: 200,
     //               data: [
     //                 ndArtist1,
     //                 ndArtist2,
@@ -1311,11 +1510,11 @@ describe("SubsonicGenericMusicLibrary", () => {
 
     //       (axios.post as jest.Mock).mockResolvedValue(ok({ token: bearer }));
     //     });
-  
+
     //     it("should fetch all artists", async () => {
     //       const artists = await login({ username, password, bearer, type: "navidrome" })
     //         .then((it) => it.artists({ _index: undefined, _count: undefined }));
-  
+
     //       expect(artists).toEqual({
     //         results: [
     //           artistSummaryFromNDArtist(ndArtist1),
@@ -1346,7 +1545,7 @@ describe("SubsonicGenericMusicLibrary", () => {
     //         .mockImplementationOnce(() => Promise.resolve(ok(pingJson({ type: "navidrome" }))))
     //         .mockImplementationOnce(() =>
     //           Promise.resolve({
-    //             status: 200, 
+    //             status: 200,
     //             data: [
     //               ndArtist3,
     //               ndArtist4,
@@ -1359,11 +1558,11 @@ describe("SubsonicGenericMusicLibrary", () => {
 
     //       (axios.post as jest.Mock).mockResolvedValue(ok({ token: bearer }));
     //     });
-  
+
     //     it("should fetch all artists", async () => {
     //       const artists = await login({ username, password, bearer, type: "navidrome" })
     //         .then((it) => it.artists({ _index: 2, _count: undefined }));
-  
+
     //       expect(artists).toEqual({
     //         results: [
     //           artistSummaryFromNDArtist(ndArtist3),
@@ -1392,7 +1591,7 @@ describe("SubsonicGenericMusicLibrary", () => {
     //         .mockImplementationOnce(() => Promise.resolve(ok(pingJson({ type: "navidrome" }))))
     //         .mockImplementationOnce(() =>
     //           Promise.resolve({
-    //             status: 200, 
+    //             status: 200,
     //             data: [
     //               ndArtist3,
     //               ndArtist4,
@@ -1405,11 +1604,11 @@ describe("SubsonicGenericMusicLibrary", () => {
 
     //       (axios.post as jest.Mock).mockResolvedValue(ok({ token: bearer }));
     //     });
-  
+
     //     it("should fetch all artists", async () => {
     //       const artists = await login({ username, password, bearer, type: "navidrome" })
     //         .then((it) => it.artists({ _index: 2, _count: 23 }));
-  
+
     //       expect(artists).toEqual({
     //         results: [
     //           artistSummaryFromNDArtist(ndArtist3),
@@ -1450,8 +1649,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("by genre", () => {
         beforeEach(() => {
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -1482,19 +1680,25 @@ describe("SubsonicGenericMusicLibrary", () => {
             total: 2,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtists`,
+            params: authParamsPlusJson,
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbumList2`,
+            params: {
               ...authParamsPlusJson,
               type: "byGenre",
               genre: "Pop",
               size: 500,
               offset: 0,
-            }),
+            },
             headers,
           });
         });
@@ -1502,8 +1706,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("by newest", () => {
         beforeEach(() => {
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -1533,18 +1736,24 @@ describe("SubsonicGenericMusicLibrary", () => {
             total: 3,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtists`,
+            params: authParamsPlusJson,
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbumList2`,
+            params: {
               ...authParamsPlusJson,
               type: "newest",
               size: 500,
               offset: 0,
-            }),
+            },
             headers,
           });
         });
@@ -1552,8 +1761,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("by recently played", () => {
         beforeEach(() => {
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -1583,18 +1791,24 @@ describe("SubsonicGenericMusicLibrary", () => {
             total: 2,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtists`,
+            params: authParamsPlusJson,
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbumList2`,
+            params: {
               ...authParamsPlusJson,
               type: "recent",
               size: 500,
               offset: 0,
-            }),
+            },
             headers,
           });
         });
@@ -1602,8 +1816,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("by frequently played", () => {
         beforeEach(() => {
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -1624,18 +1837,24 @@ describe("SubsonicGenericMusicLibrary", () => {
             total: 1,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtists`,
+            params: authParamsPlusJson,
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbumList2`,
+            params: {
               ...authParamsPlusJson,
               type: "frequent",
               size: 500,
               offset: 0,
-            }),
+            },
             headers,
           });
         });
@@ -1643,8 +1862,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("by starred", () => {
         beforeEach(() => {
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -1665,18 +1883,24 @@ describe("SubsonicGenericMusicLibrary", () => {
             total: 1,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtists`,
+            params: authParamsPlusJson,
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbumList2`,
+            params: {
               ...authParamsPlusJson,
               type: "highest",
               size: 500,
               offset: 0,
-            }),
+            },
             headers,
           });
         });
@@ -1692,8 +1916,7 @@ describe("SubsonicGenericMusicLibrary", () => {
       const albums = artists.flatMap((artist) => artist.albums);
 
       beforeEach(() => {
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson(artists)))
           )
@@ -1715,18 +1938,24 @@ describe("SubsonicGenericMusicLibrary", () => {
           total: 1,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-          params: asURLSearchParams(authParamsPlusJson),
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getArtists`,
+          params: authParamsPlusJson,
           headers,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getAlbumList2`,
+          params: {
             ...authParamsPlusJson,
             type: "alphabeticalByArtist",
             size: 500,
             offset: 0,
-          }),
+          },
           headers,
         });
       });
@@ -1741,8 +1970,7 @@ describe("SubsonicGenericMusicLibrary", () => {
       const albums = artists.flatMap((artist) => artist.albums);
 
       beforeEach(() => {
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson(artists)))
           )
@@ -1764,18 +1992,24 @@ describe("SubsonicGenericMusicLibrary", () => {
           total: 0,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-          params: asURLSearchParams(authParamsPlusJson),
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getArtists`,
+          params: authParamsPlusJson,
           headers,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getAlbumList2`,
+          params: {
             ...authParamsPlusJson,
             type: "alphabeticalByArtist",
             size: 500,
             offset: 0,
-          }),
+          },
           headers,
         });
       });
@@ -1807,8 +2041,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("querying for all of them", () => {
         it("should return all of them with corrent paging information", async () => {
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson(artists)))
             )
@@ -1828,18 +2061,24 @@ describe("SubsonicGenericMusicLibrary", () => {
             total: 6,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtists`,
+            params: authParamsPlusJson,
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbumList2`,
+            params: {
               ...authParamsPlusJson,
               type: "alphabeticalByArtist",
               size: 500,
               offset: 0,
-            }),
+            },
             headers,
           });
         });
@@ -1847,8 +2086,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("querying for a page of them", () => {
         it("should return the page with the corrent paging information", async () => {
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson(artists)))
             )
@@ -1878,18 +2116,24 @@ describe("SubsonicGenericMusicLibrary", () => {
             total: 6,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getArtists`,
+            params: authParamsPlusJson,
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbumList2`,
+            params: {
               ...authParamsPlusJson,
               type: "alphabeticalByArtist",
               size: 500,
               offset: 2,
-            }),
+            },
             headers,
           });
         });
@@ -1917,8 +2161,7 @@ describe("SubsonicGenericMusicLibrary", () => {
       describe("when the number of albums returned from getAlbums is less the number of albums in the getArtists endpoint", () => {
         describe("when the query comes back on 1 page", () => {
           beforeEach(() => {
-            mockGET
-              
+            mockAxios
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(asArtistsJson(artists)))
               )
@@ -1950,20 +2193,24 @@ describe("SubsonicGenericMusicLibrary", () => {
               total: 4,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
-              {
-                params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+                method: 'get',
+                baseURL,
+                url: `/rest/getAlbumList2`,
+                params: {
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
-                }),
+                },
                 headers,
               }
             );
@@ -1972,8 +2219,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         describe("when the query is for the first page", () => {
           beforeEach(() => {
-            mockGET
-              
+            mockAxios
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(asArtistsJson(artists)))
               )
@@ -2006,20 +2252,24 @@ describe("SubsonicGenericMusicLibrary", () => {
               total: 4,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
-              {
-                params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+                method: 'get',
+                baseURL,
+                url: `/rest/getAlbumList2`,
+                params: {
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
-                }),
+                },
                 headers,
               }
             );
@@ -2028,8 +2278,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         describe("when the query is for the last page only", () => {
           beforeEach(() => {
-            mockGET
-              
+            mockAxios
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(asArtistsJson(artists)))
               )
@@ -2061,20 +2310,24 @@ describe("SubsonicGenericMusicLibrary", () => {
               total: 4,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
-              {
-                params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+                method: 'get',
+                baseURL,
+                url: `/rest/getAlbumList2`,
+                params: {
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
-                }),
+                },
                 headers,
               }
             );
@@ -2085,8 +2338,7 @@ describe("SubsonicGenericMusicLibrary", () => {
       describe("when the number of albums returned from getAlbums is more than the number of albums in the getArtists endpoint", () => {
         describe("when the query comes back on 1 page", () => {
           beforeEach(() => {
-            mockGET
-              
+            mockAxios
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -2126,20 +2378,24 @@ describe("SubsonicGenericMusicLibrary", () => {
               total: 5,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
-              {
-                params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+                method: 'get',
+                baseURL,
+                url: `/rest/getAlbumList2`,
+                params: {
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
-                }),
+                },
                 headers,
               }
             );
@@ -2148,8 +2404,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         describe("when the query is for the first page", () => {
           beforeEach(() => {
-            mockGET
-              
+            mockAxios
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -2189,20 +2444,24 @@ describe("SubsonicGenericMusicLibrary", () => {
               total: 5,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
-              {
-                params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+                method: 'get',
+                baseURL,
+                url: `/rest/getAlbumList2`,
+                params: {
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
-                }),
+                },
                 headers,
               }
             );
@@ -2211,8 +2470,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         describe("when the query is for the last page only", () => {
           beforeEach(() => {
-            mockGET
-              
+            mockAxios
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -2250,20 +2508,24 @@ describe("SubsonicGenericMusicLibrary", () => {
               total: 5,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
-              params: asURLSearchParams(authParamsPlusJson),
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getArtists`,
+              params: authParamsPlusJson,
               headers,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
-              {
-                params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+                method: 'get',
+                baseURL,
+                url: `/rest/getAlbumList2`,
+                params: {
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
                   size: 500,
                   offset: q._index,
-                }),
+                },
                 headers,
               }
             );
@@ -2289,11 +2551,9 @@ describe("SubsonicGenericMusicLibrary", () => {
       ];
 
       beforeEach(() => {
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+        );
       });
 
       it("should return the album", async () => {
@@ -2301,11 +2561,14 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         expect(result).toEqual(album);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getAlbum`,
+          params: {
             ...authParamsPlusJson,
             id: album.id,
-          }),
+          },
           headers,
         });
       });
@@ -2366,11 +2629,9 @@ describe("SubsonicGenericMusicLibrary", () => {
         const tracks = [track1, track2, track3, track4];
 
         beforeEach(() => {
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
-            );
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+          );
         });
 
         it("should return the album", async () => {
@@ -2378,11 +2639,14 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual([track1, track2, track3, track4]);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbum`,
+            params: {
               ...authParamsPlusJson,
               id: album.id,
-            }),
+            },
             headers,
           });
         });
@@ -2412,11 +2676,9 @@ describe("SubsonicGenericMusicLibrary", () => {
         const tracks = [track];
 
         beforeEach(() => {
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
-            );
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+          );
         });
 
         it("should return the album", async () => {
@@ -2424,11 +2686,14 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual([track]);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbum`,
+            params: {
               ...authParamsPlusJson,
               id: album.id,
-            }),
+            },
             headers,
           });
         });
@@ -2446,11 +2711,9 @@ describe("SubsonicGenericMusicLibrary", () => {
         const tracks: Track[] = [];
 
         beforeEach(() => {
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
-            );
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+          );
         });
 
         it("should empty array", async () => {
@@ -2458,11 +2721,14 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual([]);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: '/rest/getAlbum',
+            params: {
               ...authParamsPlusJson,
               id: album.id,
-            }),
+            },
             headers,
           });
         });
@@ -2492,8 +2758,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -2508,19 +2773,25 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: true, stars: 4 },
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getSong`,
+            params: {
               ...authParamsPlusJson,
               id: track.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbum`,
+            params: {
               ...authParamsPlusJson,
               id: album.id,
-            }),
+            },
             headers,
           });
         });
@@ -2538,8 +2809,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -2554,19 +2824,25 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: false, stars: 0 },
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getSong`,
+            params: {
               ...authParamsPlusJson,
               id: track.id,
-            }),
+            },
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getAlbum`,
+            params: {
               ...authParamsPlusJson,
               id: album.id,
-            }),
+            },
             headers,
           });
         });
@@ -2580,7 +2856,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
     const album = anAlbum({ genre });
     const artist = anArtist({
-      albums: [album]
+      albums: [album],
     });
     const track = aTrack({
       id: trackId,
@@ -2608,9 +2884,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: stream,
           };
 
-          mockGET
-            
-            .mockImplementationOnce(() =>
+          mockAxios.mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
@@ -2646,9 +2920,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: stream,
           };
 
-          mockGET
-            
-            .mockImplementationOnce(() =>
+          mockAxios.mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
@@ -2686,9 +2958,7 @@ describe("SubsonicGenericMusicLibrary", () => {
               data: stream,
             };
 
-            mockGET
-              
-              .mockImplementationOnce(() =>
+            mockAxios.mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
@@ -2706,11 +2976,14 @@ describe("SubsonicGenericMusicLibrary", () => {
             });
             expect(result.stream).toEqual(stream);
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-              params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/stream`,
+              params: {
                 ...authParams,
                 id: trackId,
-              }),
+              },
               headers: {
                 "User-Agent": "bonob",
               },
@@ -2719,6 +2992,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           });
         });
 
+        // todo: should not be the string navidrome in the generic driver
         describe("navidrome returns something other than a 200", () => {
           it("should fail", async () => {
             const trackId = "track123";
@@ -2726,14 +3000,12 @@ describe("SubsonicGenericMusicLibrary", () => {
             const streamResponse = {
               status: 400,
               headers: {
-                'content-type': 'text/html',
-                'content-length': '33'
-              }
+                "content-type": "text/html",
+                "content-length": "33",
+              },
             };
 
-            mockGET
-              
-              .mockImplementationOnce(() =>
+            mockAxios.mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
@@ -2751,9 +3023,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           it("should fail", async () => {
             const trackId = "track123";
 
-            mockGET
-              
-              .mockImplementationOnce(() =>
+            mockAxios.mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
@@ -2787,15 +3057,16 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: stream,
           };
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getAlbumJson(artist, album, [])))
             )
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+            .mockImplementationOnce(() =>
+              Promise.resolve(streamResponse)
+            );
 
           const result = await generic.stream({ trackId, range });
 
@@ -2807,14 +3078,17 @@ describe("SubsonicGenericMusicLibrary", () => {
           });
           expect(result.stream).toEqual(stream);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: "get",
+            baseURL,
+            url: `/rest/stream`,
+            params: {
               ...authParams,
-              id: trackId,
-            }),
+              id: trackId
+            },
             headers: {
               "User-Agent": "bonob",
-              Range: range,
+              Range: range
             },
             responseType: "stream",
           });
@@ -2836,30 +3110,33 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: Buffer.from("the track", "ascii"),
           };
 
-          mockGET
-            
-            .mockImplementationOnce(() =>
+          mockAxios.mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getAlbumJson(artist, album, [track])))
             )
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+            .mockImplementationOnce(() =>
+              Promise.resolve(streamResponse)
+            );
 
           await generic.stream({ trackId, range: undefined });
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-            params: asURLSearchParams({
-              ...authParams,
-              id: trackId,
-              c: clientApplication,
-            }),
-            headers: {
-              "User-Agent": "bonob",
-            },
-            responseType: "stream",
-          });
+          expect(mockAxios).toHaveBeenCalledWith({
+              method: "get",
+              baseURL,
+              url: `/rest/stream`,
+              params: {
+                ...authParams,
+                id: trackId,
+                c: clientApplication
+              },
+              headers: {
+                "User-Agent": "bonob",
+              },
+              responseType: "stream",
+            });
         });
       });
 
@@ -2877,25 +3154,29 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: Buffer.from("the track", "ascii"),
           };
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getAlbumJson(artist, album, [track])))
             )
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+            .mockImplementationOnce(() =>
+              Promise.resolve(streamResponse)
+            );
 
           await generic.stream({ trackId, range });
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/stream`,
+            params: {
               ...authParams,
               id: trackId,
               c: clientApplication,
-            }),
+            },
             headers: {
               "User-Agent": "bonob",
               Range: range,
@@ -2919,11 +3200,14 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: Buffer.from("the image", "ascii"),
           };
           const coverArtId = "someCoverArt";
-          const coverArtURN = { system: "subsonic", resource: `art:${coverArtId}` };
+          const coverArtURN = {
+            system: "subsonic",
+            resource: `art:${coverArtId}`,
+          };
 
-          mockGET
-            
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(streamResponse)
+          );
 
           const result = await generic.coverArt(coverArtURN);
 
@@ -2932,14 +3216,16 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: streamResponse.data,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
-            params: asURLSearchParams({
-              ...authParams,
-              id: coverArtId,
-            }),
-            headers,
-            responseType: "arraybuffer",
-          });
+          expect(mockAxios).toHaveBeenCalledWith(
+            streamRequest(
+              streamRequest({
+                url: `/rest/getCoverArt`,
+                params: {
+                  id: coverArtId,
+                },
+              })
+            )
+          );
         });
       });
 
@@ -2953,12 +3239,15 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: Buffer.from("the image", "ascii"),
           };
           const coverArtId = uuid();
-          const coverArtURN = { system: "subsonic", resource: `art:${coverArtId}` }
+          const coverArtURN = {
+            system: "subsonic",
+            resource: `art:${coverArtId}`,
+          };
           const size = 1879;
 
-          mockGET
-            
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(streamResponse)
+          );
 
           const result = await generic.coverArt(coverArtURN, size);
 
@@ -2967,15 +3256,15 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: streamResponse.data,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
-            params: asURLSearchParams({
-              ...authParams,
-              id: coverArtId,
-              size,
-            }),
-            headers,
-            responseType: "arraybuffer",
-          });
+          expect(mockAxios).toHaveBeenLastCalledWith(
+            streamRequest({
+              url: `/rest/getCoverArt`,
+              params: {
+                id: coverArtId,
+                size,
+              },
+            })
+          );
         });
       });
 
@@ -2983,11 +3272,12 @@ describe("SubsonicGenericMusicLibrary", () => {
         it("should return undefined", async () => {
           const size = 1879;
 
-          mockGET
-            
-            .mockImplementationOnce(() => Promise.reject("BOOOM"));
+          mockAxios.mockImplementationOnce(() => Promise.reject("BOOOM"));
 
-          const result = await generic.coverArt({ system: "external", resource: "http://localhost:404" }, size);
+          const result = await generic.coverArt(
+            { system: "external", resource: "http://localhost:404" },
+            size
+          );
 
           expect(result).toBeUndefined();
         });
@@ -2997,10 +3287,10 @@ describe("SubsonicGenericMusicLibrary", () => {
     describe("fetching cover art", () => {
       describe("when urn.resource is not subsonic", () => {
         it("should be undefined", async () => {
-          const covertArtURN = { system: "notSubsonic", resource: `art:${uuid()}` };
-
-          mockGET
-            ;
+          const covertArtURN = {
+            system: "notSubsonic",
+            resource: `art:${uuid()}`,
+          };
 
           const result = await generic.coverArt(covertArtURN, 190);
 
@@ -3010,8 +3300,11 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("when no size is specified", () => {
         it("should fetch the image", async () => {
-          const coverArtId = uuid()
-          const covertArtURN = { system: "subsonic", resource: `art:${coverArtId}` };
+          const coverArtId = uuid();
+          const covertArtURN = {
+            system: "subsonic",
+            resource: `art:${coverArtId}`,
+          };
 
           const streamResponse = {
             status: 200,
@@ -3021,9 +3314,9 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: Buffer.from("the image", "ascii"),
           };
 
-          mockGET
-            
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(streamResponse)
+          );
 
           const result = await generic.coverArt(covertArtURN);
 
@@ -3032,27 +3325,25 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: streamResponse.data,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(
-            `${url}/rest/getCoverArt`,
-            {
-              params: asURLSearchParams({
-                ...authParams,
+          expect(mockAxios).toHaveBeenCalledWith(
+            streamRequest({
+              url: `/rest/getCoverArt`,
+              params: {
                 id: coverArtId,
-              }),
-              headers,
-              responseType: "arraybuffer",
-            }
+              },
+            })
           );
         });
 
         describe("and an error occurs fetching the uri", () => {
           it("should return undefined", async () => {
-            const coverArtId = uuid()
-            const covertArtURN = { system:"subsonic", resource: `art:${coverArtId}` };
+            const coverArtId = uuid();
+            const covertArtURN = {
+              system: "subsonic",
+              resource: `art:${coverArtId}`,
+            };
 
-            mockGET
-              
-              .mockImplementationOnce(() => Promise.reject("BOOOM"));
+            mockAxios.mockImplementationOnce(() => Promise.reject("BOOOM"));
 
             const result = await generic.coverArt(covertArtURN);
 
@@ -3065,8 +3356,11 @@ describe("SubsonicGenericMusicLibrary", () => {
         const size = 189;
 
         it("should fetch the image", async () => {
-          const coverArtId = uuid()
-          const covertArtURN = { system: "subsonic", resource: `art:${coverArtId}` };
+          const coverArtId = uuid();
+          const covertArtURN = {
+            system: "subsonic",
+            resource: `art:${coverArtId}`,
+          };
 
           const streamResponse = {
             status: 200,
@@ -3076,9 +3370,9 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: Buffer.from("the image", "ascii"),
           };
 
-          mockGET
-            
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(streamResponse)
+          );
 
           const result = await generic.coverArt(covertArtURN, size);
 
@@ -3087,28 +3381,26 @@ describe("SubsonicGenericMusicLibrary", () => {
             data: streamResponse.data,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(
-            `${url}/rest/getCoverArt`,
-            {
-              params: asURLSearchParams({
-                ...authParams,
+          expect(mockAxios).toHaveBeenCalledWith(
+            streamRequest({
+              url: `/rest/getCoverArt`,
+              params: {
                 id: coverArtId,
-                size
-              }),
-              headers,
-              responseType: "arraybuffer",
-            }
+                size,
+              },
+            })
           );
         });
 
         describe("and an error occurs fetching the uri", () => {
           it("should return undefined", async () => {
-            const coverArtId = uuid()
-            const covertArtURN = { system: "subsonic", resource: `art:${coverArtId}` };
+            const coverArtId = uuid();
+            const covertArtURN = {
+              system: "subsonic",
+              resource: `art:${coverArtId}`,
+            };
 
-            mockGET
-              
-              .mockImplementationOnce(() => Promise.reject("BOOOM"));
+            mockAxios.mockImplementationOnce(() => Promise.reject("BOOOM"));
 
             const result = await generic.coverArt(covertArtURN, size);
 
@@ -3122,7 +3414,8 @@ describe("SubsonicGenericMusicLibrary", () => {
   describe("rate", () => {
     const trackId = uuid();
 
-    const rate = (trackId: string, rating: Rating) => generic.rate(trackId, rating);
+    const rate = (trackId: string, rating: Rating) =>
+      generic.rate(trackId, rating);
 
     const artist = anArtist();
     const album = anAlbum({ id: "album1", name: "Burnin", genre: POP });
@@ -3137,8 +3430,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: false, stars: 0 },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3151,11 +3443,14 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/star`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/star`,
+            params: {
               ...authParamsPlusJson,
               id: trackId,
-            }),
+            },
             headers,
           });
         });
@@ -3170,8 +3465,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: true, stars: 0 },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3184,11 +3478,14 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/unstar`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/unstar`,
+            params: {
               ...authParamsPlusJson,
               id: trackId,
-            }),
+            },
             headers,
           });
         });
@@ -3203,8 +3500,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: true, stars: 0 },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3216,7 +3512,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledTimes(2);
+          expect(mockAxios).toHaveBeenCalledTimes(2);
         });
       });
 
@@ -3229,8 +3525,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: false, stars: 0 },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3243,12 +3538,15 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/setRating`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/setRating`,
+            params: {
               ...authParamsPlusJson,
               id: trackId,
               rating: 3,
-            }),
+            },
             headers,
           });
         });
@@ -3263,8 +3561,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: true, stars: 3 },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3276,7 +3573,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledTimes(2);
+          expect(mockAxios).toHaveBeenCalledTimes(2);
         });
       });
 
@@ -3289,8 +3586,7 @@ describe("SubsonicGenericMusicLibrary", () => {
             rating: { love: true, stars: 3 },
           });
 
-          mockGET
-            
+          mockAxios
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3304,19 +3600,25 @@ describe("SubsonicGenericMusicLibrary", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/unstar`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/unstar`,
+            params: {
               ...authParamsPlusJson,
               id: trackId,
-            }),
+            },
             headers,
           });
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/setRating`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/setRating`,
+            params: {
               ...authParamsPlusJson,
               id: trackId,
               rating: 5,
-            }),
+            },
             headers,
           });
         });
@@ -3325,8 +3627,6 @@ describe("SubsonicGenericMusicLibrary", () => {
       describe("invalid star values", () => {
         describe("stars of -1", () => {
           it("should return false", async () => {
-            mockGET;
-
             const result = await rate(trackId, { love: true, stars: -1 });
             expect(result).toEqual(false);
           });
@@ -3334,8 +3634,6 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         describe("stars of 6", () => {
           it("should return false", async () => {
-            mockGET;
-
             const result = await rate(trackId, { love: true, stars: -1 });
             expect(result).toEqual(false);
           });
@@ -3344,7 +3642,7 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("when fails", () => {
         it("should return false", async () => {
-          mockGET
+          mockAxios
             .mockImplementationOnce(() => Promise.resolve(ok(FAILURE)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -3361,19 +3659,21 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should return true", async () => {
         const id = uuid();
 
-        mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+        mockAxios.mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
         const result = await generic.scrobble(id);
 
         expect(result).toEqual(true);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/scrobble`,
+          params: {
             ...authParamsPlusJson,
             id,
             submission: true,
-          }),
+          },
           headers,
         });
       });
@@ -3383,25 +3683,26 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should return false", async () => {
         const id = uuid();
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve({
-              status: 500,
-              data: {},
-            })
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve({
+            status: 500,
+            data: {},
+          })
+        );
 
         const result = await generic.scrobble(id);
 
         expect(result).toEqual(false);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/scrobble`,
+          params: {
             ...authParamsPlusJson,
             id,
             submission: true,
-          }),
+          },
           headers,
         });
       });
@@ -3413,20 +3714,21 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should return true", async () => {
         const id = uuid();
 
-        mockGET
-          
-          .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+        mockAxios.mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
         const result = await generic.nowPlaying(id);
 
         expect(result).toEqual(true);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/scrobble`,
+          params: {
             ...authParamsPlusJson,
             id,
             submission: false,
-          }),
+          },
           headers,
         });
       });
@@ -3436,25 +3738,26 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should return false", async () => {
         const id = uuid();
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve({
-              status: 500,
-              data: {},
-            })
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve({
+            status: 500,
+            data: {},
+          })
+        );
 
         const result = await generic.nowPlaying(id);
 
         expect(result).toEqual(false);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/scrobble`,
+          params: {
             ...authParamsPlusJson,
             id,
             submission: false,
-          }),
+          },
           headers,
         });
       });
@@ -3466,24 +3769,25 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should return true", async () => {
         const artist1 = anArtist({ name: "foo woo" });
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSearchResult3Json({ artists: [artist1] })))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getSearchResult3Json({ artists: [artist1] })))
+        );
 
         const result = await generic.searchArtists("foo");
 
         expect(result).toEqual([artistToArtistSummary(artist1)]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
             query: "foo",
-          }),
+          },
           headers,
         });
       });
@@ -3494,13 +3798,11 @@ describe("SubsonicGenericMusicLibrary", () => {
         const artist1 = anArtist({ name: "foo woo" });
         const artist2 = anArtist({ name: "foo choo" });
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(getSearchResult3Json({ artists: [artist1, artist2] }))
-            )
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(
+            ok(getSearchResult3Json({ artists: [artist1, artist2] }))
+          )
+        );
 
         const result = await generic.searchArtists("foo");
 
@@ -3509,14 +3811,17 @@ describe("SubsonicGenericMusicLibrary", () => {
           artistToArtistSummary(artist2),
         ]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
             query: "foo",
-          }),
+          },
           headers,
         });
       });
@@ -3524,24 +3829,25 @@ describe("SubsonicGenericMusicLibrary", () => {
 
     describe("when there are no search results", () => {
       it("should return []", async () => {
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSearchResult3Json({ artists: [] })))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getSearchResult3Json({ artists: [] })))
+        );
 
         const result = await generic.searchArtists("foo");
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 20,
             albumCount: 0,
             songCount: 0,
             query: "foo",
-          }),
+          },
           headers,
         });
       });
@@ -3557,26 +3863,27 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
         const artist = anArtist({ name: "#1", albums: [album] });
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(getSearchResult3Json({ albums: [{ artist, album }] }))
-            )
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(
+            ok(getSearchResult3Json({ albums: [{ artist, album }] }))
+          )
+        );
 
         const result = await generic.searchAlbums("foo");
 
         expect(result).toEqual([albumToAlbumSummary(album)]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 20,
             songCount: 0,
             query: "foo",
-          }),
+          },
           headers,
         });
       });
@@ -3596,20 +3903,18 @@ describe("SubsonicGenericMusicLibrary", () => {
         });
         const artist2 = anArtist({ name: "artist2", albums: [album2] });
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(
-                getSearchResult3Json({
-                  albums: [
-                    { artist: artist1, album: album1 },
-                    { artist: artist2, album: album2 },
-                  ],
-                })
-              )
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(
+            ok(
+              getSearchResult3Json({
+                albums: [
+                  { artist: artist1, album: album1 },
+                  { artist: artist2, album: album2 },
+                ],
+              })
             )
-          );
+          )
+        );
 
         const result = await generic.searchAlbums("moo");
 
@@ -3618,14 +3923,17 @@ describe("SubsonicGenericMusicLibrary", () => {
           albumToAlbumSummary(album2),
         ]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 20,
             songCount: 0,
             query: "moo",
-          }),
+          },
           headers,
         });
       });
@@ -3633,24 +3941,25 @@ describe("SubsonicGenericMusicLibrary", () => {
 
     describe("when there are no search results", () => {
       it("should return []", async () => {
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSearchResult3Json({ albums: [] })))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getSearchResult3Json({ albums: [] })))
+        );
 
         const result = await generic.searchAlbums("foo");
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 20,
             songCount: 0,
             query: "foo",
-          }),
+          },
           headers,
         });
       });
@@ -3674,8 +3983,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           genre: pop,
         });
 
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ tracks: [track] })))
           )
@@ -3688,14 +3996,17 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         expect(result).toEqual([track]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 0,
             songCount: 20,
             query: "foo",
-          }),
+          },
           headers,
         });
       });
@@ -3731,8 +4042,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           genre: pop,
         });
 
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(
@@ -3759,14 +4069,17 @@ describe("SubsonicGenericMusicLibrary", () => {
 
         expect(result).toEqual([track1, track2]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method:'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 0,
             songCount: 20,
             query: "moo",
-          }),
+          },
           headers,
         });
       });
@@ -3774,24 +4087,25 @@ describe("SubsonicGenericMusicLibrary", () => {
 
     describe("when there are no search results", () => {
       it("should return []", async () => {
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSearchResult3Json({ tracks: [] })))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getSearchResult3Json({ tracks: [] })))
+        );
 
         const result = await generic.searchTracks("foo");
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/search3`,
+          params: {
             ...authParamsPlusJson,
             artistCount: 0,
             albumCount: 0,
             songCount: 20,
             query: "foo",
-          }),
+          },
           headers,
         });
       });
@@ -3804,18 +4118,19 @@ describe("SubsonicGenericMusicLibrary", () => {
         it("should return it", async () => {
           const playlist = aPlaylistSummary();
 
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getPlayListsJson([playlist])))
-            );
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(ok(getPlayListsJson([playlist])))
+          );
 
           const result = await generic.playlists();
 
           expect(result).toEqual([playlist]);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getPlaylists`,
+            params: authParamsPlusJson,
             headers,
           });
         });
@@ -3828,18 +4143,19 @@ describe("SubsonicGenericMusicLibrary", () => {
           const playlist3 = aPlaylistSummary();
           const playlists = [playlist1, playlist2, playlist3];
 
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getPlayListsJson(playlists)))
-            );
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(ok(getPlayListsJson(playlists)))
+          );
 
           const result = await generic.playlists();
 
           expect(result).toEqual(playlists);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getPlaylists`,
+            params: authParamsPlusJson,
             headers,
           });
         });
@@ -3847,18 +4163,19 @@ describe("SubsonicGenericMusicLibrary", () => {
 
       describe("when there are no playlists", () => {
         it("should return []", async () => {
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getPlayListsJson([])))
-            );
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(ok(getPlayListsJson([])))
+          );
 
           const result = await generic.playlists();
 
           expect(result).toEqual([]);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
-            params: asURLSearchParams(authParamsPlusJson),
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/getPlaylists`,
+            params: authParamsPlusJson,
             headers,
           });
         });
@@ -3870,15 +4187,13 @@ describe("SubsonicGenericMusicLibrary", () => {
         it("should raise error", async () => {
           const id = "id404";
 
-          mockGET
-            
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(error("70", "data not found")))
-            );
+          mockAxios.mockImplementationOnce(() =>
+            Promise.resolve(ok(error("70", "data not found")))
+          );
 
-          return expect(
-            generic.playlist(id)
-          ).rejects.toEqual("Subsonic error:data not found");
+          return expect(generic.playlist(id)).rejects.toEqual(
+            "Subsonic error:data not found"
+          );
         });
       });
 
@@ -3915,19 +4230,17 @@ describe("SubsonicGenericMusicLibrary", () => {
               album: albumToAlbumSummary(album2),
             });
 
-            mockGET
-              
-              .mockImplementationOnce(() =>
-                Promise.resolve(
-                  ok(
-                    getPlayListJson({
-                      id,
-                      name,
-                      entries: [track1, track2],
-                    })
-                  )
+            mockAxios.mockImplementationOnce(() =>
+              Promise.resolve(
+                ok(
+                  getPlayListJson({
+                    id,
+                    name,
+                    entries: [track1, track2],
+                  })
                 )
-              );
+              )
+            );
 
             const result = await generic.playlist(id);
 
@@ -3940,11 +4253,14 @@ describe("SubsonicGenericMusicLibrary", () => {
               ],
             });
 
-            expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
-              params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getPlaylist`,
+              params: {
                 ...authParamsPlusJson,
                 id,
-              }),
+              },
               headers,
             });
           });
@@ -3956,21 +4272,22 @@ describe("SubsonicGenericMusicLibrary", () => {
               entries: [],
             });
 
-            mockGET
-              
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getPlayListJson(playlist)))
-              );
+            mockAxios.mockImplementationOnce(() =>
+              Promise.resolve(ok(getPlayListJson(playlist)))
+            );
 
             const result = await generic.playlist(playlist.id);
 
             expect(result).toEqual(playlist);
 
-            expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
-              params: asURLSearchParams({
+            expect(mockAxios).toHaveBeenCalledWith({
+              method: 'get',
+              baseURL,
+              url: `/rest/getPlaylist`,
+              params: {
                 ...authParamsPlusJson,
                 id: playlist.id,
-              }),
+              },
               headers,
             });
           });
@@ -3983,22 +4300,23 @@ describe("SubsonicGenericMusicLibrary", () => {
         const name = "ThePlaylist";
         const id = uuid();
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(createPlayListJson({ id, name })))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(createPlayListJson({ id, name })))
+        );
 
         const result = await generic.createPlaylist(name);
 
         expect(result).toEqual({ id, name });
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/createPlaylist`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/createPlaylist`,
+          params: {
             ...authParamsPlusJson,
             f: "json",
             name,
-          }),
+          },
           headers,
         });
       });
@@ -4008,19 +4326,20 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should delete the playlist by id", async () => {
         const id = "id-to-delete";
 
-        mockGET
-          
-          .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+        mockAxios.mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await generic.deletePlaylist(id);
+        const result = await generic.deletePlaylist(id);
 
         expect(result).toEqual(true);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/deletePlaylist`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/deletePlaylist`,
+          params: {
             ...authParamsPlusJson,
             id,
-          }),
+          },
           headers,
         });
       });
@@ -4032,20 +4351,21 @@ describe("SubsonicGenericMusicLibrary", () => {
           const playlistId = uuid();
           const trackId = uuid();
 
-          mockGET
-            
-            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+          mockAxios.mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-            const result = await generic.addToPlaylist(playlistId, trackId);
+          const result = await generic.addToPlaylist(playlistId, trackId);
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/updatePlaylist`,
+            params: {
               ...authParamsPlusJson,
               playlistId,
               songIdToAdd: trackId,
-            }),
+            },
             headers,
           });
         });
@@ -4056,20 +4376,21 @@ describe("SubsonicGenericMusicLibrary", () => {
           const playlistId = uuid();
           const indicies = [6, 100, 33];
 
-          mockGET
-            
-            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+          mockAxios.mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-            const result = await generic.removeFromPlaylist(playlistId, indicies);
+          const result = await generic.removeFromPlaylist(playlistId, indicies);
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
-            params: asURLSearchParams({
+          expect(mockAxios).toHaveBeenCalledWith({
+            method: 'get',
+            baseURL,
+            url: `/rest/updatePlaylist`,
+            params: {
               ...authParamsPlusJson,
               playlistId,
               songIndexToRemove: indicies,
-            }),
+            },
             headers,
           });
         });
@@ -4097,8 +4418,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           genre: pop,
         });
 
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1])))
           )
@@ -4106,17 +4426,20 @@ describe("SubsonicGenericMusicLibrary", () => {
             Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
-          const result = await generic.similarSongs(id);
+        const result = await generic.similarSongs(id);
 
         expect(result).toEqual([track1]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getSimilarSongs2`,
+          params: {
             ...authParams,
             f: "json",
             id,
             count: 50,
-          }),
+          },
           headers,
         });
       });
@@ -4160,8 +4483,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           genre: pop,
         });
 
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1, track2, track3])))
           )
@@ -4175,17 +4497,20 @@ describe("SubsonicGenericMusicLibrary", () => {
             Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
-          const result = await generic.similarSongs(id);
+        const result = await generic.similarSongs(id);
 
         expect(result).toEqual([track1, track2, track3]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getSimilarSongs2`,
+          params: {
             ...authParams,
             f: "json",
             id,
             count: 50,
-          }),
+          },
           headers,
         });
       });
@@ -4195,23 +4520,24 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should return []", async () => {
         const id = "idWithNoTracks";
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSimilarSongsJson([])))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(getSimilarSongsJson([])))
+        );
 
-          const result = await generic.similarSongs(id);
+        const result = await generic.similarSongs(id);
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getSimilarSongs2`,
+          params: {
             ...authParams,
             f: "json",
             id,
             count: 50,
-          }),
+          },
           headers,
         });
       });
@@ -4221,15 +4547,13 @@ describe("SubsonicGenericMusicLibrary", () => {
       it("should fail", async () => {
         const id = "idThatHasAnError";
 
-        mockGET
-          
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(error("70", "data not found")))
-          );
+        mockAxios.mockImplementationOnce(() =>
+          Promise.resolve(ok(error("70", "data not found")))
+        );
 
-        return expect(
-          generic.similarSongs(id)
-        ).rejects.toEqual("Subsonic error:data not found");
+        return expect(generic.similarSongs(id)).rejects.toEqual(
+          "Subsonic error:data not found"
+        );
       });
     });
   });
@@ -4254,8 +4578,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           genre: pop,
         });
 
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistJson(artist)))
           )
@@ -4266,17 +4589,20 @@ describe("SubsonicGenericMusicLibrary", () => {
             Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
-          const result = await generic.topSongs(artistId);
+        const result = await generic.topSongs(artistId);
 
         expect(result).toEqual([track1]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getTopSongs`,
+          params: {
             ...authParams,
             f: "json",
             artist: artistName,
             count: 50,
-          }),
+          },
           headers,
         });
       });
@@ -4314,8 +4640,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           genre: POP,
         });
 
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistJson(artist)))
           )
@@ -4332,17 +4657,20 @@ describe("SubsonicGenericMusicLibrary", () => {
             Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
-          const result = await generic.topSongs(artistId);
+        const result = await generic.topSongs(artistId);
 
         expect(result).toEqual([track1, track2, track3]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get',
+          baseURL,
+          url: `/rest/getTopSongs`,
+          params: {
             ...authParams,
             f: "json",
             artist: artistName,
             count: 50,
-          }),
+          },
           headers,
         });
       });
@@ -4361,8 +4689,7 @@ describe("SubsonicGenericMusicLibrary", () => {
           albums: [album1],
         });
 
-        mockGET
-          
+        mockAxios
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistJson(artist)))
           )
@@ -4370,20 +4697,23 @@ describe("SubsonicGenericMusicLibrary", () => {
             Promise.resolve(ok(getTopSongsJson([])))
           );
 
-
-          const result = await generic.topSongs(artistId);
+        const result = await generic.topSongs(artistId);
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
-          params: asURLSearchParams({
+        expect(mockAxios).toHaveBeenCalledWith({
+          method: 'get' ,
+          baseURL,
+          url: `/rest/getTopSongs`,
+          params: {
             ...authParams,
             f: "json",
             artist: artistName,
             count: 50,
-          }),
+          },
           headers,
-        });
+          }
+        );
       });
     });
   });
