@@ -101,7 +101,7 @@ export class Subsonic implements MusicService {
   // todo: why is this in here?
   externalImageFetcher: ImageFetcher;
 
-  base: Http;
+  subsonicHttp: Http;
 
   constructor(
     url: string,
@@ -111,15 +111,15 @@ export class Subsonic implements MusicService {
     this.url = url;
     this.streamClientApplication = streamClientApplication;
     this.externalImageFetcher = externalImageFetcher;
-    this.base = http2(axios, {
+    this.subsonicHttp = http2(axios, {
       baseURL: this.url,
       params: { v: "1.16.1", c: DEFAULT_CLIENT_APPLICATION },
       headers: { "User-Agent": "bonob" },
     });
   }
 
-  authenticated = (credentials: Credentials, wrap: Http = this.base) =>
-    http2(wrap, {
+  authenticatedSubsonicHttp = (credentials: Credentials) =>
+    http2(this.subsonicHttp, {
       params: {
         u: credentials.username,
         ...t_and_s(credentials.password),
@@ -130,12 +130,12 @@ export class Subsonic implements MusicService {
     credentials: Credentials,
     url: string,
     params: {} = {}
-  ): Promise<T> => getJSON2(http2(this.authenticated(credentials), { url, params }));
+  ): Promise<T> => getJSON2(http2(this.authenticatedSubsonicHttp(credentials), { url, params }));
 
   generateToken = (credentials: Credentials) =>
     pipe(
       TE.tryCatch(
-        () => getJSON2<PingResponse>(http2(this.authenticated(credentials), { url: "/rest/ping.view" })),
+        () => getJSON2<PingResponse>(http2(this.authenticatedSubsonicHttp(credentials), { url: "/rest/ping.view" })),
         (e) => new AuthFailure(e as string)
       ),
       TE.chain(({ type }) =>
@@ -170,7 +170,7 @@ export class Subsonic implements MusicService {
   ): Promise<SubsonicMusicLibrary> => {
     const subsonicGenericLibrary = new SubsonicGenericMusicLibrary(
       this.streamClientApplication,
-      this.authenticated(credentials, this.base)
+      this.authenticatedSubsonicHttp(credentials)
     );
     if (credentials.type == "navidrome") {
       return Promise.resolve(

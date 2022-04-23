@@ -1,69 +1,15 @@
-import axios, { AxiosPromise, AxiosRequestConfig } from "axios";
 import {
-  DEFAULT_CLIENT_APPLICATION,
   isError,
   SubsonicEnvelope,
-  t_and_s,
-  USER_AGENT,
 } from ".";
 // todo: rename http2 to http
 import { Http, http as http2 } from "../http";
-import { Credentials } from "../music_service";
-import { asURLSearchParams } from "../utils";
-
-export const http = (base: string, credentials: Credentials): HTTP => ({
-  get: async (
-    path: string,
-    params: Partial<{ q: {}; config: AxiosRequestConfig | undefined }>
-  ) =>
-    axios
-      .get(`${base}${path}`, {
-        params: asURLSearchParams({
-          u: credentials.username,
-          v: "1.16.1",
-          c: DEFAULT_CLIENT_APPLICATION,
-          ...t_and_s(credentials.password),
-          f: "json",
-          ...(params.q || {}),
-        }),
-        headers: {
-          "User-Agent": USER_AGENT,
-        },
-        ...(params.config || {}),
-      })
-      .catch((e) => {
-        throw `Subsonic failed with: ${e}`;
-      })
-      .then((response) => {
-        if (response.status != 200 && response.status != 206) {
-          throw `Subsonic failed with a ${response.status || "no!"} status`;
-        } else return response;
-      }),
-});
 
 export type HttpResponse = {
   data: any;
   status: number;
   headers: any;
 };
-
-export interface HTTP {
-  get(
-    path: string,
-    params: Partial<{ q: {}; config: AxiosRequestConfig | undefined }>
-  ): Promise<HttpResponse>;
-}
-
-export const raw = (response: AxiosPromise<any>) =>
-  response
-    .catch((e) => {
-      throw `Subsonic failed with: ${e}`;
-    })
-    .then((response) => {
-      if (response.status != 200 && response.status != 206) {
-        throw `Subsonic failed with a ${response.status || "no!"} status`;
-      } else return response;
-    });
 
 export const getRaw2 = (http: Http) => 
   http({ method: "get" })
@@ -88,4 +34,4 @@ export const asJSON = <T>(response: HttpResponse): T => {
   else return subsonicResponse as unknown as T;
 };
 
-export default http;
+

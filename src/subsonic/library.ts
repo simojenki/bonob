@@ -277,19 +277,19 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
 
 export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   streamClientApplication: StreamClientApplication;
-  http: Http;
+  subsonicHttp: Http;
 
   constructor(
     streamClientApplication: StreamClientApplication,
-    http: Http
+    subsonicHttp: Http
   ) {
     this.streamClientApplication = streamClientApplication;
-    this.http = http;
+    this.subsonicHttp = subsonicHttp;
   }
 
   GET = (query: Partial<RequestParams>) => ({
-    asRAW: () => getRaw2(http2(this.http, query)),
-    asJSON: <T>() => getJSON2<T>(http2(this.http, query)),
+    asRAW: () => getRaw2(http2(this.subsonicHttp, query)),
+    asJSON: <T>() => getJSON2<T>(http2(this.subsonicHttp, query)),
   });
 
   flavour = () => "subsonic";
