@@ -33,13 +33,10 @@ import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, ICONS, festivals, features } from "./icon";
 import _, { shuffle } from "underscore";
 import morgan from "morgan";
-import { takeWithRepeats } from "./utils";
+import { mask, takeWithRepeats } from "./utils";
 import { parse } from "./burn";
 import { axiosImageFetcher, ImageFetcher } from "./images";
-import {
-  JWTSmapiLoginTokens,
-  SmapiAuthTokens,
-} from "./smapi_auth";
+import { JWTSmapiLoginTokens, SmapiAuthTokens } from "./smapi_auth";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -377,23 +374,28 @@ function server(
     logger.info(
       `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query
-      )}, headers=${JSON.stringify({ ...req.headers, "bnbt": "*****", "bnbk": "*****" })}`
+      )}, headers=${JSON.stringify(mask(req.headers, ["bnbt", "bnbk"]))}`
     );
 
     const serviceToken = pipe(
       E.fromNullable("Missing bnbt header")(req.headers["bnbt"] as string),
-      E.chain(token => pipe(
-        E.fromNullable("Missing bnbk header")(req.headers["bnbk"] as string),
-        E.map(key => ({ token, key }))
-      )),
+      E.chain((token) =>
+        pipe(
+          E.fromNullable("Missing bnbk header")(req.headers["bnbk"] as string),
+          E.map((key) => ({ token, key }))
+        )
+      ),
       E.chain((auth) =>
         pipe(
           smapiAuthTokens.verify(auth),
           E.mapLeft((_) => "Auth token failed to verify")
         )
       ),
-      E.getOrElseW(() => undefined)
-    )
+      E.getOrElseW((e: string) => {
+        logger.error(`Failed to get serviceToken for stream: ${e}`);
+        return undefined;
+      })
+    );
 
     if (!serviceToken) {
       return res.status(401).send();

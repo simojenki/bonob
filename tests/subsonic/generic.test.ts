@@ -46,7 +46,7 @@ import {
 import { EMPTY, error, FAILURE, subsonicOK, ok } from "../subsonic.test";
 import { DODGY_IMAGE_NAME, t } from "../../src/subsonic";
 import { b64Encode } from "../../src/b64";
-import { http as http2 } from "../../src/http";
+import { http2From } from "../../src/http";
 
 const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
   pipe(
@@ -511,7 +511,7 @@ describe("SubsonicGenericMusicLibrary", () => {
   const generic = new SubsonicGenericMusicLibrary(
     streamClientApplication,
     // todo: all this stuff doesnt need to be defaulted in here.
-    http2(mockAxios, {
+    http2From(mockAxios).with({
       baseURL,
       params: authParams,
       headers

@@ -1,4 +1,4 @@
-import { asURLSearchParams, takeWithRepeats } from "../src/utils";
+import { asURLSearchParams, mask, takeWithRepeats } from "../src/utils";
 
 describe("asURLSearchParams", () => {
   describe("empty q", () => {
@@ -46,8 +46,6 @@ describe("asURLSearchParams", () => {
   });
 });
 
-
-
 describe("takeWithRepeat", () => {
   describe("when there is nothing in the input", () => {
     it("should return an array of undefineds", () => {
@@ -77,7 +75,32 @@ describe("takeWithRepeat", () => {
   describe("when there more than the amount required", () => {
     it("should return the first n items", () => {
       expect(takeWithRepeats(["a", "b", "c"], 2)).toEqual(["a", "b"]);
-      expect(takeWithRepeats(["a", undefined, "c"], 2)).toEqual(["a", undefined]);
+      expect(takeWithRepeats(["a", undefined, "c"], 2)).toEqual([
+        "a",
+        undefined,
+      ]);
     });
   });
+});
+
+describe("mask", () => {
+  it.each([
+    [{}, ["a", "b"], {}],
+    [{ foo: "bar" }, ["a", "b"], { foo: "bar" }],
+    [{ a: 1 }, ["a", "b"], { a: "****" }],
+    [{ a: 1, b: "dog" }, ["a", "b"], { a: "****", b: "****" }],
+    [
+      { a: 1, b: "dog", foo: "bar" },
+      ["a", "b"],
+      { a: "****", b: "****", foo: "bar" },
+    ],
+  ])(
+    "masking of %s, keys = %s, should result in %s",
+    (original: any, keys: string[], expected: any) => {
+      const copyOfOrig = JSON.parse(JSON.stringify(original));
+      const masked = mask(original, keys);
+      expect(masked).toEqual(expected);
+      expect(original).toEqual(copyOfOrig);
+    }
+  );
 });

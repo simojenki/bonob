@@ -5,7 +5,7 @@ import axios from "axios";
 import randomstring from "randomstring";
 import _ from "underscore";
 // todo: rename http2 to http
-import { Http, http as http2, RequestParams } from "../http";
+import { Http2, http2From } from "../http";
 
 import {
   Credentials,
@@ -17,7 +17,7 @@ import {
 import { b64Encode, b64Decode } from "../b64";
 import { axiosImageFetcher, ImageFetcher } from "../images";
 import { navidromeMusicLibrary, SubsonicGenericMusicLibrary } from "./library";
-import { getJSON  as getJSON } from "./subsonic_http";
+import { client } from "./subsonic_http";
 
 export const t = (password: string, s: string) =>
   Md5.hashStr(`${password}${s}`);
@@ -101,7 +101,7 @@ export class Subsonic implements MusicService {
   // todo: why is this in here?
   externalImageFetcher: ImageFetcher;
 
-  subsonicHttp: Http;
+  subsonic: Http2;
 
   constructor(
     url: string,
@@ -111,29 +111,22 @@ export class Subsonic implements MusicService {
     this.url = url;
     this.streamClientApplication = streamClientApplication;
     this.externalImageFetcher = externalImageFetcher;
-    this.subsonicHttp = http2(axios, {
+    this.subsonic = http2From(axios).with({
       baseURL: this.url,
       params: { v: "1.16.1", c: DEFAULT_CLIENT_APPLICATION },
       headers: { "User-Agent": "bonob" },
     });
   }
 
-  authenticatedSubsonicHttp = (credentials: Credentials) =>
-    http2(this.subsonicHttp, {
-      params: {
-        u: credentials.username,
-        ...t_and_s(credentials.password),
-      },
-    });
-
-  GET = (query: Partial<RequestParams>) => ({
-    asJSON: <T>() => getJSON<T>(http2(this.subsonicHttp, query)),
-  });
+  asAuthParams = (credentials: Credentials) => ({
+    u: credentials.username,
+    ...t_and_s(credentials.password),
+  })
 
   generateToken = (credentials: Credentials) =>
     pipe(
       TE.tryCatch(
-        () => getJSON<PingResponse>(http2(this.authenticatedSubsonicHttp(credentials), { url: "/rest/ping.view" })),
+        () => client(this.subsonic.with({ params: this.asAuthParams(credentials) } ))({ method: 'get', url: "/rest/ping.view" }).asJSON<PingResponse>(),
         (e) => new AuthFailure(e as string)
       ),
       TE.chain(({ type }) =>
@@ -168,7 +161,7 @@ export class Subsonic implements MusicService {
   ): Promise<SubsonicMusicLibrary> => {
     const subsonicGenericLibrary = new SubsonicGenericMusicLibrary(
       this.streamClientApplication,
-      this.authenticatedSubsonicHttp(credentials)
+      this.subsonic.with({ params: this.asAuthParams(credentials) } )
     );
     if (credentials.type == "navidrome") {
       return Promise.resolve(

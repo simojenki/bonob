@@ -38,8 +38,8 @@ import {
 import axios from "axios";
 import { asURLSearchParams } from "../utils";
 import { artistSummaryFromNDArtist, NDArtist } from "./navidrome";
-import { Http, http as newHttp, RequestParams } from "../http";
-import { getRaw2, getJSON } from "./subsonic_http";
+import { Http2, RequestParams } from "../http";
+import { client } from "./subsonic_http";
 
 type album = {
   id: string;
@@ -276,20 +276,17 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
 
 export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
   streamClientApplication: StreamClientApplication;
-  subsonicHttp: Http;
+  subsonicHttp: Http2;
 
   constructor(
     streamClientApplication: StreamClientApplication,
-    subsonicHttp: Http
+    subsonicHttp: Http2
   ) {
     this.streamClientApplication = streamClientApplication;
     this.subsonicHttp = subsonicHttp;
   }
 
-  GET = (query: Partial<RequestParams>) => ({
-    asRAW: () => getRaw2(newHttp(this.subsonicHttp, query)),
-    asJSON: <T>() => getJSON<T>(newHttp(this.subsonicHttp, query)),
-  });
+  GET = (query: Partial<RequestParams>) => client(this.subsonicHttp)({ method: 'get', ...query });
 
   flavour = () => "subsonic";
 
@@ -390,7 +387,6 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
     trackId: string;
     range: string | undefined;
   }) =>
-    // todo: all these headers and stuff can be rolled into httpeee
     this.getTrack(trackId).then((track) =>
       this.GET({
         url: "/rest/stream",
@@ -398,20 +394,10 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
           id: trackId,
           c: this.streamClientApplication(track),
         },
-        headers: pipe(
-          range,
-          O.fromNullable,
-          O.map((range) => ({
-            // "User-Agent": USER_AGENT,
-            Range: range,
-          })),
-          O.getOrElse(() => ({
-            // "User-Agent": USER_AGENT,
-          }))
-        ),
+        headers: range != undefined ? { Range: range } : {},
         responseType: "stream",
       })
-        .asRAW()
+        .asRaw()
         .then((res) => ({
           status: res.status,
           headers: {
@@ -717,7 +703,7 @@ export class SubsonicGenericMusicLibrary implements SubsonicMusicLibrary {
       url: "/rest/getCoverArt",
       params: { id, size },
       responseType: "arraybuffer",
-    }).asRAW();
+    }).asRaw();
 
   private getTrack = (id: string) =>
     this.GET({

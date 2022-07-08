@@ -22,11 +22,21 @@ export const asURLSearchParams = (q: any) => {
   return urlSearchParams;
 };
 
-
-export function takeWithRepeats<T>(things:T[], count: number) {
+export function takeWithRepeats<T>(things: T[], count: number) {
   const result = [];
-  for(let i = 0; i < count; i++) {
-    result.push(things[i % things.length])
+  for (let i = 0; i < count; i++) {
+    result.push(things[i % things.length]);
   }
   return result;
 }
+
+export const mask = (thing: any, fields: string[]) =>
+  fields.reduce(
+    (res: any, key: string) => {
+      if (Object.keys(res).includes(key)) {
+        res[key] = "****";
+      }
+      return res;
+    },
+    { ...thing }
+  );
