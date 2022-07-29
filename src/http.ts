@@ -5,11 +5,12 @@ import {
   ResponseType,
 } from "axios";
 
+// todo: do i need this anymore?
 export interface Http {
   (config: AxiosRequestConfig): AxiosPromise<any>;
 }
 export interface Http2 extends Http {
-  with: (defaults: Partial<RequestParams>) => Http2;
+  with: (params: Partial<RequestParams>) => Http2;
 }
 
 export type RequestParams = {
@@ -21,9 +22,9 @@ export type RequestParams = {
   method: Method;
 };
 
-const wrap = (http2: Http2, defaults: Partial<RequestParams>): Http2 => {
-  const f = ((config: AxiosRequestConfig) => http2(merge(defaults, config))) as Http2;
-  f.with = (defaults: Partial<RequestParams>) => wrap(f, defaults);
+const wrap = (http2: Http2, params: Partial<RequestParams>): Http2 => {
+  const f = ((config: AxiosRequestConfig) => http2(merge(params, config))) as Http2;
+  f.with = (params: Partial<RequestParams>) => wrap(f, params);
   return f;
 };
 

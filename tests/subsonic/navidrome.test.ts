@@ -1,6 +1,6 @@
 import { v4 as uuid } from "uuid";
 import { DODGY_IMAGE_NAME } from "../../src/subsonic";
-import { artistImageURN } from "../../src/subsonic/library";
+import { artistImageURN } from "../../src/subsonic/generic";
 import { artistSummaryFromNDArtist } from "../../src/subsonic/navidrome";
 
 

@@ -42,7 +42,7 @@ import {
   isValidImage,
   song,
   SubsonicGenericMusicLibrary,
-} from "../../src/subsonic/library";
+} from "../../src/subsonic/generic";
 import { EMPTY, error, FAILURE, subsonicOK, ok } from "../subsonic.test";
 import { DODGY_IMAGE_NAME, t } from "../../src/subsonic";
 import { b64Encode } from "../../src/b64";

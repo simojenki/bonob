@@ -16,7 +16,7 @@ import {
 } from "../music_service";
 import { b64Encode, b64Decode } from "../b64";
 import { axiosImageFetcher, ImageFetcher } from "../images";
-import { navidromeMusicLibrary, SubsonicGenericMusicLibrary } from "./library";
+import { navidromeMusicLibrary, SubsonicGenericMusicLibrary } from "./generic";
 import { client } from "./subsonic_http";
 
 export const t = (password: string, s: string) =>
@@ -101,7 +101,7 @@ export class Subsonic implements MusicService {
   // todo: why is this in here?
   externalImageFetcher: ImageFetcher;
 
-  subsonic: Http2;
+  subsonicHttp: Http2;
 
   constructor(
     url: string,
@@ -111,7 +111,7 @@ export class Subsonic implements MusicService {
     this.url = url;
     this.streamClientApplication = streamClientApplication;
     this.externalImageFetcher = externalImageFetcher;
-    this.subsonic = http2From(axios).with({
+    this.subsonicHttp = http2From(axios).with({
       baseURL: this.url,
       params: { v: "1.16.1", c: DEFAULT_CLIENT_APPLICATION },
       headers: { "User-Agent": "bonob" },
@@ -126,7 +126,7 @@ export class Subsonic implements MusicService {
   generateToken = (credentials: Credentials) =>
     pipe(
       TE.tryCatch(
-        () => client(this.subsonic.with({ params: this.asAuthParams(credentials) } ))({ method: 'get', url: "/rest/ping.view" }).asJSON<PingResponse>(),
+        () => client(this.subsonicHttp.with({ params: this.asAuthParams(credentials) } ))({ method: 'get', url: "/rest/ping.view" }).asJSON<PingResponse>(),
         (e) => new AuthFailure(e as string)
       ),
       TE.chain(({ type }) =>
@@ -161,7 +161,7 @@ export class Subsonic implements MusicService {
   ): Promise<SubsonicMusicLibrary> => {
     const subsonicGenericLibrary = new SubsonicGenericMusicLibrary(
       this.streamClientApplication,
-      this.subsonic.with({ params: this.asAuthParams(credentials) } )
+      this.subsonicHttp.with({ params: this.asAuthParams(credentials) } )
     );
     if (credentials.type == "navidrome") {
       return Promise.resolve(
