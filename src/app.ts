@@ -95,7 +95,7 @@ const app = server(
   }
 );
 
-app.listen(config.port, () => {
+const expressServer = app.listen(config.port, () => {
   logger.info(`Listening on ${config.port} available @ ${config.bonobUrl}`);
 });
 
@@ -113,6 +113,15 @@ if (config.sonos.autoRegister) {
       logger.info(`Found device ${d.name}(${d.group}) @ ${d.ip}:${d.port}`);
     });
   });
-}
+};
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM signal received: closing HTTP server');
+  expressServer.close(() => {
+    logger.info('HTTP server closed');
+  });
+  process.exit(0);
+});
+
 
 export default app;
