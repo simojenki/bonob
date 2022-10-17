@@ -29,7 +29,7 @@
     "morgan": "^1.10.0",
     "node-html-parser": "^4.1.4",
     "randomstring": "^1.2.1",
-    "sharp": "^0.29.1",
+    "sharp": "^0.30.5",
     "soap": "^0.42.0",
     "ts-md5": "^1.2.9",
     "typescript": "^4.4.2",
