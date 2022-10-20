@@ -16,7 +16,7 @@ COPY yarn.lock .
 COPY .yarnrc.yml .
 COPY .yarn/releases ./.yarn/releases
 
-ENV JEST_TIMEOUT=30000
+ENV JEST_TIMEOUT=60000
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \

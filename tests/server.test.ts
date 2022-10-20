@@ -172,8 +172,8 @@ describe("server", () => {
     jest.resetAllMocks();
   });
 
-  const bonobUrlWithNoContextPath = url("http://bonob.localhost:1234");
-  const bonobUrlWithContextPath = url("http://bonob.localhost:1234/aContext");
+  const bonobUrlWithNoContextPath = url("http://localhost:1234");
+  const bonobUrlWithContextPath = url("http://localhost:1234/aContext");
 
   const langName = randomLang();
   const acceptLanguage = `le-ET,${langName};q=0.9,en;q=0.8`;
