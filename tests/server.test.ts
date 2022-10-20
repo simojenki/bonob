@@ -167,8 +167,6 @@ describe("RangeBytesFromFilter", () => {
 
 
 describe("server", () => {
-  jest.setTimeout(Number.parseInt(process.env["JEST_TIMEOUT"] || "2000"));
-  
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetAllMocks();
