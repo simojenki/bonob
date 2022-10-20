@@ -5,5 +5,6 @@ module.exports = {
   modulePathIgnorePatterns: [
     '<rootDir>/node_modules',
     '<rootDir>/build',
-    ],
+  ],
+  testTimeout: Number.parseInt(process.env["JEST_TIMEOUT"] || "5000")
 };

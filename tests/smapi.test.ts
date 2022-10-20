@@ -90,8 +90,6 @@ describe("rating to and from ints", () => {
 });
 
 describe("service config", () => {
-  jest.setTimeout(Number.parseInt(process.env["JEST_TIMEOUT"] || "2000"));
-  
   const bonobWithNoContextPath = url("http://localhost:1234");
   const bonobWithContextPath = url("http://localhost:5678/some-context-path");
 
