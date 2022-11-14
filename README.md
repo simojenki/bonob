@@ -126,8 +126,8 @@ services:
       # ip address of your machine running bonob
       BNB_URL: http://192.168.1.111:4534  
       BNB_SECRET: changeme
-      BNB_SONOS_AUTO_REGISTER: true
-      BNB_SONOS_DEVICE_DISCOVERY: true
+      BNB_SONOS_AUTO_REGISTER: "true"
+      BNB_SONOS_DEVICE_DISCOVERY: "true"
       BNB_SONOS_SERVICE_ID: 246
       # ip address of one of your sonos devices
       BNB_SONOS_SEED_HOST: 192.168.1.121
