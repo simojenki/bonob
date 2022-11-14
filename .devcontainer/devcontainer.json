@@ -1,0 +1,13 @@
+{
+    "name": "bonob",
+    "build": { 
+        "dockerfile": "Dockerfile" 
+    },
+    "remoteUser": "node",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:1": {
+            "version": "latest",
+            "moby": true
+        }
+    }
+}
