@@ -37,6 +37,8 @@ RUN apt-get update && \
 
 FROM node:16-bullseye
 
+LABEL maintainer=simojenki
+
 ENV BNB_PORT=4534
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
