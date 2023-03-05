@@ -1830,7 +1830,7 @@ __metadata:
     axios: ^0.21.4
     chai: ^4.3.4
     dayjs: ^1.10.6
-    eta: ^1.12.3
+    eta: ^2.0.0
     express: ^4.17.3
     fp-ts: ^2.11.1
     fs-extra: ^10.0.0
@@ -2947,10 +2947,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eta@npm:^1.12.3":
-  version: 1.12.3
-  resolution: "eta@npm:1.12.3"
-  checksum: 390c1cd320755cb98fd5a4a911539e8ed498fc49b82414f0023033ff606d80a34e6df0aeeb9fb0b519b318a750e6d17a72fc25f8a8c686cfc52d638e998237a1
+"eta@npm:^2.0.0":
+  version: 2.0.1
+  resolution: "eta@npm:2.0.1"
+  checksum: 595e18e762925561929a43d06493c8b46ef66dfa967dfcde7050acb016182d0bad87a19177384c93f04ffc87e918429688e07fc428c8691ff50cdfcb197f938a
   languageName: node
   linkType: hard
 
