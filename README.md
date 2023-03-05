@@ -188,6 +188,12 @@ Generally speaking you will not need to do this very often.  However on occassio
 
 Service should now be registered and everything should work as expected.
 
+## Multiple registrations within a single household.
+
+It's possible to register multiple Subsonic clone users for the bonob service in Sonos.
+Basically this consist of repeating the Sonos app ["Add a service"](#initialising-service-within-sonos-app) steps for each additional user.
+Afterwards the Sonos app displays a dropdown underneath the service, allowing to switch between users.
+
 ## Implementing a different music source other than a subsonic clone
 
 - Implement the MusicService/MusicLibrary interface
