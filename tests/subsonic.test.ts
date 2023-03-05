@@ -1,4 +1,4 @@
-import { Md5 } from "ts-md5/dist/md5";
+import { Md5 } from "ts-md5";
 import { v4 as uuid } from "uuid";
 import tmp from "tmp";
 import fse from "fs-extra";

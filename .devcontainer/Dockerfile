@@ -11,4 +11,5 @@ RUN apt-get update && \
         python3 \
         make \
         git \
-        g++
+        g++ \
+        vim
