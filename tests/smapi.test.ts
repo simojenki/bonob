@@ -120,7 +120,7 @@ describe("service config", () => {
 
       describe(STRINGS_ROUTE, () => {
         it("should return xml for the strings", async () => {
-          const xml = await fetchStringsXml();
+          const xml: Document = await fetchStringsXml();
 
           const sonosString = (id: string, lang: string) =>
             xpath.select(
