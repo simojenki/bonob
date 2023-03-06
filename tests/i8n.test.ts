@@ -34,7 +34,7 @@ describe("i8n", () => {
 
   describe("langs", () => {
     it("should be all langs that are explicitly defined", () => {
-      expect(langs()).toEqual(["en-US", "nl-NL"]);
+      expect(langs()).toEqual(["en-US", "da-DK", "nl-NL"]);
     });
   });
 

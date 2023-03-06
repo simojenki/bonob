@@ -16,7 +16,7 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 - Search by Album, Artist, Track
 - Playlist editing through sonos app.
 - Marking of songs as favourites and with ratings through the sonos app.
-- Localization (only en-US & nl-NL supported currently, require translations for other languages).  [Sonos localization and supported languages](https://developer.sonos.com/build/content-service-add-features/strings-and-localization/)
+- Localization (only en-US, da-DK & nl-NL supported currently, require translations for other languages).  [Sonos localization and supported languages](https://developer.sonos.com/build/content-service-add-features/strings-and-localization/)
 - Auto discovery of sonos devices
 - Discovery of sonos devices using seed IP address
 - Auto registration with sonos on start

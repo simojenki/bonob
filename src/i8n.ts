@@ -4,7 +4,7 @@ import { option as O } from "fp-ts";
 import _ from "underscore";
 
 export type LANG = "en-US" | "da-DK" | "de-DE" | "es-ES" | "fr-FR" | "it-IT" | "ja-JP" | "nb-NO" | "nl-NL" | "pt-BR" | "sv-SE" | "zh-CN"
-export type SUPPORTED_LANG = "en-US" | "nl-NL";
+export type SUPPORTED_LANG = "en-US" | "da-DK" | "nl-NL";
 export type KEY =
   | "AppLinkMessage"
   | "artists"
@@ -87,6 +87,47 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     UNSTAR_SUCCESS: "Track un-starred",
     LOVE: "Love",
     LOVE_SUCCESS: "Track loved"
+  },
+  "da-DK": {
+    AppLinkMessage: "Forbinder Sonos med $BNB_SONOS_SERVICE_NAME",
+    artists: "Kunstnere",
+    albums: "Album",
+    tracks: "Numre",
+    playlists: "Afspilningslister",
+    genres: "Genre",
+    random: "Tilfældig",
+    topRated: "Højst vurderet",
+    recentlyAdded: "Senest tilføjet",
+    recentlyPlayed: "Senest afspillet",
+    mostPlayed: "Flest afspilninger",
+    success: "Succes",
+    failure: "Fejl",
+    expectedConfig: "Forventet konfiguration",
+    existingServiceConfig: "Eksisterende tjeneste konfiguration",
+    noExistingServiceRegistration: "Ingen eksisterende tjeneste registrering",
+    register: "Registrer",
+    removeRegistration: "Fjern registrering",
+    devices: "Enheder",
+    services: "Tjenester",
+    login: "Log på",
+    logInToBonob: "Log på $BNB_SONOS_SERVICE_NAME",
+    username: "Brugernavn",
+    password: "Adgangskode",
+    successfullyRegistered: "Registreret med succes",
+    registrationFailed: "Registrering fejlede!",
+    successfullyRemovedRegistration: "Registrering fjernet med succes",
+    failedToRemoveRegistration: "FJernelse af registrering fejlede!",
+    invalidLinkCode: "Ugyldig linkCode!",
+    loginSuccessful: "Log på succes!",
+    loginFailed: "Log på fejlede!",
+    noSonosDevices: "Ingen Sonos enheder",
+    favourites: "Favoritter",
+    STAR: "Tilføj stjerne",
+    UNSTAR: "Fjern stjerne",
+    STAR_SUCCESS: "Stjerne tilføjet",
+    UNSTAR_SUCCESS: "Stjerne fjernet",
+    LOVE: "Synes godt om",
+    LOVE_SUCCESS: "Syntes godt om"
   },
   "nl-NL": {
     AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
