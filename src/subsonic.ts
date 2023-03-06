@@ -2,7 +2,7 @@ import { option as O, taskEither as TE } from "fp-ts";
 import * as A from "fp-ts/Array";
 import { ordString } from "fp-ts/lib/Ord";
 import { pipe } from "fp-ts/lib/function";
-import { Md5 } from "ts-md5/dist/md5";
+import { Md5 } from "ts-md5";
 import {
   Credentials,
   MusicService,

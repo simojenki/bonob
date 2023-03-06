@@ -1,4 +1,4 @@
-FROM node:16-bullseye as build
+FROM node:16-bullseye-slim as build
 
 WORKDIR /bonob
 
@@ -29,13 +29,24 @@ RUN apt-get update && \
         g++ && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    yarn install --immutable && \
-    yarn gitinfo && \
+    yarn config set network-timeout 600000 -g && \
+    yarn install \
+        --prefer-offline \
+        --frozen-lockfile \
+        --non-interactive \
+        --production=false && \
     yarn test --no-cache && \
-    yarn build
+    yarn gitinfo && \
+    yarn build && \
+    rm -Rf node_modules && \
+    NODE_ENV=production yarn install \
+        --prefer-offline \
+        --pure-lockfile \
+        --non-interactive \
+        --production=true
 
 
-FROM node:16-bullseye
+FROM node:16-bullseye-slim
 
 LABEL maintainer=simojenki
 
@@ -58,7 +69,9 @@ COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl ./src/Sonoswsdl-1.19.4-20190411
 
 RUN apt-get update && \
     apt-get -y upgrade && \
-    apt-get -y install --no-install-recommends libvips tzdata && \
+    apt-get -y install --no-install-recommends \
+        libvips \
+        tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
