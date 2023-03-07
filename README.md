@@ -153,7 +153,7 @@ BNB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BNB_SONOS_SERVICE_ID | 246 | service id for sonos
 BNB_SUBSONIC_URL | http://$(hostname):4533 | URL for subsonic clone
 BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom subsonic clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
-BNB_SUBSONIC_ARTIST_IMAGE_CACHE | undefined | Path for caching of artist images as are sourced externally.  ie. Navidrome provides spotify URLs
+BNB_SUBSONIC_ARTIST_IMAGE_CACHE | undefined | Path for caching of artist images that are sourced externally. ie. Navidrome provides spotify URLs. Remember to provide a volume-mapping for Docker, when enabling this cache.
 BNB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it has been played for >30s
 BNB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
 BNB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
