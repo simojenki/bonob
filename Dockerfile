@@ -71,7 +71,8 @@ RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
         libvips \
-        tzdata && \
+        tzdata \
+				wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
