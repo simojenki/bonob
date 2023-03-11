@@ -270,6 +270,15 @@ describe("config", () => {
       expect(config().authTimeout).toEqual("33s");
     });
   });
+  
+  describe("logRequests", () => {
+    describeBooleanConfigValue(
+      "logRequests",
+      "BNB_SERVER_LOG_REQUESTS",
+      false,
+      (config) => config.logRequests
+    );
+  });
 
   describe("sonos", () => {
     describe("serviceName", () => {

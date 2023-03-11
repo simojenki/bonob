@@ -88,7 +88,7 @@ const app = server(
     clock,
     iconColors: config.icons,
     applyContextPath: true,
-    logRequests: true,
+    logRequests: config.logRequests,
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher
