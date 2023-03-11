@@ -85,6 +85,7 @@ export default function () {
         validationPattern: COLOR,
       }),
     },
+    logRequests: bnbEnvVar<boolean>("SERVER_LOG_REQUESTS", { default: false, parser: asBoolean }),
     sonos: {
       serviceName: bnbEnvVar<string>("SONOS_SERVICE_NAME", { default: "bonob" })!,
       discovery: {
