@@ -6,7 +6,7 @@ export function debugIt<T>(thing: T): T {
 }
 
 const logger = createLogger({
-    level: process.env["BNB_LOG_LEVEL"] || 'warn',
+    level: process.env["BNB_LOG_LEVEL"] || 'info',
     format: format.combine(
       format.timestamp({
         format: 'YYYY-MM-DD HH:mm:ss'
