@@ -1066,8 +1066,9 @@ function bindSmapiSoapServiceToExpress(
 
   soapyService.log = (type, data) => {
     switch (type) {
+      // routing all soap info messages to debug so less noisy
       case "info":
-        logger.info({ level: "info", data });
+        logger.debug({ level: "info", data });
         break;
       case "warn":
         logger.warn({ level: "warn", data });
