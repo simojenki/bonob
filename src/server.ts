@@ -374,7 +374,7 @@ function server(
     const id = req.params["id"]!;
     const trace = uuid();
 
-    logger.info(
+    logger.debug(
       `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query
       )}, headers=${JSON.stringify({ ...req.headers, "bnbt": "*****", "bnbk": "*****" })}`
@@ -409,7 +409,7 @@ function server(
             .then((stream) => ({ musicLibrary: it, stream }))
         )
         .then(({ musicLibrary, stream }) => {
-          logger.info(
+          logger.debug(
             `${trace} bnb<- stream response from music service for ${id}, status=${
               stream.status
             }, headers=(${JSON.stringify(stream.headers)})`
@@ -435,7 +435,7 @@ function server(
             sendStream: boolean;
             nowPlaying: boolean;
           }) => {
-            logger.info(
+            logger.debug(
               `${trace} bnb-> ${
                 req.path
               }, status=${status}, headers=${JSON.stringify(headers)}`
