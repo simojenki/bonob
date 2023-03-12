@@ -146,6 +146,7 @@ BNB_PORT | 4534 | Default http port for bonob to listen on
 BNB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the sonos devices can communicate with it.**
 BNB_SECRET | bonob | secret used for encrypting credentials
 BNB_AUTH_TIMEOUT | 1h | Timeout for the sonos auth token, described in the format [ms](https://github.com/vercel/ms), ie. '5s' == 5 seconds, '11h' == 11 hours.  In the case of using Navidrome this should be less than the value for ND_SESSIONTIMEOUT
+BNB_LOG_LEVEL | warn | Log level. One of ['debug', 'info', 'warn', 'error']
 BNB_SERVER_LOG_REQUESTS | false | Whether or not to log http requests
 BNB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
 BNB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable sonos device discovery entirely.  Setting this to 'false' will disable sonos device search, regardless of whether a seed host is specified.
