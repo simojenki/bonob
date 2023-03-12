@@ -62,8 +62,8 @@
   "scripts": {
     "clean": "rm -Rf build node_modules",
     "build": "tsc",
-    "dev": "BNB_DEBUG=true BNB_SCROBBLE_TRACKS=false BNB_REPORT_NOW_PLAYING=false BNB_ICON_FOREGROUND_COLOR=white BNB_ICON_BACKGROUND_COLOR=darkgrey BNB_SONOS_SERVICE_NAME=bonobDev BNB_SONOS_DEVICE_DISCOVERY=true nodemon -V ./src/app.ts",
-    "devr": "BNB_DEBUG=true BNB_SCROBBLE_TRACKS=false BNB_REPORT_NOW_PLAYING=false BNB_ICON_FOREGROUND_COLOR=white BNB_ICON_BACKGROUND_COLOR=darkgrey BNB_SONOS_SERVICE_NAME=bonobDev BNB_SONOS_DEVICE_DISCOVERY=true BNB_SONOS_AUTO_REGISTER=true nodemon -V ./src/app.ts",
+    "dev": "BNB_LOG_LEVEL=debug BNB_DEBUG=true BNB_SCROBBLE_TRACKS=false BNB_REPORT_NOW_PLAYING=false BNB_ICON_FOREGROUND_COLOR=white BNB_ICON_BACKGROUND_COLOR=darkgrey BNB_SONOS_SERVICE_NAME=bonobDev BNB_SONOS_DEVICE_DISCOVERY=true nodemon -V ./src/app.ts",
+    "devr": "BNB_LOG_LEVEL=debug BNB_DEBUG=true BNB_SCROBBLE_TRACKS=false BNB_REPORT_NOW_PLAYING=false BNB_ICON_FOREGROUND_COLOR=white BNB_ICON_BACKGROUND_COLOR=darkgrey BNB_SONOS_SERVICE_NAME=bonobDev BNB_SONOS_DEVICE_DISCOVERY=true BNB_SONOS_AUTO_REGISTER=true nodemon -V ./src/app.ts",
     "register-dev": "ts-node ./src/register.ts http://$(hostname):4534",
     "test": "jest",
     "gitinfo": "git describe --tags > .gitinfo"
