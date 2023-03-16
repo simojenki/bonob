@@ -48,7 +48,10 @@ RUN apt-get update && \
 
 FROM node:16-bullseye-slim
 
-LABEL maintainer=simojenki
+LABEL   maintainer="simojenki" \
+        org.opencontainers.image.source="https://github.com/simojenki/bonob" \
+        org.opencontainers.image.description="bonob SONOS SMAPI implementation" \
+        org.opencontainers.image.licenses="GPLv3"
 
 ENV BNB_PORT=4534
 ENV DEBIAN_FRONTEND=noninteractive
