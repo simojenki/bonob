@@ -25,7 +25,23 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 
 ## Running
 
-bonob is distributed via docker and can be run in a number of ways
+bonob is packaged as an OCI image to both the docker hub registry and github registry.
+
+ie. 
+```bash
+docker pull docker.io/simojenki/bonob
+```
+or
+```bash
+docker pull ghcr.io/simojenki/bonob
+```
+
+tag | description
+--- | ---
+latest | Latest release, intended to be stable
+master | Laster build from master, probably works, however is currently under test in
+vX.Y.Z | Fixed release versions from tags, for those that want to pin to specific release
+
 
 ### Full sonos device auto-discovery and auto-registration using docker --network host
 
