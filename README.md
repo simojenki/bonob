@@ -163,6 +163,7 @@ BNB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos
 BNB_SECRET | bonob | secret used for encrypting credentials
 BNB_AUTH_TIMEOUT | 1h | Timeout for the sonos auth token, described in the format [ms](https://github.com/vercel/ms), ie. '5s' == 5 seconds, '11h' == 11 hours.  In the case of using Navidrome this should be less than the value for ND_SESSIONTIMEOUT
 BNB_LOG_LEVEL | info | Log level. One of ['debug', 'info', 'warn', 'error']
+BNB_DISABLE_PLAYLIST_ART | undefined | Disables playlist art generation, ie. when there are many playlists and art generation takes too long
 BNB_SERVER_LOG_REQUESTS | false | Whether or not to log http requests
 BNB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
 BNB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable sonos device discovery entirely.  Setting this to 'false' will disable sonos device search, regardless of whether a seed host is specified.

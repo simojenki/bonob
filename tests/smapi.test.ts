@@ -519,30 +519,30 @@ describe("playlistAlbumArtURL", () => {
   });
 
   describe("when the playlist has external ids", () => {
+    const bonobUrl = url("http://localhost:1234/context-path?search=yes");
+    const externalArt1 = {
+      system: "external",
+      resource: "http://example.com/image1.jpg",
+    };
+    const externalArt2 = {
+      system: "external",
+      resource: "http://example.com/image2.jpg",
+    };
+
+    const playlist = aPlaylist({
+      entries: [
+        aTrack({
+          coverArt: externalArt1,
+          album: anAlbumSummary({ id: "album1" }),
+        }),
+        aTrack({
+          coverArt: externalArt2,
+          album: anAlbumSummary({ id: "album2" }),
+        }),
+      ],
+    });
+
     it("should format the url with encrypted urn", () => {
-      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const externalArt1 = {
-        system: "external",
-        resource: "http://example.com/image1.jpg",
-      };
-      const externalArt2 = {
-        system: "external",
-        resource: "http://example.com/image2.jpg",
-      };
-
-      const playlist = aPlaylist({
-        entries: [
-          aTrack({
-            coverArt: externalArt1,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: externalArt2,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-        ],
-      });
-
       expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
         `http://localhost:1234/context-path/art/${encodeURIComponent(
           formatForURL(externalArt1)
@@ -550,6 +550,26 @@ describe("playlistAlbumArtURL", () => {
           formatForURL(externalArt2)
         )}/size/180?search=yes`
       );
+    }); 
+
+    describe("when BNB_NO_PLAYLIST_ART is set", () => {
+      const OLD_ENV = process.env;
+
+      beforeEach(() => {
+        process.env = { ...OLD_ENV };
+    
+        process.env["BNB_DISABLE_PLAYLIST_ART"] = "true";
+      });
+    
+      afterEach(() => {
+        process.env = OLD_ENV;
+      });
+    
+      it("should return an icon", () => {
+        expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
+          `http://localhost:1234/context-path/icon/music/size/legacy?search=yes`
+        );
+      });
     });
   });
 

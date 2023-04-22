@@ -3,6 +3,12 @@
     "build": { 
         "dockerfile": "Dockerfile" 
     },
+    "containerEnv": {
+        // these env vars need to be configured appropriately for your local dev env
+        "BNB_DEV_SONOS_DEVICE_IP": "${localEnv:BNB_DEV_SONOS_DEVICE_IP}",
+        "BNB_DEV_HOST_IP": "${localEnv:BNB_DEV_HOST_IP}",
+        "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}"
+    },
     "remoteUser": "node",
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:1": {
