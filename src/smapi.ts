@@ -266,6 +266,9 @@ export const playlistAlbumArtURL = (
   bonobUrl: URLBuilder,
   playlist: Playlist
 ) => {
+  // todo: this should be put into config, or even just removed for the ND music source
+  if(process.env["BNB_DISABLE_PLAYLIST_ART"]) return iconArtURI(bonobUrl, "music");
+
   const burns: BUrn[] = uniq(
     playlist.entries.filter((it) => it.coverArt != undefined),
     (it) => it.album.id
