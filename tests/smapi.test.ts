@@ -1671,10 +1671,10 @@ describe("wsdl api", () => {
             });
 
             describe("asking for playlists", () => {
-              const playlist1 = aPlaylist({ id: "1", name: "pl1" });
-              const playlist2 = aPlaylist({ id: "2", name: "pl2" });
-              const playlist3 = aPlaylist({ id: "3", name: "pl3" });
-              const playlist4 = aPlaylist({ id: "4", name: "pl4" });
+              const playlist1 = aPlaylist({ id: "1", name: "pl1", entries: []});
+              const playlist2 = aPlaylist({ id: "2", name: "pl2", entries: []});
+              const playlist3 = aPlaylist({ id: "3", name: "pl3", entries: []});
+              const playlist4 = aPlaylist({ id: "4", name: "pl4", entries: []});
 
               const playlists = [playlist1, playlist2, playlist3, playlist4];
 
