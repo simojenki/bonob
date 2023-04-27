@@ -871,8 +871,13 @@ function bindSmapiSoapServiceToExpress(
                       .playlists()
                       .then((it) =>
                         Promise.all(
-                          it.map((playlist) =>
-                            musicLibrary.playlist(playlist.id)
+                          it.map((playlist) => {
+                            return {
+                              id: playlist.id,
+                              name: playlist.name,
+                              entries: []
+                            };
+                           }
                           )
                         )
                       )
