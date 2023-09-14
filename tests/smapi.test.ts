@@ -135,8 +135,8 @@ describe("service config", () => {
             "Sonos koppelen aan music land"
           );
 
-          // no fr-FR translation, so use en-US
-          expect(sonosString("AppLinkMessage", "fr-FR")).toEqual(
+          // no pt-BR translation, so use en-US
+          expect(sonosString("AppLinkMessage", "pt-BR")).toEqual(
             "Linking sonos with music land"
           );
         });

@@ -4,7 +4,7 @@ import { option as O } from "fp-ts";
 import _ from "underscore";
 
 export type LANG = "en-US" | "da-DK" | "de-DE" | "es-ES" | "fr-FR" | "it-IT" | "ja-JP" | "nb-NO" | "nl-NL" | "pt-BR" | "sv-SE" | "zh-CN"
-export type SUPPORTED_LANG = "en-US" | "da-DK" | "nl-NL";
+export type SUPPORTED_LANG = "en-US" | "da-DK" | "fr-FR" | "nl-NL";
 export type KEY =
   | "AppLinkMessage"
   | "artists"
@@ -128,6 +128,47 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     UNSTAR_SUCCESS: "Stjerne fjernet",
     LOVE: "Synes godt om",
     LOVE_SUCCESS: "Syntes godt om"
+  },
+  "fr-FR": {
+    AppLinkMessage: "Associer Sonos à $BNB_SONOS_SERVICE_NAME",
+    artists: "Artistes",
+    albums: "Albums",
+    tracks: "Pistes",
+    playlists: "Playlists",
+    genres: "Genres",
+    random: "Aléatoire",
+    topRated: "Les mieux notés",
+    recentlyAdded: "Récemment ajouté",
+    recentlyPlayed: "Récemment joué",
+    mostPlayed: "Les plus joué",
+    success: "Succès",
+    failure: "Échec",
+    expectedConfig: "Configuration attendue",
+    existingServiceConfig: "La configuration de service existe",
+    noExistingServiceRegistration: "Aucun enregistrement de service existant",
+    register: "Inscription",
+    removeRegistration: "Supprimer l'inscription",
+    devices: "Appareils",
+    services: "Services",
+    login: "Se connecter",
+    logInToBonob: "Se connecter à $BNB_SONOS_SERVICE_NAME",
+    username: "Nom d'utilisateur",
+    password: "Mot de passe",
+    successfullyRegistered: "Connecté avec succès",
+    registrationFailed: "Échec de la connexion !",
+    successfullyRemovedRegistration: "Inscription supprimée avec succès",
+    failedToRemoveRegistration: "Échec de la suppression de l'inscription !",
+    invalidLinkCode: "Code non valide !",
+    loginSuccessful: "Connexion réussie !",
+    loginFailed: "La connexion a échoué !",
+    noSonosDevices: "Aucun appareil Sonos",
+    favourites: "Favoris",
+    STAR: "Suivre",
+    UNSTAR: "Ne plus suivre",
+    STAR_SUCCESS: "Piste suivie",
+    UNSTAR_SUCCESS: "Piste non suivie",
+    LOVE: "Aimer",
+    LOVE_SUCCESS: "Pistes aimée"
   },
   "nl-NL": {
     AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
