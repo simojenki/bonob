@@ -374,31 +374,31 @@ describe("config", () => {
         "BONOB_NAVIDROME_URL",
       ])("%s", (k) => {
         describe(`when ${k} is not specified`, () => {
-          it(`should default to http://${hostname()}:4533`, () => {
-            expect(config().subsonic.url).toEqual(`http://${hostname()}:4533`);
+          it(`should default to http://${hostname()}:4533/`, () => {
+            expect(config().subsonic.url.href()).toEqual(`http://${hostname()}:4533/`);
           });
         });
 
         describe(`when ${k} is ''`, () => {
-          it(`should default to http://${hostname()}:4533`, () => {
+          it(`should default to http://${hostname()}:4533/`, () => {
             process.env[k] = "";
-            expect(config().subsonic.url).toEqual(`http://${hostname()}:4533`);
+            expect(config().subsonic.url.href()).toEqual(`http://${hostname()}:4533/`);
           });
         });
 
         describe(`when ${k} is specified`, () => {
           it(`should use it for ${k}`, () => {
-            const url = "http://navidrome.example.com:1234";
+            const url = "http://navidrome.example.com:1234/some-context-path";
             process.env[k] = url;
-            expect(config().subsonic.url).toEqual(url);
+            expect(config().subsonic.url.href()).toEqual(url);
           });
         });
 
         describe(`when ${k} is specified with trailing slash`, () => {
-          it(`should remove the trailing slash and use it for ${k}`, () => {
-            const url = "http://navidrome.example.com:1234";
-            process.env[k] = `${url}/`;
-            expect(config().subsonic.url).toEqual(url);
+          it(`should maintain the trailing slash as URLBuilder will remove it when required ${k}`, () => {
+            const url = "http://navidrome.example.com:1234/";
+            process.env[k] = url;
+            expect(config().subsonic.url.href()).toEqual(url);
           });
         });
       });
