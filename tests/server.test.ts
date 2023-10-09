@@ -755,15 +755,22 @@ describe("server", () => {
         const trackId = `t-${uuid()}`;
         const smapiAuthToken: SmapiToken = { token: `token-${uuid()}`, key: `key-${uuid()}` };
 
-        const streamContent = (content: string) => ({
-          pipe: (_: Transform) => {
-            return {
-              pipe: (res: Response) => {
-                res.send(content);
-              },
-            };
-          },
-        });
+        const streamContent = (content: string) => {
+          const self = {
+            destroyed: false,
+            pipe: (_: Transform) => {
+              return {
+                pipe: (res: Response) => {
+                  res.send(content);
+                }
+              };
+            },
+            destroy: () => {
+              self.destroyed = true;
+            }
+          };
+          return self;
+        };
 
         describe("HEAD requests", () => {
           describe("when there is no Bearer token", () => {
@@ -829,6 +836,8 @@ describe("server", () => {
                 );
                 expect(res.headers["content-length"]).toEqual("123");
                 expect(res.body).toEqual({});
+
+                expect(trackStream.stream.destroyed).toBe(true);
               });
             });
 
@@ -854,6 +863,8 @@ describe("server", () => {
 
                 expect(res.status).toEqual(404);
                 expect(res.body).toEqual({});
+
+                expect(trackStream.stream.destroyed).toBe(true);
               });
             });
           });
@@ -916,6 +927,8 @@ describe("server", () => {
   
                 expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
                 expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+
+                expect(stream.stream.destroyed).toBe(true);
               });
             });
   
@@ -959,6 +972,8 @@ describe("server", () => {
                   expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                   expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+
+                  expect(stream.stream.destroyed).toBe(true);
                 });
               });
   
@@ -1000,6 +1015,8 @@ describe("server", () => {
                   expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                   expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+
+                  expect(stream.stream.destroyed).toBe(true);
                 });
               });
   
@@ -1040,6 +1057,8 @@ describe("server", () => {
                   expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                   expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+
+                  expect(stream.stream.destroyed).toBe(true);
                 });
               });
   
@@ -1083,6 +1102,8 @@ describe("server", () => {
                   expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.nowPlaying).toHaveBeenCalledWith(trackId);
                   expect(musicLibrary.stream).toHaveBeenCalledWith({ trackId });
+
+                  expect(stream.stream.destroyed).toBe(true);
                 });
               });
             });
@@ -1131,6 +1152,8 @@ describe("server", () => {
                     trackId,
                     range: requestedRange,
                   });
+
+                  expect(stream.stream.destroyed).toBe(true);
                 });
               });
   
@@ -1178,6 +1201,8 @@ describe("server", () => {
                     trackId,
                     range: "4000-5000",
                   });
+
+                  expect(stream.stream.destroyed).toBe(true);
                 });
               });
             });

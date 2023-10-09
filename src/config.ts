@@ -58,6 +58,8 @@ const asBoolean = (value: string) => value == "true";
 
 const asInt = (value: string) => Number.parseInt(value);
 
+const asStringNoTrailingSlash = (value: string) => value.replace(/\/$/, "");
+
 export default function () {
   const port = bnbEnvVar<number>("PORT", { default: 4534, parser: asInt })!;
   const bonobUrl = bnbEnvVar("URL", {
@@ -98,7 +100,8 @@ export default function () {
       sid: bnbEnvVar<number>("SONOS_SERVICE_ID", { default: 246, parser: asInt }),
     },
     subsonic: {
-      url: bnbEnvVar("SUBSONIC_URL", { legacy: ["BONOB_NAVIDROME_URL"], default: `http://${hostname()}:4533` })!,
+      // todo: why isnt this a url like bonobUrl above?
+      url: bnbEnvVar("SUBSONIC_URL", { legacy: ["BONOB_NAVIDROME_URL"], default: `http://${hostname()}:4533`, parser: asStringNoTrailingSlash })!,
       customClientsFor: bnbEnvVar<string>("SUBSONIC_CUSTOM_CLIENTS", { legacy: ["BONOB_NAVIDROME_CUSTOM_CLIENTS"] }),
       artistImageCache: bnbEnvVar<string>("SUBSONIC_ARTIST_IMAGE_CACHE"),
     },

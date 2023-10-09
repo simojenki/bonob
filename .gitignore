@@ -2,6 +2,7 @@
 .vscode
 build
 ignore
+.ignore
 node_modules
 .yarn/*
 !.yarn/patches
