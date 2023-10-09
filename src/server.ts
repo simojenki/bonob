@@ -450,8 +450,11 @@ function server(
                 .forEach(([header, value]) => {
                   res.setHeader(header, value!);
                 });
-              if (sendStream) stream.stream.pipe(filter).pipe(res);
-              else res.send();
+              res.on('close', () => {
+                stream.stream.destroy()
+              });              
+              if (sendStream) stream.stream.pipe(filter).pipe(res)
+              else res.send()
             });
           };
 

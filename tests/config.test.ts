@@ -393,6 +393,14 @@ describe("config", () => {
             expect(config().subsonic.url).toEqual(url);
           });
         });
+
+        describe(`when ${k} is specified with trailing slash`, () => {
+          it(`should remove the trailing slash and use it for ${k}`, () => {
+            const url = "http://navidrome.example.com:1234";
+            process.env[k] = `${url}/`;
+            expect(config().subsonic.url).toEqual(url);
+          });
+        });
       });
     });
 
