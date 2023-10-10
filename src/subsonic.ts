@@ -32,6 +32,7 @@ import { b64Encode, b64Decode } from "./b64";
 import logger from "./logger";
 import { assertSystem, BUrn } from "./burn";
 import { artist } from "./smapi";
+import { URLBuilder } from "./url_builder";
 
 export const BROWSER_HEADERS = {
   accept:
@@ -344,28 +345,28 @@ export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
 export const cachingImageFetcher =
   (cacheDir: string, delegate: ImageFetcher) =>
-  async (url: string): Promise<CoverArt | undefined> => {
-    const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
-    return fse
-      .readFile(filename)
-      .then((data) => ({ contentType: "image/png", data }))
-      .catch(() =>
-        delegate(url).then((image) => {
-          if (image) {
-            return sharp(image.data)
-              .png()
-              .toBuffer()
-              .then((png) => {
-                return fse
-                  .writeFile(filename, png)
-                  .then(() => ({ contentType: "image/png", data: png }));
-              });
-          } else {
-            return undefined;
-          }
-        })
-      );
-  };
+    async (url: string): Promise<CoverArt | undefined> => {
+      const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
+      return fse
+        .readFile(filename)
+        .then((data) => ({ contentType: "image/png", data }))
+        .catch(() =>
+          delegate(url).then((image) => {
+            if (image) {
+              return sharp(image.data)
+                .png()
+                .toBuffer()
+                .then((png) => {
+                  return fse
+                    .writeFile(filename, png)
+                    .then(() => ({ contentType: "image/png", data: png }));
+                });
+            } else {
+              return undefined;
+            }
+          })
+        );
+    };
 
 export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
   axios
@@ -412,12 +413,12 @@ interface SubsonicMusicLibrary extends MusicLibrary {
 }
 
 export class Subsonic implements MusicService {
-  url: string;
+  url: URLBuilder;
   streamClientApplication: StreamClientApplication;
   externalImageFetcher: ImageFetcher;
 
   constructor(
-    url: string,
+    url: URLBuilder,
     streamClientApplication: StreamClientApplication = DEFAULT,
     externalImageFetcher: ImageFetcher = axiosImageFetcher
   ) {
@@ -433,7 +434,7 @@ export class Subsonic implements MusicService {
     config: AxiosRequestConfig | undefined = {}
   ) =>
     axios
-      .get(`${this.url}${path}`, {
+      .get(this.url.append({ pathname: path }).href(), {
         params: asURLSearchParams({
           u: username,
           v: "1.16.1",

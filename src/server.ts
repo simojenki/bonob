@@ -307,13 +307,13 @@ function server(
       return `<Match propname="rating" value="${value}">
         <Ratings>
           <Rating Id="${ratingAsInt(
-            nextLove
-          )}" AutoSkip="NEVER" OnSuccessStringId="LOVE_SUCCESS" StringId="LOVE">
+        nextLove
+      )}" AutoSkip="NEVER" OnSuccessStringId="LOVE_SUCCESS" StringId="LOVE">
             <Icon Controller="universal" LastModified="${LastModified}" Uri="${loveRatingIcon}" />
           </Rating>
           <Rating Id="${-ratingAsInt(
-            nextStar
-          )}" AutoSkip="NEVER" OnSuccessStringId="STAR_SUCCESS" StringId="STAR">
+        nextStar
+      )}" AutoSkip="NEVER" OnSuccessStringId="STAR_SUCCESS" StringId="STAR">
             <Icon Controller="universal" LastModified="${LastModified}" Uri="${starsRatingIcon}" />
           </Rating>
         </Ratings>
@@ -327,9 +327,9 @@ function server(
         <Match>
           <imageSizeMap>
             ${SONOS_RECOMMENDED_IMAGE_SIZES.map(
-              (size) =>
-                `<sizeEntry size="${size}" substitution="/size/${size}"/>`
-            ).join("")}
+      (size) =>
+        `<sizeEntry size="${size}" substitution="/size/${size}"/>`
+    ).join("")}
           </imageSizeMap>
         </Match>
       </PresentationMap>
@@ -338,9 +338,9 @@ function server(
           <browseIconSizeMap>
               <sizeEntry size="0" substitution="/size/legacy"/>
               ${SONOS_RECOMMENDED_IMAGE_SIZES.map(
-                (size) =>
-                  `<sizeEntry size="${size}" substitution="/size/${size}"/>`
-              ).join("")}
+      (size) =>
+        `<sizeEntry size="${size}" substitution="/size/${size}"/>`
+    ).join("")}
             </browseIconSizeMap>
         </Match>
       </PresentationMap>
@@ -406,13 +406,17 @@ function server(
               trackId: id,
               range: req.headers["range"] || undefined,
             })
+            .then((stream) => {
+              res.on('close', () => {
+                stream.stream.destroy()
+              });
+              return stream;
+            })
             .then((stream) => ({ musicLibrary: it, stream }))
         )
         .then(({ musicLibrary, stream }) => {
           logger.debug(
-            `${trace} bnb<- stream response from music service for ${id}, status=${
-              stream.status
-            }, headers=(${JSON.stringify(stream.headers)})`
+            `${trace} bnb<- stream response from music service for ${id}, status=${stream.status}, headers=(${JSON.stringify(stream.headers)})`
           );
 
           const sonosisfyContentType = (contentType: string) =>
@@ -436,9 +440,7 @@ function server(
             nowPlaying: boolean;
           }) => {
             logger.debug(
-              `${trace} bnb-> ${
-                req.path
-              }, status=${status}, headers=${JSON.stringify(headers)}`
+              `${trace} bnb-> ${req.path}, status=${status}, headers=${JSON.stringify(headers)}`
             );
             (nowPlaying
               ? musicLibrary.nowPlaying(id)
@@ -450,9 +452,6 @@ function server(
                 .forEach(([header, value]) => {
                   res.setHeader(header, value!);
                 });
-              res.on('close', () => {
-                stream.stream.destroy()
-              });              
               if (sendStream) stream.stream.pipe(filter).pipe(res)
               else res.send()
             });
@@ -516,15 +515,15 @@ function server(
       const spec =
         size == "legacy"
           ? {
-              mimeType: "image/png",
-              responseFormatter: (svg: string): Promise<Buffer | string> =>
-                sharp(Buffer.from(svg)).resize(80).png().toBuffer(),
-            }
+            mimeType: "image/png",
+            responseFormatter: (svg: string): Promise<Buffer | string> =>
+              sharp(Buffer.from(svg)).resize(80).png().toBuffer(),
+          }
           : {
-              mimeType: "image/svg+xml",
-              responseFormatter: (svg: string): Promise<Buffer | string> =>
-                Promise.resolve(svg),
-            };
+            mimeType: "image/svg+xml",
+            responseFormatter: (svg: string): Promise<Buffer | string> =>
+              Promise.resolve(svg),
+          };
 
       return Promise.resolve(
         icon
