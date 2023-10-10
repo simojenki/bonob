@@ -62,6 +62,7 @@ import {
 } from "./builders";
 import { b64Encode } from "../src/b64";
 import { BUrn } from "../src/burn";
+import { URLBuilder } from "../src/url_builder";
 
 describe("t", () => {
   it("should be an md5 of the password and the salt", () => {
@@ -688,7 +689,7 @@ describe("asTrack", () => {
 });
 
 describe("Subsonic", () => {
-  const url = "http://127.0.0.22:4567";
+  const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
   const username = `user1-${uuid()}`;
   const password = `pass1-${uuid()}`;
   const salt = "saltysalty";
@@ -756,7 +757,7 @@ describe("Subsonic", () => {
   
           expect(parseToken(token.serviceToken)).toEqual({ username, password, type: PING_OK["subsonic-response"].type })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/ping.view' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -777,7 +778,7 @@ describe("Subsonic", () => {
   
           expect(parseToken(token.serviceToken)).toEqual({ username, password, type })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/ping.view' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -802,11 +803,11 @@ describe("Subsonic", () => {
   
           expect(parseToken(token.serviceToken)).toEqual({ username, password, type: "navidrome", bearer: navidromeToken })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/ping.view' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
-          expect(axios.post).toHaveBeenCalledWith(`${url}/auth/login`, {
+          expect(axios.post).toHaveBeenCalledWith(url.append({ pathname: '/auth/login' }).href(), {
             username,
             password,
           });
@@ -848,7 +849,7 @@ describe("Subsonic", () => {
   
           expect(parseToken(refreshedToken.serviceToken)).toEqual({ username, password, type })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/ping.view' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -876,11 +877,11 @@ describe("Subsonic", () => {
   
           expect(parseToken(refreshedToken.serviceToken)).toEqual({ username, password, type: "navidrome", bearer: navidromeToken })
   
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/ping.view`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/ping.view' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
-          expect(axios.post).toHaveBeenCalledWith(`${url}/auth/login`, {
+          expect(axios.post).toHaveBeenCalledWith(url.append({ pathname: '/auth/login' }).href(), {
             username,
             password,
           });
@@ -941,7 +942,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([]);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getGenres' }).href(), {
           params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
@@ -968,7 +969,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([{ id: b64Encode("genre1"), name: "genre1" }]);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getGenres' }).href(), {
           params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
@@ -1003,7 +1004,7 @@ describe("Subsonic", () => {
           { id: b64Encode("g4"), name: "g4" },
         ]);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getGenres`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getGenres' }).href(), {
           params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
@@ -1059,7 +1060,7 @@ describe("Subsonic", () => {
             similarArtists: artist.similarArtists,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1067,7 +1068,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1118,7 +1119,7 @@ describe("Subsonic", () => {
             similarArtists: artist.similarArtists,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1126,7 +1127,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1171,7 +1172,7 @@ describe("Subsonic", () => {
             similarArtists: artist.similarArtists,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1179,7 +1180,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1225,7 +1226,7 @@ describe("Subsonic", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1233,7 +1234,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1276,7 +1277,7 @@ describe("Subsonic", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1284,7 +1285,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1327,7 +1328,7 @@ describe("Subsonic", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1335,7 +1336,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1379,7 +1380,7 @@ describe("Subsonic", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1387,7 +1388,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1432,7 +1433,7 @@ describe("Subsonic", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1440,7 +1441,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1483,7 +1484,7 @@ describe("Subsonic", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1491,7 +1492,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1532,7 +1533,7 @@ describe("Subsonic", () => {
             similarArtists: [],
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtist`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1540,7 +1541,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtistInfo2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtistInfo2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: artist.id,
@@ -1661,7 +1662,7 @@ describe("Subsonic", () => {
             total: 1,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -1702,7 +1703,7 @@ describe("Subsonic", () => {
             total: 4,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -1730,7 +1731,7 @@ describe("Subsonic", () => {
 
           expect(artists).toEqual({ results: expectedResults, total: 4 });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -1786,12 +1787,12 @@ describe("Subsonic", () => {
             total: 2,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "byGenre",
@@ -1838,12 +1839,12 @@ describe("Subsonic", () => {
             total: 3,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "newest",
@@ -1889,12 +1890,12 @@ describe("Subsonic", () => {
             total: 2,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "recent",
@@ -1931,12 +1932,12 @@ describe("Subsonic", () => {
             total: 1,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "frequent",
@@ -1973,12 +1974,12 @@ describe("Subsonic", () => {
             total: 1,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "highest",
@@ -2024,12 +2025,12 @@ describe("Subsonic", () => {
           total: 1,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
           params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             type: "alphabeticalByArtist",
@@ -2074,12 +2075,12 @@ describe("Subsonic", () => {
           total: 0,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
           params: asURLSearchParams(authParamsPlusJson),
           headers,
         });
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             type: "alphabeticalByArtist",
@@ -2139,12 +2140,12 @@ describe("Subsonic", () => {
             total: 6,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "alphabeticalByArtist",
@@ -2190,12 +2191,12 @@ describe("Subsonic", () => {
             total: 6,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbumList2`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbumList2' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "alphabeticalByArtist",
@@ -2263,13 +2264,13 @@ describe("Subsonic", () => {
               total: 4,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
               params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
+              url.append({ pathname: '/rest/getAlbumList2' }).href(),
               {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
@@ -2320,13 +2321,13 @@ describe("Subsonic", () => {
               total: 4,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
               params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
+              url.append({ pathname: '/rest/getAlbumList2' }).href(),
               {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
@@ -2376,13 +2377,13 @@ describe("Subsonic", () => {
               total: 4,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
               params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
+              url.append({ pathname: '/rest/getAlbumList2' }).href(),
               {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
@@ -2442,13 +2443,13 @@ describe("Subsonic", () => {
               total: 5,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
               params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
+              url.append({ pathname: '/rest/getAlbumList2' }).href(),
               {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
@@ -2506,13 +2507,13 @@ describe("Subsonic", () => {
               total: 5,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
               params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
+              url.append({ pathname: '/rest/getAlbumList2' }).href(),
               {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
@@ -2568,13 +2569,13 @@ describe("Subsonic", () => {
               total: 5,
             });
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getArtists`, {
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getArtists' }).href(), {
               params: asURLSearchParams(authParamsPlusJson),
               headers,
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              `${url}/rest/getAlbumList2`,
+              url.append({ pathname: '/rest/getAlbumList2' }).href(),
               {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
@@ -2620,7 +2621,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual(album);
 
-        expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+        expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             id: album.id,
@@ -2698,7 +2699,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual([track1, track2, track3, track4]);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: album.id,
@@ -2745,7 +2746,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual([track]);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: album.id,
@@ -2780,7 +2781,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual([]);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: album.id,
@@ -2831,7 +2832,7 @@ describe("Subsonic", () => {
             rating: { love: true, stars: 4 },
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSong' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: track.id,
@@ -2839,7 +2840,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: album.id,
@@ -2878,7 +2879,7 @@ describe("Subsonic", () => {
             rating: { love: false, stars: 0 },
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getSong`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSong' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: track.id,
@@ -2886,7 +2887,7 @@ describe("Subsonic", () => {
             headers,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getAlbum`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: album.id,
@@ -3033,7 +3034,7 @@ describe("Subsonic", () => {
             });
             expect(result.stream).toEqual(stream);
 
-            expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
               params: asURLSearchParams({
                 ...authParams,
                 id: trackId,
@@ -3139,7 +3140,7 @@ describe("Subsonic", () => {
           });
           expect(result.stream).toEqual(stream);
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
             params: asURLSearchParams({
               ...authParams,
               id: trackId,
@@ -3182,7 +3183,7 @@ describe("Subsonic", () => {
             .then((it) => it.stream({ trackId, range: undefined }));
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
             params: asURLSearchParams({
               ...authParams,
               id: trackId,
@@ -3224,7 +3225,7 @@ describe("Subsonic", () => {
             .then((it) => it.stream({ trackId, range }));
 
           expect(streamClientApplication).toHaveBeenCalledWith(track);
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/stream`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
             params: asURLSearchParams({
               ...authParams,
               id: trackId,
@@ -3267,7 +3268,7 @@ describe("Subsonic", () => {
             data: streamResponse.data,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getCoverArt' }).href(), {
             params: asURLSearchParams({
               ...authParams,
               id: coverArtId,
@@ -3303,7 +3304,7 @@ describe("Subsonic", () => {
             data: streamResponse.data,
           });
 
-          expect(axios.get).toHaveBeenCalledWith(`${url}/rest/getCoverArt`, {
+          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getCoverArt' }).href(), {
             params: asURLSearchParams({
               ...authParams,
               id: coverArtId,
@@ -3429,7 +3430,7 @@ describe("Subsonic", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(
-            `${url}/rest/getCoverArt`,
+            url.append({ pathname: '/rest/getCoverArt' }).href(),
             {
               params: asURLSearchParams({
                 ...authParams,
@@ -3495,7 +3496,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/star`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/star' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: trackId,
@@ -3528,7 +3529,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/unstar`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/unstar' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: trackId,
@@ -3587,7 +3588,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/setRating`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/setRating' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: trackId,
@@ -3648,14 +3649,14 @@ describe("Subsonic", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/unstar`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/unstar' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: trackId,
             }),
             headers,
           });
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/setRating`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/setRating' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               id: trackId,
@@ -3715,7 +3716,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual(true);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/scrobble' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             id,
@@ -3744,7 +3745,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual(false);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/scrobble' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             id,
@@ -3770,7 +3771,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual(true);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/scrobble' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             id,
@@ -3799,7 +3800,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual(false);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/scrobble`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/scrobble' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             id,
@@ -3827,7 +3828,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([artistToArtistSummary(artist1)]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 20,
@@ -3861,7 +3862,7 @@ describe("Subsonic", () => {
           artistToArtistSummary(artist2),
         ]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 20,
@@ -3887,7 +3888,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 20,
@@ -3923,7 +3924,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([albumToAlbumSummary(album)]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 0,
@@ -3973,7 +3974,7 @@ describe("Subsonic", () => {
           albumToAlbumSummary(album2),
         ]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 0,
@@ -3999,7 +4000,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 0,
@@ -4045,7 +4046,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([track]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 0,
@@ -4117,7 +4118,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([track1, track2]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 0,
@@ -4143,7 +4144,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/search3`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/search3' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             artistCount: 0,
@@ -4174,7 +4175,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual([playlist]);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getPlaylists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -4199,7 +4200,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual(playlists);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getPlaylists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -4219,7 +4220,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual([]);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylists`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getPlaylists' }).href(), {
             params: asURLSearchParams(authParamsPlusJson),
             headers,
           });
@@ -4304,7 +4305,7 @@ describe("Subsonic", () => {
               ],
             });
 
-            expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
+            expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getPlaylist' }).href(), {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 id,
@@ -4331,7 +4332,7 @@ describe("Subsonic", () => {
 
             expect(result).toEqual(playlist);
 
-            expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getPlaylist`, {
+            expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getPlaylist' }).href(), {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 id: playlist.id,
@@ -4359,7 +4360,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual({ id, name });
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/createPlaylist`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/createPlaylist' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             f: "json",
@@ -4383,7 +4384,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual(true);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/deletePlaylist`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/deletePlaylist' }).href(), {
           params: asURLSearchParams({
             ...authParamsPlusJson,
             id,
@@ -4408,7 +4409,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/updatePlaylist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               playlistId,
@@ -4433,7 +4434,7 @@ describe("Subsonic", () => {
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledWith(`${url}/rest/updatePlaylist`, {
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/updatePlaylist' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               playlistId,
@@ -4480,7 +4481,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([track1]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSimilarSongs2' }).href(), {
           params: asURLSearchParams({
             ...authParams,
             f: "json",
@@ -4550,7 +4551,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([track1, track2, track3]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSimilarSongs2' }).href(), {
           params: asURLSearchParams({
             ...authParams,
             f: "json",
@@ -4577,7 +4578,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getSimilarSongs2`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSimilarSongs2' }).href(), {
           params: asURLSearchParams({
             ...authParams,
             f: "json",
@@ -4644,7 +4645,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([track1]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getTopSongs' }).href(), {
           params: asURLSearchParams({
             ...authParams,
             f: "json",
@@ -4711,7 +4712,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([track1, track2, track3]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getTopSongs' }).href(), {
           params: asURLSearchParams({
             ...authParams,
             f: "json",
@@ -4751,7 +4752,7 @@ describe("Subsonic", () => {
 
         expect(result).toEqual([]);
 
-        expect(mockGET).toHaveBeenCalledWith(`${url}/rest/getTopSongs`, {
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getTopSongs' }).href(), {
           params: asURLSearchParams({
             ...authParams,
             f: "json",
