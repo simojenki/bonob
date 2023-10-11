@@ -928,6 +928,34 @@ describe("Subsonic", () => {
     });
   });
 
+  describe("bearerToken", () => {
+    describe("when flavour is generic subsonic", () => {
+      it("should return undefined", async () => {
+        const credentials = { username: "foo", password: "bar" };
+        const token = { ...credentials, type: "subsonic", bearer: undefined  }
+        const client = await subsonic.login(asToken(token));
+        
+        const bearerToken = await pipe(client.bearerToken(credentials))();
+        expect(bearerToken).toStrictEqual(E.right(undefined));
+      });
+    });
+
+    describe("when flavour is navidrome", () => {
+      it("should get a bearerToken from navidrome", async () => {
+        const credentials = { username: "foo", password: "bar" };
+        const token = { ...credentials, type: "navidrome", bearer: undefined  }
+        const client = await subsonic.login(asToken(token));
+
+        mockPOST.mockImplementationOnce(() => Promise.resolve(ok({ token: 'theBearerToken' })))
+        
+        const bearerToken = await pipe(client.bearerToken(credentials))();
+        expect(bearerToken).toStrictEqual(E.right('theBearerToken'));
+
+        expect(axios.post).toHaveBeenCalledWith(url.append({ pathname: '/auth/login' }).href(), credentials)
+      });
+    });
+  });
+
   describe("getting genres", () => {
     describe("when there are none", () => {
       beforeEach(() => {
