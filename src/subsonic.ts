@@ -956,6 +956,7 @@ export class Subsonic implements MusicService {
     };
 
     if (credentials.type == "navidrome") {
+      // todo: there does not seem to be a test for this??
       return Promise.resolve({
         ...genericSubsonic,
         flavour: () => "navidrome",
@@ -964,7 +965,7 @@ export class Subsonic implements MusicService {
             TE.tryCatch(
               () =>
                 axios.post(
-                  `${this.url}/auth/login`,
+                  this.url.append({ pathname: '/auth/login' }).href(),
                   _.pick(credentials, "username", "password")
                 ),
               () => new AuthFailure("Failed to get bearerToken")
