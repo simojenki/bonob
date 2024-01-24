@@ -1,4 +1,4 @@
-FROM node:16-bullseye-slim as build
+FROM node:20-bullseye-slim as build
 
 WORKDIR /bonob
 
@@ -9,12 +9,11 @@ COPY typings ./typings
 COPY web ./web
 COPY tests ./tests
 COPY jest.config.js .
-COPY package.json .
 COPY register.js .
+COPY .npmrc .
 COPY tsconfig.json .
-COPY yarn.lock .
-COPY .yarnrc.yml .
-COPY .yarn/releases ./.yarn/releases
+COPY package.json .
+COPY package-lock.json .
 
 ENV JEST_TIMEOUT=60000
 ENV DEBIAN_FRONTEND=noninteractive
@@ -29,24 +28,15 @@ RUN apt-get update && \
         g++ && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    yarn config set network-timeout 600000 -g && \
-    yarn install \
-        --prefer-offline \
-        --frozen-lockfile \
-        --non-interactive \
-        --production=false && \
-    yarn test --no-cache && \
-    yarn gitinfo && \
-    yarn build && \
+    npm install && \
+    npm test && \
+    npm run gitinfo && \
+    npm run build && \
     rm -Rf node_modules && \
-    NODE_ENV=production yarn install \
-        --prefer-offline \
-        --pure-lockfile \
-        --non-interactive \
-        --production=true
+    NODE_ENV=production npm install --omit=dev
 
 
-FROM node:16-bullseye-slim
+FROM node:20-bullseye-slim
 
 LABEL   maintainer="simojenki" \
         org.opencontainers.image.source="https://github.com/simojenki/bonob" \
@@ -62,7 +52,7 @@ EXPOSE $BNB_PORT
 WORKDIR /bonob
 
 COPY package.json .
-COPY yarn.lock .
+COPY package-lock.json .
 
 COPY --from=build /bonob/build/src ./src
 COPY --from=build /bonob/node_modules ./node_modules
@@ -75,7 +65,7 @@ RUN apt-get update && \
     apt-get -y install --no-install-recommends \
         libvips \
         tzdata \
-				wget && \
+        wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
