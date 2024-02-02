@@ -163,6 +163,7 @@ export type song = {
   bitRate: number | undefined;
   suffix: string | undefined;
   contentType: string | undefined;
+  transcodedContentType: string | undefined;
   type: string | undefined;
   userRating: number | undefined;
   starred: string | undefined;
@@ -273,7 +274,7 @@ export const artistImageURN = (
 export const asTrack = (album: Album, song: song): Track => ({
   id: song.id,
   name: song.title,
-  mimeType: song.contentType!,
+  mimeType: song.transcodedContentType ? song.transcodedContentType : song.contentType!,
   duration: song.duration || 0,
   number: song.track || 0,
   genre: maybeAsGenre(song.genre),

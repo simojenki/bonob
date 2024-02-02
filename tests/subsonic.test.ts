@@ -322,6 +322,7 @@ const asSongJson = (track: Track) => ({
   size: "5624132",
   suffix: "mp3",
   contentType: track.mimeType,
+  transcodedContentType: undefined,
   isVideo: "false",
   path: "ACDC/High voltage/ACDC - The Jack.mp3",
   albumId: track.album.id,
@@ -686,7 +687,30 @@ describe("asTrack", () => {
       });
     });
   });
+
+  describe("when the song has a transcodedContentType", () => {
+    const album = anAlbum();
+
+    describe("with an undefined value", () => {
+      const track = aTrack({ mimeType: "sourced-from/mimeType" });
+
+      it("should fall back on the default mime", () => {
+        const result = asTrack(album, { ...asSongJson(track), transcodedContentType: undefined });
+        expect(result.mimeType).toEqual("sourced-from/mimeType")
+      });
+    });
+      
+    describe("with a value", () => {
+      const track = aTrack({ mimeType: "sourced-from/mimeType" });
+
+      it("should use the transcoded value", () => {
+        const result = asTrack(album, { ...asSongJson(track), transcodedContentType: "sourced-from/transcodedContentType" });
+        expect(result.mimeType).toEqual("sourced-from/transcodedContentType")
+      });
+    });
+  });
 });
+
 
 describe("Subsonic", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");

@@ -10,6 +10,7 @@
         "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}"
     },
     "remoteUser": "node",
+    "forwardPorts": [4534],
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {
             "version": "latest",
