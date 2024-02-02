@@ -220,9 +220,9 @@ Afterwards the Sonos app displays a dropdown underneath the service, allowing to
 
 ### Audio File type specific transcoding options within Subsonic
 
-In some situations you may wish to have different 'Players' within you Subsonic server so that you can configure different transcoding options depending on the file type.  For example if you have flacs with a mixture of frequency formats where not all are supported by sonos [See issue #52](https://github.com/simojenki/bonob/issues/52) & [Sonos supported audio formats](https://docs.sonos.com/docs/supported-audio-formats)
+In some situations you may wish to have different 'Players' within your Subsonic server so that you can configure different transcoding options depending on the file type.  For example if you have flacs with a mixture of frequency formats where not all are supported by sonos [See issue #52](https://github.com/simojenki/bonob/issues/52) & [Sonos supported audio formats](https://docs.sonos.com/docs/supported-audio-formats)
 
-In this case you could set;
+If you simple wish to have a custom client that transcodes from audio/flac->audio/flac then you could set;
 
 ```bash
 BNB_SUBSONIC_CUSTOM_CLIENTS="audio/flac"
