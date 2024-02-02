@@ -253,7 +253,7 @@ const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
   itemType: "playlist",
   id: `playlist:${playlist.id}`,
   title: playlist.name,
-  albumArtURI: playlistAlbumArtURL(bonobUrl, playlist).href(),
+  albumArtURI: defaultAlbumArtURI(bonobUrl, playlist).href(),
   canPlay: true,
   attributes: {
     readOnly: false,
@@ -262,6 +262,7 @@ const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
   },
 });
 
+// todo: delete me
 export const playlistAlbumArtURL = (
   bonobUrl: URLBuilder,
   playlist: Playlist
@@ -285,6 +286,7 @@ export const playlistAlbumArtURL = (
   }
 };
 
+// todo: rename me
 export const defaultAlbumArtURI = (
   bonobUrl: URLBuilder,
   { coverArt }: { coverArt: BUrn | undefined }
@@ -305,6 +307,7 @@ export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
     pathname: `/icon/${icon}/size/legacy`,
   });
 
+// todo: how am I different to defaultAlbumArtURI
 export const defaultArtistArtURI = (
   bonobUrl: URLBuilder,
   artist: ArtistSummary
@@ -872,9 +875,12 @@ function bindSmapiSoapServiceToExpress(
                       .then((it) =>
                         Promise.all(
                           it.map((playlist) => {
+                            // todo: whats this odd copy all about, can we just delete it?
                             return {
                               id: playlist.id,
                               name: playlist.name,
+                              coverArt: playlist.coverArt,
+                              // todo: are these every important?
                               entries: []
                             };
                            }

@@ -113,7 +113,8 @@ export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
 
 export const playlistToPlaylistSummary = (it: Playlist): PlaylistSummary => ({
   id: it.id,
-  name: it.name
+  name: it.name,
+  coverArt: it.coverArt
 })
 
 export type StreamingHeader = "content-type" | "content-length" | "content-range" | "accept-ranges";
@@ -131,7 +132,8 @@ export type CoverArt = {
 
 export type PlaylistSummary = {
   id: string,
-  name: string
+  name: string,
+  coverArt: BUrn | undefined
 }
 
 export type Playlist = PlaylistSummary & {
