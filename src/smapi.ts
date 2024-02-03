@@ -26,7 +26,7 @@ import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
-import _, { uniq } from "underscore";
+import _ from "underscore";
 import { BUrn, formatForURL } from "./burn";
 import {
   isExpiredTokenError,
@@ -253,7 +253,7 @@ const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
   itemType: "playlist",
   id: `playlist:${playlist.id}`,
   title: playlist.name,
-  albumArtURI: defaultAlbumArtURI(bonobUrl, playlist).href(),
+  albumArtURI: coverArtURI(bonobUrl, playlist).href(),
   canPlay: true,
   attributes: {
     readOnly: false,
@@ -262,34 +262,9 @@ const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
   },
 });
 
-// todo: delete me
-export const playlistAlbumArtURL = (
+export const coverArtURI = (
   bonobUrl: URLBuilder,
-  playlist: Playlist
-) => {
-  // todo: this should be put into config, or even just removed for the ND music source
-  if(process.env["BNB_DISABLE_PLAYLIST_ART"]) return iconArtURI(bonobUrl, "music");
-
-  const burns: BUrn[] = uniq(
-    playlist.entries.filter((it) => it.coverArt != undefined),
-    (it) => it.album.id
-  ).map((it) => it.coverArt!);
-  if (burns.length == 0) {
-    return iconArtURI(bonobUrl, "error");
-  } else {
-    return bonobUrl.append({
-      pathname: `/art/${burns
-        .slice(0, 9)
-        .map((it) => encodeURIComponent(formatForURL(it)))
-        .join("&")}/size/180`,
-    });
-  }
-};
-
-// todo: rename me
-export const defaultAlbumArtURI = (
-  bonobUrl: URLBuilder,
-  { coverArt }: { coverArt: BUrn | undefined }
+  { coverArt }: { coverArt?: BUrn | undefined }
 ) =>
   pipe(
     coverArt,
@@ -307,22 +282,6 @@ export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
     pathname: `/icon/${icon}/size/legacy`,
   });
 
-// todo: how am I different to defaultAlbumArtURI
-export const defaultArtistArtURI = (
-  bonobUrl: URLBuilder,
-  artist: ArtistSummary
-) =>
-  pipe(
-    artist.image,
-    O.fromNullable,
-    O.map((it) =>
-      bonobUrl.append({
-        pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180`,
-      })
-    ),
-    O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
-  );
-
 export const sonosifyMimeType = (mimeType: string) =>
   mimeType == "audio/x-flac" ? "audio/flac" : mimeType;
 
@@ -332,7 +291,7 @@ export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   artist: album.artistName,
   artistId: `artist:${album.artistId}`,
   title: album.name,
-  albumArtURI: defaultAlbumArtURI(bonobUrl, album).href(),
+  albumArtURI: coverArtURI(bonobUrl, album).href(),
   canPlay: true,
   // defaults
   // canScroll: false,
@@ -351,7 +310,7 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
     albumId: `album:${track.album.id}`,
     albumArtist: track.artist.name,
     albumArtistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
-    albumArtURI: defaultAlbumArtURI(bonobUrl, track).href(),
+    albumArtURI: coverArtURI(bonobUrl, track).href(),
     artist: track.artist.name,
     artistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
     duration: track.duration,
@@ -369,7 +328,7 @@ export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
   id: `artist:${artist.id}`,
   artistId: artist.id,
   title: artist.name,
-  albumArtURI: defaultArtistArtURI(bonobUrl, artist).href(),
+  albumArtURI: coverArtURI(bonobUrl, { coverArt: artist.image }).href(),
 });
 
 function splitId<T>(id: string) {

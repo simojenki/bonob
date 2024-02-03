@@ -133,7 +133,7 @@ export type CoverArt = {
 export type PlaylistSummary = {
   id: string,
   name: string,
-  coverArt: BUrn | undefined
+  coverArt?: BUrn | undefined
 }
 
 export type Playlist = PlaylistSummary & {
