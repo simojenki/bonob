@@ -31,9 +31,8 @@ import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, ICONS, festivals, features } from "./icon";
-import _, { shuffle } from "underscore";
+import _ from "underscore";
 import morgan from "morgan";
-import { takeWithRepeats } from "./utils";
 import { parse } from "./burn";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 import {
@@ -558,23 +557,11 @@ function server(
     });
   });
 
-  const GRAVITY_9 = [
-    "north",
-    "northeast",
-    "east",
-    "southeast",
-    "south",
-    "southwest",
-    "west",
-    "northwest",
-    "centre",
-  ];
-
-  app.get("/art/:burns/size/:size", (req, res) => {
+  app.get("/art/:burn/size/:size", (req, res) => {
     const serviceToken = apiTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
-    const urns = req.params["burns"]!.split("&").map(parse);
+    const urn = parse(req.params["burn"]!);
     const size = Number.parseInt(req.params["size"]!);
 
     if (!serviceToken) {
@@ -585,55 +572,24 @@ function server(
 
     return musicService
       .login(serviceToken)
-      .then((musicLibrary) =>
-        Promise.all(
-          urns.map((it) => {
-            if (it.system == "external") {
-              return serverOpts.externalImageResolver(it.resource);
-            } else {
-              return musicLibrary.coverArt(it, size);
-            }
-          })
-        )
-      )
-      .then((coverArts) => coverArts.filter((it) => it))
-      .then(shuffle)
-      .then((coverArts) => {
-        if (coverArts.length == 1) {
-          const coverArt = coverArts[0]!;
+      .then((musicLibrary) => {
+        if (urn.system == "external") {
+          return serverOpts.externalImageResolver(urn.resource);
+        } else {
+          return musicLibrary.coverArt(urn, size);
+        }
+      })
+      .then((coverArt) => {
+        if(coverArt) {
           res.status(200);
           res.setHeader("content-type", coverArt.contentType);
           return res.send(coverArt.data);
-        } else if (coverArts.length > 1) {
-          const gravity = [...GRAVITY_9];
-          return sharp({
-            create: {
-              width: size * 3,
-              height: size * 3,
-              channels: 3,
-              background: { r: 255, g: 255, b: 255 },
-            },
-          })
-            .composite(
-              takeWithRepeats(coverArts, 9).map((art) => ({
-                input: art?.data,
-                gravity: gravity.pop(),
-              }))
-            )
-            .png()
-            .toBuffer()
-            .then((image) => sharp(image).resize(size).png().toBuffer())
-            .then((image) => {
-              res.status(200);
-              res.setHeader("content-type", "image/png");
-              return res.send(image);
-            });
         } else {
           return res.status(404).send();
         }
-      })
+    })
       .catch((e: Error) => {
-        logger.error(`Failed fetching image ${urns.join("&")}/size/${size}`, {
+        logger.error(`Failed fetching image ${urn}/size/${size}`, {
           cause: e,
         });
         return res.status(500).send();
