@@ -18,11 +18,9 @@ import {
   track,
   artist,
   album,
-  defaultAlbumArtURI,
-  defaultArtistArtURI,
+  coverArtURI,
   searchResult,
   iconArtURI,
-  playlistAlbumArtURL,
   sonosifyMimeType,
   ratingAsInt,
   ratingFromInt,
@@ -41,7 +39,6 @@ import {
   TRIP_HOP,
   PUNK,
   aPlaylist,
-  anAlbumSummary,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -56,7 +53,6 @@ import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
 import { formatForURL } from "../src/burn";
-import { range } from "underscore";
 import { FixedClock } from "../src/clock";
 import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
 
@@ -471,7 +467,7 @@ describe("album", () => {
       itemType: "album",
       id: `album:${someAlbum.id}`,
       title: someAlbum.name,
-      albumArtURI: defaultAlbumArtURI(bonobUrl, someAlbum).href(),
+      albumArtURI: coverArtURI(bonobUrl, someAlbum).href(),
       canPlay: true,
       artist: someAlbum.artistName,
       artistId: `artist:${someAlbum.artistId}`,
@@ -495,299 +491,8 @@ describe("sonosifyMimeType", () => {
   });
 });
 
-describe("playlistAlbumArtURL", () => {
-  const coverArt1 = { system: "subsonic", resource: "1" };
-  const coverArt2 = { system: "subsonic", resource: "2" };
-  const coverArt3 = { system: "subsonic", resource: "3" };
-  const coverArt4 = { system: "subsonic", resource: "4" };
-  const coverArt5 = { system: "subsonic", resource: "5" };
 
-  describe("when the playlist has no coverArt ids", () => {
-    it("should return question mark icon", () => {
-      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const playlist = aPlaylist({
-        entries: [
-          aTrack({ coverArt: undefined }),
-          aTrack({ coverArt: undefined }),
-        ],
-      });
-
-      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/icon/error/size/legacy?search=yes`
-      );
-    });
-  });
-
-  describe("when the playlist has external ids", () => {
-    const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-    const externalArt1 = {
-      system: "external",
-      resource: "http://example.com/image1.jpg",
-    };
-    const externalArt2 = {
-      system: "external",
-      resource: "http://example.com/image2.jpg",
-    };
-
-    const playlist = aPlaylist({
-      entries: [
-        aTrack({
-          coverArt: externalArt1,
-          album: anAlbumSummary({ id: "album1" }),
-        }),
-        aTrack({
-          coverArt: externalArt2,
-          album: anAlbumSummary({ id: "album2" }),
-        }),
-      ],
-    });
-
-    it("should format the url with encrypted urn", () => {
-      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(
-          formatForURL(externalArt1)
-        )}&${encodeURIComponent(
-          formatForURL(externalArt2)
-        )}/size/180?search=yes`
-      );
-    }); 
-
-    describe("when BNB_NO_PLAYLIST_ART is set", () => {
-      const OLD_ENV = process.env;
-
-      beforeEach(() => {
-        process.env = { ...OLD_ENV };
-    
-        process.env["BNB_DISABLE_PLAYLIST_ART"] = "true";
-      });
-    
-      afterEach(() => {
-        process.env = OLD_ENV;
-      });
-    
-      it("should return an icon", () => {
-        expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-          `http://localhost:1234/context-path/icon/music/size/legacy?search=yes`
-        );
-      });
-    });
-  });
-
-  describe("when the playlist has 4 tracks from 2 different albums, including some tracks that are missing coverArt urns", () => {
-    it("should use the cover art once per album", () => {
-      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const playlist = aPlaylist({
-        entries: [
-          aTrack({
-            coverArt: undefined,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt1,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt2,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-          aTrack({
-            coverArt: undefined,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-          aTrack({
-            coverArt: coverArt3,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt4,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-          aTrack({
-            coverArt: undefined,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-        ],
-      });
-
-      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(
-          formatForURL(coverArt1)
-        )}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
-      );
-    });
-  });
-
-  describe("when the playlist has 4 tracks from 2 different albums", () => {
-    it("should use the cover art once per album", () => {
-      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const playlist = aPlaylist({
-        entries: [
-          aTrack({
-            coverArt: coverArt1,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt2,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-          aTrack({
-            coverArt: coverArt3,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt4,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-        ],
-      });
-
-      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(
-          formatForURL(coverArt1)
-        )}&${encodeURIComponent(formatForURL(coverArt2))}/size/180?search=yes`
-      );
-    });
-  });
-
-  describe("when the playlist has 4 tracks from 3 different albums", () => {
-    it("should use the cover art once per album", () => {
-      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const playlist = aPlaylist({
-        entries: [
-          aTrack({
-            coverArt: coverArt1,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt2,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-          aTrack({
-            coverArt: coverArt3,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt4,
-            album: anAlbumSummary({ id: "album3" }),
-          }),
-        ],
-      });
-
-      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(
-          formatForURL(coverArt1)
-        )}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(
-          formatForURL(coverArt4)
-        )}/size/180?search=yes`
-      );
-    });
-  });
-
-  describe("when the playlist has 4 tracks from 4 different albums", () => {
-    it("should return them on the url to the image", () => {
-      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const playlist = aPlaylist({
-        entries: [
-          aTrack({
-            coverArt: coverArt1,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-          aTrack({
-            coverArt: coverArt2,
-            album: anAlbumSummary({ id: "album2" }),
-          }),
-          aTrack({
-            coverArt: coverArt3,
-            album: anAlbumSummary({ id: "album3" }),
-          }),
-          aTrack({
-            coverArt: coverArt4,
-            album: anAlbumSummary({ id: "album4" }),
-          }),
-          aTrack({
-            coverArt: coverArt5,
-            album: anAlbumSummary({ id: "album1" }),
-          }),
-        ],
-      });
-
-      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${encodeURIComponent(
-          formatForURL(coverArt1)
-        )}&${encodeURIComponent(formatForURL(coverArt2))}&${encodeURIComponent(
-          formatForURL(coverArt3)
-        )}&${encodeURIComponent(formatForURL(coverArt4))}/size/180?search=yes`
-      );
-    });
-  });
-
-  describe("when the playlist has at least 9 distinct albumIds", () => {
-    it("should return the first 9 of the ids on the url", () => {
-      const bonobUrl = url("http://localhost:1234/context-path?search=yes");
-      const playlist = aPlaylist({
-        entries: [
-          aTrack({
-            coverArt: { system: "subsonic", resource: "1" },
-            album: anAlbumSummary({ id: "1" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "2" },
-            album: anAlbumSummary({ id: "2" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "3" },
-            album: anAlbumSummary({ id: "3" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "4" },
-            album: anAlbumSummary({ id: "4" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "5" },
-            album: anAlbumSummary({ id: "5" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "6" },
-            album: anAlbumSummary({ id: "6" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "7" },
-            album: anAlbumSummary({ id: "7" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "8" },
-            album: anAlbumSummary({ id: "8" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "9" },
-            album: anAlbumSummary({ id: "9" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "10" },
-            album: anAlbumSummary({ id: "10" }),
-          }),
-          aTrack({
-            coverArt: { system: "subsonic", resource: "11" },
-            album: anAlbumSummary({ id: "11" }),
-          }),
-        ],
-      });
-
-      const burns = range(1, 10)
-        .map((i) =>
-          encodeURIComponent(
-            formatForURL({ system: "subsonic", resource: `${i}` })
-          )
-        )
-        .join("&");
-      expect(playlistAlbumArtURL(bonobUrl, playlist).href()).toEqual(
-        `http://localhost:1234/context-path/art/${burns}/size/180?search=yes`
-      );
-    });
-  });
-});
-
-describe("defaultAlbumArtURI", () => {
+describe("coverArtURI", () => {
   const bonobUrl = new URLBuilder(
     "http://bonob.example.com:8080/context?search=yes"
   );
@@ -797,7 +502,7 @@ describe("defaultAlbumArtURI", () => {
       it("should use it", () => {
         const coverArt = { system: "subsonic", resource: "12345" };
         expect(
-          defaultAlbumArtURI(bonobUrl, anAlbum({ coverArt })).href()
+          coverArtURI(bonobUrl, anAlbum({ coverArt })).href()
         ).toEqual(
           `http://bonob.example.com:8080/context/art/${encodeURIComponent(
             formatForURL(coverArt)
@@ -813,7 +518,7 @@ describe("defaultAlbumArtURI", () => {
           resource: "http://example.com/someimage.jpg",
         };
         expect(
-          defaultAlbumArtURI(bonobUrl, anAlbum({ coverArt })).href()
+          coverArtURI(bonobUrl, anAlbum({ coverArt })).href()
         ).toEqual(
           `http://bonob.example.com:8080/context/art/${encodeURIComponent(
             formatForURL(coverArt)
@@ -826,53 +531,9 @@ describe("defaultAlbumArtURI", () => {
   describe("when there is no album coverArt", () => {
     it("should return a vinly icon image", () => {
       expect(
-        defaultAlbumArtURI(bonobUrl, anAlbum({ coverArt: undefined })).href()
+        coverArtURI(bonobUrl, anAlbum({ coverArt: undefined })).href()
       ).toEqual(
         "http://bonob.example.com:8080/context/icon/vinyl/size/legacy?search=yes"
-      );
-    });
-  });
-});
-
-describe("defaultArtistArtURI", () => {
-  describe("when the artist has no image", () => {
-    it("should return an icon", () => {
-      const bonobUrl = url("http://localhost:1234/something?s=123");
-      const artist = anArtist({ image: undefined });
-
-      expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-        `http://localhost:1234/something/icon/vinyl/size/legacy?s=123`
-      );
-    });
-  });
-
-  describe("when the resource is subsonic", () => {
-    it("should use the resource", () => {
-      const bonobUrl = url("http://localhost:1234/something?s=123");
-      const image = { system: "subsonic", resource: "art:1234" };
-      const artist = anArtist({ image });
-
-      expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-        `http://localhost:1234/something/art/${encodeURIComponent(
-          formatForURL(image)
-        )}/size/180?s=123`
-      );
-    });
-  });
-
-  describe("when the resource is external", () => {
-    it("should encrypt the resource", () => {
-      const bonobUrl = url("http://localhost:1234/something?s=123");
-      const image = {
-        system: "external",
-        resource: "http://example.com/something.jpg",
-      };
-      const artist = anArtist({ image });
-
-      expect(defaultArtistArtURI(bonobUrl, artist).href()).toEqual(
-        `http://localhost:1234/something/art/${encodeURIComponent(
-          formatForURL(image)
-        )}/size/180?s=123`
       );
     });
   });
@@ -1701,7 +1362,7 @@ describe("wsdl api", () => {
                         itemType: "playlist",
                         id: `playlist:${playlist.id}`,
                         title: playlist.name,
-                        albumArtURI: playlistAlbumArtURL(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           playlist
                         ).href(),
@@ -1733,7 +1394,7 @@ describe("wsdl api", () => {
                           itemType: "playlist",
                           id: `playlist:${playlist.id}`,
                           title: playlist.name,
-                          albumArtURI: playlistAlbumArtURL(
+                          albumArtURI: coverArtURI(
                             bonobUrlWithAccessToken,
                             playlist
                           ).href(),
@@ -1777,7 +1438,7 @@ describe("wsdl api", () => {
                           itemType: "album",
                           id: `album:${it.id}`,
                           title: it.name,
-                          albumArtURI: defaultAlbumArtURI(
+                          albumArtURI: coverArtURI(
                             bonobUrlWithAccessToken,
                             it
                           ).href(),
@@ -1814,7 +1475,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -1866,9 +1527,9 @@ describe("wsdl api", () => {
                         id: `artist:${it.id}`,
                         artistId: it.id,
                         title: it.name,
-                        albumArtURI: defaultArtistArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
-                          it
+                          { coverArt: it.image }
                         ).href(),
                       })),
                       index: 0,
@@ -1911,9 +1572,9 @@ describe("wsdl api", () => {
                         id: `artist:${it.id}`,
                         artistId: it.id,
                         title: it.name,
-                        albumArtURI: defaultArtistArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
-                          it
+                          { coverArt: it.image }
                         ).href(),
                       })),
                       index: 1,
@@ -1972,9 +1633,9 @@ describe("wsdl api", () => {
                           id: `artist:${it.id}`,
                           artistId: it.id,
                           title: it.name,
-                          albumArtURI: defaultArtistArtURI(
+                          albumArtURI: coverArtURI(
                             bonobUrlWithAccessToken,
-                            it
+                            { coverArt: it.image }
                           ).href(),
                         })),
                         index: 0,
@@ -2001,9 +1662,9 @@ describe("wsdl api", () => {
                             id: `artist:${it.id}`,
                             artistId: it.id,
                             title: it.name,
-                            albumArtURI: defaultArtistArtURI(
+                            albumArtURI: coverArtURI(
                               bonobUrlWithAccessToken,
-                              it
+                              { coverArt: it.image }
                             ).href(),
                           })
                         ),
@@ -2118,7 +1779,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2166,7 +1827,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2214,7 +1875,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2262,7 +1923,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2310,7 +1971,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2358,7 +2019,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2404,7 +2065,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2450,7 +2111,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2494,7 +2155,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2541,7 +2202,7 @@ describe("wsdl api", () => {
                         itemType: "album",
                         id: `album:${it.id}`,
                         title: it.name,
-                        albumArtURI: defaultAlbumArtURI(
+                        albumArtURI: coverArtURI(
                           bonobUrlWithAccessToken,
                           it
                         ).href(),
@@ -2929,7 +2590,7 @@ describe("wsdl api", () => {
                           genre: track.genre?.name,
                           genreId: track.genre?.id,
                           duration: track.duration,
-                          albumArtURI: defaultAlbumArtURI(
+                          albumArtURI: coverArtURI(
                             bonobUrlWithAccessToken,
                             track
                           ).href(),
@@ -2977,7 +2638,7 @@ describe("wsdl api", () => {
                           genre: track.genre?.name,
                           genreId: track.genre?.id,
                           duration: track.duration,
-                          albumArtURI: defaultAlbumArtURI(
+                          albumArtURI: coverArtURI(
                             bonobUrlWithAccessToken,
                             track
                           ).href(),
@@ -3020,7 +2681,7 @@ describe("wsdl api", () => {
                       itemType: "album",
                       id: `album:${album.id}`,
                       title: album.name,
-                      albumArtURI: defaultAlbumArtURI(
+                      albumArtURI: coverArtURI(
                         bonobUrlWithAccessToken,
                         album
                       ).href(),

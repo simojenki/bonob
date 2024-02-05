@@ -20,6 +20,7 @@ import {
   AlbumQueryType,
   Artist,
   AuthFailure,
+  PlaylistSummary
 } from "./music_service";
 import sharp from "sharp";
 import _ from "underscore";
@@ -178,12 +179,15 @@ type GetAlbumResponse = {
 type playlist = {
   id: string;
   name: string;
+  coverArt: string | undefined;
 };
 
 type GetPlaylistResponse = {
+  // todo: isnt the type here a composite? playlistSummary && { entry: song[]; }
   playlist: {
     id: string;
     name: string;
+    coverArt: string | undefined;
     entry: song[];
   };
 };
@@ -305,6 +309,13 @@ const asAlbum = (album: album): Album => ({
   artistName: album.artist,
   coverArt: coverArtURN(album.coverArt),
 });
+
+// coverArtURN
+const asPlayListSummary = (playlist: playlist): PlaylistSummary => ({ 
+  id: playlist.id, 
+  name: playlist.name,
+  coverArt: coverArtURN(playlist.coverArt)
+})
 
 export const asGenre = (genreName: string) => ({
   id: b64Encode(genreName),
@@ -862,7 +873,7 @@ export class Subsonic implements MusicService {
           .getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
           .then((it) => it.playlists.playlist || [])
           .then((playlists) =>
-            playlists.map((it) => ({ id: it.id, name: it.name }))
+            playlists.map(asPlayListSummary)
           ),
       playlist: async (id: string) =>
         subsonic
@@ -875,6 +886,7 @@ export class Subsonic implements MusicService {
             return {
               id: playlist.id,
               name: playlist.name,
+              coverArt: coverArtURN(playlist.coverArt),
               entries: (playlist.entry || []).map((entry) => ({
                 ...asTrack(
                   {
@@ -898,7 +910,8 @@ export class Subsonic implements MusicService {
             name,
           })
           .then((it) => it.playlist)
-          .then((it) => ({ id: it.id, name: it.name })),
+          // todo: why is this line so similar to other playlist lines??
+          .then((it) => ({ id: it.id, name: it.name, coverArt: coverArtURN(it.coverArt) })),
       deletePlaylist: async (id: string) =>
         subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/deletePlaylist", {
