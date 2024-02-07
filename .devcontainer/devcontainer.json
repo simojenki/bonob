@@ -16,5 +16,12 @@
             "version": "latest",
             "moby": true
         }
+    },
+    "customizations": {
+        "vscode": {
+          "extensions": [
+            "esbenp.prettier-vscode"
+          ]
+        }
     }
 }

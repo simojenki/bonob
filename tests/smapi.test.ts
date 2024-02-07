@@ -352,7 +352,10 @@ describe("track", () => {
     const someTrack = aTrack({
       id: uuid(),
       // audio/x-flac should be mapped to audio/flac
-      mimeType: "audio/x-flac",
+      encoding: {
+        player: "something",
+        mimeType: "audio/x-flac"
+      },
       name: "great song",
       duration: randomInt(1000),
       number: randomInt(100),
@@ -407,7 +410,10 @@ describe("track", () => {
       const someTrack = aTrack({
         id: uuid(),
         // audio/x-flac should be mapped to audio/flac
-        mimeType: "audio/x-flac",
+        encoding: {
+          player: "something",
+          mimeType: "audio/x-flac"
+        },
         name: "great song",
         duration: randomInt(1000),
         number: randomInt(100),
@@ -2579,7 +2585,7 @@ describe("wsdl api", () => {
                         id: `track:${track.id}`,
                         itemType: "track",
                         title: track.name,
-                        mimeType: track.mimeType,
+                        mimeType: track.encoding.mimeType,
                         trackMetadata: {
                           artistId: `artist:${track.artist.id}`,
                           artist: track.artist.name,
@@ -2627,7 +2633,7 @@ describe("wsdl api", () => {
                         id: `track:${track.id}`,
                         itemType: "track",
                         title: track.name,
-                        mimeType: track.mimeType,
+                        mimeType: track.encoding.mimeType,
                         trackMetadata: {
                           artistId: `artist:${track.artist.id}`,
                           artist: track.artist.name,

@@ -302,7 +302,7 @@ export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
 export const track = (bonobUrl: URLBuilder, track: Track) => ({
   itemType: "track",
   id: `track:${track.id}`,
-  mimeType: sonosifyMimeType(track.mimeType),
+  mimeType: sonosifyMimeType(track.encoding.mimeType),
   title: track.name,
 
   trackMetadata: {
