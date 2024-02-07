@@ -6,7 +6,7 @@
   "author": "simojenki <simojenki@users.noreply.github.com>",
   "license": "GPL-3.0-only",
   "dependencies": {
-    "@svrooij/sonos": "^2.5.0",
+    "@svrooij/sonos": "^2.6.0-beta.7",
     "@types/express": "^4.17.21",
     "@types/fs-extra": "^11.0.4",
     "@types/jsonwebtoken": "^9.0.5",
@@ -60,10 +60,7 @@
   },
   "overrides": {
     "axios-ntlm": "npm:dry-uninstall",
-    "axios": "$axios",
-    "@svrooij/sonos": {
-      "fast-xml-parser": "^3.21.1"
-    }
+    "axios": "$axios"
   },
   "scripts": {
     "clean": "rm -Rf build node_modules",
