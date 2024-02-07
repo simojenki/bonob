@@ -173,7 +173,10 @@ export function aTrack(fields: Partial<Track> = {}): Track {
   return {
     id,
     name: `Track ${id}`,
-    mimeType: `audio/mp3-${id}`,
+    encoding: {
+      player: "bonob",
+      mimeType: `audio/mp3-${id}`
+    },
     duration: randomInt(500),
     number: randomInt(100),
     genre,

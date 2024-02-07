@@ -12,7 +12,6 @@ import {
   t,
   DODGY_IMAGE_NAME,
   asGenre,
-  appendMimeTypeToClientFor,
   asURLSearchParams,
   cachingImageFetcher,
   asTrack,
@@ -22,6 +21,9 @@ import {
   PingResponse,
   parseToken,
   asToken,
+  TranscodingCustomPlayers,
+  CustomPlayers,
+  NO_CUSTOM_PLAYERS
 } from "../src/subsonic";
 
 import axios from "axios";
@@ -47,7 +49,7 @@ import {
   SimilarArtist,
   Rating,
   Credentials,
-  AuthFailure,
+  AuthFailure
 } from "../src/music_service";
 import {
   aGenre,
@@ -92,38 +94,26 @@ describe("isValidImage", () => {
   });
 });
 
-describe("appendMimeTypeToUserAgentFor", () => {
-  describe("when empty array", () => {
-    it("should return bonob", () => {
-      expect(appendMimeTypeToClientFor([])(aTrack())).toEqual("bonob");
-    });
-  });
 
-  describe("when contains some mimeTypes", () => {
-    const streamUserAgent = appendMimeTypeToClientFor([
-      "audio/flac",
-      "audio/ogg",
-    ]);
-
-    describe("and the track mimeType is in the array", () => {
-      it("should return bonob+mimeType", () => {
-        expect(streamUserAgent(aTrack({ mimeType: "audio/flac" }))).toEqual(
-          "bonob+audio/flac"
-        );
-        expect(streamUserAgent(aTrack({ mimeType: "audio/ogg" }))).toEqual(
-          "bonob+audio/ogg"
-        );
+describe("StreamClient(s)", () => {
+  describe("CustomStreamClientApplications", () => {
+    const customClients = TranscodingCustomPlayers.from("audio/flac,audio/mp3>audio/ogg")
+  
+    describe("clientFor", () => {
+      describe("when there is a match", () => {
+        it("should return the match", () => {
+          expect(customClients.encodingFor({ mimeType: "audio/flac" })).toEqual(O.of({player: "bonob+audio/flac", mimeType:"audio/flac"}))
+          expect(customClients.encodingFor({ mimeType: "audio/mp3" })).toEqual(O.of({player: "bonob+audio/mp3", mimeType:"audio/ogg"}))
+        });
+      });
+  
+      describe("when there is no match", () => {
+        it("should return undefined", () => {
+          expect(customClients.encodingFor({ mimeType: "audio/bob" })).toEqual(O.none)
+        });
       });
     });
-
-    describe("and the track mimeType is not in the array", () => {
-      it("should return bonob", () => {
-        expect(streamUserAgent(aTrack({ mimeType: "audio/mp3" }))).toEqual(
-          "bonob"
-        );
-      });
-    });
-  });
+  }); 
 });
 
 describe("asURLSearchParams", () => {
@@ -321,7 +311,7 @@ const asSongJson = (track: Track) => ({
   bitRate: 128,
   size: "5624132",
   suffix: "mp3",
-  contentType: track.mimeType,
+  contentType: track.encoding.mimeType,
   transcodedContentType: undefined,
   isVideo: "false",
   path: "ACDC/High voltage/ACDC - The Jack.mp3",
@@ -448,7 +438,7 @@ const getPlayListJson = (playlist: Playlist) =>
         genre: it.album.genre?.name,
         coverArt: maybeIdFromCoverArtUrn(it.coverArt),
         size: 123,
-        contentType: it.mimeType,
+        contentType: it.encoding.mimeType,
         suffix: "mp3",
         duration: it.duration,
         bitRate: 128,
@@ -646,12 +636,17 @@ describe("artistURN", () => {
 });
 
 describe("asTrack", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetAllMocks();
+  });
+
   describe("when the song has no artistId", () => {
     const album = anAlbum();
     const track = aTrack({ artist: { id: undefined, name: "Not in library so no id", image: undefined }});
 
     it("should provide no artistId", () => {
-      const result = asTrack(album, { ...asSongJson(track) });
+      const result = asTrack(album, { ...asSongJson(track) }, NO_CUSTOM_PLAYERS);
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("Not in library so no id");
       expect(result.artist.image).toBeUndefined();
@@ -662,7 +657,7 @@ describe("asTrack", () => {
     const album = anAlbum();
 
     it("should provide a ? to sonos", () => {
-      const result = asTrack(album, { id: '1' } as any as song);
+      const result = asTrack(album, { id: '1' } as any as song, NO_CUSTOM_PLAYERS);
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("?");
       expect(result.artist.image).toBeUndefined();
@@ -675,42 +670,104 @@ describe("asTrack", () => {
 
     describe("a value greater than 5", () => {
       it("should be returned as 0", () => {
-        const result = asTrack(album, { ...asSongJson(track), userRating: 6 });
+        const result = asTrack(album, { ...asSongJson(track), userRating: 6 }, NO_CUSTOM_PLAYERS);
         expect(result.rating.stars).toEqual(0);
       });
     });
 
     describe("a value less than 0", () => {
       it("should be returned as 0", () => {
-        const result = asTrack(album, { ...asSongJson(track), userRating: -1 });
+        const result = asTrack(album, { ...asSongJson(track), userRating: -1 }, NO_CUSTOM_PLAYERS);
         expect(result.rating.stars).toEqual(0);
       });
     });
   });
 
-  describe("when the song has a transcodedContentType", () => {
+  describe("content types", () => {
     const album = anAlbum();
+    const track = aTrack();
 
-    describe("with an undefined value", () => {
-      const track = aTrack({ mimeType: "sourced-from/mimeType" });
+    describe("when there are no custom players", () => {
+      describe("when subsonic reports no transcodedContentType", () => {
+        it("should use the default client and default contentType", () => {
+          const result = asTrack(album, { 
+            ...asSongJson(track),
+            contentType: "nonTranscodedContentType",
+            transcodedContentType: undefined 
+          }, NO_CUSTOM_PLAYERS);
 
-      it("should fall back on the default mime", () => {
-        const result = asTrack(album, { ...asSongJson(track), transcodedContentType: undefined });
-        expect(result.mimeType).toEqual("sourced-from/mimeType")
+          expect(result.encoding).toEqual({ player: "bonob", mimeType: "nonTranscodedContentType" })
+        });
+      });
+
+      describe("when subsonic reports a transcodedContentType", () => {
+        it("should use the default client and transcodedContentType", () => {
+          const result = asTrack(album, { 
+            ...asSongJson(track),
+            contentType: "nonTranscodedContentType",
+            transcodedContentType: "transcodedContentType" 
+          }, NO_CUSTOM_PLAYERS);
+
+          expect(result.encoding).toEqual({ player: "bonob", mimeType: "transcodedContentType" })
+        });
       });
     });
-      
-    describe("with a value", () => {
-      const track = aTrack({ mimeType: "sourced-from/mimeType" });
 
-      it("should use the transcoded value", () => {
-        const result = asTrack(album, { ...asSongJson(track), transcodedContentType: "sourced-from/transcodedContentType" });
-        expect(result.mimeType).toEqual("sourced-from/transcodedContentType")
+    describe("when there are custom players registered", () => {
+      const streamClient = {
+        encodingFor: jest.fn()
+      }
+
+      describe("however no player is found for the default mimeType", () => {
+        describe("and there is no transcodedContentType", () => {
+          it("should use the default player with the default content type", () => {
+            streamClient.encodingFor.mockReturnValue(O.none)
+
+            const result = asTrack(album, { 
+              ...asSongJson(track),
+              contentType: "nonTranscodedContentType",
+              transcodedContentType: undefined 
+            },  streamClient as unknown as CustomPlayers);
+  
+            expect(result.encoding).toEqual({ player: "bonob", mimeType: "nonTranscodedContentType" });
+            expect(streamClient.encodingFor).toHaveBeenCalledWith({ mimeType: "nonTranscodedContentType" });
+          });
+        });
+
+        describe("and there is a transcodedContentType", () => {
+          it("should use the default player with the transcodedContentType", () => {
+            streamClient.encodingFor.mockReturnValue(O.none)
+
+            const result = asTrack(album, { 
+              ...asSongJson(track),
+              contentType: "nonTranscodedContentType",
+              transcodedContentType: "transcodedContentType1" 
+            },  streamClient as unknown as CustomPlayers);
+  
+            expect(result.encoding).toEqual({ player: "bonob", mimeType: "transcodedContentType1" });
+            expect(streamClient.encodingFor).toHaveBeenCalledWith({ mimeType: "nonTranscodedContentType" });
+          });
+        });
+      });
+
+      describe("there is a player with the matching content type", () => {
+        it("should use it", () => {
+          const customEncoding = { player: "custom-player", mimeType: "audio/some-mime-type" };
+          streamClient.encodingFor.mockReturnValue(O.of(customEncoding));
+    
+          const result = asTrack(album, { 
+            ...asSongJson(track), 
+            contentType: "sourced-from/subsonic", 
+            transcodedContentType: "sourced-from/subsonic2" 
+          }, streamClient as unknown as CustomPlayers);
+    
+          expect(result.encoding).toEqual(customEncoding);
+          expect(streamClient.encodingFor).toHaveBeenCalledWith({ mimeType: "sourced-from/subsonic" });
+        });    
       });
     });
   });
 });
-
 
 describe("Subsonic", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
@@ -718,10 +775,13 @@ describe("Subsonic", () => {
   const password = `pass1-${uuid()}`;
   const salt = "saltysalty";
 
-  const streamClientApplication = jest.fn();
+  const customPlayers = {
+    encodingFor: jest.fn()
+  };
+  
   const subsonic = new Subsonic(
     url,
-    streamClientApplication
+    customPlayers as unknown as CustomPlayers
   );
 
   const mockRandomstring = jest.fn();
@@ -761,8 +821,7 @@ describe("Subsonic", () => {
     TE.fold(e => { throw e }, T.of)
   )
 
-  const login = (credentials: Credentials) => tokenFor(credentials)()
-  .then((it) => subsonic.login(it.serviceToken))
+  const login = (credentials: Credentials) => tokenFor(credentials)().then((it) => subsonic.login(it.serviceToken))
 
   describe("generateToken", () => {
     describe("when the credentials are valid", () => {
@@ -2645,6 +2704,10 @@ describe("Subsonic", () => {
   });
 
   describe("getting an album", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
     describe("when it exists", () => {
       const genre = asGenre("Pop");
 
@@ -2686,71 +2749,262 @@ describe("Subsonic", () => {
 
   describe("getting tracks", () => {
     describe("for an album", () => {
-      describe("when the album has multiple tracks, some of which are rated", () => {
+      describe("when there are no custom players", () => {
+        beforeEach(() => {
+          customPlayers.encodingFor.mockReturnValue(O.none);
+        });
+
+        describe("when the album has multiple tracks, some of which are rated", () => {
+          const hipHop = asGenre("Hip-Hop");
+          const tripHop = asGenre("Trip-Hop");
+  
+          const album = anAlbum({ id: "album1", name: "Burnin", genre: hipHop });
+  
+          const artist = anArtist({
+            id: "artist1",
+            name: "Bob Marley",
+            albums: [album],
+          });
+  
+          const track1 = aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: hipHop,
+            rating: {
+              love: true,
+              stars: 3,
+            },
+          });
+          const track2 = aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: hipHop,
+            rating: {
+              love: false,
+              stars: 0,
+            },
+          });
+          const track3 = aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: tripHop,
+            rating: {
+              love: true,
+              stars: 5,
+            },
+          });
+          const track4 = aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: tripHop,
+            rating: {
+              love: false,
+              stars: 1,
+            },
+          });
+  
+          const tracks = [track1, track2, track3, track4];
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+              );
+          });
+  
+          it("should return the album", async () => {
+            const result = await login({ username, password })
+              .then((it) => it.tracks(album.id));
+  
+            expect(result).toEqual([track1, track2, track3, track4]);
+  
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: album.id,
+              }),
+              headers,
+            });
+          });
+        });
+  
+        describe("when the album has only 1 track", () => {
+          const flipFlop = asGenre("Flip-Flop");
+  
+          const album = anAlbum({
+            id: "album1",
+            name: "Burnin",
+            genre: flipFlop,
+          });
+  
+          const artist = anArtist({
+            id: "artist1",
+            name: "Bob Marley",
+            albums: [album],
+          });
+  
+          const track = aTrack({
+            artist: artistToArtistSummary(artist),
+            album: albumToAlbumSummary(album),
+            genre: flipFlop,
+          });
+  
+          const tracks = [track];
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+              );
+          });
+  
+          it("should return the album", async () => {
+            const result = await login({ username, password })
+              .then((it) => it.tracks(album.id));
+  
+            expect(result).toEqual([track]);
+  
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: album.id,
+              }),
+              headers,
+            });
+          });
+        });
+  
+        describe("when the album has only no tracks", () => {
+          const album = anAlbum({ id: "album1", name: "Burnin" });
+  
+          const artist = anArtist({
+            id: "artist1",
+            name: "Bob Marley",
+            albums: [album],
+          });
+  
+          const tracks: Track[] = [];
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+              );
+          });
+  
+          it("should empty array", async () => {
+            const result = await login({ username, password })
+              .then((it) => it.tracks(album.id));
+  
+            expect(result).toEqual([]);
+  
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: album.id,
+              }),
+              headers,
+            });
+          });
+        });
+      });
+
+      describe("when a custom player is configured for the mime type", () => {
         const hipHop = asGenre("Hip-Hop");
         const tripHop = asGenre("Trip-Hop");
-
+  
         const album = anAlbum({ id: "album1", name: "Burnin", genre: hipHop });
-
+  
         const artist = anArtist({
           id: "artist1",
           name: "Bob Marley",
           albums: [album],
         });
-
-        const track1 = aTrack({
+  
+        const alac = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album),
+          encoding: {
+            player: "bonob",
+            mimeType: "audio/alac"
+          },
           genre: hipHop,
           rating: {
             love: true,
             stars: 3,
           },
         });
-        const track2 = aTrack({
+        const m4a = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album),
+          encoding: {
+            player: "bonob",
+            mimeType: "audio/m4a"
+          },
           genre: hipHop,
           rating: {
             love: false,
             stars: 0,
           },
         });
-        const track3 = aTrack({
+        const mp3 = aTrack({
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album),
+          encoding: {
+            player: "bonob",
+            mimeType: "audio/mp3"
+          },
           genre: tripHop,
           rating: {
             love: true,
             stars: 5,
           },
         });
-        const track4 = aTrack({
-          artist: artistToArtistSummary(artist),
-          album: albumToAlbumSummary(album),
-          genre: tripHop,
-          rating: {
-            love: false,
-            stars: 1,
-          },
-        });
-
-        const tracks = [track1, track2, track3, track4];
-
+  
         beforeEach(() => {
+          customPlayers.encodingFor
+            .mockReturnValueOnce(O.of({ player: "bonob+audio/alac", mimeType: "audio/flac" }))
+            .mockReturnValueOnce(O.of({ player: "bonob+audio/m4a", mimeType: "audio/opus" }))
+            .mockReturnValueOnce(O.none)
+          
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+              Promise.resolve(ok(getAlbumJson(artist, album, [alac, m4a, mp3])))
             );
         });
-
-        it("should return the album", async () => {
+  
+        it("should return the album with custom players applied", async () => {
           const result = await login({ username, password })
             .then((it) => it.tracks(album.id));
-
-          expect(result).toEqual([track1, track2, track3, track4]);
-
+  
+          expect(result).toEqual([
+            {
+              ...alac,
+              encoding: { 
+                player: "bonob+audio/alac", 
+                mimeType: "audio/flac" 
+              }
+            },
+            {
+              ...m4a,
+              encoding: { 
+                player: "bonob+audio/m4a", 
+                mimeType: "audio/opus" 
+              }
+            },
+            {
+              ...mp3,
+              encoding: {
+                player: "bonob",
+                mimeType: "audio/mp3"
+              }
+            },
+          ]);
+  
           expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
             params: asURLSearchParams({
               ...authParamsPlusJson,
@@ -2758,90 +3012,13 @@ describe("Subsonic", () => {
             }),
             headers,
           });
+  
+          expect(customPlayers.encodingFor).toHaveBeenCalledTimes(3);
+          expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(1, { mimeType: "audio/alac" })
+          expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(2, { mimeType: "audio/m4a" })
+          expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(3, { mimeType: "audio/mp3" })
         });
-      });
-
-      describe("when the album has only 1 track", () => {
-        const flipFlop = asGenre("Flip-Flop");
-
-        const album = anAlbum({
-          id: "album1",
-          name: "Burnin",
-          genre: flipFlop,
-        });
-
-        const artist = anArtist({
-          id: "artist1",
-          name: "Bob Marley",
-          albums: [album],
-        });
-
-        const track = aTrack({
-          artist: artistToArtistSummary(artist),
-          album: albumToAlbumSummary(album),
-          genre: flipFlop,
-        });
-
-        const tracks = [track];
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
-            );
-        });
-
-        it("should return the album", async () => {
-          const result = await login({ username, password })
-            .then((it) => it.tracks(album.id));
-
-          expect(result).toEqual([track]);
-
-          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
-            params: asURLSearchParams({
-              ...authParamsPlusJson,
-              id: album.id,
-            }),
-            headers,
-          });
-        });
-      });
-
-      describe("when the album has only no tracks", () => {
-        const album = anAlbum({ id: "album1", name: "Burnin" });
-
-        const artist = anArtist({
-          id: "artist1",
-          name: "Bob Marley",
-          albums: [album],
-        });
-
-        const tracks: Track[] = [];
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
-            );
-        });
-
-        it("should empty array", async () => {
-          const result = await login({ username, password })
-            .then((it) => it.tracks(album.id));
-
-          expect(result).toEqual([]);
-
-          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
-            params: asURLSearchParams({
-              ...authParamsPlusJson,
-              id: album.id,
-            }),
-            headers,
-          });
-        });
-      });
+      });      
     });
 
     describe("a single track", () => {
@@ -2855,96 +3032,102 @@ describe("Subsonic", () => {
         albums: [album],
       });
 
-      describe("that is starred", () => {
-        it("should return the track", async () => {
-          const track = aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
-            genre: pop,
-            rating: {
-              love: true,
-              stars: 4,
-            },
-          });
-
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
-            );
-
-          const result = await login({ username, password })
-            .then((it) => it.track(track.id));
-
-          expect(result).toEqual({
-            ...track,
-            rating: { love: true, stars: 4 },
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSong' }).href(), {
-            params: asURLSearchParams({
-              ...authParamsPlusJson,
-              id: track.id,
-            }),
-            headers,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
-            params: asURLSearchParams({
-              ...authParamsPlusJson,
-              id: album.id,
-            }),
-            headers,
+      describe("when there are no custom players", () => {
+        beforeEach(() => {
+          customPlayers.encodingFor.mockReturnValue(O.none);
+        });
+  
+        describe("that is starred", () => {
+          it("should return the track", async () => {
+            const track = aTrack({
+              artist: artistToArtistSummary(artist),
+              album: albumToAlbumSummary(album),
+              genre: pop,
+              rating: {
+                love: true,
+                stars: 4,
+              },
+            });
+  
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getSongJson(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              );
+  
+            const result = await login({ username, password })
+              .then((it) => it.track(track.id));
+  
+            expect(result).toEqual({
+              ...track,
+              rating: { love: true, stars: 4 },
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSong' }).href(), {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: track.id,
+              }),
+              headers,
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: album.id,
+              }),
+              headers,
+            });
           });
         });
-      });
-
-      describe("that is not starred", () => {
-        it("should return the track", async () => {
-          const track = aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
-            genre: pop,
-            rating: {
-              love: false,
-              stars: 0,
-            },
-          });
-
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
-            );
-
-          const result = await login({ username, password })
-            .then((it) => it.track(track.id));
-
-          expect(result).toEqual({
-            ...track,
-            rating: { love: false, stars: 0 },
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSong' }).href(), {
-            params: asURLSearchParams({
-              ...authParamsPlusJson,
-              id: track.id,
-            }),
-            headers,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
-            params: asURLSearchParams({
-              ...authParamsPlusJson,
-              id: album.id,
-            }),
-            headers,
+  
+        describe("that is not starred", () => {
+          it("should return the track", async () => {
+            const track = aTrack({
+              artist: artistToArtistSummary(artist),
+              album: albumToAlbumSummary(album),
+              genre: pop,
+              rating: {
+                love: false,
+                stars: 0,
+              },
+            });
+  
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getSongJson(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              );
+  
+            const result = await login({ username, password })
+              .then((it) => it.track(track.id));
+  
+            expect(result).toEqual({
+              ...track,
+              rating: { love: false, stars: 0 },
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getSong' }).href(), {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: track.id,
+              }),
+              headers,
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/getAlbum' }).href(), {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: album.id,
+              }),
+              headers,
+            });
           });
         });
       });
@@ -2952,6 +3135,7 @@ describe("Subsonic", () => {
   });
 
   describe("streaming a track", () => {
+
     const trackId = uuid();
     const genre = aGenre("foo");
 
@@ -2966,105 +3150,26 @@ describe("Subsonic", () => {
       genre,
     });
 
-    describe("content-range, accept-ranges or content-length", () => {
+    describe("when there are no custom players registered", () => {
       beforeEach(() => {
-        streamClientApplication.mockReturnValue("bonob");
+        customPlayers.encodingFor.mockReturnValue(O.none);
       });
 
-      describe("when navidrome doesnt return a content-range, accept-ranges or content-length", () => {
-        it("should return undefined values", async () => {
-          const stream = {
-            pipe: jest.fn(),
-          };
-
-          const streamResponse = {
-            status: 200,
-            headers: {
-              "content-type": "audio/mpeg",
-            },
-            data: stream,
-          };
-
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
-            )
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-          const result = await login({ username, password })
-            .then((it) => it.stream({ trackId, range: undefined }));
-
-          expect(result.headers).toEqual({
-            "content-type": "audio/mpeg",
-            "content-length": undefined,
-            "content-range": undefined,
-            "accept-ranges": undefined,
-          });
-        });
-      });
-
-      describe("when navidrome returns a undefined for content-range, accept-ranges or content-length", () => {
-        it("should return undefined values", async () => {
-          const stream = {
-            pipe: jest.fn(),
-          };
-
-          const streamResponse = {
-            status: 200,
-            headers: {
-              "content-type": "audio/mpeg",
-              "content-length": undefined,
-              "content-range": undefined,
-              "accept-ranges": undefined,
-            },
-            data: stream,
-          };
-
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
-            )
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-          const result = await login({ username, password })
-            .then((it) => it.stream({ trackId, range: undefined }));
-
-          expect(result.headers).toEqual({
-            "content-type": "audio/mpeg",
-            "content-length": undefined,
-            "content-range": undefined,
-            "accept-ranges": undefined,
-          });
-        });
-      });
-
-      describe("with no range specified", () => {
-        describe("navidrome returns a 200", () => {
-          it("should return the content", async () => {
+      describe("content-range, accept-ranges or content-length", () => {
+        describe("when navidrome doesnt return a content-range, accept-ranges or content-length", () => {
+          it("should return undefined values", async () => {
             const stream = {
               pipe: jest.fn(),
             };
-
+  
             const streamResponse = {
               status: 200,
               headers: {
                 "content-type": "audio/mpeg",
-                "content-length": "1667",
-                "content-range": "-200",
-                "accept-ranges": "bytes",
-                "some-other-header": "some-value",
               },
               data: stream,
             };
-
+  
             mockGET
               .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
@@ -3074,18 +3179,204 @@ describe("Subsonic", () => {
                 Promise.resolve(ok(getAlbumJson(artist, album, [])))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
+  
             const result = await login({ username, password })
               .then((it) => it.stream({ trackId, range: undefined }));
-
+  
             expect(result.headers).toEqual({
               "content-type": "audio/mpeg",
-              "content-length": "1667",
-              "content-range": "-200",
-              "accept-ranges": "bytes",
+              "content-length": undefined,
+              "content-range": undefined,
+              "accept-ranges": undefined,
+            });
+          });
+        });
+  
+        describe("when navidrome returns a undefined for content-range, accept-ranges or content-length", () => {
+          it("should return undefined values", async () => {
+            const stream = {
+              pipe: jest.fn(),
+            };
+  
+            const streamResponse = {
+              status: 200,
+              headers: {
+                "content-type": "audio/mpeg",
+                "content-length": undefined,
+                "content-range": undefined,
+                "accept-ranges": undefined,
+              },
+              data: stream,
+            };
+  
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getSongJson(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              )
+              .mockImplementationOnce(() => Promise.resolve(streamResponse));
+  
+            const result = await login({ username, password })
+              .then((it) => it.stream({ trackId, range: undefined }));
+  
+            expect(result.headers).toEqual({
+              "content-type": "audio/mpeg",
+              "content-length": undefined,
+              "content-range": undefined,
+              "accept-ranges": undefined,
+            });
+          });
+        });
+  
+        describe("with no range specified", () => {
+          describe("navidrome returns a 200", () => {
+            it("should return the content", async () => {
+              const stream = {
+                pipe: jest.fn(),
+              };
+  
+              const streamResponse = {
+                status: 200,
+                headers: {
+                  "content-type": "audio/mpeg",
+                  "content-length": "1667",
+                  "content-range": "-200",
+                  "accept-ranges": "bytes",
+                  "some-other-header": "some-value",
+                },
+                data: stream,
+              };
+  
+              mockGET
+                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getSongJson(track)))
+                )
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                )
+                .mockImplementationOnce(() => Promise.resolve(streamResponse));
+  
+              const result = await login({ username, password })
+                .then((it) => it.stream({ trackId, range: undefined }));
+  
+              expect(result.headers).toEqual({
+                "content-type": "audio/mpeg",
+                "content-length": "1667",
+                "content-range": "-200",
+                "accept-ranges": "bytes",
+              });
+              expect(result.stream).toEqual(stream);
+  
+              expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
+                params: asURLSearchParams({
+                  ...authParams,
+                  id: trackId,
+                }),
+                headers: {
+                  "User-Agent": "bonob",
+                },
+                responseType: "stream",
+              });
+            });
+          });
+  
+          describe("navidrome returns something other than a 200", () => {
+            it("should fail", async () => {
+              const trackId = "track123";
+  
+              const streamResponse = {
+                status: 400,
+                headers: {
+                  'content-type': 'text/html',
+                  'content-length': '33'
+                }
+              };
+  
+              mockGET
+                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getSongJson(track)))
+                )
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                )
+                .mockImplementationOnce(() => Promise.resolve(streamResponse));
+  
+              const musicLibrary = await login({ username, password });
+  
+              return expect(
+                musicLibrary.stream({ trackId, range: undefined })
+              ).rejects.toEqual(`Subsonic failed with a 400 status`);
+            });
+          });
+  
+          describe("io exception occurs", () => {
+            it("should fail", async () => {
+              const trackId = "track123";
+  
+              mockGET
+                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getSongJson(track)))
+                )
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                )
+                .mockImplementationOnce(() => Promise.reject("IO error occured"));
+  
+              const musicLibrary = await login({ username, password });
+  
+              return expect(
+                musicLibrary.stream({ trackId, range: undefined })
+              ).rejects.toEqual(`Subsonic failed with: IO error occured`);
+            });
+          });
+        });
+  
+        describe("with range specified", () => {
+          it("should send the range to navidrome", async () => {
+            const stream = {
+              pipe: jest.fn(),
+            };
+  
+            const range = "1000-2000";
+            const streamResponse = {
+              status: 200,
+              headers: {
+                "content-type": "audio/flac",
+                "content-length": "66",
+                "content-range": "100-200",
+                "accept-ranges": "none",
+                "some-other-header": "some-value",
+              },
+              data: stream,
+            };
+  
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getSongJson(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              )
+              .mockImplementationOnce(() => Promise.resolve(streamResponse));
+  
+            const result = await login({ username, password })
+              .then((it) => it.stream({ trackId, range }));
+  
+            expect(result.headers).toEqual({
+              "content-type": "audio/flac",
+              "content-length": "66",
+              "content-range": "100-200",
+              "accept-ranges": "none",
             });
             expect(result.stream).toEqual(stream);
-
+  
             expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
               params: asURLSearchParams({
                 ...authParams,
@@ -3093,126 +3384,31 @@ describe("Subsonic", () => {
               }),
               headers: {
                 "User-Agent": "bonob",
+                Range: range,
               },
               responseType: "stream",
             });
           });
         });
-
-        describe("navidrome returns something other than a 200", () => {
-          it("should fail", async () => {
-            const trackId = "track123";
-
-            const streamResponse = {
-              status: 400,
-              headers: {
-                'content-type': 'text/html',
-                'content-length': '33'
-              }
-            };
-
-            mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getSongJson(track)))
-              )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(artist, album, [])))
-              )
-              .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-            const musicLibrary = await login({ username, password });
-
-            return expect(
-              musicLibrary.stream({ trackId, range: undefined })
-            ).rejects.toEqual(`Subsonic failed with a 400 status`);
-          });
-        });
-
-        describe("io exception occurs", () => {
-          it("should fail", async () => {
-            const trackId = "track123";
-
-            mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getSongJson(track)))
-              )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(artist, album, [])))
-              )
-              .mockImplementationOnce(() => Promise.reject("IO error occured"));
-
-            const musicLibrary = await login({ username, password });
-
-            return expect(
-              musicLibrary.stream({ trackId, range: undefined })
-            ).rejects.toEqual(`Subsonic failed with: IO error occured`);
-          });
-        });
-      });
-
-      describe("with range specified", () => {
-        it("should send the range to navidrome", async () => {
-          const stream = {
-            pipe: jest.fn(),
-          };
-
-          const range = "1000-2000";
-          const streamResponse = {
-            status: 200,
-            headers: {
-              "content-type": "audio/flac",
-              "content-length": "66",
-              "content-range": "100-200",
-              "accept-ranges": "none",
-              "some-other-header": "some-value",
-            },
-            data: stream,
-          };
-
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
-            )
-            .mockImplementationOnce(() => Promise.resolve(streamResponse));
-
-          const result = await login({ username, password })
-            .then((it) => it.stream({ trackId, range }));
-
-          expect(result.headers).toEqual({
-            "content-type": "audio/flac",
-            "content-length": "66",
-            "content-range": "100-200",
-            "accept-ranges": "none",
-          });
-          expect(result.stream).toEqual(stream);
-
-          expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
-            params: asURLSearchParams({
-              ...authParams,
-              id: trackId,
-            }),
-            headers: {
-              "User-Agent": "bonob",
-              Range: range,
-            },
-            responseType: "stream",
-          });
-        });
       });
     });
 
-    describe("when navidrome has a custom StreamClientApplication registered", () => {
-      describe("when no range specified", () => {
-        it("should user the custom StreamUserAgent when calling navidrome", async () => {
-          const clientApplication = `bonob-${uuid()}`;
-          streamClientApplication.mockReturnValue(clientApplication);
+    describe("when there are custom players registered", () => {
+      const customEncoding = {
+        player: `bonob-${uuid()}`,
+        mimeType: "transocodedMimeType"
+      };
+      const trackWithCustomPlayer: Track = {
+        ...track,
+        encoding: customEncoding
+      };
 
+      beforeEach(() => {
+        customPlayers.encodingFor.mockReturnValue(O.of(customEncoding));
+      });
+
+      describe("when no range specified", () => {
+        it("should user the custom client specified by the stream client", async () => {
           const streamResponse = {
             status: 200,
             headers: {
@@ -3224,22 +3420,21 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
+              Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [track])))
+              Promise.resolve(ok(getAlbumJson(artist, album, [trackWithCustomPlayer])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
           await login({ username, password })
             .then((it) => it.stream({ trackId, range: undefined }));
 
-          expect(streamClientApplication).toHaveBeenCalledWith(track);
           expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
             params: asURLSearchParams({
               ...authParams,
               id: trackId,
-              c: clientApplication,
+              c: trackWithCustomPlayer.encoding.player,
             }),
             headers: {
               "User-Agent": "bonob",
@@ -3250,10 +3445,8 @@ describe("Subsonic", () => {
       });
 
       describe("when range specified", () => {
-        it("should user the custom StreamUserAgent when calling navidrome", async () => {
+        it("should user the custom client specified by the stream client", async () => {
           const range = "1000-2000";
-          const clientApplication = `bonob-${uuid()}`;
-          streamClientApplication.mockReturnValue(clientApplication);
 
           const streamResponse = {
             status: 200,
@@ -3266,22 +3459,21 @@ describe("Subsonic", () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
+              Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [track])))
+              Promise.resolve(ok(getAlbumJson(artist, album, [trackWithCustomPlayer])))
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
           await login({ username, password })
             .then((it) => it.stream({ trackId, range }));
 
-          expect(streamClientApplication).toHaveBeenCalledWith(track);
           expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
             params: asURLSearchParams({
               ...authParams,
               id: trackId,
-              c: clientApplication,
+              c: trackWithCustomPlayer.encoding.player,
             }),
             headers: {
               "User-Agent": "bonob",
@@ -3523,6 +3715,10 @@ describe("Subsonic", () => {
 
     const artist = anArtist();
     const album = anAlbum({ id: "album1", name: "Burnin", genre: POP });
+
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
 
     describe("rating a track", () => {
       describe("loving a track that isnt already loved", () => {
@@ -4067,6 +4263,10 @@ describe("Subsonic", () => {
   });
 
   describe("searchSongs", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
     describe("when there is 1 search results", () => {
       it("should return true", async () => {
         const pop = asGenre("Pop");
@@ -4211,6 +4411,10 @@ describe("Subsonic", () => {
   });
 
   describe("playlists", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
     describe("getting playlists", () => {
       describe("when there is 1 playlist results", () => {
         it("should return it", async () => {
@@ -4500,6 +4704,10 @@ describe("Subsonic", () => {
   });
 
   describe("similarSongs", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
     describe("when there is one similar songs", () => {
       it("should return it", async () => {
         const id = "idWithTracks";
@@ -4529,7 +4737,7 @@ describe("Subsonic", () => {
           );
 
           const result = await login({ username, password })
-          .then((it) => it.similarSongs(id));
+            .then((it) => it.similarSongs(id));
 
         expect(result).toEqual([track1]);
 
@@ -4661,6 +4869,10 @@ describe("Subsonic", () => {
   });
 
   describe("topSongs", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
     describe("when there is one top song", () => {
       it("should return it", async () => {
         const artistId = "bobMarleyId";

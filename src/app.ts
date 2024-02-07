@@ -4,11 +4,11 @@ import server from "./server";
 import logger from "./logger";
 
 import {
-  appendMimeTypeToClientFor,
   axiosImageFetcher,
   cachingImageFetcher,
-  DEFAULT,
   Subsonic,
+  TranscodingCustomPlayers,
+  NO_CUSTOM_PLAYERS
 } from "./subsonic";
 import { InMemoryAPITokens, sha256 } from "./api_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
@@ -32,9 +32,9 @@ const bonob = bonobService(
 
 const sonosSystem = sonos(config.sonos.discovery);
 
-const streamUserAgent = config.subsonic.customClientsFor
-  ? appendMimeTypeToClientFor(config.subsonic.customClientsFor.split(","))
-  : DEFAULT;
+const customPlayers = config.subsonic.customClientsFor
+  ? TranscodingCustomPlayers.from(config.subsonic.customClientsFor)
+  : NO_CUSTOM_PLAYERS;
 
 const artistImageFetcher = config.subsonic.artistImageCache
   ? cachingImageFetcher(config.subsonic.artistImageCache, axiosImageFetcher)
@@ -42,7 +42,7 @@ const artistImageFetcher = config.subsonic.artistImageCache
 
 const subsonic = new Subsonic(
   config.subsonic.url,
-  streamUserAgent,
+  customPlayers,
   artistImageFetcher
 );
 

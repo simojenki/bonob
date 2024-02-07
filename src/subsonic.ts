@@ -20,7 +20,8 @@ import {
   AlbumQueryType,
   Artist,
   AuthFailure,
-  PlaylistSummary
+  PlaylistSummary,
+  Encoding,
 } from "./music_service";
 import sharp from "sharp";
 import _ from "underscore";
@@ -163,7 +164,7 @@ export type song = {
   duration: number | undefined;
   bitRate: number | undefined;
   suffix: string | undefined;
-  contentType: string | undefined;
+  contentType: string;
   transcodedContentType: string | undefined;
   type: string | undefined;
   userRating: number | undefined;
@@ -275,10 +276,16 @@ export const artistImageURN = (
   }
 };
 
-export const asTrack = (album: Album, song: song): Track => ({
+export const asTrack = (album: Album, song: song, customPlayers: CustomPlayers): Track => ({
   id: song.id,
   name: song.title,
-  mimeType: song.transcodedContentType ? song.transcodedContentType : song.contentType!,
+  encoding: pipe(
+    customPlayers.encodingFor({ mimeType: song.contentType }),
+    O.getOrElse(() => ({ 
+      player: DEFAULT_CLIENT_APPLICATION, 
+      mimeType: song.transcodedContentType ? song.transcodedContentType : song.contentType
+    }))
+  ),
   duration: song.duration || 0,
   number: song.track || 0,
   genre: maybeAsGenre(song.genre),
@@ -311,11 +318,11 @@ const asAlbum = (album: album): Album => ({
 });
 
 // coverArtURN
-const asPlayListSummary = (playlist: playlist): PlaylistSummary => ({ 
-  id: playlist.id, 
+const asPlayListSummary = (playlist: playlist): PlaylistSummary => ({
+  id: playlist.id,
   name: playlist.name,
-  coverArt: coverArtURN(playlist.coverArt)
-})
+  coverArt: coverArtURN(playlist.coverArt),
+});
 
 export const asGenre = (genreName: string) => ({
   id: b64Encode(genreName),
@@ -330,18 +337,52 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
     O.getOrElseW(() => undefined)
   );
 
-export type StreamClientApplication = (track: Track) => string;
+export interface CustomPlayers {
+  encodingFor({ mimeType }: { mimeType: string }): O.Option<Encoding>
+}
+
+export type CustomClient = {
+  mimeType: string;
+  transcodedMimeType: string;
+};
+
+export class TranscodingCustomPlayers implements CustomPlayers {
+  transcodings: Map<string, string>;
+
+  constructor(transcodings: Map<string, string>) {
+    this.transcodings = transcodings;
+  }
+
+  static from(config: string): TranscodingCustomPlayers {
+    const parts: [string, string][] = config
+      .split(",")
+      .map((it) => it.split(">"))
+      .map((pair) => {
+        if (pair.length == 1) return [pair[0]!, pair[0]!];
+        else if (pair.length == 2) return [pair[0]!, pair[1]!];
+        else throw new Error(`Invalid configuration item ${config}`);
+      });
+    return new TranscodingCustomPlayers(new Map(parts));
+  }
+
+  encodingFor = ({ mimeType }: { mimeType: string }): O.Option<Encoding> => pipe(
+    this.transcodings.get(mimeType),
+    O.fromNullable,
+    O.map(transcodedMimeType => ({ 
+      player:`${DEFAULT_CLIENT_APPLICATION}+${mimeType}`, 
+      mimeType: transcodedMimeType
+    }))
+  )
+}
+
+export const NO_CUSTOM_PLAYERS: CustomPlayers = {
+  encodingFor(_) {
+    return O.none
+  },
+}
 
 const DEFAULT_CLIENT_APPLICATION = "bonob";
 const USER_AGENT = "bonob";
-
-export const DEFAULT: StreamClientApplication = (_: Track) =>
-  DEFAULT_CLIENT_APPLICATION;
-
-export function appendMimeTypeToClientFor(mimeTypes: string[]) {
-  return (track: Track) =>
-    mimeTypes.includes(track.mimeType) ? `bonob+${track.mimeType}` : "bonob";
-}
 
 export const asURLSearchParams = (q: any) => {
   const urlSearchParams = new URLSearchParams();
@@ -357,28 +398,28 @@ export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
 export const cachingImageFetcher =
   (cacheDir: string, delegate: ImageFetcher) =>
-    async (url: string): Promise<CoverArt | undefined> => {
-      const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
-      return fse
-        .readFile(filename)
-        .then((data) => ({ contentType: "image/png", data }))
-        .catch(() =>
-          delegate(url).then((image) => {
-            if (image) {
-              return sharp(image.data)
-                .png()
-                .toBuffer()
-                .then((png) => {
-                  return fse
-                    .writeFile(filename, png)
-                    .then(() => ({ contentType: "image/png", data: png }));
-                });
-            } else {
-              return undefined;
-            }
-          })
-        );
-    };
+  async (url: string): Promise<CoverArt | undefined> => {
+    const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
+    return fse
+      .readFile(filename)
+      .then((data) => ({ contentType: "image/png", data }))
+      .catch(() =>
+        delegate(url).then((image) => {
+          if (image) {
+            return sharp(image.data)
+              .png()
+              .toBuffer()
+              .then((png) => {
+                return fse
+                  .writeFile(filename, png)
+                  .then(() => ({ contentType: "image/png", data: png }));
+              });
+          } else {
+            return undefined;
+          }
+        })
+      );
+  };
 
 export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
   axios
@@ -426,16 +467,16 @@ interface SubsonicMusicLibrary extends MusicLibrary {
 
 export class Subsonic implements MusicService {
   url: URLBuilder;
-  streamClientApplication: StreamClientApplication;
+  customPlayers: CustomPlayers;
   externalImageFetcher: ImageFetcher;
 
   constructor(
     url: URLBuilder,
-    streamClientApplication: StreamClientApplication = DEFAULT,
+    customPlayers: CustomPlayers = NO_CUSTOM_PLAYERS,
     externalImageFetcher: ImageFetcher = axiosImageFetcher
   ) {
     this.url = url;
-    this.streamClientApplication = streamClientApplication;
+    this.customPlayers = customPlayers;
     this.externalImageFetcher = externalImageFetcher;
   }
 
@@ -630,7 +671,7 @@ export class Subsonic implements MusicService {
       .then((it) => it.song)
       .then((song) =>
         this.getAlbum(credentials, song.albumId!).then((album) =>
-          asTrack(album, song)
+          asTrack(album, song, this.customPlayers)
         )
       );
 
@@ -733,7 +774,7 @@ export class Subsonic implements MusicService {
           })
           .then((it) => it.album)
           .then((album) =>
-            (album.song || []).map((song) => asTrack(asAlbum(album), song))
+            (album.song || []).map((song) => asTrack(asAlbum(album), song, this.customPlayers))
           ),
       track: (trackId: string) => subsonic.getTrack(credentials, trackId),
       rate: (trackId: string, rating: Rating) =>
@@ -784,7 +825,7 @@ export class Subsonic implements MusicService {
               `/rest/stream`,
               {
                 id: trackId,
-                c: this.streamClientApplication(track),
+                c: track.encoding.player,
               },
               {
                 headers: pipe(
@@ -801,15 +842,15 @@ export class Subsonic implements MusicService {
                 responseType: "stream",
               }
             )
-            .then((res) => ({
-              status: res.status,
+            .then((stream) => ({
+              status: stream.status,
               headers: {
-                "content-type": res.headers["content-type"],
-                "content-length": res.headers["content-length"],
-                "content-range": res.headers["content-range"],
-                "accept-ranges": res.headers["accept-ranges"],
+                "content-type": stream.headers["content-type"],
+                "content-length": stream.headers["content-length"],
+                "content-range": stream.headers["content-range"],
+                "accept-ranges": stream.headers["accept-ranges"],
               },
-              stream: res.data,
+              stream: stream.data,
             }))
         ),
       coverArt: async (coverArtURN: BUrn, size?: number) =>
@@ -872,9 +913,7 @@ export class Subsonic implements MusicService {
         subsonic
           .getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
           .then((it) => it.playlists.playlist || [])
-          .then((playlists) =>
-            playlists.map(asPlayListSummary)
-          ),
+          .then((playlists) => playlists.map(asPlayListSummary)),
       playlist: async (id: string) =>
         subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
@@ -898,7 +937,8 @@ export class Subsonic implements MusicService {
                     artistId: entry.artistId,
                     coverArt: coverArtURN(entry.coverArt),
                   },
-                  entry
+                  entry,
+                  this.customPlayers
                 ),
                 number: trackNumber++,
               })),
@@ -911,7 +951,11 @@ export class Subsonic implements MusicService {
           })
           .then((it) => it.playlist)
           // todo: why is this line so similar to other playlist lines??
-          .then((it) => ({ id: it.id, name: it.name, coverArt: coverArtURN(it.coverArt) })),
+          .then((it) => ({
+            id: it.id,
+            name: it.name,
+            coverArt: coverArtURN(it.coverArt),
+          })),
       deletePlaylist: async (id: string) =>
         subsonic
           .getJSON<GetPlaylistResponse>(credentials, "/rest/deletePlaylist", {
@@ -945,7 +989,7 @@ export class Subsonic implements MusicService {
               songs.map((song) =>
                 subsonic
                   .getAlbum(credentials, song.albumId!)
-                  .then((album) => asTrack(album, song))
+                  .then((album) => asTrack(album, song, this.customPlayers))
               )
             )
           ),
@@ -962,7 +1006,7 @@ export class Subsonic implements MusicService {
                 songs.map((song) =>
                   subsonic
                     .getAlbum(credentials, song.albumId!)
-                    .then((album) => asTrack(album, song))
+                    .then((album) => asTrack(album, song, this.customPlayers))
                 )
               )
             )
@@ -979,7 +1023,7 @@ export class Subsonic implements MusicService {
             TE.tryCatch(
               () =>
                 axios.post(
-                  this.url.append({ pathname: '/auth/login' }).href(),
+                  this.url.append({ pathname: "/auth/login" }).href(),
                   _.pick(credentials, "username", "password")
                 ),
               () => new AuthFailure("Failed to get bearerToken")

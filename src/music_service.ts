@@ -51,10 +51,15 @@ export type Rating = {
   stars: number;
 }
 
+export type Encoding = {
+  player: string,
+  mimeType: string
+}
+
 export type Track = {
   id: string;
   name: string;
-  mimeType: string;
+  encoding: Encoding,
   duration: number;
   number: number | undefined;
   genre: Genre | undefined;

@@ -21,7 +21,8 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 - Discovery of sonos devices using seed IP address
 - Auto registration with sonos on start
 - Multiple registrations within a single household.
-- Transcoding support for flacs using a specific player for the flac mimeType bonob/sonos
+- Transcoding within subsonic clone
+- Custom players by mime type, allowing custom transcoding rules for different file types
 
 ## Running
 
@@ -163,7 +164,6 @@ BNB_URL | http://$(hostname):4534 | URL (including path) for bonob so that sonos
 BNB_SECRET | bonob | secret used for encrypting credentials
 BNB_AUTH_TIMEOUT | 1h | Timeout for the sonos auth token, described in the format [ms](https://github.com/vercel/ms), ie. '5s' == 5 seconds, '11h' == 11 hours.  In the case of using Navidrome this should be less than the value for ND_SESSIONTIMEOUT
 BNB_LOG_LEVEL | info | Log level. One of ['debug', 'info', 'warn', 'error']
-BNB_DISABLE_PLAYLIST_ART | undefined | Disables playlist art generation, ie. when there are many playlists and art generation takes too long
 BNB_SERVER_LOG_REQUESTS | false | Whether or not to log http requests
 BNB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
 BNB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable sonos device discovery entirely.  Setting this to 'false' will disable sonos device search, regardless of whether a seed host is specified.
@@ -171,7 +171,7 @@ BNB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommit
 BNB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BNB_SONOS_SERVICE_ID | 246 | service id for sonos
 BNB_SUBSONIC_URL | http://$(hostname):4533 | URL for subsonic clone
-BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom subsonic clients when streaming. ie. "audio/flac,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.
+BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom subsonic clients when streaming. Must specify by the source mime type and the transcoded mime type. For example; <p>If you want to simply re-encode some flacs, then you could specify just "audio/flac".  <p>However; if your subsonic server will transcode the track then you need to specify the resulting mime type, ie. "audio/flac>audio/mp3" <p>If you want to specify many something like; "audio/flac>audio/mp3,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.  <p>!!! Getting this configuration wrong will confuse SONOS as it will expect the wrong mime type for a track, as a result it will not play. Use with care...
 BNB_SUBSONIC_ARTIST_IMAGE_CACHE | undefined | Path for caching of artist images that are sourced externally. ie. Navidrome provides spotify URLs. Remember to provide a volume-mapping for Docker, when enabling this cache.
 BNB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it has been played for >30s
 BNB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
