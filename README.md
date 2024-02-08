@@ -40,8 +40,8 @@ docker pull ghcr.io/simojenki/bonob
 tag | description
 --- | ---
 latest | Latest release, intended to be stable
-master | Laster build from master, probably works, however is currently under test in
-vX.Y.Z | Fixed release versions from tags, for those that want to pin to specific release
+master | Lastest build from master, probably works, however is currently under test
+vX.Y.Z | Fixed release versions from tags, for those that want to pin to a specific release
 
 
 ### Full sonos device auto-discovery and auto-registration using docker --network host
@@ -171,7 +171,7 @@ BNB_SONOS_SEED_HOST | undefined | sonos device seed host for discovery, or ommit
 BNB_SONOS_SERVICE_NAME | bonob | service name for sonos
 BNB_SONOS_SERVICE_ID | 246 | service id for sonos
 BNB_SUBSONIC_URL | http://$(hostname):4533 | URL for subsonic clone
-BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom subsonic clients when streaming. Must specify by the source mime type and the transcoded mime type. For example; <p>If you want to simply re-encode some flacs, then you could specify just "audio/flac".  <p>However; if your subsonic server will transcode the track then you need to specify the resulting mime type, ie. "audio/flac>audio/mp3" <p>If you want to specify many something like; "audio/flac>audio/mp3,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.  <p>!!! Getting this configuration wrong will confuse SONOS as it will expect the wrong mime type for a track, as a result it will not play. Use with care...
+BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom subsonic clients when streaming. <P>Must specify the source mime type and optionally the transcoded mime type. <p>For example; <p>If you want to simply re-encode some flacs, then you could specify just "audio/flac".  <p>However; <p>if your subsonic server will transcode the track then you need to specify the resulting mime type, ie. "audio/flac>audio/mp3" <p>If you want to specify many something like; "audio/flac>audio/mp3,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.  <p>Disclaimer: Getting this configuration wrong will cause sonos to refuse to play your music, by all means experiment, however know that this may well break your setup.
 BNB_SUBSONIC_ARTIST_IMAGE_CACHE | undefined | Path for caching of artist images that are sourced externally. ie. Navidrome provides spotify URLs. Remember to provide a volume-mapping for Docker, when enabling this cache.
 BNB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it has been played for >30s
 BNB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
@@ -222,7 +222,7 @@ Afterwards the Sonos app displays a dropdown underneath the service, allowing to
 
 ### Transcode everything
 
-The simplest transcoding solution is to simply change the player in your subsonic server to transcode all content to something sonos supports (ie. mp3 & flac)
+The simplest transcoding solution is to simply change the player ('bonob') in your subsonic server to transcode all content to something sonos supports (ie. mp3 & flac)
 
 ### Audio file type specific transcoding
 
