@@ -218,13 +218,22 @@ Afterwards the Sonos app displays a dropdown underneath the service, allowing to
 - Implement the MusicService/MusicLibrary interface
 - Startup bonob with your new implementation.
 
-### Audio File type specific transcoding options within Subsonic
+## Transcoding
 
-In some situations you may wish to have different 'Players' within you Subsonic server so that you can configure different transcoding options depending on the file type.  For example if you have flacs with a mixture of frequency formats where not all are supported by sonos [See issue #52](https://github.com/simojenki/bonob/issues/52) & [Sonos supported audio formats](https://docs.sonos.com/docs/supported-audio-formats)
+### Transcode everything
+
+The simplest transcoding solution is to simply change the player in your subsonic server to transcode all content to something sonos supports (ie. mp3 & flac)
+
+### Audio file type specific transcoding
+
+Disclaimer: The following configuration is more complicated, and if you get the configuration wrong sonos will refuse to play your content.
+
+In some situations you may wish to have different 'Players' within your Subsonic server so that you can configure different transcoding options depending on the file type.  For example if you have flacs with a mixture of frequency formats where not all are supported by sonos [See issue #52](https://github.com/simojenki/bonob/issues/52) & [Sonos supported audio formats](https://docs.sonos.com/docs/supported-audio-formats)
 
 In this case you could set;
 
 ```bash
+# This is equivalent to setting BNB_SUBSONIC_CUSTOM_CLIENTS="audio/flac>audio/flac"
 BNB_SUBSONIC_CUSTOM_CLIENTS="audio/flac"
 ```
 
@@ -240,7 +249,16 @@ ffmpeg -i %s -af aformat=sample_fmts=s16|s32:sample_rates=8000|11025|16000|22050
 ffmpeg -i %s -af aformat=sample_fmts=s16:sample_rates=8000|11025|16000|22050|24000|32000|44100|48000 -f flac -
 ```
 
-### Changing Icon colors
+Alternatively perhaps you have some aac (audio/mpeg) files that will not play in sonos (ie. voice recordings from an iPhone), however you do not want to transcode all everything, just those audio/mpeg files.  Let's say you want to transcode them to mp3s, you could set the following;
+
+```bash
+BNB_SUBSONIC_CUSTOM_CLIENTS="audio/mpeg>audio/mp3"
+```
+
+And then configure the 'bonob+audio/mpeg' player in your subsonic server.
+
+
+## Changing Icon colors
 
 ```bash
 -e BNB_ICON_FOREGROUND_COLOR=white \
@@ -269,6 +287,7 @@ ffmpeg -i %s -af aformat=sample_fmts=s16:sample_rates=8000|11025|16000|22050|240
 ```
 
 ![Spotify-ish](https://github.com/simojenki/bonob/blob/master/docs/images/spotify-ish.png?raw=true)
+
 
 ## Credits
 
