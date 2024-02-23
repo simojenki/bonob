@@ -14,6 +14,7 @@ import {
   Playlist,
   SimilarArtist,
   AlbumSummary,
+  RadioStation,
 } from "../src/music_service";
 
 import { b64Encode } from "../src/b64";
@@ -203,6 +204,17 @@ export function anAlbum(fields: Partial<Album> = {}): Album {
     ...fields,
   };
 };
+
+export function aRadioStation(fields: Partial<RadioStation> = {}): RadioStation {
+  const id = uuid()
+  const name = `Station-${id}`;
+  return {
+    id,
+    name,
+    url: `http://example.com/${name}`,
+    ...fields
+  }
+}
 
 export function anAlbumSummary(fields: Partial<AlbumSummary> = {}): AlbumSummary {
   const id = uuid();
