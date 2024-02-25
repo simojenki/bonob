@@ -161,6 +161,8 @@ export class InMemoryMusicService implements MusicService {
         Promise.reject("Unsupported operation"),
       similarSongs: async (_: string) => Promise.resolve([]),
       topSongs: async (_: string) => Promise.resolve([]),
+      radioStations: async () => Promise.resolve([]),
+      radioStation: async (_: string) => Promise.reject("Unsupported operation"),
     });
   }
 

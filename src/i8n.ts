@@ -9,6 +9,7 @@ export type KEY =
   | "AppLinkMessage"
   | "artists"
   | "albums"
+  | "internetRadio"  
   | "playlists"
   | "genres"
   | "random"
@@ -51,6 +52,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     AppLinkMessage: "Linking sonos with $BNB_SONOS_SERVICE_NAME",
     artists: "Artists",
     albums: "Albums",
+    internetRadio: "Internet Radio",
     tracks: "Tracks",
     playlists: "Playlists",
     genres: "Genres",
@@ -92,6 +94,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     AppLinkMessage: "Forbinder Sonos med $BNB_SONOS_SERVICE_NAME",
     artists: "Kunstnere",
     albums: "Album",
+    internetRadio: "Internet Radio",
     tracks: "Numre",
     playlists: "Afspilningslister",
     genres: "Genre",
@@ -133,6 +136,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     AppLinkMessage: "Associer Sonos à $BNB_SONOS_SERVICE_NAME",
     artists: "Artistes",
     albums: "Albums",
+    internetRadio: "Radio Internet",
     tracks: "Pistes",
     playlists: "Playlists",
     genres: "Genres",
@@ -174,6 +178,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
     artists: "Artiesten",
     albums: "Albums",
+    internetRadio: "Internet Radio",
     tracks: "Nummers",
     playlists: "Afspeellijsten",
     genres: "Genres",

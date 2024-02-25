@@ -24,6 +24,7 @@ import {
   sonosifyMimeType,
   ratingAsInt,
   ratingFromInt,
+  internetRadioStation
 } from "../src/smapi";
 
 import { keys as i8nKeys } from "../src/i8n";
@@ -39,6 +40,7 @@ import {
   TRIP_HOP,
   PUNK,
   aPlaylist,
+  aRadioStation,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -481,6 +483,18 @@ describe("album", () => {
   });
 });
 
+describe("internetRadioStation", () => {
+  it("should map to a sonos internet stream", () => {
+    const station = aRadioStation()
+    expect(internetRadioStation(station)).toEqual({
+      itemType: "stream",
+      id: `internetRadioStation:${station.id}`,
+      title: station.name,
+      mimeType: "audio/mpeg"
+    })
+  });
+});
+
 describe("sonosifyMimeType", () => {
   describe("when is audio/x-flac", () => {
     it("should be mapped to audio/flac", () => {
@@ -577,6 +591,8 @@ describe("wsdl api", () => {
     scrobble: jest.fn(),
     nowPlaying: jest.fn(),
     rate: jest.fn(),
+    radioStation: jest.fn(),
+    radioStations: jest.fn(),
   };
   const apiTokens = {
     mint: jest.fn(),
@@ -1158,6 +1174,12 @@ describe("wsdl api", () => {
                       albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
                     },
+                    {
+                      id: "internetRadio",
+                      title: "Internet Radio",
+                      albumArtURI: iconArtURI(bonobUrl, "radio").href(),
+                      itemType: "stream",
+                    },
                   ];
                   expect(root[0]).toEqual(
                     getMetadataResult({
@@ -1245,6 +1267,12 @@ describe("wsdl api", () => {
                       title: "Meest afgespeeld",
                       albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
+                    },
+                    {
+                      id: "internetRadio",
+                      title: "Internet Radio",
+                      albumArtURI: iconArtURI(bonobUrl, "radio").href(),
+                      itemType: "stream",
                     },
                   ];
                   expect(root[0]).toEqual(
@@ -2375,6 +2403,71 @@ describe("wsdl api", () => {
                 });
               });
             });
+
+            describe("asking for internet radio stations", () => {
+              const station1 = aRadioStation();
+              const station2 = aRadioStation();
+              const station3 = aRadioStation();
+              const station4 = aRadioStation();
+
+              const stations = [station1, station2, station3, station4];
+
+              beforeEach(() => {
+                musicLibrary.radioStations.mockResolvedValue(stations);
+              });
+
+              describe("when they all fit on the page", () => {
+                it("should return them all", async () => {
+                  const paging = {
+                    index: 0,
+                    count: 100,
+                  };
+
+                  const result = await ws.getMetadataAsync({
+                    id: `internetRadio`,
+                    ...paging,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaMetadata: stations.map((it) =>
+                        internetRadioStation(it)
+                      ),
+                      index: 0,
+                      total: stations.length,
+                    })
+                  );
+                  expect(musicLibrary.radioStations).toHaveBeenCalled();
+                });
+              });
+
+              describe("asking for a single page of stations", () => {
+                const pageOfStations = [station3, station4];
+
+                it("should return only that page", async () => {
+                  const paging = {
+                    index: 2,
+                    count: 2,
+                  };
+
+                  const result = await ws.getMetadataAsync({
+                    id: `internetRadio`,
+                    ...paging,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaMetadata: pageOfStations.map((it) =>
+                        internetRadioStation(it)
+                      ),
+                      index: paging.index,
+                      total: stations.length,
+                    })
+                  );
+                  expect(musicLibrary.radioStations).toHaveBeenCalled();
+                });
+              });
+            });
           });
         });
 
@@ -2752,6 +2845,27 @@ describe("wsdl api", () => {
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);
               });
             });
+
+            describe("asking for a URI to stream a radio station", () => {
+              const someStation = aRadioStation()
+
+              beforeEach(() => {
+                musicLibrary.radioStation.mockResolvedValue(someStation);
+              })
+
+              it("should return the radio stations uri", async () => {
+                const root = await ws.getMediaURIAsync({
+                  id: `internetRadioStation:${someStation.id}`,
+                });
+
+                expect(root[0]).toEqual({
+                  getMediaURIResult: someStation.url,
+                });
+
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(musicLibrary.radioStation).toHaveBeenCalledWith(someStation.id);
+              });
+            });            
           });
         });
 
@@ -2763,7 +2877,6 @@ describe("wsdl api", () => {
           describe("when valid credentials are provided", () => {
             let ws: Client;
 
-            const someTrack = aTrack();
 
             beforeEach(async () => {
               ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -2771,10 +2884,15 @@ describe("wsdl api", () => {
                 httpClient: supersoap(server),
               });
               setupAuthenticatedRequest(ws);
-              musicLibrary.track.mockResolvedValue(someTrack);
             });
 
             describe("asking for media metadata for a track", () => {
+              const someTrack = aTrack();
+
+              beforeEach(async () => {
+                musicLibrary.track.mockResolvedValue(someTrack);
+              });
+
               it("should return it with auth header", async () => {
                 const root = await ws.getMediaMetadataAsync({
                   id: `track:${someTrack.id}`,
@@ -2793,6 +2911,27 @@ describe("wsdl api", () => {
                 expect(musicLibrary.track).toHaveBeenCalledWith(someTrack.id);
               });
             });
+
+            describe("asking for media metadata for an internet radio station", () => {
+              const someStation = aRadioStation()
+
+              beforeEach(() => {
+                musicLibrary.radioStation.mockResolvedValue(someStation);
+              })
+
+              it("should return it with no auth header", async () => {
+                const root = await ws.getMediaMetadataAsync({
+                  id: `internetRadioStation:${someStation.id}`,
+                });
+
+                expect(root[0]).toEqual({
+                  getMediaMetadataResult: internetRadioStation(someStation),
+                });
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
+                expect(musicLibrary.radioStation).toHaveBeenCalledWith(someStation.id);
+              });
+          });
           });
         });
 

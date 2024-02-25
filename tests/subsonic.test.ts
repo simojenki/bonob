@@ -49,7 +49,8 @@ import {
   SimilarArtist,
   Rating,
   Credentials,
-  AuthFailure
+  AuthFailure,
+  RadioStation
 } from "../src/music_service";
 import {
   aGenre,
@@ -61,6 +62,7 @@ import {
   aTrack,
   POP,
   ROCK,
+  aRadioStation
 } from "./builders";
 import { b64Encode } from "../src/b64";
 import { BUrn } from "../src/burn";
@@ -346,6 +348,18 @@ const asArtistJson = (
 const getArtistJson = (artist: Artist, extras: ArtistExtras = { artistImageUrl: undefined }) =>
   subsonicOK({
     artist: asArtistJson(artist, extras),
+  });
+
+const getRadioStationsJson = (radioStations: RadioStation[]) =>
+  subsonicOK({
+    internetRadioStations: {
+      internetRadioStation: radioStations.map((it) => ({
+        id: it.id,
+        name: it.name,
+        streamUrl: it.url,
+        homePageUrl: it.homePage
+      }))
+    },
   });
 
 const asGenreJson = (genre: { name: string; albumCount: number }) => ({
@@ -5028,4 +5042,86 @@ describe("Subsonic", () => {
       });
     });
   });
+
+  describe("radioStations", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
+    describe("when there some radio stations", () => {
+      const station1 = aRadioStation();
+      const station2 = aRadioStation();
+      const station3 = aRadioStation();
+
+      beforeEach(() => {
+        mockGET
+        .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+        .mockImplementationOnce(() =>
+          Promise.resolve(ok(getRadioStationsJson([
+            station1,
+            station2,
+            station3,
+          ])))
+        );
+      });
+
+      describe("asking for all of them", () => {
+        it("should return them all", async () => {
+          const result = await login({ username, password })
+            .then((it) => it.radioStations());
+  
+          expect(result).toEqual([station1, station2, station3]);
+  
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getInternetRadioStations' }).href(), {
+            params: asURLSearchParams({
+              ...authParams,
+              f: "json"
+            }),
+            headers,
+          });
+        });
+      });
+
+      describe("asking for one of them", () => {
+        it("should return it", async () => {
+          const result = await login({ username, password })
+            .then((it) => it.radioStation(station2.id));
+  
+          expect(result).toEqual(station2);
+  
+          expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getInternetRadioStations' }).href(), {
+            params: asURLSearchParams({
+              ...authParams,
+              f: "json"
+            }),
+            headers,
+          });
+        });
+      });
+    });
+
+    describe("when there are no radio stations", () => {
+      it("should return []", async () => {
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getRadioStationsJson([])))
+          );
+
+          const result = await login({ username, password })
+              .then((it) => it.radioStations());
+
+        expect(result).toEqual([]);
+
+        expect(mockGET).toHaveBeenCalledWith(url.append({ pathname: '/rest/getInternetRadioStations' }).href(), {
+          params: asURLSearchParams({
+            ...authParams,
+            f: "json"
+          }),
+          headers,
+        });
+      });
+    });
+  });
+
 });
