@@ -17,6 +17,7 @@ import {
   Genre,
   MusicService,
   Playlist,
+  RadioStation,
   Rating,
   slice2,
   Track,
@@ -299,6 +300,13 @@ export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   // canAddToFavorites: true
 });
 
+export const internetRadioStation = (station: RadioStation) => ({
+  itemType: "stream",
+  id: `internetRadioStation:${station.id}`,
+  title: station.name,
+  mimeType: "audio/mpeg",
+});
+
 export const track = (bonobUrl: URLBuilder, track: Track) => ({
   itemType: "track",
   id: `track:${track.id}`,
@@ -426,9 +434,7 @@ function bindSmapiSoapServiceToExpress(
             },
           },
         })),
-        TE.getOrElse(() =>
-          T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED)
-        )
+        TE.getOrElse(() => T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED))
       )();
     } else {
       throw authOrFail.toSmapiFault();
@@ -487,27 +493,38 @@ function bindSmapiSoapServiceToExpress(
           ) =>
             login(soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(({ credentials, type, typeId }) => ({
-                getMediaURIResult: bonobUrl
-                  .append({
-                    pathname: `/stream/${type}/${typeId}`,
-                  })
-                  .href(),
-                httpHeaders: [
-                  {
-                    httpHeader: {
-                      header: "bnbt",
-                      value: credentials.loginToken.token,
-                    },
-                  },
-                  {
-                    httpHeader: {
-                      header: "bnbk",
-                      value: credentials.loginToken.key,
-                    },
-                  },
-                ],
-              })),
+              .then(({ musicLibrary, credentials, type, typeId }) => {
+                switch (type) {
+                  case "internetRadioStation":
+                    return musicLibrary.radioStation(typeId).then((it) => ({
+                      getMediaURIResult: it.url,
+                    }));
+                  case "track":
+                    return {
+                      getMediaURIResult: bonobUrl
+                        .append({
+                          pathname: `/stream/${type}/${typeId}`,
+                        })
+                        .href(),
+                      httpHeaders: [
+                        {
+                          httpHeader: {
+                            header: "bnbt",
+                            value: credentials.loginToken.token,
+                          },
+                        },
+                        {
+                          httpHeader: {
+                            header: "bnbk",
+                            value: credentials.loginToken.key,
+                          },
+                        },
+                      ],
+                    };
+                  default:
+                    throw `Unsupported type:${type}`;
+                  }
+              }),
           getMediaMetadata: async (
             { id }: { id: string },
             _,
@@ -515,11 +532,20 @@ function bindSmapiSoapServiceToExpress(
           ) =>
             login(soapyHeaders?.credentials)
               .then(splitId(id))
-              .then(async ({ musicLibrary, apiKey, typeId }) =>
-                musicLibrary.track(typeId!).then((it) => ({
-                  getMediaMetadataResult: track(urlWithToken(apiKey), it),
-                }))
-              ),
+              .then(async ({ musicLibrary, apiKey, type, typeId }) => {
+                switch (type) {
+                  case "internetRadioStation":
+                    return musicLibrary.radioStation(typeId).then((it) => ({
+                      getMediaMetadataResult: internetRadioStation(it),
+                    }));
+                  case "track":
+                    return musicLibrary.track(typeId!).then((it) => ({
+                      getMediaMetadataResult: track(urlWithToken(apiKey), it),
+                    }));
+                  default:
+                    throw `Unsupported type:${type}`;
+                }
+              }),
           search: async (
             { id, term }: { id: string; term: string },
             _,
@@ -741,6 +767,12 @@ function bindSmapiSoapServiceToExpress(
                           ).href(),
                           itemType: "albumList",
                         },
+                        {
+                          id: "internetRadio",
+                          title: lang("internetRadio"),
+                          albumArtURI: iconArtURI(bonobUrl, "radio").href(),
+                          itemType: "stream",
+                        },
                       ],
                     });
                   case "search":
@@ -815,6 +847,19 @@ function bindSmapiSoapServiceToExpress(
                       type: "mostPlayed",
                       ...paging,
                     });
+                  case "internetRadio":
+                    return musicLibrary
+                      .radioStations()
+                      .then(slice2(paging))
+                      .then(([page, total]) =>
+                        getMetadataResult({
+                          mediaMetadata: page.map((it) =>
+                            internetRadioStation(it)
+                          ),
+                          index: paging._index,
+                          total,
+                        })
+                      );
                   case "genres":
                     return musicLibrary
                       .genres()
@@ -840,10 +885,9 @@ function bindSmapiSoapServiceToExpress(
                               name: playlist.name,
                               coverArt: playlist.coverArt,
                               // todo: are these every important?
-                              entries: []
+                              entries: [],
                             };
-                           }
-                          )
+                          })
                         )
                       )
                       .then(slice2(paging))
@@ -875,15 +919,15 @@ function bindSmapiSoapServiceToExpress(
                       .artist(typeId!)
                       .then((artist) => artist.albums)
                       .then(slice2(paging))
-                      .then(([page, total]) => {
-                        return getMetadataResult({
+                      .then(([page, total]) =>
+                        getMetadataResult({
                           mediaCollection: page.map((it) =>
                             album(urlWithToken(apiKey), it)
                           ),
                           index: paging._index,
                           total,
-                        });
-                      });
+                        })
+                      );
                   case "relatedArtists":
                     return musicLibrary
                       .artist(typeId!)

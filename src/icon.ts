@@ -163,6 +163,7 @@ export const HOLI_COLORS = [
 export type ICON =
   | "artists"
   | "albums"
+  | "radio"
   | "playlists"
   | "genres"
   | "random"
@@ -240,6 +241,7 @@ const iconFrom = (name: string) =>
 export const ICONS: Record<ICON, SvgIcon> = {
   artists: iconFrom("navidrome-artists.svg"),
   albums: iconFrom("navidrome-all.svg"),
+  radio: iconFrom("navidrome-radio.svg"),
   blank: iconFrom("blank.svg"),
   playlists: iconFrom("navidrome-playlists.svg"),
   genres: iconFrom("Theatre-Mask-111172.svg"),

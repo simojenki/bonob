@@ -205,6 +205,15 @@ type GetTopSongsResponse = {
   topSongs: { song: song[] };
 };
 
+type GetInternetRadioStationsResponse = {
+  internetRadioStations: { internetRadioStation: { 
+    id: string,
+    name: string, 
+    streamUrl: string, 
+    homePageUrl?: string }[] 
+  }
+} 
+
 type GetSongResponse = {
   song: song;
 };
@@ -1011,6 +1020,24 @@ export class Subsonic implements MusicService {
               )
             )
         ),
+      radioStations: async () => subsonic
+        .getJSON<GetInternetRadioStationsResponse>(
+          credentials,
+          "/rest/getInternetRadioStations"
+        )
+        .then((it) => it.internetRadioStations.internetRadioStation || [])
+        .then((stations) => stations.map((it) => ({
+          id: it.id,
+          name: it.name,
+          url: it.streamUrl,
+          homePage: it.homePageUrl
+        }))),
+      radioStation: async (id: string) => genericSubsonic
+        .radioStations()
+        .then(it => 
+          it.find(station => station.id === id)!
+        ),
+      
     };
 
     if (credentials.type == "navidrome") {

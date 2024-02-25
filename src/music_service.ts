@@ -69,6 +69,13 @@ export type Track = {
   rating: Rating;
 };
 
+export type RadioStation = {
+  id: string,
+  name: string,
+  url: string,
+  homePage?: string
+}
+
 export type Paging = {
   _index: number;
   _count: number;
@@ -188,4 +195,6 @@ export interface MusicLibrary {
   removeFromPlaylist(playlistId: string, indicies: number[]): Promise<boolean>
   similarSongs(id: string): Promise<Track[]>;
   topSongs(artistId: string): Promise<Track[]>;
+  radioStation(id: string): Promise<RadioStation>
+  radioStations(): Promise<RadioStation[]>
 }
