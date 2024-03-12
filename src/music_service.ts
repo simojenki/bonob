@@ -46,6 +46,10 @@ export type Genre = {
   id: string;
 }
 
+export type Year = {
+  year: string;
+}
+
 export type Rating = {
   love: boolean;
   stars: number;
@@ -100,11 +104,13 @@ export const asResult = <T>([results, total]: [T[], number]) => ({
 
 export type ArtistQuery = Paging;
 
-export type AlbumQueryType = 'alphabeticalByArtist' | 'alphabeticalByName' | 'byGenre' | 'random' | 'recentlyPlayed' | 'mostPlayed' | 'recentlyAdded' | 'favourited' | 'starred';
+export type AlbumQueryType = 'alphabeticalByArtist' | 'alphabeticalByName' | 'byGenre' | 'byYear' | 'random' | 'recentlyPlayed' | 'mostPlayed' | 'recentlyAdded' | 'favourited' | 'starred';
 
 export type AlbumQuery = Paging & {
   type: AlbumQueryType;
   genre?: string;
+  fromYear?: string;
+  toYear?: string;
 };
 
 export const artistToArtistSummary = (it: Artist): ArtistSummary => ({
@@ -173,6 +179,7 @@ export interface MusicLibrary {
   tracks(albumId: string): Promise<Track[]>;
   track(trackId: string): Promise<Track>;
   genres(): Promise<Genre[]>;
+  years(): Promise<Year[]>;
   stream({
     trackId,
     range,

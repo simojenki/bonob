@@ -346,6 +346,10 @@ const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
     O.getOrElseW(() => undefined)
   );
 
+export const asYear = (year: string) => ({
+  year: year,
+});
+
 export interface CustomPlayers {
   encodingFor({ mimeType }: { mimeType: string }): O.Option<Encoding>
 }
@@ -446,6 +450,7 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   alphabeticalByArtist: "alphabeticalByArtist",
   alphabeticalByName: "alphabeticalByName",
   byGenre: "byGenre",
+  byYear: "byYear",
   random: "random",
   recentlyPlayed: "recent",
   mostPlayed: "frequent",
@@ -720,6 +725,8 @@ export class Subsonic implements MusicService {
       this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
         type: AlbumQueryTypeToSubsonicType[q.type],
         ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+        ...(q.fromYear ? { fromYear: q.fromYear} : {}),
+        ...(q.toYear ? { toYear: q.toYear} : {}),
         size: 500,
         offset: q._index,
       })
@@ -1037,7 +1044,24 @@ export class Subsonic implements MusicService {
         .then(it => 
           it.find(station => station.id === id)!
         ),
-      
+      years: async () => {
+        const q: AlbumQuery = {
+          _index: 0,
+          _count: 100000,  // FIXME: better than this ?
+          type: "alphabeticalByArtist",
+        };
+        const years = subsonic.getAlbumList2(credentials, q)
+            .then(({ results }) =>
+              results.map((album) => album.year || "?")
+                .filter((item, i, ar) => ar.indexOf(item) === i)
+                .sort()
+                .map((year) => ({
+                  ...asYear(year)
+                }))
+                .reverse()
+            );
+        return years;
+      }
     };
 
     if (credentials.type == "navidrome") {
