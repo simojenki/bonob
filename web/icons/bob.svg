@@ -4,5 +4,5 @@
       font: bold 13px helvetica;
 	}
   </style>
-  <text y="20%" x="0%" class="txt">80s</text>
+  <text y="20%" class="txt" textLength="80%" lengthAdjust="spacingAndGlyphs">80s</text>
 </svg>
