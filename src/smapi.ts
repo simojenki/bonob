@@ -15,6 +15,7 @@ import {
   AlbumSummary,
   ArtistSummary,
   Genre,
+  Year,
   MusicService,
   Playlist,
   RadioStation,
@@ -244,10 +245,17 @@ export type Container = {
 };
 
 const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
-  itemType: "container",
+  itemType: "albumList",
   id: `genre:${genre.id}`,
   title: genre.name,
   albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name)).href(),
+});
+
+const year = (bonobUrl: URLBuilder, year: Year) => ({
+  itemType: "albumList",
+  id: `year:${year.year}`,
+  title: year.year,
+  albumArtURI: iconArtURI(bonobUrl, "music").href(),
 });
 
 const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
@@ -741,6 +749,12 @@ function bindSmapiSoapServiceToExpress(
                           itemType: "container",
                         },
                         {
+                          id: "years",
+                          title: lang("years"),
+                          albumArtURI: iconArtURI(bonobUrl, "music").href(),
+                          itemType: "container",
+                        },
+                        {
                           id: "recentlyAdded",
                           title: lang("recentlyAdded"),
                           albumArtURI: iconArtURI(
@@ -817,6 +831,13 @@ function bindSmapiSoapServiceToExpress(
                       genre: typeId,
                       ...paging,
                     });
+                  case "year":
+                    return albums({
+                      type: "byYear",
+                      fromYear: typeId,
+                      toYear: typeId,
+                      ...paging,
+                    });
                   case "randomAlbums":
                     return albums({
                       type: "random",
@@ -855,6 +876,19 @@ function bindSmapiSoapServiceToExpress(
                         getMetadataResult({
                           mediaMetadata: page.map((it) =>
                             internetRadioStation(it)
+                          ),
+                          index: paging._index,
+                          total,
+                        })
+                      );
+                  case "years":
+                    return musicLibrary
+                      .years()
+                      .then(slice2(paging))
+                      .then(([page, total]) =>
+                        getMetadataResult({
+                          mediaCollection: page.map((it) =>
+                            year(bonobUrl, it)
                           ),
                           index: paging._index,
                           total,

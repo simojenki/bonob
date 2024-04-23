@@ -39,6 +39,9 @@ import {
   ROCK,
   TRIP_HOP,
   PUNK,
+  Y2024,
+  Y2023,
+  Y1969,
   aPlaylist,
   aRadioStation,
 } from "./builders";
@@ -575,6 +578,8 @@ describe("wsdl api", () => {
     artists: jest.fn(),
     artist: jest.fn(),
     genres: jest.fn(),
+    years: jest.fn(),
+    year: jest.fn(),
     playlists: jest.fn(),
     playlist: jest.fn(),
     album: jest.fn(),
@@ -1154,6 +1159,12 @@ describe("wsdl api", () => {
                       itemType: "container",
                     },
                     {
+                      id: "years",
+                      title: "Years",
+                      albumArtURI: iconArtURI(bonobUrl, "music").href(),
+                      itemType: "container",
+                    },
+                    {
                       id: "recentlyAdded",
                       title: "Recently added",
                       albumArtURI: iconArtURI(bonobUrl, "recentlyAdded").href(),
@@ -1248,6 +1259,12 @@ describe("wsdl api", () => {
                       itemType: "container",
                     },
                     {
+                      id: "years",
+                      title: "Jaren",
+                      albumArtURI: iconArtURI(bonobUrl, "music").href(),
+                      itemType: "container",
+                    },
+                    {
                       id: "recentlyAdded",
                       title: "Onlangs toegevoegd",
                       albumArtURI: iconArtURI(bonobUrl, "recentlyAdded").href(),
@@ -1324,7 +1341,7 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaCollection: expectedGenres.map((genre) => ({
-                        itemType: "container",
+                        itemType: "albumList",
                         id: `genre:${genre.id}`,
                         title: genre.name,
                         albumArtURI: iconArtURI(
@@ -1349,7 +1366,7 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaCollection: [PUNK, ROCK].map((genre) => ({
-                        itemType: "container",
+                        itemType: "albumList",
                         id: `genre:${genre.id}`,
                         title: genre.name,
                         albumArtURI: iconArtURI(
@@ -1359,6 +1376,64 @@ describe("wsdl api", () => {
                       })),
                       index: 1,
                       total: expectedGenres.length,
+                    })
+                  );
+                });
+              });
+            });
+
+            describe("asking for a year", () => {
+              const expectedYears = [Y1969, Y2023, Y2024];
+
+              beforeEach(() => {
+                musicLibrary.years.mockResolvedValue(expectedYears);
+              });
+
+              describe("asking for all years", () => {
+                it("should return a collection of years", async () => {
+                  const result = await ws.getMetadataAsync({
+                    id: `years`,
+                    index: 0,
+                    count: 100,
+                  });
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: expectedYears.map((year) => ({
+                        itemType: "albumList",
+                        id: `year:${year.id}`,
+                        title: year.year,
+                        albumArtURI: iconArtURI(
+                          bonobUrl,
+                          "music",
+                        ).href(),
+                      })),
+                      index: 0,
+                      total: expectedYears.length,
+                    })
+                  );
+                });
+              });
+
+              describe("asking for a page of years", () => {
+                it("should return just that page", async () => {
+                  const result = await ws.getMetadataAsync({
+                    id: `years`,
+                    index: 1,
+                    count: 2,
+                  });
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: [Y2023, Y2024].map((year) => ({
+                        itemType: "albumList",
+                        id: `year:${year.id}`,
+                        title: year.year,
+                        albumArtURI: iconArtURI(
+                          bonobUrl,
+                          "music"
+                        ).href(),
+                      })),
+                      index: 1,
+                      total: expectedYears.length,
                     })
                   );
                 });
