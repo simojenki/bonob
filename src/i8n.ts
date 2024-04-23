@@ -40,6 +40,7 @@ export type KEY =
   | "loginFailed" 
   | "noSonosDevices" 
   | "favourites"
+  | "years"
   | "LOVE"
   | "LOVE_SUCCESS"
   | "STAR" 
@@ -83,6 +84,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     loginFailed: "Login failed!",
     noSonosDevices: "No sonos devices",
     favourites: "Favourites",
+    years: "Years",
     STAR: "Star",
     UNSTAR: "Un-star",
     STAR_SUCCESS: "Track starred",
@@ -125,6 +127,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     loginFailed: "Log på fejlede!",
     noSonosDevices: "Ingen Sonos enheder",
     favourites: "Favoritter",
+    years: "Flere år",
     STAR: "Tilføj stjerne",
     UNSTAR: "Fjern stjerne",
     STAR_SUCCESS: "Stjerne tilføjet",
@@ -167,6 +170,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     loginFailed: "La connexion a échoué !",
     noSonosDevices: "Aucun appareil Sonos",
     favourites: "Favoris",
+    years: "Années",
     STAR: "Suivre",
     UNSTAR: "Ne plus suivre",
     STAR_SUCCESS: "Piste suivie",
@@ -209,6 +213,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     loginFailed: "Inloggen mislukt!",
     noSonosDevices: "Geen Sonos-apparaten",
     favourites: "Favorieten",
+    years: "Jaren",
     STAR: "Ster ",
     UNSTAR: "Een ster",
     STAR_SUCCESS: "Nummer met ster",

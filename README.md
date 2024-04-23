@@ -9,14 +9,14 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 ## Features
 
 - Integrates with Subsonic API clones (Navidrome, Gonic)
-- Browse by Artist, Albums, Random, Favourites, Top Rated, Playlist, Genres, Recently Added Albums, Recently Played Albums, Most Played Albums
+- Browse by Artist, Albums, Random, Favourites, Top Rated, Playlist, Genres, Years, Recently Added Albums, Recently Played Albums, Most Played Albums
 - Artist & Album Art
 - View Related Artists via Artist -> '...' -> Menu -> Related Arists
 - Now playing & Track Scrobbling
 - Search by Album, Artist, Track
 - Playlist editing through sonos app.
 - Marking of songs as favourites and with ratings through the sonos app.
-- Localization (only en-US, da-DK & nl-NL supported currently, require translations for other languages).  [Sonos localization and supported languages](https://docs.sonos.com/docs/localization)
+- Localization (only en-US, da-DK, nl-NL & fr-FR supported currently, require translations for other languages).  [Sonos localization and supported languages](https://docs.sonos.com/docs/localization)
 - Auto discovery of sonos devices
 - Discovery of sonos devices using seed IP address
 - Auto registration with sonos on start
