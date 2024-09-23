@@ -28,7 +28,7 @@ export const jwsEncryption = (secret: string): Encryption => {
       payload: value,
       secret: secret,
     }),
-    decrypt: (value: string) => jws.decode(value).payload
+    decrypt: (value: string) => jws.decode(value)!.payload
   }
 }
 
