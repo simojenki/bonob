@@ -251,6 +251,7 @@ function server(
             },
           }),
           (success: AuthSuccess) => {
+            logger.debug("AuthSuccess: "+success);
             linkCodes.associate(linkCode, success);
             return {
               status: 200,
