@@ -98,6 +98,7 @@ type GetArtistsResponse = SubsonicResponse & {
 
 type GetAlbumListResponse = SubsonicResponse & {
   albumList2: {
+    totalCount: number;
     album: album[];
   };
 };
@@ -718,31 +719,19 @@ export class Subsonic implements MusicService {
     }));
 
   getAlbumList2 = (credentials: Credentials, q: AlbumQuery) =>
-    Promise.all([
-      this.getArtists(credentials).then((it) =>
-        _.inject(it, (total, artist) => total + artist.albumCount, 0)
-      ),
-      this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
-        type: AlbumQueryTypeToSubsonicType[q.type],
-        ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-        ...(q.fromYear ? { fromYear: q.fromYear} : {}),
-        ...(q.toYear ? { toYear: q.toYear} : {}),
-        size: 500,
-        offset: q._index,
-      })
-        .then((response) => response.albumList2.album || [])
-        .then(this.toAlbumSummary),
-    ]).then(([total, albums]) => ({
-      results: albums.slice(0, q._count),
-      total: albums.length == 500 ? total : q._index + albums.length,
-    }));
-
-  // getStarred2 = (credentials: Credentials): Promise<{ albums: Album[] }> =>
-  //   this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2")
-  //     .then((it) => it.starred2)
-  //     .then((it) => ({
-  //       albums: it.album.map(asAlbum),
-  //     }));
+    this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
+      type: AlbumQueryTypeToSubsonicType[q.type],
+      ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+      ...(q.fromYear ? { fromYear: q.fromYear} : {}),
+      ...(q.toYear ? { toYear: q.toYear} : {}),
+      size: q._count,
+      offset: q._index,
+    })
+      .then((response) => ({
+        // before general release we should support no totalCount by following the old method
+        total: response.albumList2.totalCount,
+        results: this.toAlbumSummary(response.albumList2.album)
+      }));
 
   login = async (token: string) => this.libraryFor(parseToken(token));
 
