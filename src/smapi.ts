@@ -1183,6 +1183,9 @@ function bindSmapiSoapServiceToExpress(
               .then((_) => ({
                 setPlayedSecondsResult: {},
               })),
+          reportAccountAction: () => {
+            return { reportAccountActionResult: {} }
+          },
         },
       },
     },
