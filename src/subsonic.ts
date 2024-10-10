@@ -8,7 +8,6 @@ import {
   MusicService,
   Album,
   Result,
-  slice2,
   AlbumQuery,
   ArtistQuery,
   MusicLibrary,
@@ -87,12 +86,10 @@ type artist = {
   artistImageUrl: string | undefined;
 };
 
-type GetArtistsResponse = SubsonicResponse & {
-  artists: {
-    index: {
+type GetArtistListResponse = SubsonicResponse & {
+  artistList: {
+      totalCount: number;
       artist: artist[];
-      name: string;
-    }[];
   };
 };
 
@@ -573,12 +570,19 @@ export class Subsonic implements MusicService {
     this.generateToken(parseToken(serviceToken));
 
   getArtists = (
-    credentials: Credentials
-  ): Promise<(IdName & { albumCount: number; image: BUrn | undefined })[]> =>
-    this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
-      .then((artists) =>
-        artists.map((artist) => ({
+    credentials: Credentials, q: ArtistQuery
+  ) =>
+    // changed this to use (non Subsonic) getArtistList instead because it supports 
+    // pagination and thus returns far faster
+    this.getJSON<GetArtistListResponse>(credentials, "/rest/getArtistList", {
+        type: "alphabeticalByName",
+        size: q._count,
+        offset: q._index
+      })
+      .then((it) => ({
+        // before general release we should support no totalCount by following the old method
+        total: it.artistList.totalCount,
+        results: it.artistList.artist.map((artist) => ({
           id: `${artist.id}`,
           name: artist.name,
           albumCount: artist.albumCount,
@@ -587,7 +591,7 @@ export class Subsonic implements MusicService {
             artistImageURL: artist.artistImageUrl,
           }),
         }))
-      );
+      }));
 
   getArtistInfo = (
     credentials: Credentials,
@@ -745,16 +749,7 @@ export class Subsonic implements MusicService {
       bearerToken: (_: Credentials) => TE.right(undefined),
       artists: (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
         subsonic
-          .getArtists(credentials)
-          .then(slice2(q))
-          .then(([page, total]) => ({
-            total,
-            results: page.map((it) => ({
-              id: it.id,
-              name: it.name,
-              image: it.image,
-            })),
-          })),
+          .getArtists(credentials, q),
       artist: async (id: string): Promise<Artist> =>
         subsonic.getArtistWithInfo(credentials, id),
       albums: async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>

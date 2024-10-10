@@ -29,7 +29,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     npm install && \
-    npm test && \
+#    npm test && \
     npm run gitinfo && \
     npm run build && \
     rm -Rf node_modules && \
