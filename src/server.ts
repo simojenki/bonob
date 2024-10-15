@@ -233,6 +233,7 @@ function server(
       return res.status(400).render("failure", {
         lang,
         message: lang("invalidLinkCode"),
+        linkCode: linkCode
       });
     } else {
       return pipe(
@@ -248,10 +249,10 @@ function server(
               lang,
               message: lang("loginFailed"),
               cause: e.message,
+              linkCode: linkCode
             },
           }),
           (success: AuthSuccess) => {
-            logger.debug("AuthSuccess: "+success);
             linkCodes.associate(linkCode, success);
             return {
               status: 200,
