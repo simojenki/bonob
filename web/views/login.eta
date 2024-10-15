@@ -1,13 +1,44 @@
 <% layout('./layout', { title: it.lang("login") }) %>
 
-<div id="content">
-  <h1 class="login one-word-per-line"><%= it.lang("logInToBonob") %></h1>
-  <form action="<%= it.loginRoute %>" method="POST">
-    <label for="username"><%= it.lang("username") %>:</label><br>
-    <input type="text" id="username" name="username"><br><br>
-    <label for="password"><%= it.lang("password") %>:</label><br>
-    <input type="password" id="password" name="password"><br>
-    <input type="hidden" name="linkCode" value="<%= it.linkCode %>">
-    <input type="submit" value="<%= it.lang("login") %>" id="submit">
-  </form>
-</div>
+<main>
+  
+  <!-- Container START -->
+  <div class="container">
+    <div class="row justify-content-center align-items-center vh-100 py-5">
+      <!-- Main content START -->
+      <div class="col-sm-10 col-md-8 col-lg-7 col-xl-6 col-xxl-5">
+        <!-- Sign in START -->
+        <div class="card card-body text-center p-4 p-sm-5">
+          <!-- Title -->
+          <h1 class="mb-2">Sign in to Astiga</h1>
+          <p>Sign into Astiga to stream your music library to Sonos. </p>
+          <p class="mb-0">Don't have an account? <a href="https://play.asti.ga/register" target="_blank">Click here to sign up <i class="fa-solid fa-arrow-up-right-from-square"></i></a></p>
+          <!-- Form START -->
+          <form class="mt-4 text-start" action="<%= it.loginRoute %>" method="POST">
+            <!-- Email -->
+            <div class="mb-3 input-group-lg">
+                <label for="username" class="form-label"><%= it.lang("username") %></label>
+                <input type="email" class="form-control" placeholder="Enter email" id="username" name="username">
+            </div>
+            <!-- New password -->
+              <!-- Password -->
+            <div class="mb-3 input-group-lg">
+              <label for="password" class="form-label"><%= it.lang("password") %></label><br>
+              <input type="password" class="form-control" placeholder="Enter token" id="password" name="password" aria-describedby="tokenHelpBlock">
+              <div id="tokenHelpBlock" class="form-text">
+                Copy and paste the <i>token</i> on your <a href="https://play.asti.ga/apps">apps page</a>
+              </div>
+            </div>
+            <!-- Button -->
+            <input type="hidden" name="linkCode" value="<%= it.linkCode %>">
+            <div class="d-grid"><button type="submit" id="submit" class="btn btn-lg btn-primary">Connect Sonos to Astiga</button></div>
+          </form>
+          <!-- Form END -->
+        </div>
+        <!-- Sign in START -->
+      </div>
+    </div> <!-- Row END -->
+  </div>
+  <!-- Container END -->
+
+</main>

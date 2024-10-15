@@ -1,5 +1,35 @@
 <% layout('./layout', { title: it.lang("success") }) %>
 
-<div id="content">
-  <h1 class="success"><%= it.message %></h1>
-</div>
+<main class="py-5">
+
+  <!-- Container START -->
+  <div class="container">
+    <!-- Extra space -->
+    <div class="h-100px d-none d-lg-block"></div>
+    <div class="row align-items-center text-center py-sm-5">
+      <div class="col-lg-8 mx-auto">
+        <h1 class="display-1 mt-4"><%= it.message %></h1>
+        <p class="lead"><i class="fa-regular fa-circle-check me-2"></i>Your Sonos is logged into Astiga</p>
+      </div> 
+      <div class="col-lg-8 mx-auto text-start">
+        <div class="card border">
+          <div class="card-header pb-0 border-0">
+            <h5>What to do next...</h5>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-primary d-flex" role="alert">
+              <div class="me-3"><i class="fa-solid fa-list-check"></i></div>
+              <div><b>Switch back to the Sonos app</b> on your device to complete the connection.</div>
+            </div>
+            <p>Once the connection is complete you will be able to browse and play your Astiga music library in Sonos.</p>
+          </div>
+        </div>
+      </div>
+    </div> 
+    <!-- Extra space -->
+    <div class="h-100px d-none d-lg-block"></div>
+    <!-- Row END -->
+  </div>
+  <!-- Container END -->
+
+</main>

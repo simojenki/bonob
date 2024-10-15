@@ -2,47 +2,29 @@
 <html lang="en">
   <head>
     <title><%= it.title || "bonob" %></title>
-    <style>
-body {
-  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Roboto","Oxygen","Ubuntu","Cantarell","Fira Sans","Droid Sans","Helvetica Neue",sans-serif;
-}    
+		<meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<meta name="author" content="elsten software limited">
 
-div#content {
-  margin: auto;
-  width: 60%;
-}
+		<meta name="description" content="Astiga-Sonos adapter">
+		<meta name="keywords" content="Astiga, Sonos" />
 
-h1 {
-  font-size: 700%;
-}
+		<link rel="icon" href="/favicon.ico" type="image/x-icon"/>
+		<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon"/>
 
-label {
-  font-size: 300%;
-}
+		<!-- Google Font -->
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins&display=swap">
 
-input {
-  font-size: 300%;
-  width: 80%;
-}
+		<!-- Plugins CSS -->
+		<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
-input#submit {
-  margin-top: 100px
-}
+		<!-- Theme CSS -->
+		<link rel="stylesheet" type="text/css" href="/css/style.css">
 
-.one-word-per-line {
-    word-spacing: 100000px; 
-}
+    <script defer data-domain="sonos.asti.ga" src="https://plausible.io/js/plausible.js"></script>
 
-.login{
-    width: min-intrinsic;
-    width: -webkit-min-content;
-    width: -moz-min-content;
-    width: min-content;
-    display: table-caption;
-    display: -ms-grid;
-    -ms-grid-columns: min-content;
-}
-    </style>
   </head>
   <body>
     <%~ it.body %>
