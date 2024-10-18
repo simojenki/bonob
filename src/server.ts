@@ -39,6 +39,7 @@ import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
 } from "./smapi_auth";
+import * as Minio from 'minio'
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -115,7 +116,8 @@ function server(
   service: Service,
   bonobUrl: URLBuilder,
   musicService: MusicService,
-  opts: Partial<ServerOpts> = {}
+  opts: Partial<ServerOpts> = {},
+  s3Client: Minio.Client
 ): Express {
   const serverOpts = { ...DEFAULT_SERVER_OPTS, ...opts };
 
@@ -607,7 +609,8 @@ function server(
     apiTokens,
     clock,
     i8n,
-    serverOpts.smapiAuthTokens
+    serverOpts.smapiAuthTokens,
+    s3Client
   );
 
   if (serverOpts.applyContextPath) {

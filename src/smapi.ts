@@ -25,7 +25,7 @@ import {
 } from "./music_service";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
-import { SmapiToken } from "./smapi_auth";
+import { SmapiToken, smapiTokenFromString, smapiTokenAsString } from "./smapi_auth";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
@@ -39,6 +39,7 @@ import {
   ToSmapiFault,
 } from "./smapi_auth";
 import { IncomingHttpHeaders } from "http";
+import * as Minio from 'minio'
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -61,6 +62,8 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "1242",
   "1500",
 ];
+
+const S3_BUCKET="astiga-sonos-tokens";
 
 const WSDL_FILE = path.resolve(
   __dirname,
@@ -164,18 +167,21 @@ class SonosSoap {
   smapiAuthTokens: SmapiAuthTokens;
   clock: Clock;
   tokens: {[tokenKey:string]:SmapiToken};
+  s3Client: Minio.Client;
 
   constructor(
     bonobUrl: URLBuilder,
     linkCodes: LinkCodes,
     smapiAuthTokens: SmapiAuthTokens,
-    clock: Clock
+    clock: Clock,
+    s3Client: Minio.Client
   ) {
     this.bonobUrl = bonobUrl;
     this.linkCodes = linkCodes;
     this.smapiAuthTokens = smapiAuthTokens;
     this.clock = clock;
     this.tokens = {};
+    this.s3Client = s3Client;
   }
 
   getAppLink(): GetAppLinkResult {
@@ -242,12 +248,39 @@ class SonosSoap {
     logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
     if(oldToken) {
       delete this.tokens[oldToken];
+      this.s3Client.removeObject(S3_BUCKET, token);
     }
     this.tokens[token] = fullSmapiToken;  
+    this.s3Client.putObject(S3_BUCKET, token, smapiTokenAsString(fullSmapiToken));
   }
 
-  getCredentialsForToken(token: string): SmapiToken {
-    return this.tokens[token]!;
+  async getCredentialsForToken(token: string): Promise<SmapiToken> {
+
+    if(token in this.tokens) {
+      logger.debug("Will return from cache");
+      return Promise.resolve(this.tokens[token]!);
+    }
+
+    logger.debug("Will lookup token in cache");
+    var buff: Uint8Array[] | Buffer[] = [];
+    return new Promise(async (resolve, reject) => {
+    
+      const dataStream = await this.s3Client.getObject(S3_BUCKET, token)
+      dataStream.on('data', chunk => {
+        //logger.debug("data: " + chunk);
+        buff.push(Buffer.from(chunk));
+      });
+      dataStream.on('error', function (err) {
+        logger.error("error");
+        reject(err);
+    });
+      dataStream.on('end', () => {
+        const retrievedToken = smapiTokenFromString(Buffer.concat(buff).toString('utf8'));
+        this.tokens[token] = retrievedToken;
+        //logger.debug("end, returning " + JSON.stringify(token));
+        resolve(retrievedToken);
+      });
+    });
   }
 
 }
@@ -396,9 +429,10 @@ function bindSmapiSoapServiceToExpress(
   apiKeys: APITokens,
   clock: Clock,
   i8n: I8N,
-  smapiAuthTokens: SmapiAuthTokens
+  smapiAuthTokens: SmapiAuthTokens,
+  s3Client: Minio.Client
 ) {
-  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock);
+  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, s3Client);
 
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
@@ -442,34 +476,35 @@ function bindSmapiSoapServiceToExpress(
 
     const headersProvidedWithToken = headers!==null && headers!== undefined && headers["authorization"];
     if(headersProvidedWithToken) {
-      logger.debug("Will use authorization header");
       const bearer = headers["authorization"];
       const token = bearer?.split(" ")[1];
       if(token) {
+        logger.debug("Will use token in authorization header: " + token);
+        // TODO lookup in memory cache first
         const credsForToken = sonosSoap.getCredentialsForToken(token);
-        if(credsForToken==undefined) {
-          logger.debug("No creds for "+JSON.stringify(token));
-        } else {
-          credentials = {
-            ...credentials!,
-            loginToken: {
-              ...credentials?.loginToken!,
-              token: credsForToken.token,
-              key: credsForToken.key,
+        return credsForToken.then(smapiToken => {
+            credentials = {
+              ...credentials!,
+              loginToken: {
+                ...credentials?.loginToken!,
+                token: smapiToken.token,
+                key: smapiToken.key,
+              }
             }
-          }
-          logger.debug("Updated credentials to " + JSON.stringify(credentials));
-        }
+            logger.debug("Updated credentials to " + JSON.stringify(credentials));
+            return credentials;
+          // }
+        });
       }
     }
-    return credentials;
+    return Promise.resolve(credentials);
   }
 
   const login = async (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
 
     const credentialsProvidedWithoutAuthToken = credentials && credentials.loginToken.token==null;
     if(credentialsProvidedWithoutAuthToken) {
-      credentials = useHeaderIfPresent(credentials, headers);
+      credentials = await useHeaderIfPresent(credentials, headers);
     }
 
     const authOrFail = pipe(
@@ -534,7 +569,7 @@ function bindSmapiSoapServiceToExpress(
           }),
           refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">) => {
-            const creds = useHeaderIfPresent(soapyHeaders?.credentials, headers);
+            const creds = await useHeaderIfPresent(soapyHeaders?.credentials, headers);
             const serviceToken = pipe(
               auth(creds),
               E.fold(

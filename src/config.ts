@@ -105,5 +105,12 @@ export default function () {
     scrobbleTracks: bnbEnvVar<boolean>("SCROBBLE_TRACKS", { default: true, parser: asBoolean }),
     reportNowPlaying:
       bnbEnvVar<boolean>("REPORT_NOW_PLAYING", { default: true, parser: asBoolean }),
+    tokenStore: {
+      s3Endpoint: bnbEnvVar<string>("TOKEN_STORE_S3_ENDPOINT"),
+      s3Region: bnbEnvVar<string>("TOKEN_STORE_S3_REGION"),
+      s3AccessKey: bnbEnvVar<string>("TOKEN_STORE_S3_ACCESS_KEY"),
+      s3SecretKey: bnbEnvVar<string>("TOKEN_STORE_S3_SECRET_KEY"),
+      s3PathStyle: bnbEnvVar<boolean>("TOKEN_STORE_S3_USE_PATH_STYLE", { default: false })
+    }
   };
 }
