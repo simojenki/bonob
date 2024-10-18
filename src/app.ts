@@ -17,6 +17,7 @@ import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
 import { JWTSmapiLoginTokens } from "./smapi_auth";
+import * as Minio from 'minio'
 
 const config = readConfig();
 const clock = SystemClock;
@@ -92,7 +93,15 @@ const app = server(
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher
-  }
+  }, new Minio.Client({
+    endPoint: config.tokenStore.s3Endpoint,
+    port: 443,
+    useSSL: true,
+    region: config.tokenStore.s3Region,
+    accessKey: config.tokenStore.s3AccessKey,
+    secretKey: config.tokenStore.s3SecretKey,
+    pathStyle: config.tokenStore.s3PathStyle,
+  })
 );
 
 const expressServer = app.listen(config.port, () => {
