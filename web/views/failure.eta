@@ -13,7 +13,6 @@
         <!-- Button -->
         <a class="btn btn-primary-soft btn-sm" href="/login<%= it.linkCode ? "?linkCode=" + it.linkCode : "" %>">Try to login again.</a>
       </div>
-      <%= it.linkCode %>
     </div> 
     <!-- Extra space -->
     <div class="h-100px d-none d-lg-block"></div>
