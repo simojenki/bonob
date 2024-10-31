@@ -46,6 +46,7 @@ import {
   aRadioStation,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
+import { unimplS3Client } from "./scenarios.test";
 import supersoap from "./supersoap";
 import {
   albumToAlbumSummary,
@@ -100,7 +101,9 @@ describe("service config", () => {
         SONOS_DISABLED,
         aService({ name: "music land" }),
         bonobUrl,
-        new InMemoryMusicService()
+        new InMemoryMusicService(),
+        {},
+        unimplS3Client
       );
 
       const stringsUrl = bonobUrl.append({ pathname: STRINGS_ROUTE });
@@ -638,7 +641,8 @@ describe("wsdl api", () => {
           apiTokens: () => apiTokens as unknown as APITokens,
           clock,
           smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens,
-        }
+        },
+        unimplS3Client
       );
 
       beforeEach(() => {

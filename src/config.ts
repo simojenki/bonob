@@ -107,10 +107,12 @@ export default function () {
       bnbEnvVar<boolean>("REPORT_NOW_PLAYING", { default: true, parser: asBoolean }),
     tokenStore: {
       s3Endpoint: bnbEnvVar<string>("TOKEN_STORE_S3_ENDPOINT"),
+      s3Port: bnbEnvVar<number>("TOKEN_STORE_S3_PORT", { parser: asInt }),
+      s3UseSsl: bnbEnvVar<boolean>("TOKEN_STORE_S3_USE_SSL", { default: true, parser: asBoolean }),
       s3Region: bnbEnvVar<string>("TOKEN_STORE_S3_REGION"),
       s3AccessKey: bnbEnvVar<string>("TOKEN_STORE_S3_ACCESS_KEY"),
       s3SecretKey: bnbEnvVar<string>("TOKEN_STORE_S3_SECRET_KEY"),
-      s3PathStyle: bnbEnvVar<boolean>("TOKEN_STORE_S3_USE_PATH_STYLE", { default: false })
+      s3PathStyle: bnbEnvVar<boolean>("TOKEN_STORE_S3_USE_PATH_STYLE", { default: true })
     }
   };
 }
