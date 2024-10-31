@@ -78,6 +78,66 @@ const version = fs.existsSync(GIT_INFO)
   ? fs.readFileSync(GIT_INFO).toString().trim()
   : "v??";
 
+type PersistentTokenStore = {
+  get: (key:string) => Promise<string | undefined>;
+  put: (key: string, value: string) => void;
+  delete: (key: string) => void;
+}
+export { PersistentTokenStore, NoopPersistentTokenStore };
+
+const S3_BUCKET="astiga-sonos-tokens";
+
+class MinioPersistentTokenStore implements PersistentTokenStore {
+  client: Minio.Client;
+  constructor() {
+    this.client = new Minio.Client({
+      endPoint: config.tokenStore.s3Endpoint,
+      port: config.tokenStore.s3Port,
+      useSSL: config.tokenStore.s3UseSsl,
+      region: config.tokenStore.s3Region,
+      accessKey: config.tokenStore.s3AccessKey,
+      secretKey: config.tokenStore.s3SecretKey,
+      pathStyle: config.tokenStore.s3PathStyle,
+    });
+  }
+  get(key: string) : Promise<string | undefined> {
+    var buff: Uint8Array[] | Buffer[] = [];
+    return new Promise(async (resolve, reject) => {
+    
+      const dataStream = await this.client.getObject(S3_BUCKET, key)
+      dataStream.on('data', chunk => {
+        //logger.debug("data: " + chunk);
+        buff.push(Buffer.from(chunk));
+      });
+      dataStream.on('error', function (err) {
+        logger.error("error");
+        reject(err);
+    });
+      dataStream.on('end', () => {
+        const value = Buffer.concat(buff).toString('utf8');
+        resolve(value);
+      });
+    });
+  }
+  put(key:string, value:string) {
+    this.client.putObject(S3_BUCKET, key, value);
+  }
+  delete(key:string) {
+    this.client.removeObject(S3_BUCKET, key);
+  }
+}
+
+class NoopPersistentTokenStore implements PersistentTokenStore {
+  get(_: string) : Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+  put(_key:string, _value:string) {
+  }
+  delete(_key:string) {
+  }
+  
+}
+
 const app = server(
   sonosSystem,
   bonob,
@@ -93,15 +153,7 @@ const app = server(
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher
-  }, new Minio.Client({
-    endPoint: config.tokenStore.s3Endpoint,
-    port: 443,
-    useSSL: true,
-    region: config.tokenStore.s3Region,
-    accessKey: config.tokenStore.s3AccessKey,
-    secretKey: config.tokenStore.s3SecretKey,
-    pathStyle: config.tokenStore.s3PathStyle,
-  })
+  }, config.tokenStore.s3Endpoint ? new MinioPersistentTokenStore() : new NoopPersistentTokenStore()
 );
 
 const expressServer = app.listen(config.port, () => {

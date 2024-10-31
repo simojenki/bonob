@@ -15,6 +15,7 @@ import { Device, Sonos, SONOS_DISABLED } from "../src/sonos";
 
 import { aDevice, aService } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
+import { unimplS3Client } from "./scenarios.test";
 import { APITokens, InMemoryAPITokens } from "../src/api_tokens";
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import { Response } from "express";
@@ -190,7 +191,8 @@ describe("server", () => {
               new InMemoryMusicService(),
               {
                 version: "v123.456",
-              }
+              },
+              unimplS3Client
             );
   
             it("should display it", async () => {
@@ -209,7 +211,9 @@ describe("server", () => {
               SONOS_DISABLED,
               aService(),
               bonobUrl,
-              new InMemoryMusicService()
+              new InMemoryMusicService(),
+              {},
+              unimplS3Client
             );
   
             it("should display the default", async () => {
@@ -229,7 +233,9 @@ describe("server", () => {
             SONOS_DISABLED,
             aService(),
             bonobUrl,
-            new InMemoryMusicService()
+            new InMemoryMusicService(),
+            {},
+            unimplS3Client
           );
 
           describe("devices list", () => {
@@ -265,7 +271,9 @@ describe("server", () => {
               fakeSonos,
               missingBonobService,
               bonobUrl,
-              new InMemoryMusicService()
+              new InMemoryMusicService(),
+              {},
+              unimplS3Client
             );
 
             describe("devices list", () => {
@@ -341,7 +349,9 @@ describe("server", () => {
               fakeSonos,
               missingBonobService,
               bonobUrl,
-              new InMemoryMusicService()
+              new InMemoryMusicService(),
+              {},
+              unimplS3Client
             );
 
             describe("devices list", () => {
@@ -429,7 +439,9 @@ describe("server", () => {
               fakeSonos,
               bonobService,
               bonobUrl,
-              new InMemoryMusicService()
+              new InMemoryMusicService(),
+              {},
+              unimplS3Client
             );
 
             describe("registration status", () => {
@@ -467,7 +479,9 @@ describe("server", () => {
           sonos as unknown as Sonos,
           theService,
           bonobUrl,
-          new InMemoryMusicService()
+          new InMemoryMusicService(),
+          {},
+          unimplS3Client
         );
 
         it("should report some information about the service", async () => {
@@ -498,7 +512,9 @@ describe("server", () => {
           sonos as unknown as Sonos,
           theService,
           bonobUrl,
-          new InMemoryMusicService()
+          new InMemoryMusicService(),
+          {},
+          unimplS3Client
         );
 
         describe("registering", () => {
@@ -618,7 +634,8 @@ describe("server", () => {
             linkCodes: () => linkCodes as unknown as LinkCodes,
             apiTokens: () => apiTokens as unknown as APITokens,
             clock,
-          }
+          },
+          unimplS3Client
         );
 
         it("should return the login page", async () => {
@@ -746,7 +763,8 @@ describe("server", () => {
             linkCodes: () => new InMemoryLinkCodes(),
             apiTokens: () => apiTokens,
             smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens
-          }
+          },
+          unimplS3Client
         );
 
         const serviceToken = `serviceToken-${uuid()}`;
@@ -1226,7 +1244,8 @@ describe("server", () => {
           {
             linkCodes: () => new InMemoryLinkCodes(),
             apiTokens: () => apiTokens,
-          }
+          },
+          unimplS3Client
         );
 
         const serviceToken = uuid();
@@ -1358,7 +1377,8 @@ describe("server", () => {
               apiTokens: () => jest.fn() as unknown as APITokens,
               clock,
               iconColors,
-            }
+            },
+            unimplS3Client
           );
 
         describe("invalid icon names", () => {

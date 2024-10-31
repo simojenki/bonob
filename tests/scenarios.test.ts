@@ -17,6 +17,7 @@ import {
   someCredentials,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
+import { NoopPersistentTokenStore } from "../src/app";
 import { InMemoryLinkCodes } from "../src/link_codes";
 import { Credentials } from "../src/music_service";
 import makeServer from "../src/server";
@@ -166,6 +167,9 @@ class SonosDriver {
   }
 }
 
+// not running the tests atm, this will have to be stubbed out eventually
+export const unimplS3Client = new NoopPersistentTokenStore();
+
 describe("scenarios", () => {
   const musicService = new InMemoryMusicService().hasArtists(
     BOB_MARLEY,
@@ -274,7 +278,8 @@ describe("scenarios", () => {
       musicService,
       {
         linkCodes: () => linkCodes,
-      }
+      },
+      unimplS3Client
     );
 
     const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
@@ -292,7 +297,8 @@ describe("scenarios", () => {
       musicService,
       {
         linkCodes: () => linkCodes
-      }
+      },
+      unimplS3Client
     );
 
     const sonosDriver = new SonosDriver(server, bonobUrl, bonob);
@@ -310,7 +316,8 @@ describe("scenarios", () => {
       musicService,
       {
         linkCodes: () => linkCodes
-      }
+      },
+      unimplS3Client
     );
 
     const sonosDriver = new SonosDriver(server, bonobUrl, bonob);

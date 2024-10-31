@@ -39,7 +39,7 @@ import {
   ToSmapiFault,
 } from "./smapi_auth";
 import { IncomingHttpHeaders } from "http";
-import * as Minio from 'minio'
+import { PersistentTokenStore } from "./app";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -62,8 +62,6 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "1242",
   "1500",
 ];
-
-const S3_BUCKET="astiga-sonos-tokens";
 
 const WSDL_FILE = path.resolve(
   __dirname,
@@ -167,14 +165,14 @@ class SonosSoap {
   smapiAuthTokens: SmapiAuthTokens;
   clock: Clock;
   tokens: {[tokenKey:string]:SmapiToken};
-  s3Client: Minio.Client;
+  s3Client: PersistentTokenStore;
 
   constructor(
     bonobUrl: URLBuilder,
     linkCodes: LinkCodes,
     smapiAuthTokens: SmapiAuthTokens,
     clock: Clock,
-    s3Client: Minio.Client
+    s3Client: PersistentTokenStore
   ) {
     this.bonobUrl = bonobUrl;
     this.linkCodes = linkCodes;
@@ -248,39 +246,24 @@ class SonosSoap {
     logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
     if(oldToken) {
       delete this.tokens[oldToken];
-      this.s3Client.removeObject(S3_BUCKET, token);
+      this.s3Client.delete(token);
     }
     this.tokens[token] = fullSmapiToken;  
-    this.s3Client.putObject(S3_BUCKET, token, smapiTokenAsString(fullSmapiToken));
+    this.s3Client.put(token, smapiTokenAsString(fullSmapiToken));
   }
 
-  async getCredentialsForToken(token: string): Promise<SmapiToken> {
+  async getCredentialsForToken(token: string): Promise<SmapiToken | undefined> {
 
     if(token in this.tokens) {
       logger.debug("Will return from cache");
       return Promise.resolve(this.tokens[token]!);
     }
 
-    logger.debug("Will lookup token in cache");
-    var buff: Uint8Array[] | Buffer[] = [];
-    return new Promise(async (resolve, reject) => {
-    
-      const dataStream = await this.s3Client.getObject(S3_BUCKET, token)
-      dataStream.on('data', chunk => {
-        //logger.debug("data: " + chunk);
-        buff.push(Buffer.from(chunk));
+    logger.debug("Will lookup token in persistent cache");
+    return this.s3Client.get(token)
+      .then(value => {
+        return value ? smapiTokenFromString(value) : undefined;
       });
-      dataStream.on('error', function (err) {
-        logger.error("error");
-        reject(err);
-    });
-      dataStream.on('end', () => {
-        const retrievedToken = smapiTokenFromString(Buffer.concat(buff).toString('utf8'));
-        this.tokens[token] = retrievedToken;
-        //logger.debug("end, returning " + JSON.stringify(token));
-        resolve(retrievedToken);
-      });
-    });
   }
 
 }
@@ -358,9 +341,9 @@ export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
   // canAddToFavorites: true
 });
 
-export const internetRadioStation = (station: RadioStation) => ({
+export const internetRadioStation = (station: RadioStation, idType: string = "internetRadioStation") => ({
   itemType: "stream",
-  id: `internetRadioStation:${station.id}`,
+  id: `${idType}:${station.id}`,
   title: station.name,
   mimeType: "audio/mpeg",
 });
@@ -430,7 +413,7 @@ function bindSmapiSoapServiceToExpress(
   clock: Clock,
   i8n: I8N,
   smapiAuthTokens: SmapiAuthTokens,
-  s3Client: Minio.Client
+  s3Client: PersistentTokenStore
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, s3Client);
 
@@ -480,9 +463,9 @@ function bindSmapiSoapServiceToExpress(
       const token = bearer?.split(" ")[1];
       if(token) {
         logger.debug("Will use token in authorization header: " + token);
-        // TODO lookup in memory cache first
         const credsForToken = sonosSoap.getCredentialsForToken(token);
         return credsForToken.then(smapiToken => {
+            if(!smapiToken) throw new Error("Couldn't lookup token");
             credentials = {
               ...credentials!,
               loginToken: {
@@ -608,6 +591,7 @@ function bindSmapiSoapServiceToExpress(
               .then(splitId(id))
               .then(({ musicLibrary, credentials, type, typeId }) => {
                 switch (type) {
+                  case "internetRadio":
                   case "internetRadioStation":
                     return musicLibrary.radioStation(typeId).then((it) => ({
                       getMediaURIResult: it.url,
@@ -648,6 +632,7 @@ function bindSmapiSoapServiceToExpress(
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 switch (type) {
+                  case "internetRadio":
                   case "internetRadioStation":
                     return musicLibrary.radioStation(typeId).then((it) => ({
                       getMediaMetadataResult: internetRadioStation(it),
@@ -715,21 +700,22 @@ function bindSmapiSoapServiceToExpress(
             login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
-                const paging = { _index: index, _count: count };
+                const paging = { _index: index ?? 0, _count: count ?? 100 };
                 switch (type) {
                   case "artist":
                     return musicLibrary.artist(typeId).then((artist) => {
                       const [page, total] = slice2<Album>(paging)(
                         artist.albums
                       );
-                      return {
+                      const mc = page.map((it) =>
+                        album(urlWithToken(apiKey), it)
+                      );
+                      const res = {
                         getExtendedMetadataResult: {
                           count: page.length,
                           index: paging._index,
                           total,
-                          mediaCollection: page.map((it) =>
-                            album(urlWithToken(apiKey), it)
-                          ),
+                          mediaCollection: mc,
                           relatedBrowse:
                             artist.similarArtists.filter((it) => it.inLibrary)
                               .length > 0
@@ -742,6 +728,8 @@ function bindSmapiSoapServiceToExpress(
                               : [],
                         },
                       };
+                      logger.debug("res: " + JSON.stringify(res));
+                      return res;
                     });
                   case "track":
                     return musicLibrary.track(typeId).then((it) => ({
@@ -769,6 +757,30 @@ function bindSmapiSoapServiceToExpress(
                         // </getExtendedMetadataResult>
                       },
                     }));
+                  case "internetRadio":
+                    return Promise.resolve({
+                      getExtendedMetadataResult: {
+                        mediaCollection: {
+                          attributes: {
+                            readOnly: true,
+                            userContent: false,
+                            renameable: false,
+                          }
+                        }
+                      }
+                    });
+                  case "playlists":
+                    return Promise.resolve({
+                      getExtendedMetadataResult: {
+                        mediaCollection: {
+                          attributes: {
+                            readOnly: true,
+                            userContent: false,
+                            renameable: false,
+                          }
+                        }
+                      }
+                    });
                   default:
                     throw `Unsupported getExtendedMetadata id=${id}`;
                 }
