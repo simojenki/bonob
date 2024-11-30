@@ -1,6 +1,8 @@
 import _ from "underscore";
 import { createUrnUtil } from "urn-lib";
 import randomstring from "randomstring";
+import { pipe } from "fp-ts/lib/function";
+import { either as E } from "fp-ts";
 
 import jwsEncryption from "./encryption";
 
@@ -78,7 +80,13 @@ export const parse = (burn: string): BUrn => {
     resource: result.resource as string,
   };
   if(x.system == "encrypted") {
-    return parse(encryptor.decrypt(x.resource));
+    return pipe(
+      encryptor.decrypt(x.resource),
+      E.match(
+        (err) => { throw new Error(err) },
+        (z) => parse(z)
+      )
+    );
   } else {
     return x;
   }

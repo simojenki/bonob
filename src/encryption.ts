@@ -4,12 +4,13 @@ import {
   randomBytes,
   createHash,
 } from "crypto";
-
+import { option as O, either as E } from "fp-ts";
+import { Either, left, right } from 'fp-ts/Either'
+import { pipe } from "fp-ts/lib/function";
 import jws from "jws";
 
 const ALGORITHM = "aes-256-cbc";
 const IV = randomBytes(16);
-
 
 export type Hash = {
   iv: string;
@@ -18,7 +19,7 @@ export type Hash = {
 
 export type Encryption = {
   encrypt: (value: string) => string;
-  decrypt: (value: string) => string;
+  decrypt: (value: string) => Either<string, string>;
 };
 
 export const jwsEncryption = (secret: string): Encryption => {
@@ -28,7 +29,15 @@ export const jwsEncryption = (secret: string): Encryption => {
       payload: value,
       secret: secret,
     }),
-    decrypt: (value: string) => jws.decode(value).payload
+    decrypt: (value: string) => pipe(
+      jws.decode(value),
+      O.fromNullable,
+      O.map(it => it.payload),
+      O.match(
+        () => left("Failed to decrypt jws"),
+        (payload) => right(payload)
+      )
+    )
   }
 }
 
@@ -36,7 +45,8 @@ export const cryptoEncryption = (secret: string): Encryption => {
   const key = createHash("sha256")
     .update(String(secret))
     .digest("base64")
-    .substr(0, 32);
+    .substring(0, 32);
+
   return {
     encrypt: (value: string) => {
       const cipher = createCipheriv(ALGORITHM, key, IV);
@@ -45,20 +55,23 @@ export const cryptoEncryption = (secret: string): Encryption => {
         cipher.final(),
       ]).toString("hex")}`;
     },
-    decrypt: (value: string) => {
-      const parts = value.split(".");
-      if(parts.length != 2) throw `Invalid value to decrypt`;
-
-      const decipher = createDecipheriv(
-        ALGORITHM,
-        key,
-        Buffer.from(parts[0]!, "hex")
-      );
-      return Buffer.concat([
-        decipher.update(Buffer.from(parts[1]!, "hex")),
-        decipher.final(),
-      ]).toString();
-    },
+    decrypt: (value: string) => pipe(
+      right(value),
+      E.map(it => it.split(".")),
+      E.flatMap(it => it.length == 2 ? right({ iv: it[0]!, data: it[1]! }) : left("Invalid value to decrypt")),
+      E.map(it => ({
+        hash: it,
+        decipher: createDecipheriv(
+          ALGORITHM,
+          key,
+          Buffer.from(it.iv, "hex")
+        )
+      })),
+      E.map(it => Buffer.concat([
+        it.decipher.update(Buffer.from(it.hash.data, "hex")),
+        it.decipher.final(),
+      ]).toString())
+    ),
   };
 };
 
