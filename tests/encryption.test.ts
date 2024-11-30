@@ -1,3 +1,5 @@
+import { left, right } from 'fp-ts/Either'
+
 import { cryptoEncryption, jwsEncryption } from '../src/encryption';
 
 describe("jwsEncryption", () => {
@@ -7,7 +9,7 @@ describe("jwsEncryption", () => {
     const value = "bobs your uncle"
     const hash = e.encrypt(value)
     expect(hash).not.toContain(value);
-    expect(e.decrypt(hash)).toEqual(value);
+    expect(e.decrypt(hash)).toEqual(right(value));
   });
 
   it("returns different values for different secrets", () => {
@@ -29,7 +31,7 @@ describe("cryptoEncryption", () => {
     const value = "bobs your uncle"
     const hash = e.encrypt(value)
     expect(hash).not.toContain(value);
-    expect(e.decrypt(hash)).toEqual(value);
+    expect(e.decrypt(hash)).toEqual(right(value));
   });
 
   it("returns different values for different secrets", () => {
@@ -41,5 +43,11 @@ describe("cryptoEncryption", () => {
     const h2 = e2.encrypt(value)
 
     expect(h1).not.toEqual(h2);
+  });
+  
+  it("should return left on invalid value", () => {
+    const e = cryptoEncryption("secret squirrel");
+
+    expect(e.decrypt("not-valid")).toEqual(left("Invalid value to decrypt"));
   });
 })
