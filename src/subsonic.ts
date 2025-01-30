@@ -497,8 +497,9 @@ export class Subsonic implements MusicService {
     path: string,
     q: {} = {},
     config: AxiosRequestConfig | undefined = {}
-  ) =>
-    axios
+  ) => {
+    logger.debug(username + " " + path + " " + JSON.stringify(q));
+    return axios
       .get(this.url.append({ pathname: path }).href(), {
         params: asURLSearchParams({
           u: username,
@@ -520,7 +521,7 @@ export class Subsonic implements MusicService {
           throw `Subsonic failed with a ${response.status || "no!"} status`;
         } else return response;
       });
-
+  }
   getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
