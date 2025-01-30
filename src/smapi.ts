@@ -769,7 +769,7 @@ function bindSmapiSoapServiceToExpress(
                         }
                       }
                     });
-                  case "playlists":
+                  default:
                     return Promise.resolve({
                       getExtendedMetadataResult: {
                         mediaCollection: {
@@ -781,8 +781,6 @@ function bindSmapiSoapServiceToExpress(
                         }
                       }
                     });
-                  default:
-                    throw `Unsupported getExtendedMetadata id=${id}`;
                 }
               }),
           getMetadata: async (
