@@ -58,7 +58,7 @@ COPY --from=build /bonob/build/src ./src
 COPY --from=build /bonob/node_modules ./node_modules
 COPY --from=build /bonob/.gitinfo ./
 COPY web ./web
-COPY src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl ./src/Sonoswsdl-1.19.4-20190411.142401-3.wsdl
+COPY src/Sonoswsdl-1.19.6-20231024.wsdl ./src/Sonoswsdl-1.19.6-20231024.wsdl
 
 RUN apt-get update && \
     apt-get -y upgrade && \

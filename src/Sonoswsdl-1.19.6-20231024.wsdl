@@ -97,7 +97,7 @@
                 <xs:complexType>
                     <xs:sequence>
                         <xs:element name="token" type="xs:string"/>
-                        <xs:element name="key" type="xs:string"/>
+                        <xs:element name="key" type="xs:string" minOccurs="0"/>
                         <xs:element name="householdId" type="xs:string"/>
                     </xs:sequence>
                 </xs:complexType>
@@ -111,11 +111,12 @@
                 </xs:simpleType>
             </xs:element>
 
-            <xs:simpleType name="userAccountType">
+            <xs:simpleType name="userAccountTier">
                 <xs:restriction base="xs:string">
-                    <xs:enumeration value="premium"/>
-                    <xs:enumeration value="trial"/>
+                    <xs:enumeration value="paidPremium"/>
+                    <xs:enumeration value="paidLimited"/>
                     <xs:enumeration value="free"/>
+                    <xs:enumeration value="none"/>
                 </xs:restriction>
             </xs:simpleType>
 
@@ -239,6 +240,12 @@
                 </xs:simpleContent>
             </xs:complexType>
 
+            <xs:complexType name="contentKeys">
+                <xs:sequence>
+                    <xs:element name="contentKey" type="tns:contentKey" maxOccurs="8"/>
+                </xs:sequence>
+            </xs:complexType>
+
             <xs:simpleType name="mediaUriAction">
                 <xs:restriction base="xs:string">
                     <xs:enumeration value="IMPLICIT"/>
@@ -355,13 +362,11 @@
 
             <xs:complexType name="userInfo">
                 <xs:sequence>
-                    <!-- Everything except userIdHashCode and nickname are for future use -->
+                    <!--  accountStatus potentially for future use -->
                     <xs:element name="userIdHashCode" type="xs:string" minOccurs="1"/>
-                    <xs:element name="accountType" type="tns:userAccountType" minOccurs="0"/>
+                    <xs:element name="accountTier" type="tns:userAccountTier" minOccurs="0"/>
                     <xs:element name="accountStatus" type="tns:userAccountStatus" minOccurs="0"/>
                     <xs:element ref="tns:nickname" minOccurs="0"/>
-                    <xs:element name="profileUrl" type="tns:sonosUri" minOccurs="0"/>
-                    <xs:element name="pictureUrl" type="tns:sonosUri" minOccurs="0"/>
                 </xs:sequence>
             </xs:complexType>
 
@@ -888,7 +893,10 @@
                         <xs:element name="getMediaURIResult" type="xs:anyURI"/>
                         <xs:element name="deviceSessionToken" type="tns:deviceSessionToken" minOccurs="0" maxOccurs="1"/>
                         <xs:element name="deviceSessionKey" type="tns:encryptionContext" minOccurs="0" maxOccurs="1"/>
-                        <xs:element name="contentKey" type="tns:encryptionContext" minOccurs="0" maxOccurs="1"/>
+                        <xs:choice minOccurs="0">
+                            <xs:element name="contentKey" type="tns:encryptionContext" minOccurs="0" maxOccurs="1"/>
+                            <xs:element name="contentKeys" type="tns:contentKeys" minOccurs="0" maxOccurs="1"/>
+                        </xs:choice>
                         <xs:element name="httpHeaders" type="tns:httpHeaders" minOccurs="0" maxOccurs="1"/>
                         <xs:element name="uriTimeout" type="xs:int" minOccurs="0" maxOccurs="1"/>
                         <xs:element name="positionInformation" type="tns:positionInformation" minOccurs="0" maxOccurs="1"/>
@@ -2059,7 +2067,7 @@
 
     <wsdl:service name="Sonos">
         <wsdl:port name="SonosSoap" binding="tns:SonosSoap">
-		<soap:address location="/about"/>
+		<soap:address location="http://moapi.sonos.com/Test/TestService.php"/>
         </wsdl:port>
     </wsdl:service>
 

@@ -62,7 +62,7 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
 
 const WSDL_FILE = path.resolve(
   __dirname,
-  "Sonoswsdl-1.19.4-20190411.142401-3.wsdl"
+  "Sonoswsdl-1.19.6-20231024.wsdl"
 );
 
 export type Credentials = {
