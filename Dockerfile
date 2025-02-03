@@ -1,4 +1,4 @@
-FROM node:20-bullseye-slim as build
+FROM node:20-bullseye-slim AS build
 
 WORKDIR /bonob
 

@@ -6,9 +6,10 @@ import logger from "./logger";
 import {
   axiosImageFetcher,
   cachingImageFetcher,
-  Subsonic,
+  SubsonicMusicService,
   TranscodingCustomPlayers,
-  NO_CUSTOM_PLAYERS
+  NO_CUSTOM_PLAYERS,
+  Subsonic
 } from "./subsonic";
 import { InMemoryAPITokens, sha256 } from "./api_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
@@ -40,10 +41,13 @@ const artistImageFetcher = config.subsonic.artistImageCache
   ? cachingImageFetcher(config.subsonic.artistImageCache, axiosImageFetcher)
   : axiosImageFetcher;
 
-const subsonic = new Subsonic(
-  config.subsonic.url,
-  customPlayers,
-  artistImageFetcher
+const subsonic = new SubsonicMusicService(
+  new Subsonic(
+    config.subsonic.url,
+    customPlayers,
+    artistImageFetcher
+  ),
+  customPlayers
 );
 
 const featureFlagAwareMusicService: MusicService = {

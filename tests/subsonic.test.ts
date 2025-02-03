@@ -23,7 +23,9 @@ import {
   asToken,
   TranscodingCustomPlayers,
   CustomPlayers,
-  NO_CUSTOM_PLAYERS
+  NO_CUSTOM_PLAYERS,
+  SubsonicMusicService,
+  SubsonicMusicLibrary
 } from "../src/subsonic";
 
 import axios from "axios";
@@ -47,7 +49,6 @@ import {
   PlaylistSummary,
   Playlist,
   SimilarArtist,
-  Rating,
   Credentials,
   AuthFailure,
   RadioStation
@@ -783,7 +784,7 @@ describe("asTrack", () => {
   });
 });
 
-describe("Subsonic", () => {
+describe("SubsonicMusicService", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
   const username = `user1-${uuid()}`;
   const password = `pass1-${uuid()}`;
@@ -792,9 +793,9 @@ describe("Subsonic", () => {
   const customPlayers = {
     encodingFor: jest.fn()
   };
-  
-  const subsonic = new Subsonic(
-    url,
+
+  const subsonic = new SubsonicMusicService(
+    new Subsonic(url, customPlayers),
     customPlayers as unknown as CustomPlayers
   );
 
@@ -830,12 +831,12 @@ describe("Subsonic", () => {
     "User-Agent": "bonob",
   };
 
+
   const tokenFor = (credentials: Credentials) => pipe(
     subsonic.generateToken(credentials),
     TE.fold(e => { throw e }, T.of)
   )
 
-  const login = (credentials: Credentials) => tokenFor(credentials)().then((it) => subsonic.login(it.serviceToken))
 
   describe("generateToken", () => {
     describe("when the credentials are valid", () => {
@@ -1053,17 +1054,66 @@ describe("Subsonic", () => {
     });
   });
 
+});
+
+describe("SubsonicMusicLibrary", () => {
+  const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
+  const username = `user1-${uuid()}`;
+  const password = `pass1-${uuid()}`;
+  const salt = "saltysalty";
+
+  const customPlayers = {
+    encodingFor: jest.fn()
+  };
+  
+  const subsonic = new SubsonicMusicLibrary(
+    new Subsonic(url, customPlayers),
+    { username, password },
+    customPlayers as unknown as CustomPlayers
+  );
+
+  const mockRandomstring = jest.fn();
+  const mockGET = jest.fn();
+  const mockPOST = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetAllMocks();
+
+    randomstring.generate = mockRandomstring;
+    axios.get = mockGET;
+    axios.post = mockPOST;
+
+    mockRandomstring.mockReturnValue(salt);
+  });
+
+  const authParams = {
+    u: username,
+    v: "1.16.1",
+    c: "bonob",
+    t: t(password, salt),
+    s: salt,
+  };
+
+  const authParamsPlusJson = {
+    ...authParams,
+    f: "json",
+  };
+
+  const headers = {
+    "User-Agent": "bonob",
+  };
+
+
   describe("getting genres", () => {
     describe("when there are none", () => {
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() => Promise.resolve(ok(getGenresJson([]))));
       });
 
       it("should return empty array", async () => {
-        const result = await login({ username, password })
-          .then((it) => it.genres());
+        const result = await subsonic.genres();
 
         expect(result).toEqual([]);
 
@@ -1082,15 +1132,13 @@ describe("Subsonic", () => {
 
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getGenresJson(genres)))
           );
       });
 
       it("should return them alphabetically sorted", async () => {
-        const result = await login({ username, password })
-          .then((it) => it.genres());
+        const result = await subsonic.genres();
 
         expect(result).toEqual([{ id: b64Encode("genre1"), name: "genre1" }]);
 
@@ -1112,15 +1160,13 @@ describe("Subsonic", () => {
 
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getGenresJson(genres)))
           );
       });
 
       it("should return them alphabetically sorted", async () => {
-        const result = await login({ username, password })
-          .then((it) => it.genres());
+        const result = await subsonic.genres();
 
         expect(result).toEqual([
           { id: b64Encode("g1"), name: "g1" },
@@ -1164,7 +1210,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1174,8 +1219,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: `${artist.id}`,
@@ -1223,7 +1267,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1233,8 +1276,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1276,7 +1318,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1286,8 +1327,7 @@ describe("Subsonic", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1327,7 +1367,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl })))
             )
@@ -1337,8 +1376,7 @@ describe("Subsonic", () => {
         });
 
         it("should return remove the dodgy looking image uris and return urn for artist:id", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1381,7 +1419,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: 'http://example.com:1234/good/looking/image.png' })))
             )
@@ -1391,8 +1428,7 @@ describe("Subsonic", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1432,7 +1468,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl })))
             )
@@ -1442,8 +1477,7 @@ describe("Subsonic", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1484,7 +1518,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl })))
             )
@@ -1494,8 +1527,7 @@ describe("Subsonic", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1537,7 +1569,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1547,8 +1578,7 @@ describe("Subsonic", () => {
         });
 
         it("should return it", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1588,7 +1618,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1598,8 +1627,7 @@ describe("Subsonic", () => {
         });
 
         it("should return it", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1637,7 +1665,6 @@ describe("Subsonic", () => {
 
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getArtistJson(artist)))
             )
@@ -1647,8 +1674,7 @@ describe("Subsonic", () => {
         });
 
         it("should return it", async () => {
-          const result: Artist = await login({ username, password })
-            .then((it) => it.artist(artist.id!));
+          const result: Artist = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1684,7 +1710,6 @@ describe("Subsonic", () => {
     describe("when there are indexes, but no artists", () => {
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(
@@ -1709,8 +1734,7 @@ describe("Subsonic", () => {
       });
 
       it("should return empty", async () => {
-        const artists = await login({ username, password })
-          .then((it) => it.artists({ _index: 0, _count: 100 }));
+        const artists = await subsonic.artists({ _index: 0, _count: 100 });
 
         expect(artists).toEqual({
           results: [],
@@ -1722,7 +1746,6 @@ describe("Subsonic", () => {
     describe("when there no indexes and no artists", () => {
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(
@@ -1735,8 +1758,7 @@ describe("Subsonic", () => {
       });
 
       it("should return empty", async () => {
-        const artists = await login({ username, password })
-          .then((it) => it.artists({ _index: 0, _count: 100 }));
+        const artists = await subsonic.artists({ _index: 0, _count: 100 });
 
         expect(artists).toEqual({
           results: [],
@@ -1768,13 +1790,11 @@ describe("Subsonic", () => {
       describe("when it all fits on one page", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(ok(asArtistsJson)));
         });
 
         it("should return the single artist", async () => {
-          const artists = await login({ username, password })
-            .then((it) => it.artists({ _index: 0, _count: 100 }));
+          const artists = await subsonic.artists({ _index: 0, _count: 100 });
 
           const expectedResults = [{
             id: artist1.id,
@@ -1805,15 +1825,13 @@ describe("Subsonic", () => {
       describe("when no paging is in effect", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson(artists)))
             );
         });
 
         it("should return all the artists", async () => {
-          const artists = await login({ username, password })
-            .then((it) => it.artists({ _index: 0, _count: 100 }));
+          const artists = await subsonic.artists({ _index: 0, _count: 100 });
 
           const expectedResults = [artist1, artist2, artist3, artist4].map(
             (it) => ({
@@ -1838,15 +1856,13 @@ describe("Subsonic", () => {
       describe("when paging specified", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson(artists)))
             );
         });
 
         it("should return only the correct page of artists", async () => {
-          const artists = await login({ username, password })
-            .then((it) => it.artists({ _index: 1, _count: 2 }));
+          const artists = await subsonic.artists({ _index: 1, _count: 2 });
 
           const expectedResults = [artist2, artist3].map((it) => ({
             id: it.id,
@@ -1880,7 +1896,6 @@ describe("Subsonic", () => {
       describe("by genre", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -1904,8 +1919,7 @@ describe("Subsonic", () => {
             genre: b64Encode("Pop"),
             type: "byGenre",
           };
-          const result = await login({ username, password })
-            .then((it) => it.albums(q));
+          const result = await subsonic.albums(q);
 
           expect(result).toEqual({
             results: [album1, album3].map(albumToAlbumSummary),
@@ -1933,7 +1947,6 @@ describe("Subsonic", () => {
       describe("by newest", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -1956,8 +1969,7 @@ describe("Subsonic", () => {
             _count: 100,
             type: "recentlyAdded",
           };
-          const result = await login({ username, password })
-            .then((it) => it.albums(q));
+          const result = await subsonic.albums(q);
 
           expect(result).toEqual({
             results: [album3, album2, album1].map(albumToAlbumSummary),
@@ -1984,7 +1996,6 @@ describe("Subsonic", () => {
       describe("by recently played", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -2007,8 +2018,7 @@ describe("Subsonic", () => {
             _count: 100,
             type: "recentlyPlayed",
           };
-          const result = await login({ username, password })
-            .then((it) => it.albums(q));
+          const result = await subsonic.albums(q);
 
           expect(result).toEqual({
             results: [album3, album2].map(albumToAlbumSummary),
@@ -2035,7 +2045,6 @@ describe("Subsonic", () => {
       describe("by frequently played", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -2049,8 +2058,7 @@ describe("Subsonic", () => {
 
         it("should pass the filter to navidrome", async () => {
           const q: AlbumQuery = { _index: 0, _count: 100, type: "mostPlayed" };
-          const result = await login({ username, password })
-            .then((it) => it.albums(q));
+          const result = await subsonic.albums(q);
 
           expect(result).toEqual({
             results: [album2].map(albumToAlbumSummary),
@@ -2077,7 +2085,6 @@ describe("Subsonic", () => {
       describe("by starred", () => {
         beforeEach(() => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson([artist])))
             )
@@ -2091,8 +2098,7 @@ describe("Subsonic", () => {
 
         it("should pass the filter to navidrome", async () => {
           const q: AlbumQuery = { _index: 0, _count: 100, type: "starred" };
-          const result = await login({ username, password })
-            .then((it) => it.albums(q));
+          const result = await subsonic.albums(q);
 
           expect(result).toEqual({
             results: [album2].map(albumToAlbumSummary),
@@ -2127,7 +2133,6 @@ describe("Subsonic", () => {
 
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson(artists)))
           )
@@ -2142,8 +2147,7 @@ describe("Subsonic", () => {
           _count: 100,
           type: "alphabeticalByArtist",
         };
-        const result = await login({ username, password })
-          .then((it) => it.albums(q));
+        const result = await subsonic.albums(q);
 
         expect(result).toEqual({
           results: albums,
@@ -2177,7 +2181,6 @@ describe("Subsonic", () => {
 
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson(artists)))
           )
@@ -2192,8 +2195,7 @@ describe("Subsonic", () => {
           _count: 100,
           type: "alphabeticalByArtist",
         };
-        const result = await login({ username, password })
-          .then((it) => it.albums(q));
+        const result = await subsonic.albums(q);
 
         expect(result).toEqual({
           results: albums,
@@ -2244,7 +2246,6 @@ describe("Subsonic", () => {
       describe("querying for all of them", () => {
         it("should return all of them with corrent paging information", async () => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson(artists)))
             )
@@ -2257,8 +2258,7 @@ describe("Subsonic", () => {
             _count: 100,
             type: "alphabeticalByArtist",
           };
-          const result = await login({ username, password })
-            .then((it) => it.albums(q));
+          const result = await subsonic.albums(q);
 
           expect(result).toEqual({
             results: albums,
@@ -2285,7 +2285,6 @@ describe("Subsonic", () => {
       describe("querying for a page of them", () => {
         it("should return the page with the corrent paging information", async () => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson(artists)))
             )
@@ -2308,8 +2307,7 @@ describe("Subsonic", () => {
             _count: 2,
             type: "alphabeticalByArtist",
           };
-          const result = await login({ username, password })
-            .then((it) => it.albums(q));
+          const result = await subsonic.albums(q);
 
           expect(result).toEqual({
             results: [artist1.albums[2], artist2.albums[0]],
@@ -2356,7 +2354,6 @@ describe("Subsonic", () => {
         describe("when the query comes back on 1 page", () => {
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(asArtistsJson(artists)))
               )
@@ -2381,8 +2378,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await login({ username, password })
-              .then((it) => it.albums(q));
+            const result = await subsonic.albums(q);
 
             expect(result).toEqual({
               results: [album1, album2, album3, album5],
@@ -2412,7 +2408,6 @@ describe("Subsonic", () => {
         describe("when the query is for the first page", () => {
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(asArtistsJson(artists)))
               )
@@ -2438,8 +2433,7 @@ describe("Subsonic", () => {
               _count: 2,
               type: "alphabeticalByArtist",
             };
-            const result = await login({ username, password })
-              .then((it) => it.albums(q));
+            const result = await subsonic.albums(q);
 
             expect(result).toEqual({
               results: [album1, album2],
@@ -2469,7 +2463,6 @@ describe("Subsonic", () => {
         describe("when the query is for the last page only", () => {
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(asArtistsJson(artists)))
               )
@@ -2494,8 +2487,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await login({ username, password })
-              .then((it) => it.albums(q));
+            const result = await subsonic.albums(q);
 
             expect(result).toEqual({
               results: [album3, album5],
@@ -2527,7 +2519,6 @@ describe("Subsonic", () => {
         describe("when the query comes back on 1 page", () => {
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -2560,8 +2551,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await login({ username, password })
-              .then((it) => it.albums(q));
+            const result = await subsonic.albums(q);
 
             expect(result).toEqual({
               results: [album1, album2, album3, album4, album5],
@@ -2591,7 +2581,6 @@ describe("Subsonic", () => {
         describe("when the query is for the first page", () => {
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -2624,8 +2613,7 @@ describe("Subsonic", () => {
               _count: 2,
               type: "alphabeticalByArtist",
             };
-            const result = await login({ username, password })
-              .then((it) => it.albums(q));
+            const result = await subsonic.albums(q);
 
             expect(result).toEqual({
               results: [album1, album2],
@@ -2655,7 +2643,6 @@ describe("Subsonic", () => {
         describe("when the query is for the last page only", () => {
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -2686,8 +2673,7 @@ describe("Subsonic", () => {
               _count: 100,
               type: "alphabeticalByArtist",
             };
-            const result = await login({ username, password })
-              .then((it) => it.albums(q));
+            const result = await subsonic.albums(q);
 
             expect(result).toEqual({
               results: [album3, album4, album5],
@@ -2738,15 +2724,13 @@ describe("Subsonic", () => {
 
       beforeEach(() => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
           );
       });
 
       it("should return the album", async () => {
-        const result = await login({ username, password })
-          .then((it) => it.album(album.id));
+        const result = await subsonic.album(album.id);
 
         expect(result).toEqual(album);
 
@@ -2821,15 +2805,13 @@ describe("Subsonic", () => {
   
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
               );
           });
   
           it("should return the album", async () => {
-            const result = await login({ username, password })
-              .then((it) => it.tracks(album.id));
+            const result = await subsonic.tracks(album.id);
   
             expect(result).toEqual([track1, track2, track3, track4]);
   
@@ -2868,15 +2850,13 @@ describe("Subsonic", () => {
   
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
               );
           });
   
           it("should return the album", async () => {
-            const result = await login({ username, password })
-              .then((it) => it.tracks(album.id));
+            const result = await subsonic.tracks(album.id);
   
             expect(result).toEqual([track]);
   
@@ -2903,15 +2883,13 @@ describe("Subsonic", () => {
   
           beforeEach(() => {
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
               );
           });
   
           it("should empty array", async () => {
-            const result = await login({ username, password })
-              .then((it) => it.tracks(album.id));
+            const result = await subsonic.tracks(album.id);
   
             expect(result).toEqual([]);
   
@@ -2985,15 +2963,13 @@ describe("Subsonic", () => {
             .mockReturnValueOnce(O.none)
           
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getAlbumJson(artist, album, [alac, m4a, mp3])))
             );
         });
   
         it("should return the album with custom players applied", async () => {
-          const result = await login({ username, password })
-            .then((it) => it.tracks(album.id));
+          const result = await subsonic.tracks(album.id);
   
           expect(result).toEqual([
             {
@@ -3064,7 +3040,6 @@ describe("Subsonic", () => {
             });
   
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
@@ -3072,8 +3047,7 @@ describe("Subsonic", () => {
                 Promise.resolve(ok(getAlbumJson(artist, album, [])))
               );
   
-            const result = await login({ username, password })
-              .then((it) => it.track(track.id));
+            const result = await subsonic.track(track.id);
   
             expect(result).toEqual({
               ...track,
@@ -3111,7 +3085,6 @@ describe("Subsonic", () => {
             });
   
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
@@ -3119,8 +3092,7 @@ describe("Subsonic", () => {
                 Promise.resolve(ok(getAlbumJson(artist, album, [])))
               );
   
-            const result = await login({ username, password })
-              .then((it) => it.track(track.id));
+            const result = await subsonic.track(track.id);
   
             expect(result).toEqual({
               ...track,
@@ -3185,7 +3157,6 @@ describe("Subsonic", () => {
             };
   
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
@@ -3194,8 +3165,7 @@ describe("Subsonic", () => {
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
   
-            const result = await login({ username, password })
-              .then((it) => it.stream({ trackId, range: undefined }));
+            const result = await subsonic.stream({ trackId, range: undefined });
   
             expect(result.headers).toEqual({
               "content-type": "audio/mpeg",
@@ -3224,7 +3194,6 @@ describe("Subsonic", () => {
             };
   
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
@@ -3233,8 +3202,7 @@ describe("Subsonic", () => {
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
   
-            const result = await login({ username, password })
-              .then((it) => it.stream({ trackId, range: undefined }));
+            const result = await subsonic.stream({ trackId, range: undefined });
   
             expect(result.headers).toEqual({
               "content-type": "audio/mpeg",
@@ -3265,7 +3233,6 @@ describe("Subsonic", () => {
               };
   
               mockGET
-                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
@@ -3274,8 +3241,7 @@ describe("Subsonic", () => {
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
   
-              const result = await login({ username, password })
-                .then((it) => it.stream({ trackId, range: undefined }));
+              const result = await subsonic.stream({ trackId, range: undefined });
   
               expect(result.headers).toEqual({
                 "content-type": "audio/mpeg",
@@ -3311,7 +3277,6 @@ describe("Subsonic", () => {
               };
   
               mockGET
-                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
@@ -3320,10 +3285,9 @@ describe("Subsonic", () => {
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
   
-              const musicLibrary = await login({ username, password });
   
               return expect(
-                musicLibrary.stream({ trackId, range: undefined })
+                subsonic.stream({ trackId, range: undefined })
               ).rejects.toEqual(`Subsonic failed with a 400 status`);
             });
           });
@@ -3333,7 +3297,6 @@ describe("Subsonic", () => {
               const trackId = "track123";
   
               mockGET
-                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
@@ -3342,10 +3305,8 @@ describe("Subsonic", () => {
                 )
                 .mockImplementationOnce(() => Promise.reject("IO error occured"));
   
-              const musicLibrary = await login({ username, password });
-  
               return expect(
-                musicLibrary.stream({ trackId, range: undefined })
+                subsonic.stream({ trackId, range: undefined })
               ).rejects.toEqual(`Subsonic failed with: IO error occured`);
             });
           });
@@ -3371,7 +3332,6 @@ describe("Subsonic", () => {
             };
   
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
@@ -3380,8 +3340,7 @@ describe("Subsonic", () => {
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
   
-            const result = await login({ username, password })
-              .then((it) => it.stream({ trackId, range }));
+            const result = await subsonic.stream({ trackId, range });
   
             expect(result.headers).toEqual({
               "content-type": "audio/flac",
@@ -3432,7 +3391,6 @@ describe("Subsonic", () => {
           };
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
@@ -3441,8 +3399,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          await login({ username, password })
-            .then((it) => it.stream({ trackId, range: undefined }));
+          await subsonic.stream({ trackId, range: undefined });
 
           expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
             params: asURLSearchParams({
@@ -3471,7 +3428,6 @@ describe("Subsonic", () => {
           };
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
@@ -3480,8 +3436,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          await login({ username, password })
-            .then((it) => it.stream({ trackId, range }));
+          await subsonic.stream({ trackId, range });
 
           expect(axios.get).toHaveBeenCalledWith(url.append({ pathname: '/rest/stream' }).href(), {
             params: asURLSearchParams({
@@ -3515,11 +3470,9 @@ describe("Subsonic", () => {
           const coverArtURN = { system: "subsonic", resource: `art:${coverArtId}` };
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await login({ username, password })
-            .then((it) => it.coverArt(coverArtURN));
+          const result = await subsonic.coverArt(coverArtURN);
 
           expect(result).toEqual({
             contentType: streamResponse.headers["content-type"],
@@ -3551,11 +3504,9 @@ describe("Subsonic", () => {
           const size = 1879;
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await login({ username, password })
-            .then((it) => it.coverArt(coverArtURN, size));
+          const result = await subsonic.coverArt(coverArtURN, size);
 
           expect(result).toEqual({
             contentType: streamResponse.headers["content-type"],
@@ -3579,11 +3530,9 @@ describe("Subsonic", () => {
           const size = 1879;
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
-          const result = await login({ username, password })
-            .then((it) => it.coverArt({ system: "external", resource: "http://localhost:404" }, size));
+          const result = await subsonic.coverArt({ system: "external", resource: "http://localhost:404" }, size);
 
           expect(result).toBeUndefined();
         });
@@ -3595,11 +3544,7 @@ describe("Subsonic", () => {
         it("should be undefined", async () => {
           const covertArtURN = { system: "notSubsonic", resource: `art:${uuid()}` };
 
-          mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
-
-          const result = await login({ username, password })
-            .then((it) => it.coverArt(covertArtURN, 190));
+          const result = await subsonic.coverArt(covertArtURN, 190);
 
           expect(result).toBeUndefined();
         });
@@ -3619,11 +3564,9 @@ describe("Subsonic", () => {
           };
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await login({ username, password })
-            .then((it) => it.coverArt(covertArtURN));
+          const result = await subsonic.coverArt(covertArtURN);
 
           expect(result).toEqual({
             contentType: streamResponse.headers["content-type"],
@@ -3649,11 +3592,9 @@ describe("Subsonic", () => {
             const covertArtURN = { system:"subsonic", resource: `art:${coverArtId}` };
 
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
-            const result = await login({ username, password })
-              .then((it) => it.coverArt(covertArtURN));
+            const result = await subsonic.coverArt(covertArtURN);
 
             expect(result).toBeUndefined();
           });
@@ -3676,11 +3617,9 @@ describe("Subsonic", () => {
           };
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
-          const result = await login({ username, password })
-            .then((it) => it.coverArt(covertArtURN, size));
+          const result = await subsonic.coverArt(covertArtURN, size);
 
           expect(result).toEqual({
             contentType: streamResponse.headers["content-type"],
@@ -3707,11 +3646,9 @@ describe("Subsonic", () => {
             const covertArtURN = { system: "subsonic", resource: `art:${coverArtId}` };
 
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() => Promise.reject("BOOOM"));
 
-            const result = await login({ username, password })
-              .then((it) => it.coverArt(covertArtURN, size));
+            const result = await subsonic.coverArt(covertArtURN, size);
 
             expect(result).toBeUndefined();
           });
@@ -3722,10 +3659,6 @@ describe("Subsonic", () => {
 
   describe("rate", () => {
     const trackId = uuid();
-
-    const rate = (trackId: string, rating: Rating) =>
-      login({ username, password })
-        .then((it) => it.rate(trackId, rating));
 
     const artist = anArtist();
     const album = anAlbum({ id: "album1", name: "Burnin", genre: POP });
@@ -3745,7 +3678,6 @@ describe("Subsonic", () => {
           });
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3754,7 +3686,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await rate(trackId, { love: true, stars: 0 });
+          const result = await subsonic.rate(trackId, { love: true, stars: 0 });
 
           expect(result).toEqual(true);
 
@@ -3778,7 +3710,6 @@ describe("Subsonic", () => {
           });
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3787,7 +3718,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await rate(trackId, { love: false, stars: 0 });
+          const result = await subsonic.rate(trackId, { love: false, stars: 0 });
 
           expect(result).toEqual(true);
 
@@ -3811,7 +3742,6 @@ describe("Subsonic", () => {
           });
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3819,11 +3749,11 @@ describe("Subsonic", () => {
               Promise.resolve(ok(getAlbumJson(artist, album, [])))
             );
 
-          const result = await rate(trackId, { love: true, stars: 0 });
+          const result = await subsonic.rate(trackId, { love: true, stars: 0 });
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledTimes(3);
+          expect(mockGET).toHaveBeenCalledTimes(2);
         });
       });
 
@@ -3837,7 +3767,6 @@ describe("Subsonic", () => {
           });
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3846,7 +3775,7 @@ describe("Subsonic", () => {
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await rate(trackId, { love: false, stars: 3 });
+          const result = await subsonic.rate(trackId, { love: false, stars: 3 });
 
           expect(result).toEqual(true);
 
@@ -3871,7 +3800,6 @@ describe("Subsonic", () => {
           });
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3879,11 +3807,11 @@ describe("Subsonic", () => {
               Promise.resolve(ok(getAlbumJson(artist, album, [])))
             );
 
-          const result = await rate(trackId, { love: true, stars: 3 });
+          const result = await subsonic.rate(trackId, { love: true, stars: 3 });
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledTimes(3);
+          expect(mockGET).toHaveBeenCalledTimes(2);
         });
       });
 
@@ -3897,7 +3825,6 @@ describe("Subsonic", () => {
           });
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
@@ -3907,7 +3834,7 @@ describe("Subsonic", () => {
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await rate(trackId, { love: false, stars: 5 });
+          const result = await subsonic.rate(trackId, { love: false, stars: 5 });
 
           expect(result).toEqual(true);
 
@@ -3932,18 +3859,14 @@ describe("Subsonic", () => {
       describe("invalid star values", () => {
         describe("stars of -1", () => {
           it("should return false", async () => {
-            mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
-
-            const result = await rate(trackId, { love: true, stars: -1 });
+            const result = await subsonic.rate(trackId, { love: true, stars: -1 });
             expect(result).toEqual(false);
           });
         });
 
         describe("stars of 6", () => {
           it("should return false", async () => {
-            mockGET.mockImplementationOnce(() => Promise.resolve(ok(PING_OK)));
-
-            const result = await rate(trackId, { love: true, stars: -1 });
+            const result = await subsonic.rate(trackId, { love: true, stars: -1 });
             expect(result).toEqual(false);
           });
         });
@@ -3952,11 +3875,10 @@ describe("Subsonic", () => {
       describe("when fails", () => {
         it("should return false", async () => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(ok(FAILURE)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await rate(trackId, { love: true, stars: 0 });
+          const result = await subsonic.rate(trackId, { love: true, stars: 0 });
 
           expect(result).toEqual(false);
         });
@@ -3970,11 +3892,9 @@ describe("Subsonic", () => {
         const id = uuid();
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-        const result = await login({ username, password })
-          .then((it) => it.scrobble(id));
+        const result = await subsonic.scrobble(id);
 
         expect(result).toEqual(true);
 
@@ -3994,7 +3914,6 @@ describe("Subsonic", () => {
         const id = uuid();
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve({
               status: 500,
@@ -4002,8 +3921,7 @@ describe("Subsonic", () => {
             })
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.scrobble(id));
+        const result = await subsonic.scrobble(id);
 
         expect(result).toEqual(false);
 
@@ -4025,11 +3943,9 @@ describe("Subsonic", () => {
         const id = uuid();
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-        const result = await login({ username, password })
-          .then((it) => it.nowPlaying(id));
+        const result = await subsonic.nowPlaying(id);
 
         expect(result).toEqual(true);
 
@@ -4049,7 +3965,6 @@ describe("Subsonic", () => {
         const id = uuid();
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve({
               status: 500,
@@ -4057,8 +3972,7 @@ describe("Subsonic", () => {
             })
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.nowPlaying(id));
+        const result = await subsonic.nowPlaying(id);
 
         expect(result).toEqual(false);
 
@@ -4080,13 +3994,11 @@ describe("Subsonic", () => {
         const artist1 = anArtist({ name: "foo woo" });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ artists: [artist1] })))
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchArtists("foo"));
+        const result = await subsonic.searchArtists("foo");
 
         expect(result).toEqual([artistToArtistSummary(artist1)]);
 
@@ -4109,15 +4021,13 @@ describe("Subsonic", () => {
         const artist2 = anArtist({ name: "foo choo" });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(getSearchResult3Json({ artists: [artist1, artist2] }))
             )
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchArtists("foo"));
+        const result = await subsonic.searchArtists("foo");
 
         expect(result).toEqual([
           artistToArtistSummary(artist1),
@@ -4140,13 +4050,11 @@ describe("Subsonic", () => {
     describe("when there are no search results", () => {
       it("should return []", async () => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ artists: [] })))
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchArtists("foo"));
+        const result = await subsonic.searchArtists("foo");
 
         expect(result).toEqual([]);
 
@@ -4174,15 +4082,13 @@ describe("Subsonic", () => {
         const artist = anArtist({ name: "#1", albums: [album] });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(getSearchResult3Json({ albums: [{ artist, album }] }))
             )
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchAlbums("foo"));
+        const result = await subsonic.searchAlbums("foo");
 
         expect(result).toEqual([albumToAlbumSummary(album)]);
 
@@ -4214,7 +4120,6 @@ describe("Subsonic", () => {
         const artist2 = anArtist({ name: "artist2", albums: [album2] });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(
@@ -4228,8 +4133,7 @@ describe("Subsonic", () => {
             )
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchAlbums("moo"));
+        const result = await subsonic.searchAlbums("moo");
 
         expect(result).toEqual([
           albumToAlbumSummary(album1),
@@ -4252,13 +4156,11 @@ describe("Subsonic", () => {
     describe("when there are no search results", () => {
       it("should return []", async () => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ albums: [] })))
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchAlbums("foo"));
+        const result = await subsonic.searchAlbums("foo");
 
         expect(result).toEqual([]);
 
@@ -4298,7 +4200,6 @@ describe("Subsonic", () => {
         });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ tracks: [track] })))
           )
@@ -4307,8 +4208,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist, album, [])))
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchTracks("foo"));
+        const result = await subsonic.searchTracks("foo");
 
         expect(result).toEqual([track]);
 
@@ -4356,7 +4256,6 @@ describe("Subsonic", () => {
         });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(
               ok(
@@ -4379,8 +4278,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist2, album2, [])))
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchTracks("moo"));
+        const result = await subsonic.searchTracks("moo");
 
         expect(result).toEqual([track1, track2]);
 
@@ -4400,13 +4298,11 @@ describe("Subsonic", () => {
     describe("when there are no search results", () => {
       it("should return []", async () => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ tracks: [] })))
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.searchTracks("foo"));
+        const result = await subsonic.searchTracks("foo");
 
         expect(result).toEqual([]);
 
@@ -4435,13 +4331,11 @@ describe("Subsonic", () => {
           const playlist = aPlaylistSummary();
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getPlayListsJson([playlist])))
             );
 
-          const result = await login({ username, password })
-            .then((it) => it.playlists());
+          const result = await subsonic.playlists();
 
           expect(result).toEqual([playlist]);
 
@@ -4460,13 +4354,11 @@ describe("Subsonic", () => {
           const playlists = [playlist1, playlist2, playlist3];
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getPlayListsJson(playlists)))
             );
 
-          const result = await login({ username, password })
-            .then((it) => it.playlists());
+          const result = await subsonic.playlists();
 
           expect(result).toEqual(playlists);
 
@@ -4480,13 +4372,11 @@ describe("Subsonic", () => {
       describe("when there are no playlists", () => {
         it("should return []", async () => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getPlayListsJson([])))
             );
 
-          const result = await login({ username, password })
-            .then((it) => it.playlists());
+          const result = await subsonic.playlists();
 
           expect(result).toEqual([]);
 
@@ -4504,14 +4394,12 @@ describe("Subsonic", () => {
           const id = "id404";
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() =>
               Promise.resolve(ok(error("70", "data not found")))
             );
 
           return expect(
-            login({ username, password })
-              .then((it) => it.playlist(id))
+            subsonic.playlist(id)
           ).rejects.toEqual("Subsonic error:data not found");
         });
       });
@@ -4550,7 +4438,6 @@ describe("Subsonic", () => {
             });
 
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(
                   ok(
@@ -4563,8 +4450,7 @@ describe("Subsonic", () => {
                 )
               );
 
-            const result = await login({ username, password })
-              .then((it) => it.playlist(id));
+            const result = await subsonic.playlist(id);
 
             expect(result).toEqual({
               id,
@@ -4592,13 +4478,11 @@ describe("Subsonic", () => {
             });
 
             mockGET
-              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getPlayListJson(playlist)))
               );
 
-            const result = await login({ username, password })
-              .then((it) => it.playlist(playlist.id));
+            const result = await subsonic.playlist(playlist.id);
 
             expect(result).toEqual(playlist);
 
@@ -4620,13 +4504,11 @@ describe("Subsonic", () => {
         const id = uuid();
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(createPlayListJson({ id, name })))
           );
 
-        const result = await login({ username, password })
-          .then((it) => it.createPlaylist(name));
+        const result = await subsonic.createPlaylist(name);
 
         expect(result).toEqual({ id, name });
 
@@ -4646,11 +4528,9 @@ describe("Subsonic", () => {
         const id = "id-to-delete";
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-          const result = await login({ username, password })
-          .then((it) => it.deletePlaylist(id));
+          const result = await subsonic.deletePlaylist(id);
 
         expect(result).toEqual(true);
 
@@ -4671,11 +4551,9 @@ describe("Subsonic", () => {
           const trackId = uuid();
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-            const result = await login({ username, password })
-              .then((it) => it.addToPlaylist(playlistId, trackId));
+            const result = await subsonic.addToPlaylist(playlistId, trackId);
 
           expect(result).toEqual(true);
 
@@ -4696,11 +4574,9 @@ describe("Subsonic", () => {
           const indicies = [6, 100, 33];
 
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
-            const result = await login({ username, password })
-              .then((it) => it.removeFromPlaylist(playlistId, indicies));
+            const result = await subsonic.removeFromPlaylist(playlistId, indicies);
 
           expect(result).toEqual(true);
 
@@ -4742,7 +4618,6 @@ describe("Subsonic", () => {
         });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1])))
           )
@@ -4750,8 +4625,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
-          const result = await login({ username, password })
-            .then((it) => it.similarSongs(id));
+          const result = await subsonic.similarSongs(id);
 
         expect(result).toEqual([track1]);
 
@@ -4806,7 +4680,6 @@ describe("Subsonic", () => {
         });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1, track2, track3])))
           )
@@ -4820,8 +4693,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
           );
 
-          const result = await login({ username, password })
-          .then((it) => it.similarSongs(id));
+          const result = await subsonic.similarSongs(id);
 
         expect(result).toEqual([track1, track2, track3]);
 
@@ -4842,13 +4714,11 @@ describe("Subsonic", () => {
         const id = "idWithNoTracks";
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([])))
           );
 
-          const result = await login({ username, password })
-          .then((it) => it.similarSongs(id));
+          const result = await subsonic.similarSongs(id);
 
         expect(result).toEqual([]);
 
@@ -4869,14 +4739,12 @@ describe("Subsonic", () => {
         const id = "idThatHasAnError";
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(error("70", "data not found")))
           );
 
         return expect(
-          login({ username, password })
-            .then((it) => it.similarSongs(id))
+          subsonic.similarSongs(id)
         ).rejects.toEqual("Subsonic error:data not found");
       });
     });
@@ -4907,7 +4775,6 @@ describe("Subsonic", () => {
         });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistJson(artist)))
           )
@@ -4918,8 +4785,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
-          const result = await login({ username, password })
-          .then((it) => it.topSongs(artistId));
+          const result = await subsonic.topSongs(artistId);
 
         expect(result).toEqual([track1]);
 
@@ -4968,7 +4834,6 @@ describe("Subsonic", () => {
         });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistJson(artist)))
           )
@@ -4985,8 +4850,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getAlbumJson(artist, album1, [])))
           );
 
-          const result = await login({ username, password })
-          .then((it) => it.topSongs(artistId));
+        const result = await subsonic.topSongs(artistId);
 
         expect(result).toEqual([track1, track2, track3]);
 
@@ -5016,7 +4880,6 @@ describe("Subsonic", () => {
         });
 
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getArtistJson(artist)))
           )
@@ -5024,9 +4887,7 @@ describe("Subsonic", () => {
             Promise.resolve(ok(getTopSongsJson([])))
           );
 
-
-          const result = await login({ username, password })
-          .then((it) => it.topSongs(artistId));
+        const result = await subsonic.topSongs(artistId);
 
         expect(result).toEqual([]);
 
@@ -5055,7 +4916,6 @@ describe("Subsonic", () => {
 
       beforeEach(() => {
         mockGET
-        .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
         .mockImplementationOnce(() =>
           Promise.resolve(ok(getRadioStationsJson([
             station1,
@@ -5067,8 +4927,7 @@ describe("Subsonic", () => {
 
       describe("asking for all of them", () => {
         it("should return them all", async () => {
-          const result = await login({ username, password })
-            .then((it) => it.radioStations());
+          const result = await subsonic.radioStations();
   
           expect(result).toEqual([station1, station2, station3]);
   
@@ -5084,8 +4943,7 @@ describe("Subsonic", () => {
 
       describe("asking for one of them", () => {
         it("should return it", async () => {
-          const result = await login({ username, password })
-            .then((it) => it.radioStation(station2.id));
+          const result = await subsonic.radioStation(station2.id);
   
           expect(result).toEqual(station2);
   
@@ -5103,13 +4961,11 @@ describe("Subsonic", () => {
     describe("when there are no radio stations", () => {
       it("should return []", async () => {
         mockGET
-          .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getRadioStationsJson([])))
           );
 
-          const result = await login({ username, password })
-              .then((it) => it.radioStations());
+          const result = await subsonic.radioStations();
 
         expect(result).toEqual([]);
 
