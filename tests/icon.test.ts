@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
-import libxmljs from "libxmljs2";
 import { FixedClock } from "../src/clock";
+import { xmlTidy } from "../src/utils";
 
 import {
   contains,
@@ -23,9 +23,6 @@ import {
 } from "../src/icon";
 
 describe("SvgIcon", () => {
-  const xmlTidy = (xml: string) =>
-    libxmljs.parseXmlString(xml, { noblanks: true, net: false }).toString();
-
   const svgIcon24 = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <path d="path1"/>
