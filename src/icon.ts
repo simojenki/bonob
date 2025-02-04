@@ -1,4 +1,5 @@
-import libxmljs, { Element, Attribute } from "libxmljs2";
+import * as xpath from "xpath";
+import { DOMParser, Node } from '@xmldom/xmldom';
 import _ from "underscore";
 import fs from "fs";
 
@@ -13,11 +14,10 @@ import {
   isMay4,
   SystemClock,
 } from "./clock";
+import { xmlTidy } from "./utils";
 import path from "path";
 
-const SVG_NS = {
-  svg: "http://www.w3.org/2000/svg",
-};
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 class ViewBox {
   minX: number;
@@ -117,38 +117,39 @@ export class SvgIcon implements Icon {
     });
 
   public toString = () => {
-    const xml = libxmljs.parseXmlString(this.svg, {
-      noblanks: true,
-      net: false,
-    });
-    const viewBoxAttr = xml.get("//svg:svg/@viewBox", SVG_NS) as Attribute;
-    let viewBox = new ViewBox(viewBoxAttr.value());
+    const doc = new DOMParser().parseFromString(this.svg, 'text/xml') as unknown as Document;
+    const select = xpath.useNamespaces({ svg: SVG_NS });
+
+    const elements = (path: string) => (select(path, doc) as Element[])
+    const element = (path: string) => elements(path)[0]!
+
+    let viewBox = new ViewBox(select("string(//svg:svg/@viewBox)", doc) as string);
     if (
       this.features.viewPortIncreasePercent &&
       this.features.viewPortIncreasePercent > 0
     ) {
       viewBox = viewBox.increasePercent(this.features.viewPortIncreasePercent);
-      viewBoxAttr.value(viewBox.toString());
+      element("//svg:svg").setAttribute("viewBox", viewBox.toString());
     }
     if (this.features.backgroundColor) {
-      (xml.get("//svg:svg/*[1]", SVG_NS) as Element).addPrevSibling(
-        new Element(xml, "rect").attr({
-          x: `${viewBox.minX}`,
-          y: `${viewBox.minY}`,
-          width: `${Math.abs(viewBox.minX) + viewBox.width}`,
-          height: `${Math.abs(viewBox.minY) + viewBox.height}`,
-          fill: this.features.backgroundColor,
-        })
-      );
+      const rect = doc.createElementNS(SVG_NS, "rect");
+      rect.setAttribute("x", `${viewBox.minX}`);
+      rect.setAttribute("y", `${viewBox.minY}`);
+      rect.setAttribute("width", `${Math.abs(viewBox.minX) + viewBox.width}`);
+      rect.setAttribute("height", `${Math.abs(viewBox.minY) + viewBox.height}`);
+      rect.setAttribute("fill", this.features.backgroundColor);
+      
+      const svg = element("//svg:svg")
+      svg.insertBefore(rect, svg.childNodes[0]!);
     }
     if (this.features.foregroundColor) {
-      (xml.find("//svg:path", SVG_NS) as Element[]).forEach((path) => {
-        if (path.attr("fill"))
-          path.attr({ stroke: this.features.foregroundColor! });
-        else path.attr({ fill: this.features.foregroundColor! });
+      elements("//svg:path").forEach((path) => {
+        if (path.getAttribute("fill")) path.setAttribute("stroke", this.features.foregroundColor!);
+        else path.setAttribute("fill", this.features.foregroundColor!);
       });
     }
-    return xml.toString();
+    
+    return xmlTidy(doc as unknown as Node);
   };
 }
 
