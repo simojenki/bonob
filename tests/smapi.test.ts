@@ -39,9 +39,6 @@ import {
   ROCK,
   TRIP_HOP,
   PUNK,
-  Y2024,
-  Y2023,
-  Y1969,
   aPlaylist,
   aRadioStation,
 } from "./builders";
@@ -558,6 +555,24 @@ describe("coverArtURI", () => {
       ).toEqual(
         "http://bonob.example.com:8080/context/icon/vinyl/size/legacy?search=yes"
       );
+    });
+  });
+});
+
+describe("iconArtURI", () => {
+  const bonobUrl = new URLBuilder(
+    "http://bonob.example.com:8080/context?search=yes"
+  );
+
+  describe("with no text", () => {
+    it("should return just the icon uri", () => {
+      expect(iconArtURI(bonobUrl, "mushroom").href()).toEqual("http://bonob.example.com:8080/context/icon/mushroom/size/legacy?search=yes")
+    });
+  });
+
+  describe("with text", () => {
+    it("should return just the icon uri", () => {
+      expect(iconArtURI(bonobUrl, "yyyy", "foobar10000").href()).toEqual("http://bonob.example.com:8080/context/icon/yyyy:foobar10000/size/legacy?search=yes")
     });
   });
 });
@@ -1383,7 +1398,7 @@ describe("wsdl api", () => {
             });
 
             describe("asking for a year", () => {
-              const expectedYears = [Y1969, Y2023, Y2024];
+              const expectedYears = [{ year: "?" }, { year: "1969" }, { year: "1980" }, { year: "2001" }, { year: "2010" }];
 
               beforeEach(() => {
                 musicLibrary.years.mockResolvedValue(expectedYears);
@@ -1396,17 +1411,22 @@ describe("wsdl api", () => {
                     index: 0,
                     count: 100,
                   });
+                  const albumListForYear = (year: string, icon: URLBuilder) => ({
+                    itemType: "albumList",
+                    id: `year:${year}`,
+                    title: year,
+                    albumArtURI: icon.href(),
+                  });
+
                   expect(result[0]).toEqual(
                     getMetadataResult({
-                      mediaCollection: expectedYears.map((year) => ({
-                        itemType: "albumList",
-                        id: `year:${year.id}`,
-                        title: year.year,
-                        albumArtURI: iconArtURI(
-                          bonobUrl,
-                          "music",
-                        ).href(),
-                      })),
+                      mediaCollection: [
+                        albumListForYear("?",    iconArtURI(bonobUrl, "music")),
+                        albumListForYear("1969", iconArtURI(bonobUrl, "yyyy", "1969")),
+                        albumListForYear("1980", iconArtURI(bonobUrl, "yyyy", "1980")),
+                        albumListForYear("2001", iconArtURI(bonobUrl, "yyyy", "2001")),
+                        albumListForYear("2010", iconArtURI(bonobUrl, "yyyy", "2010")),
+                      ],
                       index: 0,
                       total: expectedYears.length,
                     })
@@ -1418,21 +1438,22 @@ describe("wsdl api", () => {
                 it("should return just that page", async () => {
                   const result = await ws.getMetadataAsync({
                     id: `years`,
-                    index: 1,
+                    index: 2,
                     count: 2,
                   });
                   expect(result[0]).toEqual(
                     getMetadataResult({
-                      mediaCollection: [Y2023, Y2024].map((year) => ({
+                      mediaCollection: [{ year: "1980" }, { year: "2001" }].map((year) => ({
                         itemType: "albumList",
-                        id: `year:${year.id}`,
+                        id: `year:${year.year}`,
                         title: year.year,
                         albumArtURI: iconArtURI(
                           bonobUrl,
-                          "music"
+                          "yyyy",
+                          year.year
                         ).href(),
                       })),
-                      index: 1,
+                      index: 2,
                       total: expectedYears.length,
                     })
                   );

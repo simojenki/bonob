@@ -1366,11 +1366,25 @@ describe("server", () => {
             "..%2F..%2Ffoo",
             "%2Fetc%2Fpasswd",
             ".%2Fbob.js",
-            ".",
-            "..",
-            "1",
             "%23%24",
+          ].forEach((type) => {
+            describe(`trying to retrieve an icon with name ${type}`, () => {
+              it(`should fail`, async () => {
+                const response = await request(server()).get(
+                  `/icon/${type}/size/legacy`
+                );
+
+                expect(response.status).toEqual(400);
+              });
+            });
+          });
+        });
+
+        describe("missing icons", () => {
+          [
+            "1",
             "notAValidIcon",
+            "notAValidIcon:withSomeText"
           ].forEach((type) => {
             describe(`trying to retrieve an icon with name ${type}`, () => {
               it(`should fail`, async () => {
@@ -1397,6 +1411,20 @@ describe("server", () => {
             });
           });
         });
+
+        describe("invalid text", () => {
+          ["..", "foobar.123", "_dog_", "{ whoop }"].forEach((text) => {
+            describe(`trying to retrieve an icon with text ${text}`, () => {
+              it(`should fail`, async () => {
+                const response = await request(server()).get(
+                  `/icon/yyyy:${text}/size/60`
+                );
+
+                expect(response.status).toEqual(400);
+              });
+            });
+          });
+        });        
 
         describe("fetching", () => {
           [
@@ -1524,6 +1552,41 @@ describe("server", () => {
                   "yellow"
                 );
               });
+            });
+          });
+        });
+
+        describe("specifing some text", () => {
+          const text = "somethingWicked"
+
+          describe(`legacy icon`, () => {
+            it("should return the png image", async () => {
+              const response = await request(server()).get(
+                `/icon/yyyy:${text}/size/legacy`
+              );
+
+              expect(response.status).toEqual(200);
+              expect(response.header["content-type"]).toEqual("image/png");
+              const image = await Image.load(response.body);
+              expect(image.width).toEqual(80);
+              expect(image.height).toEqual(80);
+            });
+          });
+
+          describe("svg icon", () => {
+            it(`should return an svg image with the text replaced`, async () => {
+              const response = await request(server()).get(
+                `/icon/yyyy:${text}/size/60`
+              );
+
+              expect(response.status).toEqual(200);
+              expect(response.header["content-type"]).toEqual(
+                "image/svg+xml; charset=utf-8"
+              );
+              const svg = Buffer.from(response.body).toString();
+              expect(svg).toContain(
+                `>${text}</text>`
+              );
             });
           });
         });

@@ -20,6 +20,7 @@ import {
   allOf,
   features,
   STAR_WARS,
+  NO_FEATURES,
 } from "../src/icon";
 
 describe("SvgIcon", () => {
@@ -27,7 +28,9 @@ describe("SvgIcon", () => {
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <path d="path1"/>
   <path d="path2" fill="none" stroke="#000"/>
+  <text font-size="25" fill="none">80's</text>
   <path d="path3"/>
+  <text font-size="25">80's</text>
 </svg>
 `;
 
@@ -58,7 +61,9 @@ describe("SvgIcon", () => {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 32 32">
               <path d="path1"/>
               <path d="path2" fill="none" stroke="#000"/>
+              <text font-size="25" fill="none">80's</text>
               <path d="path3"/>
+              <text font-size="25">80's</text>
             </svg>
           `)
           );
@@ -107,7 +112,9 @@ describe("SvgIcon", () => {
               <rect x="0" y="0" width="24" height="24" fill="red"/>
               <path d="path1"/>
               <path d="path2" fill="none" stroke="#000"/>
+              <text font-size="25" fill="none">80's</text>
               <path d="path3"/>
+              <text font-size="25">80's</text>
             </svg>
         `)
         );
@@ -131,7 +138,9 @@ describe("SvgIcon", () => {
               <rect x="-4" y="-4" width="36" height="36" fill="pink"/>
               <path d="path1"/>
               <path d="path2" fill="none" stroke="#000"/>
+              <text font-size="25" fill="none">80's</text>
               <path d="path3"/>
+              <text font-size="25">80's</text>
             </svg>
         `)
         );
@@ -149,7 +158,9 @@ describe("SvgIcon", () => {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path d="path1"/>
               <path d="path2" fill="none" stroke="#000"/>
+              <text font-size="25" fill="none">80's</text>
               <path d="path3"/>
+              <text font-size="25">80's</text>
             </svg>
         `)
         );
@@ -169,7 +180,9 @@ describe("SvgIcon", () => {
               <rect x="0" y="0" width="24" height="24" fill="red"/>
               <path d="path1"/>
               <path d="path2" fill="none" stroke="#000"/>
+              <text font-size="25" fill="none">80's</text>
               <path d="path3"/>
+              <text font-size="25">80's</text>
             </svg>
         `)
         );
@@ -179,7 +192,7 @@ describe("SvgIcon", () => {
 
   describe("foreground color", () => {
     describe("with no viewPort increase", () => {
-      it("should add a rectangle the same size as the original viewPort", () => {
+      it("should change the fill values", () => {
         expect(
           new SvgIcon(svgIcon24)
             .with({ features: { foregroundColor: "red" } })
@@ -189,7 +202,9 @@ describe("SvgIcon", () => {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path d="path1" fill="red"/>
               <path d="path2" fill="none" stroke="red"/>
+              <text font-size="25" fill="none" stroke="red">80's</text>
               <path d="path3" fill="red"/>
+              <text font-size="25" fill="red">80's</text>
             </svg>
         `)
         );
@@ -197,7 +212,7 @@ describe("SvgIcon", () => {
     });
 
     describe("with a viewPort increase", () => {
-      it("should add a rectangle the same size as the original viewPort", () => {
+      it("should change the fill values", () => {
         expect(
           new SvgIcon(svgIcon24)
             .with({
@@ -212,7 +227,9 @@ describe("SvgIcon", () => {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 32 32">
               <path d="path1" fill="pink"/>
               <path d="path2" fill="none" stroke="pink"/>
+              <text font-size="25" fill="none" stroke="pink">80's</text>
               <path d="path3" fill="pink"/>
+              <text font-size="25" fill="pink">80's</text>
             </svg>
         `)
         );
@@ -230,7 +247,9 @@ describe("SvgIcon", () => {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path d="path1"/>
               <path d="path2" fill="none" stroke="#000"/>
+              <text font-size="25" fill="none">80's</text>              
               <path d="path3"/>
+              <text font-size="25">80's</text>              
             </svg>
         `)
         );
@@ -249,8 +268,52 @@ describe("SvgIcon", () => {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path d="path1" fill="red"/>
               <path d="path2" fill="none" stroke="red"/>
+              <text font-size="25" fill="none" stroke="red">80's</text>              
               <path d="path3" fill="red"/>
+              <text font-size="25" fill="red">80's</text>              
             </svg>
+        `)
+        );
+      });
+    });
+  });
+
+  describe("text", () => {
+    describe("when text value specified", () => {
+      it("should change the text values", () => {
+        expect(
+          new SvgIcon(svgIcon24)
+            .with({ features: { text: "yipppeeee" } })
+            .toString()
+        ).toEqual(
+          xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path d="path1"/>
+  <path d="path2" fill="none" stroke="#000"/>
+  <text font-size="25" fill="none">yipppeeee</text>
+  <path d="path3"/>
+  <text font-size="25">yipppeeee</text>
+</svg>
+        `)
+        );
+      });
+    });
+
+    describe("of undefined", () => {
+      it("should not do anything", () => {
+        expect(
+          new SvgIcon(svgIcon24)
+            .with({ features: { text: undefined } })
+            .toString()
+        ).toEqual(
+          xmlTidy(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path d="path1"/>
+  <path d="path2" fill="none" stroke="#000"/>
+  <text font-size="25" fill="none">80's</text>
+  <path d="path3"/>
+  <text font-size="25">80's</text>
+</svg>
         `)
         );
       });
@@ -315,10 +378,14 @@ describe("SvgIcon", () => {
 
 class DummyIcon implements Icon {
   svg: string;
-  features: Partial<IconFeatures>;
+  features: IconFeatures;
+
   constructor(svg: string, features: Partial<IconFeatures>) {
     this.svg = svg;
-    this.features = features;
+    this.features = {
+      ...NO_FEATURES,
+      ...features
+    };
   }
 
   public apply = (transformer: Transformer): Icon => transformer(this);
@@ -347,6 +414,7 @@ describe("transform", () => {
             viewPortIncreasePercent: 100,
             foregroundColor: "blue",
             backgroundColor: "blue",
+            text: "a",
           },
         })
         .apply(
@@ -354,6 +422,7 @@ describe("transform", () => {
             features: {
               foregroundColor: "override1",
               backgroundColor: "override2",
+              text: "b",
             },
           })
         ) as DummyIcon;
@@ -363,6 +432,7 @@ describe("transform", () => {
         viewPortIncreasePercent: 100,
         foregroundColor: "override1",
         backgroundColor: "override2",
+        text: "b",
       });
     });
   });
@@ -379,6 +449,7 @@ describe("transform", () => {
             viewPortIncreasePercent: 100,
             foregroundColor: "blue",
             backgroundColor: "blue",
+            text: "bob",
           },
         })
         .apply(
@@ -392,6 +463,7 @@ describe("transform", () => {
         viewPortIncreasePercent: 100,
         foregroundColor: "blue",
         backgroundColor: "blue",
+        text: "bob"
       });
     });
   });
@@ -408,6 +480,7 @@ describe("features", () => {
         viewPortIncreasePercent: 100,
         foregroundColor: "blue",
         backgroundColor: "blue",
+        text: "foobar"
       })
     ) as DummyIcon;
 
@@ -415,6 +488,7 @@ describe("features", () => {
       viewPortIncreasePercent: 100,
       foregroundColor: "blue",
       backgroundColor: "blue",
+      text: "foobar"
     });
   });
 });

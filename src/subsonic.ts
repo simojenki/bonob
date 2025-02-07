@@ -805,7 +805,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   years = async () => {
       const q: AlbumQuery = {
         _index: 0,
-        _count: 100000,  // FIXME: better than this ?
+        _count: 100000,  // FIXME: better than this, probably doesnt work anyway as max _count is 500 or something
         type: "alphabeticalByArtist",
       };
       const years = this.subsonic.getAlbumList2(this.credentials, q)
