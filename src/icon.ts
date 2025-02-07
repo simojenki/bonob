@@ -48,7 +48,15 @@ export type IconFeatures = {
   viewPortIncreasePercent: number | undefined;
   backgroundColor: string | undefined;
   foregroundColor: string | undefined;
+  text: string | undefined;
 };
+
+export const NO_FEATURES: IconFeatures = {
+  viewPortIncreasePercent: undefined,
+  backgroundColor: undefined,
+  foregroundColor: undefined,
+  text: undefined
+}
 
 export type IconSpec = {
   svg: string | undefined;
@@ -93,17 +101,11 @@ export class SvgIcon implements Icon {
 
   constructor(
     svg: string,
-    features: Partial<IconFeatures> = {
-      viewPortIncreasePercent: undefined,
-      backgroundColor: undefined,
-      foregroundColor: undefined,
-    }
+    features: Partial<IconFeatures> = {}
   ) {
     this.svg = svg;
     this.features = {
-      viewPortIncreasePercent: undefined,
-      backgroundColor: undefined,
-      foregroundColor: undefined,
+      ...NO_FEATURES,
       ...features,
     };
   }
@@ -131,6 +133,17 @@ export class SvgIcon implements Icon {
       viewBox = viewBox.increasePercent(this.features.viewPortIncreasePercent);
       element("//svg:svg").setAttribute("viewBox", viewBox.toString());
     }
+    if(this.features.text) {
+      elements("//svg:text").forEach((text) => {
+        text.textContent = this.features.text!
+      });
+    }
+    if (this.features.foregroundColor) {
+      elements("//svg:path|//svg:text").forEach((path) => {
+        if (path.getAttribute("fill")) path.setAttribute("stroke", this.features.foregroundColor!);
+        else path.setAttribute("fill", this.features.foregroundColor!);
+      });
+    }
     if (this.features.backgroundColor) {
       const rect = doc.createElementNS(SVG_NS, "rect");
       rect.setAttribute("x", `${viewBox.minX}`);
@@ -141,12 +154,6 @@ export class SvgIcon implements Icon {
       
       const svg = element("//svg:svg")
       svg.insertBefore(rect, svg.childNodes[0]!);
-    }
-    if (this.features.foregroundColor) {
-      elements("//svg:path").forEach((path) => {
-        if (path.getAttribute("fill")) path.setAttribute("stroke", this.features.foregroundColor!);
-        else path.setAttribute("fill", this.features.foregroundColor!);
-      });
     }
     
     return xmlTidy(doc as unknown as Node);
@@ -230,20 +237,24 @@ export type ICON =
   | "yoda" 
   | "heart"
   | "star" 
-  | "solidStar";
+  | "solidStar"
+  | "yy"
+  | "yyyy";
 
-const iconFrom = (name: string) =>
+const svgFrom = (name: string) =>
   new SvgIcon(
     fs
       .readFileSync(path.resolve(__dirname, "..", "web", "icons", name))
       .toString()
   );
 
+const iconFrom = (name: string) => svgFrom(name).with({ features: { viewPortIncreasePercent: 80 } });
+    
 export const ICONS: Record<ICON, SvgIcon> = {
   artists: iconFrom("navidrome-artists.svg"),
   albums: iconFrom("navidrome-all.svg"),
   radio: iconFrom("navidrome-radio.svg"),
-  blank: iconFrom("blank.svg"),
+  blank: svgFrom("blank.svg"),
   playlists: iconFrom("navidrome-playlists.svg"),
   genres: iconFrom("Theatre-Mask-111172.svg"),
   random: iconFrom("navidrome-random.svg"),
@@ -308,7 +319,9 @@ export const ICONS: Record<ICON, SvgIcon> = {
   yoda: iconFrom("Yoda-68107.svg"),
   heart: iconFrom("Heart-85038.svg"),
   star: iconFrom("Star-16101.svg"),
-  solidStar: iconFrom("Star-43879.svg")
+  solidStar: iconFrom("Star-43879.svg"),
+  yy: svgFrom("yy.svg"),
+  yyyy: svgFrom("yyyy.svg"),
 };
 
 export const STAR_WARS = [ICONS.c3po, ICONS.chewy, ICONS.darth, ICONS.skywalker, ICONS.leia, ICONS.r2d2, ICONS.yoda];

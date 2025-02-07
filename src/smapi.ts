@@ -251,11 +251,12 @@ const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
   albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name)).href(),
 });
 
-const year = (bonobUrl: URLBuilder, year: Year) => ({
+const yyyy = (bonobUrl: URLBuilder, year: Year) => ({
   itemType: "albumList",
   id: `year:${year.year}`,
   title: year.year,
-  albumArtURI: iconArtURI(bonobUrl, "music").href(),
+  // todo: maybe year.year should be nullable?
+  albumArtURI: year.year !== "?" ? iconArtURI(bonobUrl, "yyyy", year.year).href() : iconArtURI(bonobUrl, "music").href(),
 });
 
 const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
@@ -286,9 +287,9 @@ export const coverArtURI = (
     O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
   );
 
-export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
+export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON, text: string | undefined = undefined) =>
   bonobUrl.append({
-    pathname: `/icon/${icon}/size/legacy`,
+    pathname: `/icon/${text == undefined ? icon : `${icon}:${text}`}/size/legacy`,
   });
 
 export const sonosifyMimeType = (mimeType: string) =>
@@ -888,7 +889,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) =>
                         getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            year(bonobUrl, it)
+                            yyyy(bonobUrl, it)
                           ),
                           index: paging._index,
                           total,

@@ -14,7 +14,7 @@ import {
   Playlist,
   SimilarArtist,
   AlbumSummary,
-  RadioStation,
+  RadioStation
 } from "../src/music_service";
 
 import { b64Encode } from "../src/b64";
@@ -165,12 +165,6 @@ export const SAMPLE_GENRES = [
   SKA,
 ];
 export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)];
-
-export const aYear = (year: string) => ({ id: year, year });
-
-export const Y2024 = aYear("2024");
-export const Y2023 = aYear("2023");
-export const Y1969 = aYear("1969");
 
 export function aTrack(fields: Partial<Track> = {}): Track {
   const id = uuid();

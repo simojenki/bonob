@@ -498,16 +498,18 @@ function server(
     }
   });
 
-  app.get("/icon/:type/size/:size", (req, res) => {
-    const type = req.params["type"]!;
+  app.get("/icon/:type_text/size/:size", (req, res) => {
+    const match = (req.params["type_text"] || "")!.match("^([A-Za-z0-9]+)(?:\:([A-Za-z0-9]+))?$")
+    if (!match)
+      return res.status(400).send();
+    
+    const type = match[1]!
+    const text = match[2]
     const size = req.params["size"]!;
 
     if (!Object.keys(ICONS).includes(type)) {
       return res.status(404).send();
-    } else if (
-      size != "legacy" &&
-      !SONOS_RECOMMENDED_IMAGE_SIZES.includes(size)
-    ) {
+    } else if (size != "legacy" && !SONOS_RECOMMENDED_IMAGE_SIZES.includes(size)) {
       return res.status(400).send();
     } else {
       let icon = (ICONS as any)[type]! as Icon;
@@ -528,8 +530,8 @@ function server(
         icon
           .apply(
             features({
-              viewPortIncreasePercent: 80,
               ...serverOpts.iconColors,
+              text: text
             })
           )
           .apply(festivals(clock))
