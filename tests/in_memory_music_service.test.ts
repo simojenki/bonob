@@ -6,7 +6,7 @@ import {
   MusicLibrary,
   artistToArtistSummary,
   albumToAlbumSummary,
-} from "../src/music_service";
+} from "../src/music_library";
 import { v4 as uuid } from "uuid";
 import {
   anArtist,

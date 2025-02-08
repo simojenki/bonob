@@ -15,7 +15,7 @@ import { InMemoryAPITokens, sha256 } from "./api_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
 import readConfig from "./config";
 import sonos, { bonobService } from "./sonos";
-import { MusicService } from "./music_service";
+import { MusicService } from "./music_library";
 import { SystemClock } from "./clock";
 import { JWTSmapiLoginTokens } from "./smapi_auth";
 

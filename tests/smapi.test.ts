@@ -49,7 +49,7 @@ import {
   artistToArtistSummary,
   MusicService,
   playlistToPlaylistSummary,
-} from "../src/music_service";
+} from "../src/music_library";
 import { APITokens } from "../src/api_tokens";
 import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";

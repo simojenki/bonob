@@ -4,7 +4,7 @@ import request from "supertest";
 import Image from "image-js";
 import { either as E, taskEither as TE } from "fp-ts";
 
-import { AuthFailure, MusicService } from "../src/music_service";
+import { AuthFailure, MusicService } from "../src/music_library";
 import makeServer, {
   BONOB_ACCESS_TOKEN_HEADER,
   RangeBytesFromFilter,
