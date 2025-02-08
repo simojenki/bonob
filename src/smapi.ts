@@ -22,7 +22,7 @@ import {
   Rating,
   slice2,
   Track,
-} from "./music_service";
+} from "./music_library";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";

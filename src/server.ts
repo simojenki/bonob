@@ -24,7 +24,7 @@ import {
   shouldScrobble
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
-import { MusicService, AuthFailure, AuthSuccess } from "./music_service";
+import { MusicService, AuthFailure, AuthSuccess } from "./music_library";
 import bindSmapiSoapServiceToExpress from "./smapi";
 import { APITokens, InMemoryAPITokens } from "./api_tokens";
 import logger from "./logger";

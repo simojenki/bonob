@@ -1,7 +1,7 @@
 import { v4 as uuid } from "uuid";
 
 import { anArtist } from "./builders";
-import { artistToArtistSummary } from "../src/music_service";
+import { artistToArtistSummary } from "../src/music_library";
 
 describe("artistToArtistSummary", () => {
   it("should map fields correctly", () => {

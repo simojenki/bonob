@@ -15,7 +15,7 @@ import {
   SimilarArtist,
   AlbumSummary,
   RadioStation
-} from "../src/music_service";
+} from "../src/music_library";
 
 import { b64Encode } from "../src/b64";
 import { artistImageURN } from "../src/subsonic";

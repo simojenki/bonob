@@ -23,7 +23,7 @@ import {
   Track,
   Genre,
   Rating,
-} from "../src/music_service";
+} from "../src/music_library";
 import { BUrn } from "../src/burn";
 
 export class InMemoryMusicService implements MusicService {
