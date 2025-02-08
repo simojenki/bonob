@@ -23,7 +23,8 @@ export type ArtistSummary = {
 
 export type SimilarArtist = ArtistSummary & { inLibrary: boolean };
 
-export type Artist = ArtistSummary & {
+// todo: maybe is should be artist.summary rather than an artist also being a summary?
+export type Artist = Pick<ArtistSummary, "id" | "name" | "image">  & {
   albums: AlbumSummary[];
   similarArtists: SimilarArtist[]
 };
@@ -34,12 +35,11 @@ export type AlbumSummary = {
   year: string | undefined;
   genre: Genre | undefined;
   coverArt: BUrn | undefined;
-
   artistName: string | undefined;
   artistId: string | undefined;
 };
 
-export type Album = AlbumSummary & {};
+export type Album = Pick<AlbumSummary, "id" | "name" | "year" | "genre" | "coverArt" | "artistName" | "artistId"> & { tracks: Track[] };
 
 export type Genre = {
   name: string;
@@ -60,7 +60,7 @@ export type Encoding = {
   mimeType: string
 }
 
-export type Track = {
+export type TrackSummary = {
   id: string;
   name: string;
   encoding: Encoding,
@@ -68,9 +68,12 @@ export type Track = {
   number: number | undefined;
   genre: Genre | undefined;
   coverArt: BUrn | undefined;
-  album: AlbumSummary;
   artist: ArtistSummary;
   rating: Rating;
+}
+
+export type Track = TrackSummary & {
+  album: AlbumSummary;
 };
 
 export type RadioStation = {
@@ -129,6 +132,18 @@ export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
   coverArt: it.coverArt
 });
 
+export const trackToTrackSummary = (it: Track): TrackSummary => ({
+  id: it.id,
+  name: it.name,
+  encoding: it.encoding,
+  duration: it.duration,
+  number: it.number,
+  genre: it.genre,
+  coverArt: it.coverArt,
+  artist: it.artist,
+  rating: it.rating
+});
+
 export const playlistToPlaylistSummary = (it: Playlist): PlaylistSummary => ({
   id: it.id,
   name: it.name,
@@ -176,7 +191,6 @@ export interface MusicLibrary {
   artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
   album(id: string): Promise<Album>;
-  tracks(albumId: string): Promise<Track[]>;
   track(trackId: string): Promise<Track>;
   genres(): Promise<Genre[]>;
   years(): Promise<Year[]>;
@@ -200,8 +214,8 @@ export interface MusicLibrary {
   deletePlaylist(id: string): Promise<boolean>
   addToPlaylist(playlistId: string, trackId: string): Promise<boolean>
   removeFromPlaylist(playlistId: string, indicies: number[]): Promise<boolean>
-  similarSongs(id: string): Promise<Track[]>;
-  topSongs(artistId: string): Promise<Track[]>;
+  similarSongs(id: string): Promise<TrackSummary[]>;
+  topSongs(artistId: string): Promise<TrackSummary[]>;
   radioStation(id: string): Promise<RadioStation>
   radioStations(): Promise<RadioStation[]>
 }

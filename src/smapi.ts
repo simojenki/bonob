@@ -20,8 +20,8 @@ import {
   Rating,
   slice2,
   Track,
-  PlaylistSummary,
-} from "./music_service";
+  PlaylistSummary
+} from "./music_library";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
@@ -983,7 +983,8 @@ function bindSmapiSoapServiceToExpress(
                       });
                   case "album":
                     return musicLibrary
-                      .tracks(typeId!)
+                      .album(typeId!)
+                      .then(it => it.tracks)
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({
