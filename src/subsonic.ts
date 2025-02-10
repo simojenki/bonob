@@ -506,6 +506,7 @@ export class Subsonic {
         } else return response;
       });
 
+  // todo: make private
   getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
