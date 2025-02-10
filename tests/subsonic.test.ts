@@ -1,10 +1,21 @@
+import { v4 as uuid } from "uuid";
 import { Md5 } from "ts-md5";
 import tmp from "tmp";
 import fse from "fs-extra";
 import path from "path";
-import {  pipe } from "fp-ts/lib/function";
+import { pipe } from "fp-ts/lib/function";
 import { option as O } from "fp-ts";
 
+import sharp from "sharp";
+jest.mock("sharp");
+
+import axios from "axios";
+jest.mock("axios");
+
+import randomstring from "randomstring";
+jest.mock("randomstring");
+
+import { URLBuilder } from "../src/url_builder";
 import {
   isValidImage,
   t,
@@ -17,20 +28,13 @@ import {
   TranscodingCustomPlayers,
   CustomPlayers,
   NO_CUSTOM_PLAYERS,
+  Subsonic,
 } from "../src/subsonic";
 
-import sharp from "sharp";
-jest.mock("sharp");
+import { b64Encode } from "../src/b64";
 
-import {
-  Album,
-  Artist,
-  Track,
-} from "../src/music_library";
-import {
-  anAlbum,
-  aTrack,
-} from "./builders";
+import { Album, Artist, Track } from "../src/music_library";
+import { anAlbum, aTrack } from "./builders";
 import { BUrn } from "../src/burn";
 
 describe("t", () => {
@@ -61,26 +65,33 @@ describe("isValidImage", () => {
   });
 });
 
-
 describe("StreamClient(s)", () => {
   describe("CustomStreamClientApplications", () => {
-    const customClients = TranscodingCustomPlayers.from("audio/flac,audio/mp3>audio/ogg")
-  
+    const customClients = TranscodingCustomPlayers.from(
+      "audio/flac,audio/mp3>audio/ogg"
+    );
+
     describe("clientFor", () => {
       describe("when there is a match", () => {
         it("should return the match", () => {
-          expect(customClients.encodingFor({ mimeType: "audio/flac" })).toEqual(O.of({player: "bonob+audio/flac", mimeType:"audio/flac"}))
-          expect(customClients.encodingFor({ mimeType: "audio/mp3" })).toEqual(O.of({player: "bonob+audio/mp3", mimeType:"audio/ogg"}))
+          expect(customClients.encodingFor({ mimeType: "audio/flac" })).toEqual(
+            O.of({ player: "bonob+audio/flac", mimeType: "audio/flac" })
+          );
+          expect(customClients.encodingFor({ mimeType: "audio/mp3" })).toEqual(
+            O.of({ player: "bonob+audio/mp3", mimeType: "audio/ogg" })
+          );
         });
       });
-  
+
       describe("when there is no match", () => {
         it("should return undefined", () => {
-          expect(customClients.encodingFor({ mimeType: "audio/bob" })).toEqual(O.none)
+          expect(customClients.encodingFor({ mimeType: "audio/bob" })).toEqual(
+            O.none
+          );
         });
       });
     });
-  }); 
+  });
 });
 
 describe("asURLSearchParams", () => {
@@ -197,12 +208,13 @@ describe("cachingImageFetcher", () => {
   });
 });
 
-const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) => pipe(
-  coverArt,
-  O.fromNullable,
-  O.map(it => it.resource.split(":")[1]),
-  O.getOrElseW(() => "")
-)
+const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
+  pipe(
+    coverArt,
+    O.fromNullable,
+    O.map((it) => it.resource.split(":")[1]),
+    O.getOrElseW(() => "")
+  );
 
 const asSongJson = (track: Track) => ({
   id: track.id,
@@ -241,8 +253,14 @@ describe("artistURN", () => {
     describe("a valid external URL", () => {
       it("should return an external URN", () => {
         expect(
-          artistImageURN({ artistId: "someArtistId", artistImageURL: "http://example.com/image.jpg" })
-        ).toEqual({ system: "external", resource: "http://example.com/image.jpg" });
+          artistImageURN({
+            artistId: "someArtistId",
+            artistImageURL: "http://example.com/image.jpg",
+          })
+        ).toEqual({
+          system: "external",
+          resource: "http://example.com/image.jpg",
+        });
       });
     });
 
@@ -252,7 +270,7 @@ describe("artistURN", () => {
           expect(
             artistImageURN({
               artistId: "someArtistId",
-              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`
+              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`,
             })
           ).toEqual({ system: "subsonic", resource: "art:someArtistId" });
         });
@@ -263,7 +281,7 @@ describe("artistURN", () => {
           expect(
             artistImageURN({
               artistId: "-1",
-              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`
+              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`,
             })
           ).toBeUndefined();
         });
@@ -274,7 +292,7 @@ describe("artistURN", () => {
           expect(
             artistImageURN({
               artistId: undefined,
-              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`
+              artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`,
             })
           ).toBeUndefined();
         });
@@ -284,19 +302,28 @@ describe("artistURN", () => {
     describe("undefined", () => {
       describe("and artistId is valid", () => {
         it("should return artist art by artist id URN", () => {
-          expect(artistImageURN({ artistId: "someArtistId", artistImageURL: undefined })).toEqual({system:"subsonic", resource:"art:someArtistId"});
+          expect(
+            artistImageURN({
+              artistId: "someArtistId",
+              artistImageURL: undefined,
+            })
+          ).toEqual({ system: "subsonic", resource: "art:someArtistId" });
         });
       });
 
       describe("and artistId is -1", () => {
         it("should return error icon", () => {
-          expect(artistImageURN({ artistId: "-1", artistImageURL: undefined })).toBeUndefined();
+          expect(
+            artistImageURN({ artistId: "-1", artistImageURL: undefined })
+          ).toBeUndefined();
         });
       });
 
       describe("and artistId is undefined", () => {
         it("should return error icon", () => {
-          expect(artistImageURN({ artistId: undefined, artistImageURL: undefined })).toBeUndefined();
+          expect(
+            artistImageURN({ artistId: undefined, artistImageURL: undefined })
+          ).toBeUndefined();
         });
       });
     });
@@ -311,10 +338,20 @@ describe("asTrack", () => {
 
   describe("when the song has no artistId", () => {
     const album = anAlbum();
-    const track = aTrack({ artist: { id: undefined, name: "Not in library so no id", image: undefined }});
+    const track = aTrack({
+      artist: {
+        id: undefined,
+        name: "Not in library so no id",
+        image: undefined,
+      },
+    });
 
     it("should provide no artistId", () => {
-      const result = asTrack(album, { ...asSongJson(track) }, NO_CUSTOM_PLAYERS);
+      const result = asTrack(
+        album,
+        { ...asSongJson(track) },
+        NO_CUSTOM_PLAYERS
+      );
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("Not in library so no id");
       expect(result.artist.image).toBeUndefined();
@@ -325,7 +362,11 @@ describe("asTrack", () => {
     const album = anAlbum();
 
     it("should provide a ? to sonos", () => {
-      const result = asTrack(album, { id: '1' } as any as song, NO_CUSTOM_PLAYERS);
+      const result = asTrack(
+        album,
+        { id: "1" } as any as song,
+        NO_CUSTOM_PLAYERS
+      );
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("?");
       expect(result.artist.image).toBeUndefined();
@@ -338,14 +379,22 @@ describe("asTrack", () => {
 
     describe("a value greater than 5", () => {
       it("should be returned as 0", () => {
-        const result = asTrack(album, { ...asSongJson(track), userRating: 6 }, NO_CUSTOM_PLAYERS);
+        const result = asTrack(
+          album,
+          { ...asSongJson(track), userRating: 6 },
+          NO_CUSTOM_PLAYERS
+        );
         expect(result.rating.stars).toEqual(0);
       });
     });
 
     describe("a value less than 0", () => {
       it("should be returned as 0", () => {
-        const result = asTrack(album, { ...asSongJson(track), userRating: -1 }, NO_CUSTOM_PLAYERS);
+        const result = asTrack(
+          album,
+          { ...asSongJson(track), userRating: -1 },
+          NO_CUSTOM_PLAYERS
+        );
         expect(result.rating.stars).toEqual(0);
       });
     });
@@ -358,82 +407,281 @@ describe("asTrack", () => {
     describe("when there are no custom players", () => {
       describe("when subsonic reports no transcodedContentType", () => {
         it("should use the default client and default contentType", () => {
-          const result = asTrack(album, { 
-            ...asSongJson(track),
-            contentType: "nonTranscodedContentType",
-            transcodedContentType: undefined 
-          }, NO_CUSTOM_PLAYERS);
+          const result = asTrack(
+            album,
+            {
+              ...asSongJson(track),
+              contentType: "nonTranscodedContentType",
+              transcodedContentType: undefined,
+            },
+            NO_CUSTOM_PLAYERS
+          );
 
-          expect(result.encoding).toEqual({ player: "bonob", mimeType: "nonTranscodedContentType" })
+          expect(result.encoding).toEqual({
+            player: "bonob",
+            mimeType: "nonTranscodedContentType",
+          });
         });
       });
 
       describe("when subsonic reports a transcodedContentType", () => {
         it("should use the default client and transcodedContentType", () => {
-          const result = asTrack(album, { 
-            ...asSongJson(track),
-            contentType: "nonTranscodedContentType",
-            transcodedContentType: "transcodedContentType" 
-          }, NO_CUSTOM_PLAYERS);
+          const result = asTrack(
+            album,
+            {
+              ...asSongJson(track),
+              contentType: "nonTranscodedContentType",
+              transcodedContentType: "transcodedContentType",
+            },
+            NO_CUSTOM_PLAYERS
+          );
 
-          expect(result.encoding).toEqual({ player: "bonob", mimeType: "transcodedContentType" })
+          expect(result.encoding).toEqual({
+            player: "bonob",
+            mimeType: "transcodedContentType",
+          });
         });
       });
     });
 
     describe("when there are custom players registered", () => {
       const streamClient = {
-        encodingFor: jest.fn()
-      }
+        encodingFor: jest.fn(),
+      };
 
       describe("however no player is found for the default mimeType", () => {
         describe("and there is no transcodedContentType", () => {
           it("should use the default player with the default content type", () => {
-            streamClient.encodingFor.mockReturnValue(O.none)
+            streamClient.encodingFor.mockReturnValue(O.none);
 
-            const result = asTrack(album, { 
-              ...asSongJson(track),
-              contentType: "nonTranscodedContentType",
-              transcodedContentType: undefined 
-            },  streamClient as unknown as CustomPlayers);
-  
-            expect(result.encoding).toEqual({ player: "bonob", mimeType: "nonTranscodedContentType" });
-            expect(streamClient.encodingFor).toHaveBeenCalledWith({ mimeType: "nonTranscodedContentType" });
+            const result = asTrack(
+              album,
+              {
+                ...asSongJson(track),
+                contentType: "nonTranscodedContentType",
+                transcodedContentType: undefined,
+              },
+              streamClient as unknown as CustomPlayers
+            );
+
+            expect(result.encoding).toEqual({
+              player: "bonob",
+              mimeType: "nonTranscodedContentType",
+            });
+            expect(streamClient.encodingFor).toHaveBeenCalledWith({
+              mimeType: "nonTranscodedContentType",
+            });
           });
         });
 
         describe("and there is a transcodedContentType", () => {
           it("should use the default player with the transcodedContentType", () => {
-            streamClient.encodingFor.mockReturnValue(O.none)
+            streamClient.encodingFor.mockReturnValue(O.none);
 
-            const result = asTrack(album, { 
-              ...asSongJson(track),
-              contentType: "nonTranscodedContentType",
-              transcodedContentType: "transcodedContentType1" 
-            },  streamClient as unknown as CustomPlayers);
-  
-            expect(result.encoding).toEqual({ player: "bonob", mimeType: "transcodedContentType1" });
-            expect(streamClient.encodingFor).toHaveBeenCalledWith({ mimeType: "nonTranscodedContentType" });
+            const result = asTrack(
+              album,
+              {
+                ...asSongJson(track),
+                contentType: "nonTranscodedContentType",
+                transcodedContentType: "transcodedContentType1",
+              },
+              streamClient as unknown as CustomPlayers
+            );
+
+            expect(result.encoding).toEqual({
+              player: "bonob",
+              mimeType: "transcodedContentType1",
+            });
+            expect(streamClient.encodingFor).toHaveBeenCalledWith({
+              mimeType: "nonTranscodedContentType",
+            });
           });
         });
       });
 
       describe("there is a player with the matching content type", () => {
         it("should use it", () => {
-          const customEncoding = { player: "custom-player", mimeType: "audio/some-mime-type" };
+          const customEncoding = {
+            player: "custom-player",
+            mimeType: "audio/some-mime-type",
+          };
           streamClient.encodingFor.mockReturnValue(O.of(customEncoding));
-    
-          const result = asTrack(album, { 
-            ...asSongJson(track), 
-            contentType: "sourced-from/subsonic", 
-            transcodedContentType: "sourced-from/subsonic2" 
-          }, streamClient as unknown as CustomPlayers);
-    
+
+          const result = asTrack(
+            album,
+            {
+              ...asSongJson(track),
+              contentType: "sourced-from/subsonic",
+              transcodedContentType: "sourced-from/subsonic2",
+            },
+            streamClient as unknown as CustomPlayers
+          );
+
           expect(result.encoding).toEqual(customEncoding);
-          expect(streamClient.encodingFor).toHaveBeenCalledWith({ mimeType: "sourced-from/subsonic" });
-        });    
+          expect(streamClient.encodingFor).toHaveBeenCalledWith({
+            mimeType: "sourced-from/subsonic",
+          });
+        });
       });
     });
   });
 });
 
+const subsonicOK = (body: any = {}) => ({
+  "subsonic-response": {
+    status: "ok",
+    version: "1.16.1",
+    type: "subsonic",
+    serverVersion: "0.45.1 (c55e6590)",
+    ...body,
+  },
+});
+
+const asGenreJson = (genre: { name: string; albumCount: number }) => ({
+  songCount: 1475,
+  albumCount: genre.albumCount,
+  value: genre.name,
+});
+
+const getGenresJson = (genres: { name: string; albumCount: number }[]) =>
+  subsonicOK({
+    genres: {
+      genre: genres.map(asGenreJson),
+    },
+  });
+
+const ok = (data: string | object) => ({
+  status: 200,
+  data,
+});
+
+describe("subsonic", () => {
+  const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
+  const customPlayers = {
+    encodingFor: jest.fn(),
+  };
+  const username = `user1-${uuid()}`;
+  const password = `pass1-${uuid()}`;
+  const credentials = { username, password };
+  const subsonic = new Subsonic(url, customPlayers);
+
+  const mockRandomstring = jest.fn();
+  const mockGET = jest.fn();
+  const mockPOST = jest.fn();
+
+  const salt = "saltysalty";
+
+  const authParams = {
+    u: username,
+    v: "1.16.1",
+    c: "bonob",
+    t: t(password, salt),
+    s: salt,
+  };
+
+  const authParamsPlusJson = {
+    ...authParams,
+    f: "json",
+  };
+
+  const headers = {
+    "User-Agent": "bonob",
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetAllMocks();
+
+    randomstring.generate = mockRandomstring;
+    axios.get = mockGET;
+    axios.post = mockPOST;
+
+    mockRandomstring.mockReturnValue(salt);
+  });
+
+  describe("getting genres", () => {
+    describe("when there are none", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getGenresJson([])))
+        );
+      });
+
+      it("should return empty array", async () => {
+        const result = await subsonic.getGenres(credentials);
+
+        expect(result).toEqual([]);
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getGenres" }).href(),
+          {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          }
+        );
+      });
+    });
+
+    describe("when there is only 1 that has an albumCount > 0", () => {
+      const genres = [
+        { name: "genre1", albumCount: 1 },
+        { name: "genreWithNoAlbums", albumCount: 0 },
+      ];
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getGenresJson(genres)))
+        );
+      });
+
+      it("should return them alphabetically sorted", async () => {
+        const result = await subsonic.getGenres(credentials);
+
+        expect(result).toEqual([{ id: b64Encode("genre1"), name: "genre1" }]);
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getGenres" }).href(),
+          {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          }
+        );
+      });
+    });
+
+    describe("when there are many that have an albumCount > 0", () => {
+      const genres = [
+        { name: "g1", albumCount: 1 },
+        { name: "g2", albumCount: 1 },
+        { name: "g3", albumCount: 1 },
+        { name: "g4", albumCount: 1 },
+        { name: "someGenreWithNoAlbums", albumCount: 0 },
+      ];
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getGenresJson(genres)))
+        );
+      });
+
+      it("should return them alphabetically sorted", async () => {
+        const result = await subsonic.getGenres(credentials);
+
+        expect(result).toEqual([
+          { id: b64Encode("g1"), name: "g1" },
+          { id: b64Encode("g2"), name: "g2" },
+          { id: b64Encode("g3"), name: "g3" },
+          { id: b64Encode("g4"), name: "g4" },
+        ]);
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getGenres" }).href(),
+          {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          }
+        );
+      });
+    });
+  });
+});

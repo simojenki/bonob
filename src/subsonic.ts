@@ -1,4 +1,6 @@
 import { option as O } from "fp-ts";
+import * as A from "fp-ts/Array";
+import { ordString } from "fp-ts/lib/Ord";
 import { pipe } from "fp-ts/lib/function";
 import { Md5 } from "ts-md5";
 import {
@@ -195,13 +197,15 @@ export type GetTopSongsResponse = {
 };
 
 export type GetInternetRadioStationsResponse = {
-  internetRadioStations: { internetRadioStation: { 
-    id: string,
-    name: string, 
-    streamUrl: string, 
-    homePageUrl?: string }[] 
-  }
-} 
+  internetRadioStations: {
+    internetRadioStation: {
+      id: string;
+      name: string;
+      streamUrl: string;
+      homePageUrl?: string;
+    }[];
+  };
+};
 
 export type GetSongResponse = {
   song: song;
@@ -274,14 +278,20 @@ export const artistImageURN = (
   }
 };
 
-export const asTrack = (album: Album, song: song, customPlayers: CustomPlayers): Track => ({
+export const asTrack = (
+  album: Album,
+  song: song,
+  customPlayers: CustomPlayers
+): Track => ({
   id: song.id,
   name: song.title,
   encoding: pipe(
     customPlayers.encodingFor({ mimeType: song.contentType }),
-    O.getOrElse(() => ({ 
-      player: DEFAULT_CLIENT_APPLICATION, 
-      mimeType: song.transcodedContentType ? song.transcodedContentType : song.contentType
+    O.getOrElse(() => ({
+      player: DEFAULT_CLIENT_APPLICATION,
+      mimeType: song.transcodedContentType
+        ? song.transcodedContentType
+        : song.contentType,
     }))
   ),
   duration: song.duration || 0,
@@ -327,7 +337,9 @@ export const asGenre = (genreName: string) => ({
   name: genreName,
 });
 
-export const maybeAsGenre = (genreName: string | undefined): Genre | undefined =>
+export const maybeAsGenre = (
+  genreName: string | undefined
+): Genre | undefined =>
   pipe(
     genreName,
     O.fromNullable,
@@ -340,7 +352,7 @@ export const asYear = (year: string) => ({
 });
 
 export interface CustomPlayers {
-  encodingFor({ mimeType }: { mimeType: string }): O.Option<Encoding>
+  encodingFor({ mimeType }: { mimeType: string }): O.Option<Encoding>;
 }
 
 export type CustomClient = {
@@ -367,21 +379,22 @@ export class TranscodingCustomPlayers implements CustomPlayers {
     return new TranscodingCustomPlayers(new Map(parts));
   }
 
-  encodingFor = ({ mimeType }: { mimeType: string }): O.Option<Encoding> => pipe(
-    this.transcodings.get(mimeType),
-    O.fromNullable,
-    O.map(transcodedMimeType => ({ 
-      player:`${DEFAULT_CLIENT_APPLICATION}+${mimeType}`, 
-      mimeType: transcodedMimeType
-    }))
-  )
+  encodingFor = ({ mimeType }: { mimeType: string }): O.Option<Encoding> =>
+    pipe(
+      this.transcodings.get(mimeType),
+      O.fromNullable,
+      O.map((transcodedMimeType) => ({
+        player: `${DEFAULT_CLIENT_APPLICATION}+${mimeType}`,
+        mimeType: transcodedMimeType,
+      }))
+    );
 }
 
 export const NO_CUSTOM_PLAYERS: CustomPlayers = {
   encodingFor(_) {
-    return O.none
+    return O.none;
   },
-}
+};
 
 export const DEFAULT_CLIENT_APPLICATION = "bonob";
 export const USER_AGENT = "bonob";
@@ -674,8 +687,8 @@ export class Subsonic {
       this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
         type: AlbumQueryTypeToSubsonicType[q.type],
         ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-        ...(q.fromYear ? { fromYear: q.fromYear} : {}),
-        ...(q.toYear ? { toYear: q.toYear} : {}),
+        ...(q.fromYear ? { fromYear: q.fromYear } : {}),
+        ...(q.toYear ? { toYear: q.toYear } : {}),
         size: 500,
         offset: q._index,
       })
@@ -686,11 +699,22 @@ export class Subsonic {
       total: albums.length == 500 ? total : q._index + albums.length,
     }));
 
+  getGenres = (credentials: Credentials) =>
+    this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>
+      pipe(
+        it.genres.genre || [],
+        A.filter((it) => it.albumCount > 0),
+        A.map((it) => it.value),
+        A.sort(ordString),
+        A.map(maybeAsGenre),
+        A.filter((it) => it != undefined)
+      )
+    );
+
   // getStarred2 = (credentials: Credentials): Promise<{ albums: Album[] }> =>
   //   this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2")
   //     .then((it) => it.starred2)
   //     .then((it) => ({
   //       albums: it.album.map(asAlbum),
   //     }));
-
 }
