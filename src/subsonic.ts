@@ -522,6 +522,8 @@ export class Subsonic {
       });
 
   // todo: make private
+  // todo: should I put a catch in here and force a subsonic fail status?
+  // or there is a catch above, that then throws, perhaps can go in there?
   getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
@@ -739,7 +741,13 @@ export class Subsonic {
     this.getJSON<SubsonicResponse>(credentials, `/rest/setRating`, {
       id,
       rating,
-    }).then(it => 
-      it.status == "ok"
-    );
+    })
+    .then(it => it.status == "ok");
+
+  scrobble = (credentials: Credentials, id: string, submission: boolean) =>
+    this.getJSON<SubsonicResponse>(credentials, `/rest/scrobble`, {
+        id,
+        submission,
+      })
+      .then(it => it.status == "ok")
 }

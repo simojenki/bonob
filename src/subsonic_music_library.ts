@@ -266,23 +266,12 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         return undefined;
       });
 
+  // todo: unit test the difference between scrobble and nowPlaying
   scrobble = async (id: string) =>
-    this.subsonic
-      .getJSON(this.credentials, `/rest/scrobble`, {
-        id,
-        submission: true,
-      })
-      .then((_) => true)
-      .catch(() => false);
+    this.subsonic.scrobble(this.credentials, id, true);
 
   nowPlaying = async (id: string) =>
-    this.subsonic
-      .getJSON(this.credentials, `/rest/scrobble`, {
-        id,
-        submission: false,
-      })
-      .then((_) => true)
-      .catch(() => false);
+    this.subsonic.scrobble(this.credentials, id, false);
 
   searchArtists = async (query: string) =>
     this.subsonic

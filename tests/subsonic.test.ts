@@ -1103,4 +1103,76 @@ describe("subsonic", () => {
       });
     });
   });   
+
+  describe("scrobble", () => {
+    const id = uuid();
+
+    describe("with submission", () => {
+      const submission = true;
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(subsonicResponse({ status: "ok" })))
+        );
+      });
+
+      it("should scrobble and return true", async () => {
+        const result = await subsonic.scrobble(credentials, id, submission);
+
+        expect(result).toEqual(true);
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/scrobble" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id,
+              submission
+            }),
+            headers,
+          }
+        );
+      });
+    });
+
+    describe("without submission", () => {
+      const submission = false;
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(subsonicResponse({ status: "ok" })))
+        );
+      });
+
+      it("should scrobble and return true", async () => {
+        const result = await subsonic.scrobble(credentials, id, submission);
+
+        expect(result).toEqual(true);
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/scrobble" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id,
+              submission
+            }),
+            headers,
+          }
+        );
+      });
+    });
+
+    describe("when fails", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(subsonicResponse({ status: "not-ok" })))
+        );
+      });
+
+      it("should return false", async () => {
+        const result = await subsonic.scrobble(credentials, id, false);
+
+        expect(result).toEqual(false);
+      });
+    });
+  });  
 });
