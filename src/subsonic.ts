@@ -14,6 +14,7 @@ import {
   AlbumQueryType,
   PlaylistSummary,
   Encoding,
+  albumToAlbumSummary,
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -24,7 +25,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import randomstring from "randomstring";
 import { b64Encode, b64Decode } from "./b64";
 import { BUrn } from "./burn";
-import { artist } from "./smapi";
+import { album, artist } from "./smapi";
 import { URLBuilder } from "./url_builder";
 
 export const BROWSER_HEADERS = {
@@ -159,6 +160,7 @@ export type song = {
   transcodedContentType: string | undefined;
   type: string | undefined;
   userRating: number | undefined;
+  // todo: this field shouldnt be on song?
   starred: string | undefined;
 };
 
@@ -279,7 +281,7 @@ export const artistImageURN = (
 };
 
 export const asTrack = (
-  album: Album,
+  album: AlbumSummary,
   song: song,
   customPlayers: CustomPlayers
 ): Track => ({
@@ -298,7 +300,7 @@ export const asTrack = (
   number: song.track || 0,
   genre: maybeAsGenre(song.genre),
   coverArt: coverArtURN(song.coverArt),
-  album,
+  album: album,
   artist: {
     id: song.artistId,
     name: song.artist ? song.artist : "?",
@@ -315,7 +317,7 @@ export const asTrack = (
   },
 });
 
-export const asAlbum = (album: album): Album => ({
+export const asAlbumSummary = (album: album): AlbumSummary => ({
   id: album.id,
   name: album.name,
   year: album.year,
@@ -412,7 +414,7 @@ export const asURLSearchParams = (q: any) => {
 export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
 export const cachingImageFetcher =
-  (cacheDir: string, delegate: ImageFetcher) =>
+  (cacheDir: string, delegate: ImageFetcher, makeSharp = sharp) =>
   async (url: string): Promise<CoverArt | undefined> => {
     const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
     return fse
@@ -421,7 +423,7 @@ export const cachingImageFetcher =
       .catch(() =>
         delegate(url).then((image) => {
           if (image) {
-            return sharp(image.data)
+            return makeSharp(image.data)
               .png()
               .toBuffer()
               .then((png) => {
@@ -584,19 +586,30 @@ export class Subsonic {
         })),
       }));
 
-  getAlbum = (credentials: Credentials, id: string): Promise<Album> =>
+  getAlbum = (credentials: Credentials, id: string): Promise<Album>  =>
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
       .then((it) => it.album)
-      .then((album) => ({
-        id: album.id,
-        name: album.name,
-        year: album.year,
-        genre: maybeAsGenre(album.genre),
-        artistId: album.artistId,
-        artistName: album.artist,
-        coverArt: coverArtURN(album.coverArt),
-      }));
-
+      .then((album) => {
+        const x: AlbumSummary = {
+          id: album.id,
+          name: album.name,
+          year: album.year,
+          genre: maybeAsGenre(album.genre),
+          artistId: album.artistId,
+          artistName: album.artist,
+          coverArt: coverArtURN(album.coverArt)
+        }
+        return { summary: x, songs: album.song }
+      }).then(({ summary, songs }) => {
+        const x: AlbumSummary = summary
+        const y: Track[] = songs.map((it) => asTrack(summary, it, this.customPlayers))
+        return {
+          ...x,
+          tracks: y
+        };
+      });
+      
+   
   getArtist = (
     credentials: Credentials,
     id: string
@@ -647,7 +660,7 @@ export class Subsonic {
       .then((it) => it.song)
       .then((song) =>
         this.getAlbum(credentials, song.albumId!).then((album) =>
-          asTrack(album, song, this.customPlayers)
+          asTrack(albumToAlbumSummary(album), song, this.customPlayers)
         )
       );
 

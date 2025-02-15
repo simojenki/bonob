@@ -8,13 +8,12 @@ import {
   Album,
   Artist,
   Track,
-  albumToAlbumSummary,
-  artistToArtistSummary,
   PlaylistSummary,
   Playlist,
   SimilarArtist,
   AlbumSummary,
-  RadioStation
+  RadioStation,
+  ArtistSummary
 } from "../src/music_library";
 
 import { b64Encode } from "../src/b64";
@@ -115,13 +114,26 @@ export function aSimilarArtist(
   };
 }
 
-export function anArtist(fields: Partial<Artist> = {}): Artist {
+export function anArtistSummary(fields: Partial<ArtistSummary> = {}): ArtistSummary {
   const id = fields.id || uuid();
-  const artist = {
+  return {
     id,
     name: `Artist ${id}`,
-    albums: [anAlbum(), anAlbum(), anAlbum()],
     image: { system: "subsonic", resource: `art:${id}` },
+  }
+}
+
+export function anArtist(fields: Partial<Artist> = {}): Artist {
+  const id = fields.id || uuid();
+  const name = `Artist ${randomstring.generate()}`
+  const albums = fields.albums || [
+    anAlbumSummary({ artistId: id, artistName: name }), 
+    anAlbumSummary({ artistId: id, artistName: name }), 
+    anAlbumSummary({ artistId: id, artistName: name })
+  ];
+  const artist = {
+    ...anArtistSummary({ id, name }),
+    albums,
     similarArtists: [
       aSimilarArtist({ id: uuid(), name: "Similar artist1", inLibrary: true }),
       aSimilarArtist({ id: uuid(), name: "Similar artist2", inLibrary: true }),
@@ -167,9 +179,10 @@ export const randomGenre = () => SAMPLE_GENRES[randomInt(SAMPLE_GENRES.length)];
 
 export function aTrack(fields: Partial<Track> = {}): Track {
   const id = uuid();
-  const artist = anArtist();
+  const artist = fields.artist || anArtistSummary();
   const genre = fields.genre || randomGenre();
   const rating = { love: false, stars: Math.floor(Math.random() * 5) };
+  const album = fields.album || anAlbumSummary({ artistId: artist.id, artistName: artist.name, genre })
   return {
     id,
     name: `Track ${id}`,
@@ -180,39 +193,12 @@ export function aTrack(fields: Partial<Track> = {}): Track {
     duration: randomInt(500),
     number: randomInt(100),
     genre,
-    artist: artistToArtistSummary(artist),
-    album: albumToAlbumSummary(
-      anAlbum({ artistId: artist.id, artistName: artist.name, genre })
-    ),
+    artist,
+    album,
     coverArt: { system: "subsonic", resource: `art:${uuid()}`},
     rating,
     ...fields,
   };
-}
-
-export function anAlbum(fields: Partial<Album> = {}): Album {
-  const id = uuid();
-  return {
-    id,
-    name: `Album ${id}`,
-    genre: randomGenre(),
-    year: `19${randomInt(99)}`,
-    artistId: `Artist ${uuid()}`,
-    artistName: `Artist ${randomstring.generate()}`,
-    coverArt: { system: "subsonic", resource: `art:${uuid()}` },
-    ...fields,
-  };
-};
-
-export function aRadioStation(fields: Partial<RadioStation> = {}): RadioStation {
-  const id = uuid()
-  const name = `Station-${id}`;
-  return {
-    id,
-    name,
-    url: `http://example.com/${name}`,
-    ...fields
-  }
 }
 
 export function anAlbumSummary(fields: Partial<AlbumSummary> = {}): AlbumSummary {
@@ -228,6 +214,35 @@ export function anAlbumSummary(fields: Partial<AlbumSummary> = {}): AlbumSummary
     ...fields
   }
 };
+
+export function anAlbum(fields: Partial<Album> = {}): Album {
+  const albumSummary = anAlbumSummary()
+  const album = {
+    ...albumSummary,
+    tracks: [],
+    ...fields,
+  };
+  const artistSummary = anArtistSummary({ id: album.artistId, name: album.artistName })
+  const tracks = fields.tracks || [ 
+    aTrack({ album: albumSummary, artist: artistSummary }),
+    aTrack({ album: albumSummary, artist: artistSummary }) 
+  ]
+  return {
+    ...album,
+    tracks
+  };
+};
+
+export function aRadioStation(fields: Partial<RadioStation> = {}): RadioStation {
+  const id = uuid()
+  const name = `Station-${id}`;
+  return {
+    id,
+    name,
+    url: `http://example.com/${name}`,
+    ...fields
+  }
+}
 
 export const BLONDIE_ID = uuid();
 export const BLONDIE_NAME = "Blondie";

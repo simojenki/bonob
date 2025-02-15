@@ -4,7 +4,6 @@ import {
   Credentials,
   MusicService,
   ArtistSummary,
-  Album,
   Result,
   slice2,
   AlbumQuery,
@@ -15,13 +14,14 @@ import {
   Artist,
   AuthFailure,
   AuthSuccess,
+  albumToAlbumSummary,
 } from "./music_library";
 import {
   Subsonic,
   CustomPlayers,
   GetAlbumResponse,
   asTrack,
-  asAlbum,
+  asAlbumSummary,
   PingResponse,
   NO_CUSTOM_PLAYERS,
   asToken,
@@ -171,11 +171,13 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   albums = async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
     this.subsonic.getAlbumList2(this.credentials, q);
 
-  album = (id: string): Promise<Album> =>
-    this.subsonic.getAlbum(this.credentials, id);
+  // todo: this should probably return an Album
+  album = (id: string): Promise<AlbumSummary> =>
+    this.subsonic.getAlbum(this.credentials, id).then(albumToAlbumSummary);
 
   genres = () => this.subsonic.getGenres(this.credentials);
 
+  // todo: do we even need this if Album has tracks?
   tracks = (albumId: string) =>
     this.subsonic
       .getJSON<GetAlbumResponse>(this.credentials, "/rest/getAlbum", {
@@ -184,7 +186,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       .then((it) => it.album)
       .then((album) =>
         (album.song || []).map((song) =>
-          asTrack(asAlbum(album), song, this.customPlayers)
+          asTrack(asAlbumSummary(album), song, this.customPlayers)
         )
       );
 
@@ -418,7 +420,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
           songs.map((song) =>
             this.subsonic
               .getAlbum(this.credentials, song.albumId!)
-              .then((album) => asTrack(album, song, this.customPlayers))
+              .then((album) => asTrack(albumToAlbumSummary(album), song, this.customPlayers))
           )
         )
       );
@@ -436,7 +438,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
             songs.map((song) =>
               this.subsonic
                 .getAlbum(this.credentials, song.albumId!)
-                .then((album) => asTrack(album, song, this.customPlayers))
+                .then((album) => asTrack(albumToAlbumSummary(album), song, this.customPlayers))
             )
           )
         )

@@ -1,3 +1,4 @@
+
 import { v4 as uuid } from "uuid";
 import { Md5 } from "ts-md5";
 import tmp from "tmp";
@@ -28,14 +29,16 @@ import {
   TranscodingCustomPlayers,
   CustomPlayers,
   NO_CUSTOM_PLAYERS,
-  Subsonic,
+  Subsonic
 } from "../src/subsonic";
 
 import { b64Encode } from "../src/b64";
 
-import { Album, Artist, Track } from "../src/music_library";
-import { anAlbum, aTrack } from "./builders";
+import { Album, Artist, Track, AlbumSummary } from "../src/music_library";
+import { anAlbum, aTrack, anAlbumSummary, anArtistSummary } from "./builders";
 import { BUrn } from "../src/burn";
+
+
 
 describe("t", () => {
   it("should be an md5 of the password and the salt", () => {
@@ -163,7 +166,8 @@ describe("cachingImageFetcher", () => {
         toBuffer: () => Promise.resolve(pngImage),
       });
 
-      const result = await cachingImageFetcher(dir.name, delegate)(url);
+      // todo: the fact that I need to pass the sharp mock in here isnt correct
+      const result = await cachingImageFetcher(dir.name, delegate, sharp)(url);
 
       expect(result!.contentType).toEqual("image/png");
       expect(result!.data).toEqual(pngImage);
@@ -555,6 +559,95 @@ const ok = (data: string | object) => ({
   data,
 });
 
+export const asArtistAlbumJson = (
+  artist: { id: string | undefined; name: string | undefined },
+  album: AlbumSummary
+) => ({
+  id: album.id,
+  parent: artist.id,
+  isDir: "true",
+  title: album.name,
+  name: album.name,
+  album: album.name,
+  artist: artist.name,
+  genre: album.genre?.name,
+  duration: "123",
+  playCount: "4",
+  year: album.year,
+  created: "2021-01-07T08:19:55.834207205Z",
+  artistId: artist.id,
+  songCount: "19",
+});
+
+export const asAlbumJson = (
+  artist: { id: string | undefined; name: string | undefined },
+  album: Album
+) => ({
+  id: album.id,
+  parent: artist.id,
+  isDir: "true",
+  title: album.name,
+  name: album.name,
+  album: album.name,
+  artist: artist.name,
+  genre: album.genre?.name,
+  coverArt: maybeIdFromCoverArtUrn(album.coverArt),
+  duration: "123",
+  playCount: "4",
+  year: album.year,
+  created: "2021-01-07T08:19:55.834207205Z",
+  artistId: artist.id,
+  songCount: "19",
+  isVideo: false,
+  song: album.tracks.map(asSongJson),
+});
+
+
+export const getAlbumJson = (album: Album) =>
+  subsonicOK({ album: {
+    id: album.id,
+    parent: album.artistId,
+    album: album.name,
+    title: album.name,
+    name: album.name,
+    isDir: true,
+    coverArt: maybeIdFromCoverArtUrn(album.coverArt),
+    songCount: 19,
+    created: "2021-01-07T08:19:55.834207205Z",
+    duration: 123,
+    playCount: 4,
+    artistId: album.artistId,
+    artist: album.artistName,
+    year: album.year,
+    genre: album.genre?.name,
+    song: album.tracks.map(track => ({
+      id: track.id,
+      parent: track.album.id,
+      title: track.name,
+      isDir: false,
+      isVideo: false,
+      type: "music",
+      albumId: track.album.id,
+      album: track.album.name,
+      artistId: track.artist.id,
+      artist: track.artist.name,
+      coverArt: maybeIdFromCoverArtUrn(track.coverArt),
+      duration: track.duration,
+      bitRate: 128,
+      bitDepth: 16,
+      samplingRate: 555,
+      channelCount: 2,
+      track: track.number,
+      year: 1900,
+      genre: track.genre?.name,
+      size: 5624132,
+      discNumer: 1,
+      suffix: "mp3",
+      contentType: track.encoding.mimeType,
+      path: "ACDC/High voltage/ACDC - The Jack.mp3"
+    })),
+  } });
+
 describe("subsonic", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
   const customPlayers = {
@@ -684,4 +777,56 @@ describe("subsonic", () => {
       });
     });
   });
+
+  describe("getting an album", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
+    describe("when it exists", () => {
+      const artistId = "artist6677"
+      const artistName = "Fizzy Wizzy"
+
+      const albumSummary = anAlbumSummary({ artistId, artistName })
+      const artistSumamry = anArtistSummary({ id: artistId, name: artistName })
+
+      // todo: fix these ratings
+      const tracks = [
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+      ];
+
+      const album = anAlbum({
+        ...albumSummary,
+        tracks,
+        artistId,
+        artistName,
+       });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getAlbumJson(album)))
+        );
+      });
+
+      it("should return the album", async () => {
+        const result = await subsonic.getAlbum(credentials, album.id);
+
+        expect(result).toEqual(album);
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getAlbum" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: album.id,
+            }),
+            headers,
+          }
+        );
+      });
+    });
+  });  
 });

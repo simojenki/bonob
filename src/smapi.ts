@@ -10,7 +10,6 @@ import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
 import {
-  Album,
   AlbumQuery,
   AlbumSummary,
   ArtistSummary,
@@ -619,7 +618,7 @@ function bindSmapiSoapServiceToExpress(
                 switch (type) {
                   case "artist":
                     return musicLibrary.artist(typeId).then((artist) => {
-                      const [page, total] = slice2<Album>(paging)(
+                      const [page, total] = slice2<AlbumSummary>(paging)(
                         artist.albums
                       );
                       return {

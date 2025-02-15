@@ -19,7 +19,6 @@ import {
   slice2,
   asResult,
   artistToArtistSummary,
-  albumToAlbumSummary,
   Track,
   Genre,
   Rating,
@@ -97,7 +96,6 @@ export class InMemoryMusicService implements MusicService {
             }
           })
           .then((matches) => matches.map((it) => it.album))
-          .then((it) => it.map(albumToAlbumSummary))
           .then(slice2(q))
           .then(asResult),
       album: (id: string) =>
