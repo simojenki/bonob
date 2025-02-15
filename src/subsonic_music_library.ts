@@ -191,21 +191,12 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         const thingsToUpdate = [];
         if (track.rating.love != rating.love) {
           thingsToUpdate.push(
-            this.subsonic.getJSON(
-              this.credentials,
-              `/rest/${rating.love ? "star" : "unstar"}`,
-              {
-                id: trackId,
-              }
-            )
+            (rating.love ? this.subsonic.star : this.subsonic.unstar)(this.credentials,{ id: trackId })
           );
         }
         if (track.rating.stars != rating.stars) {
           thingsToUpdate.push(
-            this.subsonic.getJSON(this.credentials, `/rest/setRating`, {
-              id: trackId,
-              rating: rating.stars,
-            })
+            this.subsonic.setRating(this.credentials, trackId, rating.stars)
           );
         }
         return Promise.all(thingsToUpdate);

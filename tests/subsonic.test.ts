@@ -532,15 +532,21 @@ describe("asTrack", () => {
   });
 });
 
-const subsonicOK = (body: any = {}) => ({
-  "subsonic-response": {
-    status: "ok",
-    version: "1.16.1",
-    type: "subsonic",
-    serverVersion: "0.45.1 (c55e6590)",
-    ...body,
-  },
-});
+const subsonicResponse = (response : Partial<{ status: string, body: any }> = { }) => {
+  const status = response.status || "ok"
+  const body = response.body || {}
+  return {
+    "subsonic-response": {
+      status,
+      version: "1.16.1",
+      type: "subsonic",
+      serverVersion: "0.45.1 (c55e6590)",
+      ...body,
+    },
+  };
+};
+
+const subsonicOK = (body: any = {}) => subsonicResponse({ status: "ok", body });
 
 const asGenreJson = (genre: { name: string; albumCount: number }) => ({
   songCount: 1475,
@@ -1008,4 +1014,93 @@ describe("subsonic", () => {
         });        
     });
   });  
+
+  describe("stars and unstars", () => {
+    const id = uuid();
+
+    describe("staring a track", () => {
+      describe("when ok", () => {
+        beforeEach(() => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(subsonicResponse({ status: "ok" })))
+          );
+        });
+
+        it("should return true", async () => {
+          const result = await subsonic.star(credentials, { id });
+  
+          expect(result).toEqual(true);
+          expect(axios.get).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/star" }).href(),
+            {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id
+              }),
+              headers,
+            }
+          );
+        });
+      });
+
+      describe("when not ok", () => {
+        beforeEach(() => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(subsonicResponse({ status: "not-ok" })))
+          );
+        });
+
+        it("should return false", async () => {
+          const result = await subsonic.star(credentials, { id });
+
+          expect(result).toEqual(false);
+        });
+      });
+    });
+  });  
+
+  describe("setting ratings", () => {
+    const id = uuid();
+
+    describe("when the rating is valid", () => {
+      describe("when response is ok", () => {
+        beforeEach(() => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(subsonicResponse({ status: "ok" })))
+          );
+        });
+
+        it("should return true", async () => {
+          const result = await subsonic.setRating(credentials, id, 4);
+  
+          expect(result).toEqual(true);
+          expect(axios.get).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/setRating" }).href(),
+            {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id,
+                rating: 4
+              }),
+              headers,
+            }
+          );
+        });
+      });
+
+      describe("when response is not ok", () => {
+        beforeEach(() => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(subsonicResponse({ status: "not-ok" })))
+          );
+        });
+
+        it("should return false", async () => {
+          const result = await subsonic.setRating(credentials, id, 2);
+  
+          expect(result).toEqual(false);
+        });
+      });
+    });
+  });   
 });
