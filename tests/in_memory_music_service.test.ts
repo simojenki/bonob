@@ -167,23 +167,6 @@ describe("InMemoryMusicService", () => {
         service.hasTracks(track1, track2, track3, track4);
       });
 
-      describe("fetching tracks for an album", () => {
-        it("should return only tracks on that album", async () => {
-          expect(await musicLibrary.tracks(artist1Album1.id)).toEqual([
-            { ...track1, rating: { love: false, stars: 0 } },
-            { ...track2, rating: { love: false, stars: 0 } },
-          ]);
-        });
-      });
-
-      describe("fetching tracks for an album that doesnt exist", () => {
-        it("should return empty array", async () => {
-          expect(await musicLibrary.tracks("non existant album id")).toEqual(
-            []
-          );
-        });
-      });
-
       describe("fetching a single track", () => {
         describe("when it exists", () => {
           it("should return the track", async () => {
@@ -424,7 +407,10 @@ describe("InMemoryMusicService", () => {
         describe("when it exists", () => {
           it("should provide an album", async () => {
             expect(await musicLibrary.album(artist1_album5.id)).toEqual(
-              artist1_album5
+              {
+                ...artist1_album5,
+                tracks: []
+              }
             );
           });
         });

@@ -41,6 +41,8 @@ import {
   PUNK,
   aPlaylist,
   aRadioStation,
+  anArtistSummary,
+  anAlbumSummary,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -2369,10 +2371,8 @@ describe("wsdl api", () => {
             });
 
             describe("asking for an album", () => {
-              const album = anAlbum();
-              const artist = anArtist({
-                albums: [album],
-              });
+              const album = anAlbumSummary();
+              const artist = anArtistSummary();
 
               const track1 = aTrack({ artist, album, number: 1 });
               const track2 = aTrack({ artist, album, number: 2 });
@@ -2383,7 +2383,12 @@ describe("wsdl api", () => {
               const tracks = [track1, track2, track3, track4, track5];
 
               beforeEach(() => {
-                musicLibrary.tracks.mockResolvedValue(tracks);
+                musicLibrary.album.mockResolvedValue(anAlbum({ 
+                  ...album, 
+                  artistName: artist.name, 
+                  artistId: artist.id, 
+                  tracks
+                }));
               });
 
               describe("asking for all for an album", () => {
@@ -2407,7 +2412,7 @@ describe("wsdl api", () => {
                       total: tracks.length,
                     })
                   );
-                  expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
+                  expect(musicLibrary.album).toHaveBeenCalledWith(album.id);
                 });
               });
 
@@ -2434,7 +2439,7 @@ describe("wsdl api", () => {
                       total: tracks.length,
                     })
                   );
-                  expect(musicLibrary.tracks).toHaveBeenCalledWith(album.id);
+                  expect(musicLibrary.album).toHaveBeenCalledWith(album.id);
                 });
               });
             });

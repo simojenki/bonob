@@ -175,8 +175,7 @@ export interface MusicLibrary {
   artists(q: ArtistQuery): Promise<Result<ArtistSummary>>;
   artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
-  album(id: string): Promise<AlbumSummary>;
-  tracks(albumId: string): Promise<Track[]>;
+  album(id: string): Promise<Album>;
   track(trackId: string): Promise<Track>;
   genres(): Promise<Genre[]>;
   years(): Promise<Year[]>;

@@ -989,7 +989,8 @@ function bindSmapiSoapServiceToExpress(
                       });
                   case "album":
                     return musicLibrary
-                      .tracks(typeId!)
+                      .album(typeId!)
+                      .then(it => it.tracks)
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({

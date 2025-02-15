@@ -9,6 +9,7 @@ import {
   AlbumQuery,
   ArtistQuery,
   MusicLibrary,
+  Album,
   AlbumSummary,
   Rating,
   Artist,
@@ -19,9 +20,7 @@ import {
 import {
   Subsonic,
   CustomPlayers,
-  GetAlbumResponse,
   asTrack,
-  asAlbumSummary,
   PingResponse,
   NO_CUSTOM_PLAYERS,
   asToken,
@@ -171,24 +170,10 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   albums = async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
     this.subsonic.getAlbumList2(this.credentials, q);
 
-  // todo: this should probably return an Album
-  album = (id: string): Promise<AlbumSummary> =>
-    this.subsonic.getAlbum(this.credentials, id).then(albumToAlbumSummary);
+  album = (id: string): Promise<Album> =>
+    this.subsonic.getAlbum(this.credentials, id);
 
   genres = () => this.subsonic.getGenres(this.credentials);
-
-  // todo: do we even need this if Album has tracks?
-  tracks = (albumId: string) =>
-    this.subsonic
-      .getJSON<GetAlbumResponse>(this.credentials, "/rest/getAlbum", {
-        id: albumId,
-      })
-      .then((it) => it.album)
-      .then((album) =>
-        (album.song || []).map((song) =>
-          asTrack(asAlbumSummary(album), song, this.customPlayers)
-        )
-      );
 
   track = (trackId: string) =>
     this.subsonic.getTrack(this.credentials, trackId);
