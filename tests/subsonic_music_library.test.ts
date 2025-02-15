@@ -19,6 +19,7 @@ import {
   CustomPlayers,
   PingResponse,
   images,
+  
 } from "../src/subsonic";
 
 import {
@@ -32,7 +33,6 @@ import {
   albumToAlbumSummary,
   asArtistAlbumPairs,
   Track,
-  AlbumSummary,
   artistToArtistSummary,
   AlbumQuery,
   PlaylistSummary,
@@ -41,6 +41,7 @@ import {
   Credentials,
   AuthFailure,
   RadioStation,
+  AlbumSummary,
 } from "../src/music_library";
 import {
   aGenre,
@@ -53,10 +54,14 @@ import {
   POP,
   ROCK,
   aRadioStation,
+  anAlbumSummary,
+  anArtistSummary
 } from "./builders";
 import { b64Encode } from "../src/b64";
 import { BUrn } from "../src/burn";
 import { URLBuilder } from "../src/url_builder";
+
+import { getAlbumJson } from "./subsonic.test";
 
 const EMPTY = {
   "subsonic-response": {
@@ -104,29 +109,6 @@ const error = (code: string, message: string) => ({
   },
 });
 
-const asAlbumJson = (
-  artist: { id: string | undefined; name: string | undefined },
-  album: AlbumSummary,
-  tracks: Track[] = []
-) => ({
-  id: album.id,
-  parent: artist.id,
-  isDir: "true",
-  title: album.name,
-  name: album.name,
-  album: album.name,
-  artist: artist.name,
-  genre: album.genre?.name,
-  coverArt: maybeIdFromCoverArtUrn(album.coverArt),
-  duration: "123",
-  playCount: "4",
-  year: album.year,
-  created: "2021-01-07T08:19:55.834207205Z",
-  artistId: artist.id,
-  songCount: "19",
-  isVideo: false,
-  song: tracks.map(asSongJson),
-});
 
 const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
   pipe(
@@ -136,28 +118,43 @@ const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
     O.getOrElseW(() => "")
   );
 
-const getAlbumJson = (artist: Artist, album: Album, tracks: Track[]) =>
-  subsonicOK({ album: asAlbumJson(artist, album, tracks) });
+
 
 const getSongJson = (track: Track) => subsonicOK({ song: asSongJson(track) });
-
-const asArtistJson = (
-  artist: Artist,
-  extras: ArtistExtras = { artistImageUrl: undefined }
-) => ({
-  id: artist.id,
-  name: artist.name,
-  albumCount: artist.albums.length,
-  album: artist.albums.map((it) => asAlbumJson(artist, it)),
-  ...extras,
-});
 
 const getArtistJson = (
   artist: Artist,
   extras: ArtistExtras = { artistImageUrl: undefined }
 ) =>
   subsonicOK({
-    artist: asArtistJson(artist, extras),
+    artist: {
+      id: artist.id,
+      name: artist.name,
+      coverArt: "art-123",
+      albumCount: artist.albums.length,
+      artistImageUrl: extras.artistImageUrl,
+      starred: "sometime",
+      album: artist.albums.map((album) => ({
+        id: album.id,
+        parent: artist.id,
+        album: album.name,
+        title: album.name,
+        name: album.name,
+        isDir: "true",
+        coverArt: maybeIdFromCoverArtUrn(album.coverArt),
+        songCount: 19,
+        created: "2021-01-07T08:19:55.834207205Z",
+        duration: 123,
+        playCount: 4,
+        artistId: artist.id,
+        artist: artist.name,
+        year: album.year,
+        genre: album.genre?.name,
+        userRating: 5,
+        averageRating: 3,
+        starred: "2021-01-07T08:19:55.834207205Z",
+      }))
+    },
   });
 
 const getRadioStationsJson = (radioStations: RadioStation[]) =>
@@ -171,11 +168,6 @@ const getRadioStationsJson = (radioStations: RadioStation[]) =>
       })),
     },
   });
-
-// const getStarredJson = ({ albums }: { albums: Album[] }) => subsonicOK({starred2: {
-//   album: albums.map(it => asAlbumJson({ id: it.artistId, name: it.artistName }, it, [])),
-//   song: [],
-// }})
 
 const subsonicOK = (body: any = {}) => ({
   "subsonic-response": {
@@ -280,10 +272,22 @@ const createPlayListJson = (playlist: PlaylistSummary) =>
     playlist: asPlaylistJson(playlist),
   });
 
-const getAlbumListJson = (albums: [Artist, Album][]) =>
+
+const getAlbumListJson = (albums: [Artist, AlbumSummary][]) =>
   subsonicOK({
     albumList2: {
-      album: albums.map(([artist, album]) => asAlbumJson(artist, album)),
+      album: albums.map(([artist, album]) => ({
+        id: album.id,
+        name: album.name,
+        coverArt: maybeIdFromCoverArtUrn(album.coverArt),
+        songCount: "19",
+        created: "2021-01-07T08:19:55.834207205Z",
+        duration: "123",
+        artist: artist.name,
+        artistId: artist.id,
+        year: album.year,
+        genre: album.genre?.name
+      })),
     },
   });
 
@@ -338,9 +342,59 @@ const getSearchResult3Json = ({
 }>) =>
   subsonicOK({
     searchResult3: {
-      artist: (artists || []).map((it) => asArtistJson({ ...it, albums: [] })),
-      album: (albums || []).map((it) => asAlbumJson(it.artist, it.album, [])),
-      song: (tracks || []).map((it) => asSongJson(it)),
+      artist: (artists || []).map((it) => ({
+        id: it.id,
+        name: it.name,
+        // coverArt??
+        albumCount: it.albums.length,
+        userRating: -1,
+        //artistImageUrl?
+      })),
+      album: (albums || []).map(({ artist, album }) => ({
+        id: album.id,
+        name: album.name,
+        artist: artist.name,
+        year: album.year,
+        coverArt: maybeIdFromCoverArtUrn(album.coverArt),
+        //starred
+        //duration
+        //playCount
+        //played
+        //created
+        artistId: artist.id,
+        //userRating
+        songCount: album.tracks.length
+      })),
+      song: (tracks || []).map((track) => ({
+        id: track.id,
+        parent: track.album.id,
+        isDir: "false",
+        title: track.name,
+        album: track.album.name,
+        artist: track.artist.name,
+        track: track.number,
+        year: "",
+        coverArt: maybeIdFromCoverArtUrn(track.coverArt),
+        size: "5624132",
+        contentType: track.encoding.mimeType,
+        suffix: "mp3",
+        starred: track.rating.love ? "sometime" : undefined,
+        duration: track.duration,
+        bitRate: 128,
+        //bitDepth
+        //samplingRate
+        //channelCount
+        path: "ACDC/High voltage/ACDC - The Jack.mp3",
+        //path
+        //playCount
+        //played
+        //discNumber
+        created: "2004-11-08T23:36:11",
+        albumId: track.album.id,
+        artistId: track.artist.id,
+        type: "music",
+        isVideo: "false",
+      })),
     },
   });
 
@@ -820,11 +874,11 @@ describe("SubsonicMusicLibrary", () => {
   describe("getting an artist", () => {
     describe("when the artist exists", () => {
       describe("and has many similar artists", () => {
-        const album1: Album = anAlbum({ genre: asGenre("Pop") });
+        const album1 = anAlbumSummary({ genre: asGenre("Pop") });
 
-        const album2: Album = anAlbum({ genre: asGenre("Pop") });
+        const album2 = anAlbumSummary({ genre: asGenre("Pop") });
 
-        const artist: Artist = anArtist({
+        const artist = anArtist({
           albums: [album1, album2],
           similarArtists: [
             aSimilarArtist({
@@ -853,7 +907,7 @@ describe("SubsonicMusicLibrary", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
+          const result = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: `${artist.id}`,
@@ -890,11 +944,11 @@ describe("SubsonicMusicLibrary", () => {
       });
 
       describe("and has one similar artist", () => {
-        const album1: Album = anAlbum({ genre: asGenre("G1") });
+        const album1 = anAlbumSummary({ genre: asGenre("G1") });
 
-        const album2: Album = anAlbum({ genre: asGenre("G2") });
+        const album2 = anAlbumSummary({ genre: asGenre("G2") });
 
-        const artist: Artist = anArtist({
+        const artist = anArtist({
           albums: [album1, album2],
           similarArtists: [
             aSimilarArtist({
@@ -916,7 +970,7 @@ describe("SubsonicMusicLibrary", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
+          const result = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -953,11 +1007,11 @@ describe("SubsonicMusicLibrary", () => {
       });
 
       describe("and has no similar artists", () => {
-        const album1: Album = anAlbum({ genre: asGenre("Jock") });
+        const album1 = anAlbumSummary({ genre: asGenre("Jock") });
 
-        const album2: Album = anAlbum({ genre: asGenre("Mock") });
+        const album2 = anAlbumSummary({ genre: asGenre("Mock") });
 
-        const artist: Artist = anArtist({
+        const artist = anArtist({
           albums: [album1, album2],
           similarArtists: [],
         });
@@ -973,7 +1027,7 @@ describe("SubsonicMusicLibrary", () => {
         });
 
         it("should return the similar artists", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
+          const result = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1180,7 +1234,7 @@ describe("SubsonicMusicLibrary", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
+          const result = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1220,7 +1274,7 @@ describe("SubsonicMusicLibrary", () => {
       });
 
       describe("and has a good medium external image uri from getArtistInfo route", () => {
-        const artist: Artist = anArtist({
+        const artist = anArtist({
           albums: [],
           similarArtists: [],
         });
@@ -1231,7 +1285,7 @@ describe("SubsonicMusicLibrary", () => {
           mockGET
             .mockImplementationOnce(() =>
               Promise.resolve(
-                ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl }))
+                ok(getArtistJson(artist))
               )
             )
             .mockImplementationOnce(() =>
@@ -1249,7 +1303,7 @@ describe("SubsonicMusicLibrary", () => {
         });
 
         it("should use the external url", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
+          const result = await subsonic.artist(artist.id!);
 
           expect(result).toEqual({
             id: artist.id,
@@ -1289,9 +1343,9 @@ describe("SubsonicMusicLibrary", () => {
       });
 
       describe("and has multiple albums", () => {
-        const album1: Album = anAlbum({ genre: asGenre("Pop") });
+        const album1 = anAlbumSummary({ genre: asGenre("Pop") });
 
-        const album2: Album = anAlbum({ genre: asGenre("Flop") });
+        const album2 = anAlbumSummary({ genre: asGenre("Flop") });
 
         const artist: Artist = anArtist({
           albums: [album1, album2],
@@ -1346,7 +1400,7 @@ describe("SubsonicMusicLibrary", () => {
       });
 
       describe("and has only 1 album", () => {
-        const album: Album = anAlbum({ genre: asGenre("Pop") });
+        const album = anAlbumSummary({ genre: POP });
 
         const artist: Artist = anArtist({
           albums: [album],
@@ -1915,7 +1969,7 @@ describe("SubsonicMusicLibrary", () => {
     describe("when the artist has only 1 album", () => {
       const artist = anArtist({
         name: "one hit wonder",
-        albums: [anAlbum({ genre: asGenre("Pop") })],
+        albums: [anAlbumSummary({ genre: asGenre("Pop") })],
       });
       const artists = [artist];
       const albums = artists.flatMap((artist) => artist.albums);
@@ -2028,17 +2082,17 @@ describe("SubsonicMusicLibrary", () => {
       const artist1 = anArtist({
         name: "abba",
         albums: [
-          anAlbum({ name: "album1", genre: genre1 }),
-          anAlbum({ name: "album2", genre: genre2 }),
-          anAlbum({ name: "album3", genre: genre3 }),
+          anAlbumSummary({ name: "album1", genre: genre1 }),
+          anAlbumSummary({ name: "album2", genre: genre2 }),
+          anAlbumSummary({ name: "album3", genre: genre3 }),
         ],
       });
       const artist2 = anArtist({
         name: "babba",
         albums: [
-          anAlbum({ name: "album4", genre: genre1 }),
-          anAlbum({ name: "album5", genre: genre2 }),
-          anAlbum({ name: "album6", genre: genre3 }),
+          anAlbumSummary({ name: "album4", genre: genre1 }),
+          anAlbumSummary({ name: "album5", genre: genre2 }),
+          anAlbumSummary({ name: "album6", genre: genre3 }),
         ],
       });
       const artists = [artist1, artist2];
@@ -2148,11 +2202,11 @@ describe("SubsonicMusicLibrary", () => {
     describe("when the number of albums reported by getArtists does not match that of getAlbums", () => {
       const genre = asGenre("lofi");
 
-      const album1 = anAlbum({ name: "album1", genre });
-      const album2 = anAlbum({ name: "album2", genre });
-      const album3 = anAlbum({ name: "album3", genre });
-      const album4 = anAlbum({ name: "album4", genre });
-      const album5 = anAlbum({ name: "album5", genre });
+      const album1 = anAlbumSummary({ name: "album1", genre });
+      const album2 = anAlbumSummary({ name: "album2", genre });
+      const album3 = anAlbumSummary({ name: "album3", genre });
+      const album4 = anAlbumSummary({ name: "album4", genre });
+      const album5 = anAlbumSummary({ name: "album5", genre });
 
       // the artists have 5 albums in the getArtists endpoint
       const artist1 = anArtist({
@@ -2476,7 +2530,7 @@ describe("SubsonicMusicLibrary", () => {
                   ok(
                     asArtistsJson([
                       // artist1 has lost 2 albums on the getArtists end point
-                      { ...artist1, albums: [album1, album2] },
+                      anArtist({ ...artist1, albums: [album1, album2] }),
                       artist2,
                     ])
                   )
@@ -2504,7 +2558,11 @@ describe("SubsonicMusicLibrary", () => {
             const result = await subsonic.albums(q);
 
             expect(result).toEqual({
-              results: [album3, album4, album5],
+              results: [
+                album3,
+                album4,
+                album5
+              ],
               total: 5,
             });
 
@@ -2534,49 +2592,6 @@ describe("SubsonicMusicLibrary", () => {
     });
   });
 
-  describe("getting an album", () => {
-    beforeEach(() => {
-      customPlayers.encodingFor.mockReturnValue(O.none);
-    });
-
-    describe("when it exists", () => {
-      const genre = asGenre("Pop");
-
-      const album = anAlbum({ genre });
-
-      const artist = anArtist({ albums: [album] });
-
-      const tracks = [
-        aTrack({ artist, album, genre }),
-        aTrack({ artist, album, genre }),
-        aTrack({ artist, album, genre }),
-        aTrack({ artist, album, genre }),
-      ];
-
-      beforeEach(() => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
-        );
-      });
-
-      it("should return the album", async () => {
-        const result = await subsonic.album(album.id);
-
-        expect(result).toEqual(album);
-
-        expect(axios.get).toHaveBeenCalledWith(
-          url.append({ pathname: "/rest/getAlbum" }).href(),
-          {
-            params: asURLSearchParams({
-              ...authParamsPlusJson,
-              id: album.id,
-            }),
-            headers,
-          }
-        );
-      });
-    });
-  });
 
   describe("getting tracks", () => {
     describe("for an album", () => {
@@ -2589,21 +2604,20 @@ describe("SubsonicMusicLibrary", () => {
           const hipHop = asGenre("Hip-Hop");
           const tripHop = asGenre("Trip-Hop");
 
-          const album = anAlbum({
+          const albumSummary = anAlbumSummary({
             id: "album1",
             name: "Burnin",
             genre: hipHop,
           });
 
-          const artist = anArtist({
+          const artistSummary = anArtistSummary({
             id: "artist1",
-            name: "Bob Marley",
-            albums: [album],
+            name: "Bob Marley"
           });
 
           const track1 = aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
+            artist: artistSummary,
+            album: albumSummary,
             genre: hipHop,
             rating: {
               love: true,
@@ -2611,8 +2625,8 @@ describe("SubsonicMusicLibrary", () => {
             },
           });
           const track2 = aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
+            artist: artistSummary,
+            album: albumSummary,
             genre: hipHop,
             rating: {
               love: false,
@@ -2620,8 +2634,8 @@ describe("SubsonicMusicLibrary", () => {
             },
           });
           const track3 = aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
+            artist: artistSummary,
+            album: albumSummary,
             genre: tripHop,
             rating: {
               love: true,
@@ -2629,8 +2643,8 @@ describe("SubsonicMusicLibrary", () => {
             },
           });
           const track4 = aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
+            artist: artistSummary,
+            album: albumSummary,
             genre: tripHop,
             rating: {
               love: false,
@@ -2638,18 +2652,35 @@ describe("SubsonicMusicLibrary", () => {
             },
           });
 
-          const tracks = [track1, track2, track3, track4];
+          const album = anAlbum({
+            ...albumSummary,
+            tracks: [track1, track2, track3, track4]
+          })
 
           beforeEach(() => {
             mockGET.mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+              Promise.resolve(ok(getAlbumJson(album)))
             );
           });
 
           it("should return the album", async () => {
             const result = await subsonic.tracks(album.id);
 
-            expect(result).toEqual([track1, track2, track3, track4]);
+            // todo: not this
+            const blatRating = (t: Track) => ({
+              ...t,
+              rating: {
+                love: false,
+                stars: 0
+              }
+            })
+
+            expect(result).toEqual([
+              blatRating(track1), 
+              blatRating(track2), 
+              blatRating(track3), 
+              blatRating(track4), 
+            ]);
 
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbum" }).href(),
@@ -2665,38 +2696,48 @@ describe("SubsonicMusicLibrary", () => {
         });
 
         describe("when the album has only 1 track", () => {
+          // todo: why do i care about the genre in here?
           const flipFlop = asGenre("Flip-Flop");
 
-          const album = anAlbum({
+          const albumSummary = anAlbumSummary({
             id: "album1",
             name: "Burnin",
             genre: flipFlop,
           });
 
-          const artist = anArtist({
+          const artistSummary = anArtistSummary({
             id: "artist1",
-            name: "Bob Marley",
-            albums: [album],
+            name: "Bob Marley"
           });
 
           const track = aTrack({
-            artist: artistToArtistSummary(artist),
-            album: albumToAlbumSummary(album),
+            artist: artistSummary,
+            album: albumSummary,
             genre: flipFlop,
           });
 
-          const tracks = [track];
+          const album = anAlbum({
+            ...albumSummary,
+            tracks: [track]
+          });
 
           beforeEach(() => {
             mockGET.mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+              Promise.resolve(ok(getAlbumJson(album)))
             );
           });
 
           it("should return the album", async () => {
             const result = await subsonic.tracks(album.id);
 
-            expect(result).toEqual([track]);
+            expect(result).toEqual([{
+              ...track,
+              // todo: not sure about this
+              rating: {
+                love: false,
+                stars: 0
+              }
+            }]);
 
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbum" }).href(),
@@ -2711,20 +2752,14 @@ describe("SubsonicMusicLibrary", () => {
           });
         });
 
-        describe("when the album has only no tracks", () => {
-          const album = anAlbum({ id: "album1", name: "Burnin" });
-
-          const artist = anArtist({
-            id: "artist1",
-            name: "Bob Marley",
-            albums: [album],
-          });
-
-          const tracks: Track[] = [];
-
+        describe("when the album has no tracks", () => {
+          const album = anAlbum({
+            tracks: []
+          })
+          
           beforeEach(() => {
             mockGET.mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, tracks)))
+              Promise.resolve(ok(getAlbumJson(album)))
             );
           });
 
@@ -2751,17 +2786,16 @@ describe("SubsonicMusicLibrary", () => {
         const hipHop = asGenre("Hip-Hop");
         const tripHop = asGenre("Trip-Hop");
 
-        const album = anAlbum({ id: "album1", name: "Burnin", genre: hipHop });
+        const albumSummary = anAlbumSummary({ id: "album1", name: "Burnin", genre: hipHop });
 
-        const artist = anArtist({
+        const artistSummary = anArtistSummary({
           id: "artist1",
-          name: "Bob Marley",
-          albums: [album],
+          name: "Bob Marley"
         });
 
         const alac = aTrack({
-          artist: artistToArtistSummary(artist),
-          album: albumToAlbumSummary(album),
+          artist: artistSummary,
+          album: albumSummary,
           encoding: {
             player: "bonob",
             mimeType: "audio/alac",
@@ -2773,8 +2807,8 @@ describe("SubsonicMusicLibrary", () => {
           },
         });
         const m4a = aTrack({
-          artist: artistToArtistSummary(artist),
-          album: albumToAlbumSummary(album),
+          artist: artistSummary,
+          album: albumSummary,
           encoding: {
             player: "bonob",
             mimeType: "audio/m4a",
@@ -2786,8 +2820,8 @@ describe("SubsonicMusicLibrary", () => {
           },
         });
         const mp3 = aTrack({
-          artist: artistToArtistSummary(artist),
-          album: albumToAlbumSummary(album),
+          artist: artistSummary,
+          album: albumSummary,
           encoding: {
             player: "bonob",
             mimeType: "audio/mp3",
@@ -2798,6 +2832,11 @@ describe("SubsonicMusicLibrary", () => {
             stars: 5,
           },
         });
+
+        const album = anAlbum({
+          ...albumSummary,
+          tracks: [alac, m4a, mp3]
+        })
 
         beforeEach(() => {
           customPlayers.encodingFor
@@ -2810,7 +2849,7 @@ describe("SubsonicMusicLibrary", () => {
             .mockReturnValueOnce(O.none);
 
           mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album, [alac, m4a, mp3])))
+            Promise.resolve(ok(getAlbumJson(album)))
           );
         });
 
@@ -2824,6 +2863,11 @@ describe("SubsonicMusicLibrary", () => {
                 player: "bonob+audio/alac",
                 mimeType: "audio/flac",
               },
+              // todo: this doesnt seem right? why dont the ratings come back?
+              rating: {
+                love: false,
+                stars: 0
+              }
             },
             {
               ...m4a,
@@ -2831,6 +2875,10 @@ describe("SubsonicMusicLibrary", () => {
                 player: "bonob+audio/m4a",
                 mimeType: "audio/opus",
               },
+              rating: {
+                love: false,
+                stars: 0
+              }
             },
             {
               ...mp3,
@@ -2838,6 +2886,10 @@ describe("SubsonicMusicLibrary", () => {
                 player: "bonob",
                 mimeType: "audio/mp3",
               },
+              rating: {
+                love: false,
+                stars: 0
+              }
             },
           ]);
 
@@ -2899,7 +2951,7 @@ describe("SubsonicMusicLibrary", () => {
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                Promise.resolve(ok(getAlbumJson(album)))
               );
 
             const result = await subsonic.track(track.id);
@@ -2950,7 +3002,7 @@ describe("SubsonicMusicLibrary", () => {
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                Promise.resolve(ok(getAlbumJson(album)))
               );
 
             const result = await subsonic.track(track.id);
@@ -3027,7 +3079,7 @@ describe("SubsonicMusicLibrary", () => {
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                Promise.resolve(ok(getAlbumJson(album)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3064,7 +3116,7 @@ describe("SubsonicMusicLibrary", () => {
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                Promise.resolve(ok(getAlbumJson(album)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3103,7 +3155,7 @@ describe("SubsonicMusicLibrary", () => {
                   Promise.resolve(ok(getSongJson(track)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                  Promise.resolve(ok(getAlbumJson(album)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3153,7 +3205,7 @@ describe("SubsonicMusicLibrary", () => {
                   Promise.resolve(ok(getSongJson(track)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                  Promise.resolve(ok(getAlbumJson(album)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3172,7 +3224,7 @@ describe("SubsonicMusicLibrary", () => {
                   Promise.resolve(ok(getSongJson(track)))
                 )
                 .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                  Promise.resolve(ok(getAlbumJson(album)))
                 )
                 .mockImplementationOnce(() =>
                   Promise.reject("IO error occured")
@@ -3209,7 +3261,7 @@ describe("SubsonicMusicLibrary", () => {
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(artist, album, [])))
+                Promise.resolve(ok(getAlbumJson(album)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -3272,7 +3324,7 @@ describe("SubsonicMusicLibrary", () => {
             )
             .mockImplementationOnce(() =>
               Promise.resolve(
-                ok(getAlbumJson(artist, album, [trackWithCustomPlayer]))
+                ok(getAlbumJson(album))
               )
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
@@ -3314,7 +3366,7 @@ describe("SubsonicMusicLibrary", () => {
             )
             .mockImplementationOnce(() =>
               Promise.resolve(
-                ok(getAlbumJson(artist, album, [trackWithCustomPlayer]))
+                ok(getAlbumJson(album))
               )
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
@@ -3588,7 +3640,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(album)))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -3623,7 +3675,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(album)))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -3661,7 +3713,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(album)))
             );
 
           const result = await subsonic.rate(trackId, { love: true, stars: 0 });
@@ -3686,7 +3738,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(album)))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -3725,7 +3777,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(album)))
             );
 
           const result = await subsonic.rate(trackId, { love: true, stars: 3 });
@@ -3750,7 +3802,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(artist, album, [])))
+              Promise.resolve(ok(getAlbumJson(album)))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
@@ -4025,10 +4077,7 @@ describe("SubsonicMusicLibrary", () => {
   describe("searchAlbums", () => {
     describe("when there is 1 search results", () => {
       it("should return true", async () => {
-        const album = anAlbum({
-          name: "foo woo",
-          genre: { id: b64Encode("pop"), name: "pop" },
-        });
+        const album = anAlbum({ name: "foo woo" });
         const artist = anArtist({ name: "#1", albums: [album] });
 
         mockGET.mockImplementationOnce(() =>
@@ -4039,7 +4088,12 @@ describe("SubsonicMusicLibrary", () => {
 
         const result = await subsonic.searchAlbums("foo");
 
-        expect(result).toEqual([albumToAlbumSummary(album)]);
+        expect(result).toEqual([
+          {
+            ...albumToAlbumSummary(album),
+            genre: undefined
+          }
+        ]);
 
         expect(mockGET).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/search3" }).href(),
@@ -4059,16 +4113,10 @@ describe("SubsonicMusicLibrary", () => {
 
     describe("when there are many search results", () => {
       it("should return true", async () => {
-        const album1 = anAlbum({
-          name: "album1",
-          genre: { id: b64Encode("pop"), name: "pop" },
-        });
+        const album1 = anAlbum({ name: "album1" });
         const artist1 = anArtist({ name: "artist1", albums: [album1] });
 
-        const album2 = anAlbum({
-          name: "album2",
-          genre: { id: b64Encode("pop"), name: "pop" },
-        });
+        const album2 = anAlbum({ name: "album2" });
         const artist2 = anArtist({ name: "artist2", albums: [album2] });
 
         mockGET.mockImplementationOnce(() =>
@@ -4087,8 +4135,14 @@ describe("SubsonicMusicLibrary", () => {
         const result = await subsonic.searchAlbums("moo");
 
         expect(result).toEqual([
-          albumToAlbumSummary(album1),
-          albumToAlbumSummary(album2),
+          {
+            ...albumToAlbumSummary(album1),
+            genre: undefined
+          },
+          {
+            ...albumToAlbumSummary(album2),
+            genre: undefined
+          },
         ]);
 
         expect(mockGET).toHaveBeenCalledWith(
@@ -4161,7 +4215,7 @@ describe("SubsonicMusicLibrary", () => {
           )
           .mockImplementationOnce(() => Promise.resolve(ok(getSongJson(track))))
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album, [])))
+            Promise.resolve(ok(getAlbumJson(album)))
           );
 
         const result = await subsonic.searchTracks("foo");
@@ -4231,10 +4285,10 @@ describe("SubsonicMusicLibrary", () => {
             Promise.resolve(ok(getSongJson(track2)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
+            Promise.resolve(ok(getAlbumJson(album1)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist2, album2, [])))
+            Promise.resolve(ok(getAlbumJson(album2)))
           );
 
         const result = await subsonic.searchTracks("moo");
@@ -4606,7 +4660,7 @@ describe("SubsonicMusicLibrary", () => {
             Promise.resolve(ok(getSimilarSongsJson([track1])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
+            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.similarSongs(id);
@@ -4671,13 +4725,13 @@ describe("SubsonicMusicLibrary", () => {
             Promise.resolve(ok(getSimilarSongsJson([track1, track2, track3])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
+            Promise.resolve(ok(getAlbumJson(album1)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist2, album2, [])))
+            Promise.resolve(ok(getAlbumJson(album2)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
+            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.similarSongs(id);
@@ -4773,7 +4827,7 @@ describe("SubsonicMusicLibrary", () => {
             Promise.resolve(ok(getTopSongsJson([track1])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album1, [])))
+            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.topSongs(artistId);
@@ -4835,13 +4889,13 @@ describe("SubsonicMusicLibrary", () => {
             Promise.resolve(ok(getTopSongsJson([track1, track2, track3])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album1, [])))
+            Promise.resolve(ok(getAlbumJson(album1)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album2, [])))
+            Promise.resolve(ok(getAlbumJson(album2)))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album1, [])))
+            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.topSongs(artistId);

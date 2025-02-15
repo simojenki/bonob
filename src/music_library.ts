@@ -23,7 +23,8 @@ export type ArtistSummary = {
 
 export type SimilarArtist = ArtistSummary & { inLibrary: boolean };
 
-export type Artist = ArtistSummary & {
+// todo: maybe is should be artist.summary rather than an artist also being a summary?
+export type Artist = Pick<ArtistSummary, "id" | "name" | "image">  & {
   albums: AlbumSummary[];
   similarArtists: SimilarArtist[]
 };
@@ -34,12 +35,11 @@ export type AlbumSummary = {
   year: string | undefined;
   genre: Genre | undefined;
   coverArt: BUrn | undefined;
-
   artistName: string | undefined;
   artistId: string | undefined;
 };
 
-export type Album = AlbumSummary & {};
+export type Album = Pick<AlbumSummary, "id" | "name" | "year" | "genre" | "coverArt" | "artistName" | "artistId"> & { tracks: Track[] };
 
 export type Genre = {
   name: string;
@@ -175,7 +175,7 @@ export interface MusicLibrary {
   artists(q: ArtistQuery): Promise<Result<ArtistSummary>>;
   artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
-  album(id: string): Promise<Album>;
+  album(id: string): Promise<AlbumSummary>;
   tracks(albumId: string): Promise<Track[]>;
   track(trackId: string): Promise<Track>;
   genres(): Promise<Genre[]>;
