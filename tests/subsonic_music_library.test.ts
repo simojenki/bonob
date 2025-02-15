@@ -833,6 +833,7 @@ describe("SubsonicMusicLibrary", () => {
   };
 
   const subsonic = new SubsonicMusicLibrary(
+    // todo: this should be a mock...
     new Subsonic(url, customPlayers),
     { username, password },
     customPlayers as unknown as CustomPlayers

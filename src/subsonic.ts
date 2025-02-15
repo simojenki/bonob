@@ -724,10 +724,22 @@ export class Subsonic {
       )
     );
 
-  // getStarred2 = (credentials: Credentials): Promise<{ albums: Album[] }> =>
-  //   this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2")
-  //     .then((it) => it.starred2)
-  //     .then((it) => ({
-  //       albums: it.album.map(asAlbum),
-  //     }));
+  private st4r = (credentials: Credentials, action: string,  { id } : { id: string }) => 
+    this.getJSON<SubsonicResponse>(credentials, `/rest/${action}`, { id }).then(it => 
+      it.status == "ok"
+    );
+
+  star = (credentials: Credentials, ids : { id: string }) => 
+    this.st4r(credentials, "star", ids)
+
+  unstar = (credentials: Credentials, ids : { id: string }) => 
+    this.st4r(credentials, "unstar", ids)
+
+  setRating = (credentials: Credentials, id: string, rating: number) => 
+    this.getJSON<SubsonicResponse>(credentials, `/rest/setRating`, {
+      id,
+      rating,
+    }).then(it => 
+      it.status == "ok"
+    );
 }
