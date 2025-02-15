@@ -6,11 +6,11 @@ import logger from "./logger";
 import {
   axiosImageFetcher,
   cachingImageFetcher,
-  SubsonicMusicService,
   TranscodingCustomPlayers,
   NO_CUSTOM_PLAYERS,
   Subsonic
 } from "./subsonic";
+import { SubsonicMusicService} from "./subsonic_music_library";
 import { InMemoryAPITokens, sha256 } from "./api_tokens";
 import { InMemoryLinkCodes } from "./link_codes";
 import readConfig from "./config";
