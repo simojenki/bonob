@@ -102,7 +102,7 @@ export class InMemoryMusicService implements MusicService {
         pipe(
           this.artists.flatMap((it) => it.albums).find((it) => it.id === id),
           O.fromNullable,
-          O.map((it) => Promise.resolve(it)),
+          O.map((it) => Promise.resolve({ ...it, tracks: [] })),
           O.getOrElse(() => Promise.reject(`No album with id '${id}'`))
         ),
       genres: () =>
@@ -116,12 +116,6 @@ export class InMemoryMusicService implements MusicService {
             A.uniq(fromEquals((x, y) => x.id === y.id)),
             A.sort(fromCompare<Genre>((x, y) => ordString.compare(x.id, y.id)))
           )
-        ),
-      tracks: (albumId: string) =>
-        Promise.resolve(
-          this.tracks
-            .filter((it) => it.album.id === albumId)
-            .map((it) => ({ ...it, rating: { love: false, stars: 0 } }))
         ),
       rate: (_: string, _2: Rating) => Promise.resolve(false),
       track: (trackId: string) =>
