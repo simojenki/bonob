@@ -19,12 +19,10 @@ import {
 import {
   Subsonic,
   CustomPlayers,
-  PingResponse,
   NO_CUSTOM_PLAYERS,
   asToken,
   parseToken,
   artistImageURN,
-  GetInternetRadioStationsResponse,
   asYear,
   isValidImage
 } from "./subsonic";
@@ -48,39 +46,23 @@ export class SubsonicMusicService implements MusicService {
 
   generateToken = (
     credentials: Credentials
-  ): TE.TaskEither<AuthFailure, AuthSuccess> => {
-    const x: TE.TaskEither<AuthFailure, PingResponse> = TE.tryCatch(
-      () =>
-        this.subsonic.getJSON<PingResponse>(
-          _.pick(credentials, "username", "password"),
-          "/rest/ping.view"
-        ),
-      (e) => new AuthFailure(e as string)
-    );
-    return pipe(
-      x,
-      TE.flatMap(({ type }) =>
-        pipe(
-          TE.tryCatch(
-            () => this.libraryFor({ ...credentials, type }),
-            () => new AuthFailure("Failed to get library")
-          ),
-          TE.map((library) => ({ type, library }))
-        )
-      ),
-      TE.flatMap(({ library, type }) =>
-        pipe(
-          library.bearerToken(credentials),
-          TE.map((bearer) => ({ bearer, type }))
-        )
-      ),
-      TE.map(({ bearer, type }) => ({
+  ): TE.TaskEither<AuthFailure, AuthSuccess> => 
+    pipe(
+      this.subsonic.ping(credentials),
+      TE.flatMap(({ type }) => TE.tryCatch(
+        () => this.libraryFor({ ...credentials, type }).then(library => ({ type, library })),
+        () => new AuthFailure("Failed to get library")
+      )),
+      TE.flatMap(({ library, type }) => pipe(
+        library.bearerToken(credentials),
+        TE.map(bearer => ({ bearer, type }))
+      )),
+      TE.map(({ bearer, type}) => ({
         serviceToken: asToken({ ...credentials, bearer, type }),
         userId: credentials.username,
         nickname: credentials.username,
       }))
     );
-  };
 
   refreshToken = (serviceToken: string) =>
     this.generateToken(parseToken(serviceToken));
@@ -310,20 +292,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       );
 
   radioStations = async () =>
-    this.subsonic
-      .getJSON<GetInternetRadioStationsResponse>(
-        this.credentials,
-        "/rest/getInternetRadioStations"
-      )
-      .then((it) => it.internetRadioStations.internetRadioStation || [])
-      .then((stations) =>
-        stations.map((it) => ({
-          id: it.id,
-          name: it.name,
-          url: it.streamUrl,
-          homePage: it.homePageUrl,
-        }))
-      );
+    this.subsonic.getInternetRadioStations(this.credentials);
 
   radioStation = async (id: string) =>
     this.radioStations().then((it) => it.find((station) => station.id === id)!);
