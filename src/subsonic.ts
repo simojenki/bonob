@@ -580,6 +580,7 @@ export class Subsonic {
         similarArtist: (it.similarArtist || []).map((artist) => ({
           id: `${artist.id}`,
           name: artist.name,
+          // todo: whats this inLibrary used for?
           inLibrary: artistIsInLibrary(artist.id),
           image: artistImageURN({
             artistId: artist.id,
@@ -628,26 +629,6 @@ export class Subsonic {
         artistImageUrl: it.artistImageUrl,
         albums: this.toAlbumSummary(it.album || []),
       }));
-
-  getArtistWithInfo = (credentials: Credentials, id: string) =>
-    Promise.all([
-      this.getArtist(credentials, id),
-      this.getArtistInfo(credentials, id),
-    ]).then(([artist, artistInfo]) => ({
-      id: artist.id,
-      name: artist.name,
-      image: artistImageURN({
-        artistId: artist.id,
-        artistImageURL: [
-          artist.artistImageUrl,
-          artistInfo.images.l,
-          artistInfo.images.m,
-          artistInfo.images.s,
-        ].find(isValidImage),
-      }),
-      albums: artist.albums,
-      similarArtists: artistInfo.similarArtist,
-    }));
 
   getCoverArt = (credentials: Credentials, id: string, size?: number) =>
     this.get(credentials, "/rest/getCoverArt", size ? { id, size } : { id }, {
@@ -750,4 +731,38 @@ export class Subsonic {
         submission,
       })
       .then(it => it.status == "ok")
+
+  stream = (credentials: Credentials, id: string, c: string, range: string | undefined) =>
+    this.get(
+      credentials,
+      `/rest/stream`,
+      {
+        id,
+        c,
+      },
+      {
+        headers: pipe(
+          range,
+          O.fromNullable,
+          O.map((range) => ({
+            "User-Agent": USER_AGENT,
+            Range: range,
+          })),
+          O.getOrElse(() => ({
+            "User-Agent": USER_AGENT,
+          }))
+        ),
+        responseType: "stream",
+      }
+    )
+    .then((stream) => ({
+      status: stream.status,
+      headers: {
+        "content-type": stream.headers["content-type"],
+        "content-length": stream.headers["content-length"],
+        "content-range": stream.headers["content-range"],
+        "accept-ranges": stream.headers["accept-ranges"],
+      },
+      stream: stream.data,
+    }))
 }

@@ -1,4 +1,4 @@
-import { option as O, taskEither as TE } from "fp-ts";
+import { taskEither as TE } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 import {
   Credentials,
@@ -26,7 +26,6 @@ import {
   asToken,
   parseToken,
   artistImageURN,
-  USER_AGENT,
   GetPlaylistsResponse,
   GetPlaylistResponse,
   asPlayListSummary,
@@ -36,6 +35,7 @@ import {
   GetTopSongsResponse,
   GetInternetRadioStationsResponse,
   asYear,
+  isValidImage
 } from "./subsonic";
 import _ from "underscore";
 
@@ -165,7 +165,25 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       }));
 
   artist = async (id: string): Promise<Artist> =>
-    this.subsonic.getArtistWithInfo(this.credentials, id);
+    Promise.all([
+      this.subsonic.getArtist(this.credentials, id),
+      this.subsonic.getArtistInfo(this.credentials, id),
+    ]).then(([artist, artistInfo]) => ({
+      id: artist.id,
+      name: artist.name,
+      image: artistImageURN({
+        artistId: artist.id,
+        artistImageURL: [
+          artist.artistImageUrl,
+          artistInfo.images.l,
+          artistInfo.images.m,
+          artistInfo.images.s,
+          // todo: do we still need this isValidImage?
+        ].find(isValidImage),
+      }),
+      albums: artist.albums,
+      similarArtists: artistInfo.similarArtist,
+    }));
 
   albums = async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
     this.subsonic.getAlbumList2(this.credentials, q);
@@ -173,12 +191,14 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   album = (id: string): Promise<Album> =>
     this.subsonic.getAlbum(this.credentials, id);
 
-  genres = () => this.subsonic.getGenres(this.credentials);
+  genres = () => 
+    this.subsonic.getGenres(this.credentials);
 
   track = (trackId: string) =>
     this.subsonic.getTrack(this.credentials, trackId);
 
-  rate = (trackId: string, rating: Rating) =>
+  rate = (trackId: string, rating: Rating) => 
+    // todo: this is a bit odd
     Promise.resolve(true)
       .then(() => {
         if (rating.stars >= 0 && rating.stars <= 5) {
@@ -211,41 +231,11 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     trackId: string;
     range: string | undefined;
   }) =>
-    this.subsonic.getTrack(this.credentials, trackId).then((track) =>
-      this.subsonic
-        .get(
-          this.credentials,
-          `/rest/stream`,
-          {
-            id: trackId,
-            c: track.encoding.player,
-          },
-          {
-            headers: pipe(
-              range,
-              O.fromNullable,
-              O.map((range) => ({
-                "User-Agent": USER_AGENT,
-                Range: range,
-              })),
-              O.getOrElse(() => ({
-                "User-Agent": USER_AGENT,
-              }))
-            ),
-            responseType: "stream",
-          }
-        )
-        .then((stream) => ({
-          status: stream.status,
-          headers: {
-            "content-type": stream.headers["content-type"],
-            "content-length": stream.headers["content-length"],
-            "content-range": stream.headers["content-range"],
-            "accept-ranges": stream.headers["accept-ranges"],
-          },
-          stream: stream.data,
-        }))
-    );
+    this.subsonic
+      .getTrack(this.credentials, trackId)
+      .then((track) =>
+        this.subsonic.stream(this.credentials, trackId, track.encoding.player, range)
+      );
 
   coverArt = async (coverArtURN: BUrn, size?: number) =>
     Promise.resolve(coverArtURN)
