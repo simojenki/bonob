@@ -15,24 +15,15 @@ import {
   Artist,
   AuthFailure,
   AuthSuccess,
-  albumToAlbumSummary,
 } from "./music_library";
 import {
   Subsonic,
   CustomPlayers,
-  asTrack,
   PingResponse,
   NO_CUSTOM_PLAYERS,
   asToken,
   parseToken,
   artistImageURN,
-  GetPlaylistsResponse,
-  GetPlaylistResponse,
-  asPlayListSummary,
-  coverArtURN,
-  maybeAsGenre,
-  GetSimilarSongsResponse,
-  GetTopSongsResponse,
   GetInternetRadioStationsResponse,
   asYear,
   isValidImage
@@ -292,112 +283,31 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       );
 
   playlists = async () =>
-    this.subsonic
-      .getJSON<GetPlaylistsResponse>(this.credentials, "/rest/getPlaylists")
-      .then(({ playlists }) =>
-        (playlists.playlist || []).map(asPlayListSummary)
-      );
+    this.subsonic.playlists(this.credentials);
 
   playlist = async (id: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/getPlaylist", {
-        id,
-      })
-      .then(({ playlist }) => {
-        let trackNumber = 1;
-        return {
-          id: playlist.id,
-          name: playlist.name,
-          coverArt: coverArtURN(playlist.coverArt),
-          entries: (playlist.entry || []).map((entry) => ({
-            ...asTrack(
-              {
-                id: entry.albumId!,
-                name: entry.album!,
-                year: entry.year,
-                genre: maybeAsGenre(entry.genre),
-                artistName: entry.artist,
-                artistId: entry.artistId,
-                coverArt: coverArtURN(entry.coverArt),
-              },
-              entry,
-              this.customPlayers
-            ),
-            number: trackNumber++,
-          })),
-        };
-      });
+    this.subsonic.playlist(this.credentials, id);
 
   createPlaylist = async (name: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/createPlaylist", {
-        name,
-      })
-      .then(({ playlist }) => ({
-        id: playlist.id,
-        name: playlist.name,
-        coverArt: coverArtURN(playlist.coverArt),
-      }));
+    this.subsonic.createPlayList(this.credentials, name);
 
   deletePlaylist = async (id: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/deletePlaylist", {
-        id,
-      })
-      .then((_) => true);
+    this.subsonic.deletePlayList(this.credentials, id);
 
   addToPlaylist = async (playlistId: string, trackId: string) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/updatePlaylist", {
-        playlistId,
-        songIdToAdd: trackId,
-      })
-      .then((_) => true);
+    this.subsonic.updatePlaylist(this.credentials, playlistId, { songIdToAdd: trackId });
 
   removeFromPlaylist = async (playlistId: string, indicies: number[]) =>
-    this.subsonic
-      .getJSON<GetPlaylistResponse>(this.credentials, "/rest/updatePlaylist", {
-        playlistId,
-        songIndexToRemove: indicies,
-      })
-      .then((_) => true);
+    this.subsonic.updatePlaylist(this.credentials, playlistId, { songIndexToRemove: indicies });
 
-  similarSongs = async (id: string) =>
-    this.subsonic
-      .getJSON<GetSimilarSongsResponse>(
-        this.credentials,
-        "/rest/getSimilarSongs2",
-        { id, count: 50 }
-      )
-      .then((it) => it.similarSongs2.song || [])
-      .then((songs) =>
-        Promise.all(
-          songs.map((song) =>
-            this.subsonic
-              .getAlbum(this.credentials, song.albumId!)
-              .then((album) => asTrack(albumToAlbumSummary(album), song, this.customPlayers))
-          )
-        )
-      );
+  similarSongs = async (id: string) => 
+    this.subsonic.getSimilarSongs2(this.credentials, id)
 
   topSongs = async (artistId: string) =>
-    this.subsonic.getArtist(this.credentials, artistId).then(({ name }) =>
-      this.subsonic
-        .getJSON<GetTopSongsResponse>(this.credentials, "/rest/getTopSongs", {
-          artist: name,
-          count: 50,
-        })
-        .then((it) => it.topSongs.song || [])
-        .then((songs) =>
-          Promise.all(
-            songs.map((song) =>
-              this.subsonic
-                .getAlbum(this.credentials, song.albumId!)
-                .then((album) => asTrack(albumToAlbumSummary(album), song, this.customPlayers))
-            )
-          )
-        )
-    );
+    this.subsonic.getArtist(this.credentials, artistId)
+      .then(({ name }) =>
+        this.subsonic.getTopSongs(this.credentials, name)
+      );
 
   radioStations = async () =>
     this.subsonic

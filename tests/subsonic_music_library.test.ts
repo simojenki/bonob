@@ -19,7 +19,6 @@ import {
   CustomPlayers,
   PingResponse,
   images,
-  
 } from "../src/subsonic";
 
 import {
@@ -42,6 +41,7 @@ import {
   AuthFailure,
   RadioStation,
   AlbumSummary,
+  trackToTrackSummary,
 } from "../src/music_library";
 import {
   aGenre,
@@ -4216,21 +4216,18 @@ describe("SubsonicMusicLibrary", () => {
         const track1 = aTrack({
           id: "track1",
           artist: artistToArtistSummary(artist1),
-          album: albumToAlbumSummary(album1),
+          album: album1,
           genre: pop,
         });
 
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.similarSongs(id);
 
-        expect(result).toEqual([track1]);
+        expect(result).toEqual([trackToTrackSummary(track1)]);
 
         expect(mockGET).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/getSimilarSongs2" }).href(),
@@ -4288,20 +4285,15 @@ describe("SubsonicMusicLibrary", () => {
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1, track2, track3])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album1)))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album2)))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.similarSongs(id);
 
-        expect(result).toEqual([track1, track2, track3]);
+        expect(result).toEqual([
+          trackToTrackSummary(track1), 
+          trackToTrackSummary(track2), 
+          trackToTrackSummary(track3), 
+        ]);
 
         expect(mockGET).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/getSimilarSongs2" }).href(),
@@ -4390,14 +4382,13 @@ describe("SubsonicMusicLibrary", () => {
           )
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getTopSongsJson([track1])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.topSongs(artistId);
 
-        expect(result).toEqual([track1]);
+        expect(result).toEqual([
+          trackToTrackSummary(track1)
+        ]);
 
         expect(mockGET).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/getTopSongs" }).href(),
@@ -4452,20 +4443,15 @@ describe("SubsonicMusicLibrary", () => {
           )
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getTopSongsJson([track1, track2, track3])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album1)))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album2)))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album1)))
           );
 
         const result = await subsonic.topSongs(artistId);
 
-        expect(result).toEqual([track1, track2, track3]);
+        expect(result).toEqual([
+          trackToTrackSummary(track1), 
+          trackToTrackSummary(track2), 
+          trackToTrackSummary(track3), 
+        ]);
 
         expect(mockGET).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/getTopSongs" }).href(),
