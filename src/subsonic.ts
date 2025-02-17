@@ -12,9 +12,9 @@ import {
   Track,
   CoverArt,
   AlbumQueryType,
-  PlaylistSummary,
   Encoding,
   albumToAlbumSummary,
+  TrackSummary,
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -170,24 +170,34 @@ export type GetAlbumResponse = {
   };
 };
 
-type playlist = {
-  id: string;
-  name: string;
-  coverArt: string | undefined;
-};
-
 export type GetPlaylistResponse = {
   // todo: isnt the type here a composite? playlistSummary && { entry: song[]; }
   playlist: {
     id: string;
     name: string;
-    coverArt: string | undefined;
     entry: song[];
+
+    // todo: this is an ND specific field?
+    coverArt: string | undefined;
   };
 };
 
 export type GetPlaylistsResponse = {
-  playlists: { playlist: playlist[] };
+  playlists: { 
+    playlist: {
+      id: string;
+      name: string;
+      //owner: string,
+      //public: boolean,
+      //created: string,
+      //changed: string,
+      //songCount: int,
+      //duration: int,
+
+      // todo: this is an ND specific field.
+      coverArt: string | undefined;
+    }[] 
+  };
 };
 
 export type GetSimilarSongsResponse = {
@@ -280,11 +290,10 @@ export const artistImageURN = (
   }
 };
 
-export const asTrack = (
-  album: AlbumSummary,
+export const asTrackSummary = (
   song: song,
   customPlayers: CustomPlayers
-): Track => ({
+): TrackSummary => ({
   id: song.id,
   name: song.title,
   encoding: pipe(
@@ -300,7 +309,6 @@ export const asTrack = (
   number: song.track || 0,
   genre: maybeAsGenre(song.genre),
   coverArt: coverArtURN(song.coverArt),
-  album: album,
   artist: {
     id: song.artistId,
     name: song.artist ? song.artist : "?",
@@ -317,6 +325,15 @@ export const asTrack = (
   },
 });
 
+export const asTrack = (
+  album: AlbumSummary,
+  song: song,
+  customPlayers: CustomPlayers
+): Track => ({
+  ...asTrackSummary(song, customPlayers),
+  album: album,
+});
+
 export const asAlbumSummary = (album: album): AlbumSummary => ({
   id: album.id,
   name: album.name,
@@ -325,13 +342,6 @@ export const asAlbumSummary = (album: album): AlbumSummary => ({
   artistId: album.artistId,
   artistName: album.artist,
   coverArt: coverArtURN(album.coverArt),
-});
-
-// coverArtURN
-export const asPlayListSummary = (playlist: playlist): PlaylistSummary => ({
-  id: playlist.id,
-  name: playlist.name,
-  coverArt: coverArtURN(playlist.coverArt),
 });
 
 export const asGenre = (genreName: string) => ({
@@ -611,7 +621,6 @@ export class Subsonic {
           tracks: y
         };
       });
-      
    
   getArtist = (
     credentials: Credentials,
@@ -764,5 +773,93 @@ export class Subsonic {
         "accept-ranges": stream.headers["accept-ranges"],
       },
       stream: stream.data,
-    }))
+    }));
+
+  playlists = (credentials: Credentials) =>
+    this.getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
+    .then(({ playlists }) => (playlists.playlist || []).map( it => ({
+        id: it.id,
+        name: it.name,
+        coverArt: coverArtURN(it.coverArt),
+      }))
+    );
+
+  playlist = (credentials: Credentials, id: string) =>
+    this.getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
+      id,
+    })
+    .then(({ playlist }) => {
+      let trackNumber = 1;
+      return {
+        id: playlist.id,
+        name: playlist.name,
+        coverArt: coverArtURN(playlist.coverArt),
+        entries: (playlist.entry || []).map((entry) => ({
+          ...asTrack(
+            {
+              id: entry.albumId!,
+              name: entry.album!,
+              year: entry.year,
+              genre: maybeAsGenre(entry.genre),
+              artistName: entry.artist,
+              artistId: entry.artistId,
+              coverArt: coverArtURN(entry.coverArt),
+            },
+            entry,
+            this.customPlayers
+          ),
+          number: trackNumber++,
+        })),
+      };
+    });
+
+    createPlayList = (credentials: Credentials, name: string) =>
+      this.getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
+        name,
+      })
+      .then(({ playlist }) => ({
+        id: playlist.id,
+        name: playlist.name,
+        coverArt: coverArtURN(playlist.coverArt),
+      }));
+
+    deletePlayList = (credentials: Credentials, id: string) => 
+      this.getJSON<SubsonicResponse>(credentials, "/rest/deletePlaylist", {
+        id,
+      })
+      .then(it => it.status == "ok");
+
+    updatePlaylist = (
+      credentials: Credentials, 
+      playlistId: string, 
+      changes : Partial<{ songIdToAdd: string | undefined, songIndexToRemove: number[] | undefined }> = {}
+    ) => 
+      this.getJSON<SubsonicResponse>(credentials, "/rest/updatePlaylist", {
+        playlistId,
+        ...changes
+      })
+      .then(it => it.status == "ok");
+
+    getSimilarSongs2 = (credentials: Credentials, id: string) =>
+      this.getJSON<GetSimilarSongsResponse>(
+        credentials,
+        "/rest/getSimilarSongs2",
+        //todo: remove this hard coded 50?
+        { id, count: 50 }
+      )
+      .then((it) => 
+        (it.similarSongs2.song || []).map(it => asTrackSummary(it, this.customPlayers))
+      );
+
+    getTopSongs = (credentials: Credentials, artist: string) =>
+      this.getJSON<GetTopSongsResponse>(
+        credentials,
+        "/rest/getTopSongs",
+        //todo: remove this hard coded 50?
+        { artist, count: 50 }
+      )
+      .then((it) => 
+        (it.topSongs.song || []).map(it => asTrackSummary(it, this.customPlayers))
+      );
+  
 }
