@@ -1,4 +1,4 @@
-import { option as O } from "fp-ts";
+import { option as O, taskEither as TE } from "fp-ts";
 import * as A from "fp-ts/Array";
 import { ordString } from "fp-ts/lib/Ord";
 import { pipe } from "fp-ts/lib/function";
@@ -15,6 +15,7 @@ import {
   Encoding,
   albumToAlbumSummary,
   TrackSummary,
+  AuthFailure
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -531,10 +532,9 @@ export class Subsonic {
         } else return response;
       });
 
-  // todo: make private
   // todo: should I put a catch in here and force a subsonic fail status?
   // or there is a catch above, that then throws, perhaps can go in there?
-  getJSON = async <T>(
+  private getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
     q: {} = {}
@@ -546,6 +546,17 @@ export class Subsonic {
         if (isError(json)) throw `Subsonic error:${json.error.message}`;
         else return json as unknown as T;
       });
+
+  ping = (credentials: Credentials): TE.TaskEither<AuthFailure, { authenticated: Boolean, type: string}> => 
+    TE.tryCatch(
+      () => this.getJSON<PingResponse>(credentials, "/rest/ping.view")
+      .then(it => ({
+        authenticated: it.status == "ok",
+        type: it.type
+      })),
+      (e) => new AuthFailure(e as string)
+    )
+    
 
   getArtists = (
     credentials: Credentials
@@ -861,5 +872,19 @@ export class Subsonic {
       .then((it) => 
         (it.topSongs.song || []).map(it => asTrackSummary(it, this.customPlayers))
       );
-  
-}
+
+  getInternetRadioStations = (credentials: Credentials) =>
+    this.getJSON<GetInternetRadioStationsResponse>(
+      credentials,
+      "/rest/getInternetRadioStations"
+    )
+    .then((it) => it.internetRadioStations.internetRadioStation || [])
+    .then((stations) =>
+      stations.map((it) => ({
+        id: it.id,
+        name: it.name,
+        url: it.streamUrl,
+        homePage: it.homePageUrl,
+      }))
+    ); 
+};
