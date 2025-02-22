@@ -11,7 +11,6 @@ jest.mock("randomstring");
 import {
   Subsonic,
   t,
-  DODGY_IMAGE_NAME,
   asGenre,
   asURLSearchParams,
   parseToken,
@@ -19,6 +18,7 @@ import {
   CustomPlayers,
   PingResponse,
   images,
+  artistImageURN
 } from "../src/subsonic";
 
 import {
@@ -49,12 +49,12 @@ import {
   anArtist,
   aPlaylist,
   aPlaylistSummary,
-  aSimilarArtist,
   aTrack,
   POP,
   ROCK,
   aRadioStation,
   anAlbumSummary,
+  anArtistSummary,
 } from "./builders";
 import { b64Encode } from "../src/b64";
 import { BUrn } from "../src/burn";
@@ -121,7 +121,7 @@ const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
 
 const getSongJson = (track: Track) => subsonicOK({ song: asSongJson(track) });
 
-const getArtistJson = (
+export const getArtistJson = (
   artist: Artist,
   extras: ArtistExtras = { artistImageUrl: undefined }
 ) =>
@@ -229,7 +229,7 @@ const asSongJson = (track: Track) => ({
   year: "",
 });
 
-const getArtistInfoJson = (
+export const getArtistInfoJson = (
   artist: Artist,
   images: images = {
     smallImageUrl: undefined,
@@ -822,6 +822,113 @@ describe("SubsonicMusicService", () => {
   });
 });
 
+describe("SubsonicMusicLibrary_new", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetAllMocks();
+  });
+
+  const credentials = { username: `user-${uuid()}`, password: `pw-${uuid()}` }
+
+  const customPlayers = {}
+
+  const subsonic = {
+    getArtist: jest.fn(),
+    getArtistInfo: jest.fn()
+  };
+
+  const library = new SubsonicMusicLibrary(
+    subsonic as unknown as Subsonic,
+    credentials,
+    customPlayers as unknown as CustomPlayers
+  );
+
+  describe("getting an artist", () => {
+    const id = `artist-${uuid()}`;
+    const name = `artistName-${uuid()}`;
+
+    // todo: what happens when the artist is missing?
+    describe("when the artist exists", () => {
+      describe("when the artist has albums, similar artists and a valid artistImageUrl" , () => {
+        const artistImageUrl = "http://someImage";
+        const albums = [
+          anAlbumSummary(),
+          anAlbumSummary(),
+        ];
+        const similarArtist = [
+          { ...anArtistSummary(), isInLibrary: true },
+          { ...anArtistSummary(), isInLibrary: true },
+          { ...anArtistSummary(), isInLibrary: true },
+        ];
+
+        beforeEach(() => {
+          subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl, albums });
+          subsonic.getArtistInfo.mockResolvedValue({ similarArtist, images: { s: "s", m: "m", l: "l" }});
+        });
+
+        it("should fetch the artist and artistInfo and merge", async () => {
+          const result = await library.artist(id)
+  
+          expect(result).toEqual({
+            id,
+            name,
+            image: artistImageURN({ artistImageURL: artistImageUrl }),
+            albums,
+            similarArtists: similarArtist
+          });
+  
+          expect(subsonic.getArtist).toHaveBeenCalledWith(credentials, id);
+          expect(subsonic.getArtistInfo).toHaveBeenCalledWith(credentials, id);
+        });  
+      });
+
+      describe("when the artist has no valid artistImageUrl, or valid images in artistInfo" , () => {
+        it("should use the artistId for the image", async () => {
+          subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, albums: [] });
+          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: undefined, m: undefined, l: undefined }});
+  
+          const result = await library.artist(id)
+  
+          expect(result.image).toEqual(artistImageURN({ artistId: id }));
+        });  
+      });
+
+      describe("when the artist has a valid image.s value" , () => {
+        it("should use the artistId for the image", async () => {
+          subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, albums: [] });
+          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: "http://smallimage", m: undefined, l: undefined }});
+  
+          const result = await library.artist(id)
+  
+          expect(result.image).toEqual(artistImageURN({ artistImageURL: "http://smallimage" }));
+        });  
+      });
+
+      describe("when the artist has a valid image.m value" , () => {
+        it("should use the artistId for the image", async () => {
+          subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, albums: [] });
+          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: "http://smallimage", m: "http://mediumimage", l: undefined }});
+  
+          const result = await library.artist(id)
+  
+          expect(result.image).toEqual(artistImageURN({ artistImageURL: "http://mediumimage" }));
+        });  
+      });
+
+      describe("when the artist has a valid image.l value" , () => {
+        it("should use the artistId for the image", async () => {
+          subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, albums: [] });
+          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: "http://smallimage", m: "http://mediumimage", l: "http://largeimage" }});
+  
+          const result = await library.artist(id)
+  
+          expect(result.image).toEqual(artistImageURN({ artistImageURL: "http://largeimage" }));
+        });  
+      });
+    });
+  });
+});
+
 describe("SubsonicMusicLibrary", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
   const username = `user1-${uuid()}`;
@@ -870,644 +977,6 @@ describe("SubsonicMusicLibrary", () => {
   const headers = {
     "User-Agent": "bonob",
   };
-
-  describe("getting an artist", () => {
-    describe("when the artist exists", () => {
-      describe("and has many similar artists", () => {
-        const album1 = anAlbumSummary({ genre: asGenre("Pop") });
-
-        const album2 = anAlbumSummary({ genre: asGenre("Pop") });
-
-        const artist = anArtist({
-          albums: [album1, album2],
-          similarArtists: [
-            aSimilarArtist({
-              id: "similar1.id",
-              name: "similar1",
-              inLibrary: true,
-            }),
-            aSimilarArtist({ id: "-1", name: "similar2", inLibrary: false }),
-            aSimilarArtist({
-              id: "similar3.id",
-              name: "similar3",
-              inLibrary: true,
-            }),
-            aSimilarArtist({ id: "-1", name: "similar4", inLibrary: false }),
-          ],
-        });
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist)))
-            );
-        });
-
-        it("should return the similar artists", async () => {
-          const result = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: `${artist.id}`,
-            name: artist.name,
-            image: { system: "subsonic", resource: `art:${artist.id}` },
-            albums: artist.albums,
-            similarArtists: artist.similarArtists,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has one similar artist", () => {
-        const album1 = anAlbumSummary({ genre: asGenre("G1") });
-
-        const album2 = anAlbumSummary({ genre: asGenre("G2") });
-
-        const artist = anArtist({
-          albums: [album1, album2],
-          similarArtists: [
-            aSimilarArtist({
-              id: "similar1.id",
-              name: "similar1",
-              inLibrary: true,
-            }),
-          ],
-        });
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist)))
-            );
-        });
-
-        it("should return the similar artists", async () => {
-          const result = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: { system: "subsonic", resource: `art:${artist.id}` },
-            albums: artist.albums,
-            similarArtists: artist.similarArtists,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has no similar artists", () => {
-        const album1 = anAlbumSummary({ genre: asGenre("Jock") });
-
-        const album2 = anAlbumSummary({ genre: asGenre("Mock") });
-
-        const artist = anArtist({
-          albums: [album1, album2],
-          similarArtists: [],
-        });
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist)))
-            );
-        });
-
-        it("should return the similar artists", async () => {
-          const result = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: { system: "subsonic", resource: `art:${artist.id}` },
-            albums: artist.albums,
-            similarArtists: artist.similarArtists,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has dodgy looking artist image uris", () => {
-        const artist: Artist = anArtist({
-          albums: [],
-          similarArtists: [],
-        });
-
-        const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl }))
-              )
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getArtistInfoJson(artist, {
-                    smallImageUrl: dodgyImageUrl,
-                    mediumImageUrl: dodgyImageUrl,
-                    largeImageUrl: dodgyImageUrl,
-                  })
-                )
-              )
-            );
-        });
-
-        it("should return remove the dodgy looking image uris and return urn for artist:id", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: {
-              system: "subsonic",
-              resource: `art:${artist.id}`,
-            },
-            albums: artist.albums,
-            similarArtists: [],
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has a good external image uri from getArtist route", () => {
-        const artist: Artist = anArtist({
-          albums: [],
-          similarArtists: [],
-        });
-
-        const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getArtistJson(artist, {
-                    artistImageUrl:
-                      "http://example.com:1234/good/looking/image.png",
-                  })
-                )
-              )
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getArtistInfoJson(artist, {
-                    smallImageUrl: dodgyImageUrl,
-                    mediumImageUrl: dodgyImageUrl,
-                    largeImageUrl: dodgyImageUrl,
-                  })
-                )
-              )
-            );
-        });
-
-        it("should use the external url", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: {
-              system: "external",
-              resource: "http://example.com:1234/good/looking/image.png",
-            },
-            albums: artist.albums,
-            similarArtists: [],
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has a good large external image uri from getArtistInfo route", () => {
-        const artist: Artist = anArtist({
-          albums: [],
-          similarArtists: [],
-        });
-
-        const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(getArtistJson(artist, { artistImageUrl: dodgyImageUrl }))
-              )
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getArtistInfoJson(artist, {
-                    smallImageUrl: dodgyImageUrl,
-                    mediumImageUrl: dodgyImageUrl,
-                    largeImageUrl:
-                      "http://example.com:1234/good/large/image.png",
-                  })
-                )
-              )
-            );
-        });
-
-        it("should use the external url", async () => {
-          const result = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: {
-              system: "external",
-              resource: "http://example.com:1234/good/large/image.png",
-            },
-            albums: artist.albums,
-            similarArtists: [],
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has a good medium external image uri from getArtistInfo route", () => {
-        const artist = anArtist({
-          albums: [],
-          similarArtists: [],
-        });
-
-        const dodgyImageUrl = `http://localhost:1234/${DODGY_IMAGE_NAME}`;
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(getArtistJson(artist))
-              )
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getArtistInfoJson(artist, {
-                    smallImageUrl: dodgyImageUrl,
-                    mediumImageUrl:
-                      "http://example.com:1234/good/medium/image.png",
-                    largeImageUrl: dodgyImageUrl,
-                  })
-                )
-              )
-            );
-        });
-
-        it("should use the external url", async () => {
-          const result = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: {
-              system: "external",
-              resource: "http://example.com:1234/good/medium/image.png",
-            },
-            albums: artist.albums,
-            similarArtists: [],
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has multiple albums", () => {
-        const album1 = anAlbumSummary({ genre: asGenre("Pop") });
-
-        const album2 = anAlbumSummary({ genre: asGenre("Flop") });
-
-        const artist: Artist = anArtist({
-          albums: [album1, album2],
-          similarArtists: [],
-        });
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist)))
-            );
-        });
-
-        it("should return it", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: artist.image,
-            albums: artist.albums,
-            similarArtists: [],
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has only 1 album", () => {
-        const album = anAlbumSummary({ genre: POP });
-
-        const artist: Artist = anArtist({
-          albums: [album],
-          similarArtists: [],
-        });
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist)))
-            );
-        });
-
-        it("should return it", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: artist.image,
-            albums: artist.albums,
-            similarArtists: [],
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("and has no albums", () => {
-        const artist: Artist = anArtist({
-          albums: [],
-          similarArtists: [],
-        });
-
-        beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistJson(artist)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getArtistInfoJson(artist)))
-            );
-        });
-
-        it("should return it", async () => {
-          const result: Artist = await subsonic.artist(artist.id!);
-
-          expect(result).toEqual({
-            id: artist.id,
-            name: artist.name,
-            image: artist.image,
-            albums: [],
-            similarArtists: [],
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtist" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtistInfo2" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: artist.id,
-                count: 50,
-                includeNotPresent: true,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-    });
-  });
 
   describe("getting artists", () => {
     describe("when there are indexes, but no artists", () => {

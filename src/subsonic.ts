@@ -503,7 +503,7 @@ export class Subsonic {
     this.externalImageFetcher = externalImageFetcher;
   }
 
-  get = async (
+  private get = async (
     { username, password }: Credentials,
     path: string,
     q: {} = {},
@@ -575,6 +575,7 @@ export class Subsonic {
         }))
       );
 
+      // todo: should be getArtistInfo2?
   getArtistInfo = (
     credentials: Credentials,
     id: string
@@ -598,17 +599,19 @@ export class Subsonic {
           m: it.mediumImageUrl,
           l: it.largeImageUrl,
         },
+        //todo: this does seem to be in OpenSubsonic?? it is also singular
         similarArtist: (it.similarArtist || []).map((artist) => ({
           id: `${artist.id}`,
           name: artist.name,
-          // todo: whats this inLibrary used for?
+          // todo: whats this inLibrary used for? it probably should be filtered on??
           inLibrary: artistIsInLibrary(artist.id),
           image: artistImageURN({
             artistId: artist.id,
             artistImageURL: artist.artistImageUrl,
           }),
         })),
-      }));
+        })
+      );
 
   getAlbum = (credentials: Credentials, id: string): Promise<Album>  =>
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
