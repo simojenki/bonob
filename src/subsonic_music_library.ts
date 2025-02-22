@@ -148,6 +148,8 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         artistId: artist.id,
         artistImageURL: [
           artist.artistImageUrl,
+          // todo: subsonic.artistInfo should just return a valid image or undefined, then the music lib just chooses first undefined
+          // out of artist.image and artistInfo.image
           artistInfo.images.l,
           artistInfo.images.m,
           artistInfo.images.s,

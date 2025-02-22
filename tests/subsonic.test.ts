@@ -255,7 +255,7 @@ export type ArtistWithAlbum = {
   album: Album;
 };
 
-describe("artistURN", () => {
+describe("artistImageURN", () => {
   describe("when artist URL is", () => {
     describe("a valid external URL", () => {
       it("should return an external URN", () => {
