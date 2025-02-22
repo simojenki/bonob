@@ -33,10 +33,12 @@ import {
   asGenre
 } from "../src/subsonic";
 
+import { getArtistJson, getArtistInfoJson } from "./subsonic_music_library.test";
+
 import { b64Encode } from "../src/b64";
 
 import { Album, Artist, Track, AlbumSummary } from "../src/music_library";
-import { anAlbum, aTrack, anAlbumSummary, anArtistSummary } from "./builders";
+import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP } from "./builders";
 import { BUrn } from "../src/burn";
 
 
@@ -655,7 +657,7 @@ export const getAlbumJson = (album: Album) =>
     })),
   } });
 
-describe("subsonic", () => {
+describe("Subsonic", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
   const customPlayers = {
     encodingFor: jest.fn(),
@@ -698,6 +700,358 @@ describe("subsonic", () => {
 
     mockRandomstring.mockReturnValue(salt);
   });
+
+   describe("getArtist", () => {
+      describe("when the artist exists", () => {
+        describe("and has multiple albums", () => {
+          const album1 = anAlbumSummary({ genre: asGenre("Pop") });
+  
+          const album2 = anAlbumSummary({ genre: asGenre("Flop") });
+  
+          const artist: Artist = anArtist({
+            albums: [album1, album2]
+          });
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistJson(artist)))
+              )
+          });
+  
+          it("should return it", async () => {
+            const result = await subsonic.getArtist(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              id: artist.id,
+              name: artist.name,
+              artistImageUrl: undefined,
+              albums: artist.albums
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtist" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                }),
+                headers,
+              }
+            );
+          });
+        });
+  
+        describe("and has only 1 album", () => {
+          const album = anAlbumSummary({ genre: POP });
+  
+          const artist: Artist = anArtist({
+            albums: [album]
+          });
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistJson(artist)))
+              )
+          });
+  
+          it("should return it", async () => {
+            const result = await subsonic.getArtist(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              id: artist.id,
+              name: artist.name,
+              artistImageUrl: undefined,
+              albums: artist.albums,
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtist" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                }),
+                headers,
+              }
+            );
+          });
+        });
+  
+        describe("and has no albums", () => {
+          const artist: Artist = anArtist({
+            albums: [],
+          });
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistJson(artist)))
+              )
+          });
+  
+          it("should return it", async () => {
+            const result = await subsonic.getArtist(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              id: artist.id,
+              name: artist.name,
+              artistImageUrl: undefined,
+              albums: []
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtist" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                }),
+                headers,
+              }
+            );
+          });
+        });
+
+        describe("and has an artistImageUrl", () => {
+          const artist: Artist = anArtist({
+            albums: []
+          });
+  
+          const artistImageUrl = `http://localhost:1234/somewhere.jpg`;
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(getArtistJson(artist, { artistImageUrl }))
+                )
+              )
+          });
+  
+          it("should return the artist image url", async () => {
+            const result = await subsonic.getArtist(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              id: artist.id,
+              name: artist.name,
+              artistImageUrl,
+              albums: [],
+            });
+  
+            // todo: these are everywhere??
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtist" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                }),
+                headers,
+              }
+            );
+          });
+        });  
+      });
+
+      // todo: what happens when the artist doesnt exist?
+    });
+
+    describe("getArtistInfo", () => {
+      // todo: what happens when the artist doesnt exist?
+
+      describe("when the artist exists", () => {
+        describe("and has many similar artists", () => {
+          const artist = anArtist({
+            similarArtists: [
+              aSimilarArtist({
+                id: "similar1.id",
+                name: "similar1",
+                inLibrary: true,
+              }),
+              aSimilarArtist({ id: "-1", name: "similar2", inLibrary: false }),
+              aSimilarArtist({
+                id: "similar3.id",
+                name: "similar3",
+                inLibrary: true,
+              }),
+              aSimilarArtist({ id: "-1", name: "similar4", inLibrary: false }),
+            ],
+          });
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistInfoJson(artist)))
+              )
+          });
+  
+          it("should return the similar artists", async () => {
+            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              similarArtist: artist.similarArtists,
+              images: {
+                l: undefined,
+                m: undefined,
+                s: undefined
+              }
+            });
+    
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtistInfo2" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                  count: 50,
+                  includeNotPresent: true,
+                }),
+                headers,
+              }
+            );
+          });
+        });
+  
+        describe("and has one similar artist", () => {
+          const artist = anArtist({
+            similarArtists: [
+              aSimilarArtist({
+                id: "similar1.id",
+                name: "similar1",
+                inLibrary: true,
+              }),
+            ],
+          });
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistInfoJson(artist)))
+              );
+          });
+  
+          it("should return the similar artists", async () => {
+            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              similarArtist: artist.similarArtists,
+              images: {
+                l: undefined,
+                m: undefined,
+                s: undefined
+              }
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtistInfo2" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                  count: 50,
+                  includeNotPresent: true,
+                }),
+                headers,
+              }
+            );
+          });
+        });
+  
+        describe("and has no similar artists", () => {
+          const artist = anArtist({
+            similarArtists: [],
+          });
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getArtistInfoJson(artist)))
+              );
+          });
+  
+          it("should return the similar artists", async () => {
+            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              similarArtist: artist.similarArtists,
+              images: {
+                l: undefined,
+                m: undefined,
+                s: undefined
+              }
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtistInfo2" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                  count: 50,
+                  includeNotPresent: true,
+                }),
+                headers,
+              }
+            );
+          });
+        });
+  
+        describe("and has some images", () => {
+          const artist: Artist = anArtist({
+            albums: [],
+            similarArtists: [],
+          });
+
+          const smallImageUrl = "http://small";
+          const mediumImageUrl = "http://medium";
+          const largeImageUrl = "http://large"
+  
+  
+          beforeEach(() => {
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    getArtistInfoJson(artist, {
+                      smallImageUrl,
+                      mediumImageUrl,
+                      largeImageUrl,
+                    })
+                  )
+                )
+              );
+          });
+  
+          it("should fetch the images", async () => {
+            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+  
+            expect(result).toEqual({
+              similarArtist: [],
+              images: {
+                s: smallImageUrl,
+                m: mediumImageUrl,
+                l: largeImageUrl
+              }
+            });
+  
+            expect(axios.get).toHaveBeenCalledWith(
+              url.append({ pathname: "/rest/getArtistInfo2" }).href(),
+              {
+                params: asURLSearchParams({
+                  ...authParamsPlusJson,
+                  id: artist.id,
+                  count: 50,
+                  includeNotPresent: true,
+                }),
+                headers,
+              }
+            );
+          });
+        });
+      });
+    });
 
   describe("getting genres", () => {
     describe("when there are none", () => {
