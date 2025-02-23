@@ -33,7 +33,7 @@ import {
   asGenre
 } from "../src/subsonic";
 
-import { getArtistJson, getArtistInfoJson } from "./subsonic_music_library.test";
+import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_music_library.test";
 
 import { b64Encode } from "../src/b64";
 
@@ -700,6 +700,98 @@ describe("Subsonic", () => {
 
     mockRandomstring.mockReturnValue(salt);
   });
+
+  describe("getting artists", () => {
+    describe("when there are indexes, but no artists", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(
+            ok(
+              subsonicOK({
+                artists: {
+                  index: [
+                    {
+                      name: "#",
+                    },
+                    {
+                      name: "A",
+                    },
+                    {
+                      name: "B",
+                    },
+                  ],
+                },
+              })
+            )
+          )
+        );
+      });
+
+      it("should return empty", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists).toEqual([]);
+      });
+    });
+
+    describe("when there no indexes and no artists", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(
+            ok(
+              subsonicOK({
+                artists: {},
+              })
+            )
+          )
+        );
+      });
+
+      it("should return empty", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists).toEqual([]);
+      });
+    });
+
+    describe("when there are artists", () => {
+      const artist1 = anArtist({ name: "A Artist", albums: [anAlbum()] });
+      const artist2 = anArtist({ name: "B Artist", albums: [anAlbum(), anAlbum()] });
+      const artist3 = anArtist({ name: "C Artist" });
+      const artist4 = anArtist({ name: "D Artist" });
+      const artists = [artist1, artist2, artist3, artist4];
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(asArtistsJson(artists)))
+        );
+      });
+
+      it("should return all the artists", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        const expectedResults = [artist1, artist2, artist3, artist4].map(
+          (it) => ({
+            id: it.id,
+            image: it.image,
+            name: it.name,
+            albumCount: it.albums.length
+          })
+        );
+
+        expect(artists).toEqual(expectedResults);
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getArtists" }).href(),
+          {
+            params: asURLSearchParams(authParamsPlusJson),
+            headers,
+          }
+        );
+      });
+    });
+  });
+
 
    describe("getArtist", () => {
       describe("when the artist exists", () => {

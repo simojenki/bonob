@@ -397,7 +397,7 @@ const getSearchResult3Json = ({
     },
   });
 
-const asArtistsJson = (artists: Artist[]) => {
+export const asArtistsJson = (artists: Artist[]) => {
   const as: Artist[] = [];
   const bs: Artist[] = [];
   const cs: Artist[] = [];
@@ -834,7 +834,8 @@ describe("SubsonicMusicLibrary_new", () => {
 
   const subsonic = {
     getArtist: jest.fn(),
-    getArtistInfo: jest.fn()
+    getArtistInfo: jest.fn(),
+    getArtists: jest.fn()
   };
 
   const library = new SubsonicMusicLibrary(
@@ -927,6 +928,78 @@ describe("SubsonicMusicLibrary_new", () => {
       });
     });
   });
+
+  describe("getting artists", () => {
+    describe("when there are no artists", () => {
+      beforeEach(() => {
+        subsonic.getArtists.mockResolvedValue([])
+      });
+
+      it("should return empty", async () => {
+        const result = await library.artists({ _index: 0, _count: 100 });
+
+        expect(result).toEqual({
+          results: [],
+          total: 0,
+        });
+
+        expect(subsonic.getArtists).toHaveBeenCalledWith(credentials)
+      });
+    });
+
+    describe("when there is one artist", () => {
+      const artist = { id: "1", name: "bob1", albumCount: 1, image: undefined }
+
+      describe("when it all fits on one page", () => {
+        beforeEach(() => {
+          subsonic.getArtists.mockResolvedValue([artist])
+        });
+
+        it("should return the single artist", async () => {
+          const result = await library.artists({ _index: 0, _count: 100 });
+
+          expect(result).toEqual({
+            results: [artist],
+            total: 1,
+          });
+        });
+      });
+    });
+
+    describe("when there are artists", () => {
+      const artist1 = { id: "1", name: "bob1", albumCount: 1, image: undefined }
+      const artist2 = { id: "2", name: "bob2", albumCount: 2, image: undefined }
+      const artist3 = { id: "3", name: "bob3", albumCount: 3, image: undefined }
+      const artist4 = { id: "4", name: "bob4", albumCount: 4, image: undefined }
+      const artists = [artist1, artist2, artist3, artist4];
+
+      beforeEach(() => {
+        subsonic.getArtists.mockResolvedValue(artists)
+      });
+
+      describe("when no paging is in effect", () => {
+        it("should return all the artists", async () => {
+          const result = await library.artists({ _index: 0, _count: 100 });
+
+          expect(result).toEqual({
+            results: artists,
+            total: 4,
+          });
+        });
+      });
+
+      describe("when paging specified", () => {
+        it("should return only the correct page of artists", async () => {
+          const artists = await library.artists({ _index: 1, _count: 2 });
+
+          expect(artists).toEqual({ 
+            results: [artist2, artist3], 
+            total: 4 
+          });
+        });
+      });
+    });
+  });
 });
 
 describe("SubsonicMusicLibrary", () => {
@@ -978,190 +1051,6 @@ describe("SubsonicMusicLibrary", () => {
     "User-Agent": "bonob",
   };
 
-  describe("getting artists", () => {
-    describe("when there are indexes, but no artists", () => {
-      beforeEach(() => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(
-            ok(
-              subsonicOK({
-                artists: {
-                  index: [
-                    {
-                      name: "#",
-                    },
-                    {
-                      name: "A",
-                    },
-                    {
-                      name: "B",
-                    },
-                  ],
-                },
-              })
-            )
-          )
-        );
-      });
-
-      it("should return empty", async () => {
-        const artists = await subsonic.artists({ _index: 0, _count: 100 });
-
-        expect(artists).toEqual({
-          results: [],
-          total: 0,
-        });
-      });
-    });
-
-    describe("when there no indexes and no artists", () => {
-      beforeEach(() => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(
-            ok(
-              subsonicOK({
-                artists: {},
-              })
-            )
-          )
-        );
-      });
-
-      it("should return empty", async () => {
-        const artists = await subsonic.artists({ _index: 0, _count: 100 });
-
-        expect(artists).toEqual({
-          results: [],
-          total: 0,
-        });
-      });
-    });
-
-    describe("when there is one index and one artist", () => {
-      const artist1 = anArtist({
-        albums: [anAlbum(), anAlbum(), anAlbum(), anAlbum()],
-      });
-
-      const asArtistsJson = subsonicOK({
-        artists: {
-          index: [
-            {
-              name: "#",
-              artist: [
-                {
-                  id: artist1.id,
-                  name: artist1.name,
-                  albumCount: artist1.albums.length,
-                },
-              ],
-            },
-          ],
-        },
-      });
-
-      describe("when it all fits on one page", () => {
-        beforeEach(() => {
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson))
-          );
-        });
-
-        it("should return the single artist", async () => {
-          const artists = await subsonic.artists({ _index: 0, _count: 100 });
-
-          const expectedResults = [
-            {
-              id: artist1.id,
-              image: artist1.image,
-              name: artist1.name,
-            },
-          ];
-
-          expect(artists).toEqual({
-            results: expectedResults,
-            total: 1,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-        });
-      });
-    });
-
-    describe("when there are artists", () => {
-      const artist1 = anArtist({ name: "A Artist", albums: [anAlbum()] });
-      const artist2 = anArtist({ name: "B Artist" });
-      const artist3 = anArtist({ name: "C Artist" });
-      const artist4 = anArtist({ name: "D Artist" });
-      const artists = [artist1, artist2, artist3, artist4];
-
-      describe("when no paging is in effect", () => {
-        beforeEach(() => {
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson(artists)))
-          );
-        });
-
-        it("should return all the artists", async () => {
-          const artists = await subsonic.artists({ _index: 0, _count: 100 });
-
-          const expectedResults = [artist1, artist2, artist3, artist4].map(
-            (it) => ({
-              id: it.id,
-              image: it.image,
-              name: it.name,
-            })
-          );
-
-          expect(artists).toEqual({
-            results: expectedResults,
-            total: 4,
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("when paging specified", () => {
-        beforeEach(() => {
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson(artists)))
-          );
-        });
-
-        it("should return only the correct page of artists", async () => {
-          const artists = await subsonic.artists({ _index: 1, _count: 2 });
-
-          const expectedResults = [artist2, artist3].map((it) => ({
-            id: it.id,
-            image: it.image,
-            name: it.name,
-          }));
-
-          expect(artists).toEqual({ results: expectedResults, total: 4 });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-        });
-      });
-    });
-  });
 
   describe("getting albums", () => {
     describe("filtering", () => {
