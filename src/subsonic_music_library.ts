@@ -124,17 +124,15 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   bearerToken = (_: Credentials) =>
     TE.right<AuthFailure, string | undefined>(undefined);
 
+  // todo: q needs to support greater than the max page size supported by subsonic
+  // maybe subsonic should error?
   artists = (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
     this.subsonic
       .getArtists(this.credentials)
       .then(slice2(q))
       .then(([page, total]) => ({
         total,
-        results: page.map((it) => ({
-          id: it.id,
-          name: it.name,
-          image: it.image,
-        })),
+        results: page,
       }));
 
   artist = async (id: string): Promise<Artist> =>
