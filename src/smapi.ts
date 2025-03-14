@@ -39,7 +39,7 @@ import {
   ToSmapiFault,
 } from "./smapi_auth";
 import { IncomingHttpHeaders } from "http";
-import { PersistentTokenStore } from "./app";
+import { PersistentTokenStore } from "./api_tokens";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -455,39 +455,49 @@ function bindSmapiSoapServiceToExpress(
     return TE.right(newToken);
   }
 
-  const useHeaderIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
+  const usePartialCredentialsIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
+
+    if(credentials && (credentials.loginToken.token!=null && credentials.loginToken.key==null)) {
+      return credentialsForToken(credentials.loginToken.token, credentials);
+    }
 
     const headersProvidedWithToken = headers!==null && headers!== undefined && headers["authorization"];
     if(headersProvidedWithToken) {
       const bearer = headers["authorization"];
       const token = bearer?.split(" ")[1];
-      if(token) {
-        logger.debug("Will use token in authorization header: " + token);
-        const credsForToken = sonosSoap.getCredentialsForToken(token);
-        return credsForToken.then(smapiToken => {
-            if(!smapiToken) throw new Error("Couldn't lookup token");
-            credentials = {
-              ...credentials!,
-              loginToken: {
-                ...credentials?.loginToken!,
-                token: smapiToken.token,
-                key: smapiToken.key,
-              }
-            }
-            logger.debug("Updated credentials to " + JSON.stringify(credentials));
-            return credentials;
-          // }
-        });
-      }
+      return credentialsForToken(token, credentials);
     }
+    logger.warn("Failed to find additional credentials in header nor " + JSON.stringify(credentials));
     return Promise.resolve(credentials);
+  }
+
+  const credentialsForToken = (token: string | undefined, credentials?: Credentials) => {
+    if(token) {
+      logger.debug("Will use token in authorization header: " + token);
+      const credsForToken = sonosSoap.getCredentialsForToken(token);
+      return credsForToken.then(smapiToken => {
+          if(!smapiToken) throw new Error("Couldn't lookup token");
+          credentials = {
+            ...credentials!,
+            loginToken: {
+              ...credentials?.loginToken!,
+              token: smapiToken.token,
+              key: smapiToken.key,
+            }
+          }
+          logger.debug("Updated credentials to " + JSON.stringify(credentials));
+          return credentials;
+        // }
+      });
+    }
+    return credentials;
   }
 
   const login = async (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
 
-    const credentialsProvidedWithoutAuthToken = credentials && credentials.loginToken.token==null;
-    if(credentialsProvidedWithoutAuthToken) {
-      credentials = await useHeaderIfPresent(credentials, headers);
+    const incompleteCredentialsProvided = credentials && (credentials.loginToken.token==null || credentials.loginToken.key==null);
+    if(incompleteCredentialsProvided) {
+      credentials = await usePartialCredentialsIfPresent(credentials, headers);
     }
 
     const authOrFail = pipe(
@@ -552,7 +562,7 @@ function bindSmapiSoapServiceToExpress(
           }),
           refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">) => {
-            const creds = await useHeaderIfPresent(soapyHeaders?.credentials, headers);
+            const creds = await usePartialCredentialsIfPresent(soapyHeaders?.credentials, headers);
             const serviceToken = pipe(
               auth(creds),
               E.fold(
@@ -1261,3 +1271,4 @@ function bindSmapiSoapServiceToExpress(
 }
 
 export default bindSmapiSoapServiceToExpress;
+

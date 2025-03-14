@@ -739,13 +739,14 @@ describe("wsdl api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-
+              console.log("hi");
               await ws
                 .getDeviceAuthTokenAsync({ linkCode })
                 .then(() => {
                   fail("Shouldnt get here");
                 })
                 .catch((e: any) => {
+                  console.log("hi");
                   expect(e.root.Envelope.Body.Fault).toEqual({
                     faultcode: "Client.NOT_LINKED_RETRY",
                     faultstring:

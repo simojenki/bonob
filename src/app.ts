@@ -18,6 +18,7 @@ import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
 import { JWTSmapiLoginTokens } from "./smapi_auth";
 import * as Minio from 'minio'
+import { PersistentTokenStore, NoopPersistentTokenStore } from "./api_tokens";
 
 const config = readConfig();
 const clock = SystemClock;
@@ -78,12 +79,6 @@ const version = fs.existsSync(GIT_INFO)
   ? fs.readFileSync(GIT_INFO).toString().trim()
   : "v??";
 
-type PersistentTokenStore = {
-  get: (key:string) => Promise<string | undefined>;
-  put: (key: string, value: string) => void;
-  delete: (key: string) => void;
-}
-export { PersistentTokenStore, NoopPersistentTokenStore };
 
 const S3_BUCKET="astiga-sonos-tokens";
 
@@ -125,17 +120,6 @@ class MinioPersistentTokenStore implements PersistentTokenStore {
   delete(key:string) {
     this.client.removeObject(S3_BUCKET, key);
   }
-}
-
-class NoopPersistentTokenStore implements PersistentTokenStore {
-  get(_: string) : Promise<string | undefined> {
-    return Promise.resolve(undefined);
-  }
-  put(_key:string, _value:string) {
-  }
-  delete(_key:string) {
-  }
-  
 }
 
 const app = server(
