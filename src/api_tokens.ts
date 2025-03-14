@@ -28,3 +28,21 @@ export class InMemoryAPITokens implements APITokens {
 
   authTokenFor = (apiToken: string): string | undefined => this.tokens.get(apiToken);
 }
+
+type PersistentTokenStore = {
+  get: (key:string) => Promise<string | undefined>;
+  put: (key: string, value: string) => void;
+  delete: (key: string) => void;
+}
+export { PersistentTokenStore, NoopPersistentTokenStore };
+
+class NoopPersistentTokenStore implements PersistentTokenStore {
+  get(_: string) : Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+  put(_key:string, _value:string) {
+  }
+  delete(_key:string) {
+  }
+  
+}

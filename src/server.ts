@@ -39,7 +39,7 @@ import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
 } from "./smapi_auth";
-import { PersistentTokenStore } from "./app";
+import { PersistentTokenStore } from "./api_tokens";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
