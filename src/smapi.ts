@@ -10,7 +10,6 @@ import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
 import {
-  Album,
   AlbumQuery,
   AlbumSummary,
   ArtistSummary,
@@ -713,25 +712,16 @@ function bindSmapiSoapServiceToExpress(
                 const paging = { _index: index ?? 0, _count: count ?? 100 };
                 switch (type) {
                   case "artist":
-                    return musicLibrary.artist(typeId).then((artist) => {
-                      const [page, total] = slice2<Album>(paging)(
-                        artist.albums
-                      );
-                      const mc = page.map((it) =>
-                        album(urlWithToken(apiKey), it)
-                      );
+                    return musicLibrary.artist(typeId).then((theArtist) => {
                       const res = {
                         getExtendedMetadataResult: {
-                          count: page.length,
-                          index: paging._index,
-                          total,
-                          mediaCollection: mc,
+                          mediaCollection: artist(urlWithToken(apiKey), theArtist),
                           relatedBrowse:
-                            artist.similarArtists.filter((it) => it.inLibrary)
+                            theArtist.similarArtists.filter((it) => it.inLibrary)
                               .length > 0
                               ? [
                                   {
-                                    id: `relatedArtists:${artist.id}`,
+                                    id: `relatedArtists:${theArtist.id}`,
                                     type: "RELATED_ARTISTS",
                                   },
                                 ]
@@ -758,15 +748,35 @@ function bindSmapiSoapServiceToExpress(
                           },
                           ...album(urlWithToken(apiKey), it),
                         },
-                        // <mediaCollection readonly="true">
-                        //   </mediaCollection>
-                        //   <relatedText>
-                        //     <id>AL:123456</id>
-                        //     <type>ALBUM_NOTES</type>
-                        //   </relatedText>
-                        // </getExtendedMetadataResult>
                       },
                     }));
+                  case "playlists":
+                    return musicLibrary
+                      .playlists()
+                      .then(slice2(paging))
+                      .then(([page, total]) => {
+                        const playlists = page.map((it) =>
+                          playlist(urlWithToken(apiKey), {id:it.id, name:it.name, coverArt:it.coverArt, entries:[]})
+                        );
+                        return {
+                          getExtendedMetadataResult: {
+                            count: page.length,
+                            index: paging._index,
+                            total,
+                            mediaCollection: playlists
+                          }
+                        }
+                      });
+                  case "playlist":
+                    return musicLibrary
+                      .playlist(typeId!)
+                      .then((thePlaylist) => {
+                        return { 
+                          getExtendedMetadataResult: {
+                            mediaCollection: playlist(urlWithToken(apiKey), thePlaylist)
+                          }
+                        };
+                      });
                   case "internetRadio":
                     return Promise.resolve({
                       getExtendedMetadataResult: {
@@ -863,7 +873,7 @@ function bindSmapiSoapServiceToExpress(
                           id: "playlists",
                           title: lang("playlists"),
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "playlist",
+                          itemType: "container",
                           attributes: {
                             readOnly: false,
                             userContent: true,
@@ -1038,26 +1048,13 @@ function bindSmapiSoapServiceToExpress(
                   case "playlists":
                     return musicLibrary
                       .playlists()
-                      .then((it) =>
-                        Promise.all(
-                          it.map((playlist) => {
-                            // todo: whats this odd copy all about, can we just delete it?
-                            return {
-                              id: playlist.id,
-                              name: playlist.name,
-                              coverArt: playlist.coverArt,
-                              // todo: are these every important?
-                              entries: [],
-                            };
-                          })
-                        )
-                      )
                       .then(slice2(paging))
                       .then(([page, total]) => {
+                        const playlists = page.map((it) =>
+                          playlist(urlWithToken(apiKey), {id:it.id, name:it.name, coverArt:it.coverArt, entries:[]})
+                        );
                         return getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            playlist(urlWithToken(apiKey), it)
-                          ),
+                          mediaCollection: playlists,
                           index: paging._index,
                           total,
                         });
@@ -1068,10 +1065,11 @@ function bindSmapiSoapServiceToExpress(
                       .then((playlist) => playlist.entries)
                       .then(slice2(paging))
                       .then(([page, total]) => {
-                        return getMetadataResult({
-                          mediaMetadata: page.map((it) =>
-                            track(urlWithToken(apiKey), it)
-                          ),
+                        const playlistTracks = page.map((it) =>
+                          track(urlWithToken(apiKey), it)
+                        );
+                        return getMetadataResult({  
+                          mediaMetadata: playlistTracks,
                           index: paging._index,
                           total,
                         });
@@ -1120,8 +1118,17 @@ function bindSmapiSoapServiceToExpress(
                           total,
                         });
                       });
-                  default:
-                    throw `Unsupported getMetadata id=${id}`;
+                  case "track":
+                    return musicLibrary
+                      .track(typeId!)
+                      .then((t) => {
+                        const trackRet = [track(urlWithToken(apiKey), t)];
+                        return getMetadataResult({
+                          mediaMetadata: trackRet
+                        });
+                      });
+                      default:
+                   throw `Unsupported getMetadata id=${id}`;
                 }
               }),
           createContainer: async (
