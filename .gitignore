@@ -12,3 +12,4 @@ node_modules
 !.yarn/versions
 .pnp.*
 .gitinfo
+core.*
