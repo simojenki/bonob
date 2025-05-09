@@ -858,12 +858,6 @@ function bindSmapiSoapServiceToExpress(
                           itemType: "albumList",
                         },
                         {
-                          id: "favouriteAlbums",
-                          title: lang("favourites"),
-                          albumArtURI: iconArtURI(bonobUrl, "heart").href(),
-                          itemType: "albumList",
-                        },
-                        {
                           id: "starredAlbums",
                           title: lang("topRated"),
                           albumArtURI: iconArtURI(bonobUrl, "star").href(),
