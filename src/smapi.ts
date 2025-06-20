@@ -697,10 +697,8 @@ function bindSmapiSoapServiceToExpress(
               }),
           getExtendedMetadata: async (
             {
-              id,
-              index,
-              count,
-            }: // recursive,
+              id
+            }:
             { id: string; index: number; count: number; recursive: boolean },
             _,
             soapyHeaders: SoapyHeaders,
@@ -709,7 +707,6 @@ function bindSmapiSoapServiceToExpress(
             login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
-                const paging = { _index: index ?? 0, _count: count ?? 100 };
                 switch (type) {
                   case "artist":
                     return musicLibrary.artist(typeId).then((theArtist) => {
@@ -750,23 +747,6 @@ function bindSmapiSoapServiceToExpress(
                         },
                       },
                     }));
-                  case "playlists":
-                    return musicLibrary
-                      .playlists()
-                      .then(slice2(paging))
-                      .then(([page, total]) => {
-                        const playlists = page.map((it) =>
-                          playlist(urlWithToken(apiKey), {id:it.id, name:it.name, coverArt:it.coverArt, entries:[]})
-                        );
-                        return {
-                          getExtendedMetadataResult: {
-                            count: page.length,
-                            index: paging._index,
-                            total,
-                            mediaCollection: playlists
-                          }
-                        }
-                      });
                   case "playlist":
                     return musicLibrary
                       .playlist(typeId!)
