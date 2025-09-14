@@ -50,7 +50,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            jianrang/chxx/bonob
+            jianrang/bonob
             ghcr.io/chxx/bonob
       -
         name: Login to DockerHub
