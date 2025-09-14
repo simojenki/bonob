@@ -50,8 +50,8 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            simojenki/bonob
-            ghcr.io/simojenki/bonob
+            chxx/bonob
+            ghcr.io/chxx/bonob
       -
         name: Login to DockerHub
         if: github.event_name != 'pull_request'
