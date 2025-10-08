@@ -96,23 +96,32 @@ class MinioPersistentTokenStore implements PersistentTokenStore {
     });
   }
   get(key: string) : Promise<string | undefined> {
-    var buff: Uint8Array[] | Buffer[] = [];
-    return new Promise(async (resolve, reject) => {
-    
-      const dataStream = await this.client.getObject(S3_BUCKET, key)
-      dataStream.on('data', chunk => {
-        //logger.debug("data: " + chunk);
-        buff.push(Buffer.from(chunk));
+    var buff: Uint8Array[] = [];
+
+    return this.client.getObject(S3_BUCKET, key)
+      .then((dataStream: NodeJS.ReadableStream): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          dataStream.on('data', (chunk: Uint8Array) => {
+            //logger.debug("data: " + chunk);
+            buff.push(chunk);
+          });
+          dataStream.on('error', function (err) {
+            logger.error("error");
+            reject(err);
+          });
+          dataStream.on('end', () => {
+            const value = Buffer.concat(buff).toString('utf8');
+            resolve(value);
+          });
+        });
+      })
+      .catch(err => {
+        if (err.code === 'NoSuchKey') {
+          // Gracefully handle missing key — return undefined
+          return undefined;
+        }
+        throw err; // Propagate unexpected errors
       });
-      dataStream.on('error', function (err) {
-        logger.error("error");
-        reject(err);
-    });
-      dataStream.on('end', () => {
-        const value = Buffer.concat(buff).toString('utf8');
-        resolve(value);
-      });
-    });
   }
   put(key:string, value:string) {
     this.client.putObject(S3_BUCKET, key, value);
