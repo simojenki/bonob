@@ -198,6 +198,12 @@ class SonosSoap {
     };
   }
 
+  async reportAccountAction(args: any, headers: any) {
+    // Sonos calls this after a user adds or removes an account.
+    // It's safe to just acknowledge the call.
+    return {};
+  }
+
   getDeviceAuthToken({
     linkCode,
   }: {
@@ -515,6 +521,8 @@ function bindSmapiSoapServiceToExpress(
       Sonos: {
         SonosSoap: {
           getAppLink: () => sonosSoap.getAppLink(),
+          reportAccountAction: (args: any, _: any, __: any, { headers }: Pick<Request, "headers">) => 
+            sonosSoap.reportAccountAction(args, headers),
           getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>{
             const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
             const smapiToken:SmapiToken = {
