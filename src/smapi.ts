@@ -198,9 +198,10 @@ class SonosSoap {
     };
   }
 
-  async reportAccountAction(_args: any, _headers: any) {
+  reportAccountAction(args: any, headers: any) {
     // Sonos calls this after a user adds or removes an account.
     // It's safe to just acknowledge the call.
+    logger.info('Sonos reportAccountAction: ' + args + 'Headers: ' + headers);
     return {};
   }
 
