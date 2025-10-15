@@ -415,8 +415,13 @@ function bindSmapiSoapServiceToExpress(
     const credentialsFrom = E.fromNullable(new MissingLoginTokenError());
     return pipe(
       credentialsFrom(credentials),
-      E.chain((credentials) =>
-        pipe(
+      E.chain((credentials) => {
+        // Check if token/key is associated with a user
+        const smapiToken = sonosSoap.getCredentialsForToken(credentials.loginToken.token);
+        if (!smapiToken || smapiToken.key !== credentials.loginToken.key) {
+          return E.left(new InvalidTokenError("Token not associated with any user"));
+        }
+        return pipe(
           smapiAuthTokens.verify({
             token: credentials.loginToken.token,
             key: credentials.loginToken.key,
@@ -425,8 +430,8 @@ function bindSmapiSoapServiceToExpress(
             serviceToken,
             credentials,
           }))
-        )
-      ),
+        );
+      }),
       E.map(({ serviceToken, credentials }) => ({
         serviceToken,
         credentials,

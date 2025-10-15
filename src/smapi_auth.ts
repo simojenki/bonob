@@ -4,6 +4,8 @@ import { v4 as uuid } from "uuid";
 import { b64Decode, b64Encode } from "./b64";
 import { Clock } from "./clock";
 
+import logger from "./logger";
+
 export type SmapiFault = { Fault: { faultcode: string; faultstring: string } };
 export type SmapiRefreshTokenResultFault = SmapiFault & {
   Fault: {
@@ -14,6 +16,7 @@ export type SmapiRefreshTokenResultFault = SmapiFault & {
 };
 
 function isError(thing: any): thing is Error {
+  logger.debug("isError check", { thing });
   return thing.name && thing.message;
 }
 
