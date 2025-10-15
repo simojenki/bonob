@@ -154,6 +154,13 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   };
 
   verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
+    logger.debug("Verifying JWT", {
+      token: smapiToken.token,
+      key: smapiToken.key,
+      secret: this.secret,
+      version: this.version,
+      secretKey: this.secret + this.version + smapiToken.key,
+    });
     try {
       return E.right(
         (
@@ -164,6 +171,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         ).serviceToken
       );
     } catch (e) {
+      logger.error("JWT verification failed", { error: e });
       if (isTokenExpiredError(e)) {
         const serviceToken = (
           jwt.verify(
