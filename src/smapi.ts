@@ -38,6 +38,7 @@ import {
   ToSmapiFault,
   SmapiToken,
 } from "./smapi_auth";
+import { InvalidTokenError } from "./smapi_auth";
 import { IncomingHttpHeaders } from "http2";
 
 export const LOGIN_ROUTE = "/login";
