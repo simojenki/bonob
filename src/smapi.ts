@@ -245,6 +245,8 @@ class SonosSoap {
     }
   }
   getCredentialsForToken(token: string): SmapiToken {
+    logger.debug("getCredentialsForToken called with: " + token);
+    logger.debug("Current tokens: " + JSON.stringify(this.tokens));
     return this.tokens[token]!;
   }
   associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?:string) {
