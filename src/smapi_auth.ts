@@ -171,7 +171,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         ).serviceToken
       );
     } catch (e) {
-      logger.error("JWT verification failed", { error: e });
+      logger.error("JWT verification failed", { error: e, message: e.message, stack: e.stack });
       if (isTokenExpiredError(e)) {
         const serviceToken = (
           jwt.verify(
