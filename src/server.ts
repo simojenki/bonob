@@ -136,6 +136,7 @@ function server(
     app.use(morgan("combined"));
   }
   app.use(express.urlencoded({ extended: false }));
+  app.use(express.json());
 
   app.use(express.static(path.resolve(__dirname, "..", "web", "public")));
   app.engine("eta", Eta.renderFile);
@@ -599,6 +600,86 @@ function server(
         });
         return res.status(500).send();
       });
+  });
+
+  // Sonos Reporting Endpoint for playback analytics
+  app.post("/report/:version/timePlayed", async (req, res) => {
+    const version = req.params["version"];
+    logger.debug(`Received Sonos reporting event (v${version}):`, JSON.stringify(req.body));
+
+    try {
+      const {
+        reportId,
+        mediaUrl,
+        durationPlayedMillis,
+        positionMillis,
+        type,
+      } = req.body;
+
+      // Extract track ID from mediaUrl (format: /stream/track/{id})
+      const trackIdMatch = mediaUrl?.match(/\/stream\/track\/([^?]+)/);
+      if (!trackIdMatch) {
+        logger.warn(`Could not extract track ID from mediaUrl: ${mediaUrl}`);
+        return res.status(200).json({ status: "ok" });
+      }
+
+      const trackId = trackIdMatch[1];
+      const durationPlayedSeconds = Math.floor((durationPlayedMillis || 0) / 1000);
+
+      logger.info(
+        `Sonos reporting: type=${type}, trackId=${trackId}, reportId=${reportId}, ` +
+        `durationPlayed=${durationPlayedSeconds}s, position=${positionMillis}ms`
+      );
+
+      // For "final" reports, determine if we should scrobble
+      if (type === "final" && durationPlayedSeconds > 0) {
+        // Extract authentication from request headers or body
+        // Sonos may send credentials in Authorization header or in the request
+        const authHeader = req.headers["authorization"];
+        let serviceToken: string | undefined;
+
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          const token = authHeader.substring(7);
+          const smapiToken = serverOpts.smapiTokenStore.get(token);
+          if (smapiToken) {
+            serviceToken = pipe(
+              smapiAuthTokens.verify({ token, key: smapiToken.key }),
+              E.getOrElseW(() => undefined)
+            );
+          }
+        }
+
+        if (serviceToken) {
+          await musicService.login(serviceToken).then((musicLibrary) => {
+            // Get track duration to determine scrobbling threshold
+            return musicLibrary.track(trackId).then((track) => {
+              const shouldScrobble =
+                (track.duration < 30 && durationPlayedSeconds >= 10) ||
+                (track.duration >= 30 && durationPlayedSeconds >= 30);
+
+              if (shouldScrobble) {
+                logger.info(`Scrobbling track ${trackId} after ${durationPlayedSeconds}s playback`);
+                return musicLibrary.scrobble(trackId);
+              } else {
+                logger.debug(
+                  `Not scrobbling track ${trackId}: duration=${track.duration}s, played=${durationPlayedSeconds}s`
+                );
+                return Promise.resolve(false);
+              }
+            });
+          }).catch((e) => {
+            logger.error(`Failed to process scrobble for track ${trackId}`, { error: e });
+          });
+        } else {
+          logger.debug("No authentication available for reporting endpoint scrobble");
+        }
+      }
+
+      return res.status(200).json({ status: "ok" });
+    } catch (error) {
+      logger.error("Error processing Sonos reporting event", { error });
+      return res.status(500).json({ status: "error" });
+    }
   });
 
   bindSmapiSoapServiceToExpress(
