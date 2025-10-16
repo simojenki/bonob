@@ -611,7 +611,8 @@ function server(
     clock,
     i8n,
     serverOpts.smapiAuthTokens,
-    serverOpts.smapiTokenStore
+    serverOpts.smapiTokenStore,
+    serverOpts.logRequests
   );
 
   if (serverOpts.applyContextPath) {

@@ -405,7 +405,8 @@ function bindSmapiSoapServiceToExpress(
   clock: Clock,
   i8n: I8N,
   smapiAuthTokens: SmapiAuthTokens,
-  tokenStore: SmapiTokenStore
+  tokenStore: SmapiTokenStore,
+  logRequests: boolean
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, tokenStore);
 
@@ -424,6 +425,7 @@ function bindSmapiSoapServiceToExpress(
         // Check if token/key is associated with a user
         const smapiToken = sonosSoap.getCredentialsForToken(credentials.loginToken.token);
         if (!smapiToken) {
+          logger.warn("Token not found in store - possibly old/expired token from Sonos cache. Try removing and re-adding the service in Sonos app.");
           return E.left(new InvalidTokenError("Token not found"));
         }
 
@@ -431,6 +433,7 @@ function bindSmapiSoapServiceToExpress(
         const effectiveKey = credentials.loginToken.key || smapiToken.key;
 
         if (smapiToken.key !== effectiveKey) {
+          logger.warn("Token key mismatch", { storedKey: smapiToken.key, providedKey: effectiveKey });
           return E.left(new InvalidTokenError("Token key mismatch"));
         }
 
@@ -789,7 +792,9 @@ function bindSmapiSoapServiceToExpress(
                 logger.debug(
                   `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
                 );
-                console.log("getMetadata headers", headers)
+                if (logRequests) {
+                  console.log("getMetadata headers", headers);
+                }
                 const lang = i8n(...asLANGs(acceptLanguage));
 
                 const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
