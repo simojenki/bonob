@@ -692,8 +692,8 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary.searchTracks(term).then((it) =>
                       searchResult({
                         count: it.length,
-                        mediaCollection: it.map((aTrack) =>
-                          album(urlWithToken(apiKey), aTrack.album)
+                        mediaMetadata: it.map((aTrack) =>
+                          track(urlWithToken(apiKey), aTrack)
                         ),
                       })
                     );
