@@ -18,6 +18,7 @@ import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
 import { JWTSmapiLoginTokens } from "./smapi_auth";
+import { FileSmapiTokenStore } from "./smapi_token_store";
 
 const config = readConfig();
 const clock = SystemClock;
@@ -95,7 +96,8 @@ const app = server(
     logRequests: config.logRequests,
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
-    externalImageResolver: artistImageFetcher
+    externalImageResolver: artistImageFetcher,
+    smapiTokenStore: new FileSmapiTokenStore("/config/tokens.json")
   }
 );
 

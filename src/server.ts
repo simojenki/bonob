@@ -39,6 +39,7 @@ import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
 } from "./smapi_auth";
+import { SmapiTokenStore, InMemorySmapiTokenStore } from "./smapi_token_store";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -92,6 +93,7 @@ export type ServerOpts = {
   version: string;
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
+  smapiTokenStore: SmapiTokenStore;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -108,6 +110,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
     "1m"
   ),
   externalImageResolver: axiosImageFetcher,
+  smapiTokenStore: new InMemorySmapiTokenStore(),
 };
 
 function server(
@@ -607,7 +610,8 @@ function server(
     apiTokens,
     clock,
     i8n,
-    serverOpts.smapiAuthTokens
+    serverOpts.smapiAuthTokens,
+    serverOpts.smapiTokenStore
   );
 
   if (serverOpts.applyContextPath) {

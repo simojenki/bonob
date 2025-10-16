@@ -40,6 +40,7 @@ import {
 } from "./smapi_auth";
 import { InvalidTokenError } from "./smapi_auth";
 import { IncomingHttpHeaders } from "http2";
+import { SmapiTokenStore } from "./smapi_token_store";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -164,20 +165,20 @@ class SonosSoap {
   bonobUrl: URLBuilder;
   smapiAuthTokens: SmapiAuthTokens;
   clock: Clock;
-  tokens: {[tokenKey:string]:SmapiToken};
+  tokenStore: SmapiTokenStore;
 
   constructor(
     bonobUrl: URLBuilder,
     linkCodes: LinkCodes,
     smapiAuthTokens: SmapiAuthTokens,
-    clock: Clock
-
+    clock: Clock,
+    tokenStore: SmapiTokenStore
   ) {
     this.bonobUrl = bonobUrl;
     this.linkCodes = linkCodes;
     this.smapiAuthTokens = smapiAuthTokens;
     this.clock = clock;
-    this.tokens = {};
+    this.tokenStore = tokenStore;
   }
 
   getAppLink(): GetAppLinkResult {
@@ -244,17 +245,17 @@ class SonosSoap {
       };
     }
   }
-  getCredentialsForToken(token: string): SmapiToken {
+  getCredentialsForToken(token: string): SmapiToken | undefined {
     logger.debug("getCredentialsForToken called with: " + token);
-    logger.debug("Current tokens: " + JSON.stringify(this.tokens));
-    return this.tokens[token]!;
+    logger.debug("Current tokens: " + JSON.stringify(this.tokenStore.getAll()));
+    return this.tokenStore.get(token);
   }
   associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?:string) {
     logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
     if(oldToken) {
-      delete this.tokens[oldToken];
+      this.tokenStore.delete(oldToken);
     }
-    this.tokens[token] = fullSmapiToken;  
+    this.tokenStore.set(token, fullSmapiToken);
   }
 }
 
@@ -403,9 +404,10 @@ function bindSmapiSoapServiceToExpress(
   apiKeys: APITokens,
   clock: Clock,
   i8n: I8N,
-  smapiAuthTokens: SmapiAuthTokens
+  smapiAuthTokens: SmapiAuthTokens,
+  tokenStore: SmapiTokenStore
 ) {
-  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock);
+  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, tokenStore);
 
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
