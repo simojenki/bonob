@@ -608,17 +608,21 @@ function server(
     logger.debug(`Received Sonos reporting event (v${version}): ${JSON.stringify(req.body)}`);
 
     try {
-      // Sonos may send an array of reports
+      // Sonos may send an array of reports or a single report with items array
       const reports = Array.isArray(req.body) ? req.body : [req.body];
 
       for (const report of reports) {
-        const {
-          reportId,
-          mediaUrl,
-          durationPlayedMillis,
-          positionMillis,
-          type,
-        } = report;
+        // Handle both direct report format and items array format
+        const items = report.items || [report];
+
+        for (const item of items) {
+          const {
+            reportId,
+            mediaUrl,
+            durationPlayedMillis,
+            positionMillis,
+            type,
+          } = item;
 
         // Extract track ID from mediaUrl (format: /stream/track/{id} or x-sonos-http:track%3a{id}.mp3)
         let trackId: string | undefined;
@@ -691,6 +695,7 @@ function server(
           } else {
             logger.debug("No authentication available for reporting endpoint scrobble");
           }
+        }
         }
       }
 
