@@ -1221,6 +1221,45 @@ function bindSmapiSoapServiceToExpress(
               .then((_) => ({
                 setPlayedSecondsResult: {},
               })),
+
+          reportPlaySeconds: async (
+            { id, seconds }: { id: string; seconds: string },
+            _,
+            soapyHeaders: SoapyHeaders,
+            { headers }: Pick<Request, "headers">
+          ) =>
+            login(soapyHeaders?.credentials, headers)
+              .then(splitId(id))
+              .then(({ type, typeId }) => {
+                if (type === "track") {
+                  logger.debug(`reportPlaySeconds called for track ${typeId}, seconds: ${seconds}`);
+                  // Return interval of 30 seconds for next update
+                  return Promise.resolve(true);
+                }
+                return Promise.resolve(true);
+              })
+              .then((_) => ({
+                reportPlaySecondsResult: { interval: 30 },
+              })),
+
+          reportPlayStatus: async (
+            { id, status }: { id: string; status: string },
+            _,
+            soapyHeaders: SoapyHeaders,
+            { headers }: Pick<Request, "headers">
+          ) =>
+            login(soapyHeaders?.credentials, headers)
+              .then(splitId(id))
+              .then(({ musicLibrary, type, typeId }) => {
+                if (type === "track") {
+                  logger.info(`reportPlayStatus called for track ${typeId}, status: ${status}`);
+                  if (status === "PLAY_START" || status === "PAUSED_PLAYBACK") {
+                    return musicLibrary.nowPlaying(typeId);
+                  }
+                }
+                return Promise.resolve(true);
+              })
+              .then((_) => ({})),
         },
       },
     },
