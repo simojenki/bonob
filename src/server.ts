@@ -605,73 +605,92 @@ function server(
   // Sonos Reporting Endpoint for playback analytics
   app.post("/report/:version/timePlayed", async (req, res) => {
     const version = req.params["version"];
-    logger.debug(`Received Sonos reporting event (v${version}):`, JSON.stringify(req.body));
+    logger.debug(`Received Sonos reporting event (v${version}): ${JSON.stringify(req.body)}`);
 
     try {
-      const {
-        reportId,
-        mediaUrl,
-        durationPlayedMillis,
-        positionMillis,
-        type,
-      } = req.body;
+      // Sonos may send an array of reports
+      const reports = Array.isArray(req.body) ? req.body : [req.body];
 
-      // Extract track ID from mediaUrl (format: /stream/track/{id})
-      const trackIdMatch = mediaUrl?.match(/\/stream\/track\/([^?]+)/);
-      if (!trackIdMatch) {
-        logger.warn(`Could not extract track ID from mediaUrl: ${mediaUrl}`);
-        return res.status(200).json({ status: "ok" });
-      }
+      for (const report of reports) {
+        const {
+          reportId,
+          mediaUrl,
+          durationPlayedMillis,
+          positionMillis,
+          type,
+        } = report;
 
-      const trackId = trackIdMatch[1];
-      const durationPlayedSeconds = Math.floor((durationPlayedMillis || 0) / 1000);
+        // Extract track ID from mediaUrl (format: /stream/track/{id} or x-sonos-http:track%3a{id}.mp3)
+        let trackId: string | undefined;
 
-      logger.info(
-        `Sonos reporting: type=${type}, trackId=${trackId}, reportId=${reportId}, ` +
-        `durationPlayed=${durationPlayedSeconds}s, position=${positionMillis}ms`
-      );
-
-      // For "final" reports, determine if we should scrobble
-      if (type === "final" && durationPlayedSeconds > 0) {
-        // Extract authentication from request headers or body
-        // Sonos may send credentials in Authorization header or in the request
-        const authHeader = req.headers["authorization"];
-        let serviceToken: string | undefined;
-
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-          const token = authHeader.substring(7);
-          const smapiToken = serverOpts.smapiTokenStore.get(token);
-          if (smapiToken) {
-            serviceToken = pipe(
-              smapiAuthTokens.verify({ token, key: smapiToken.key }),
-              E.getOrElseW(() => undefined)
-            );
+        if (mediaUrl) {
+          // Try standard URL format first
+          const standardMatch = mediaUrl.match(/\/stream\/track\/([^?]+)/);
+          if (standardMatch) {
+            trackId = standardMatch[1];
+          } else {
+            // Try x-sonos-http format (track%3a{id}.mp3)
+            const sonosMatch = mediaUrl.match(/track%3[aA]([^.?&]+)/);
+            if (sonosMatch) {
+              trackId = sonosMatch[1];
+            }
           }
         }
 
-        if (serviceToken) {
-          await musicService.login(serviceToken).then((musicLibrary) => {
-            // Get track duration to determine scrobbling threshold
-            return musicLibrary.track(trackId).then((track) => {
-              const shouldScrobble =
-                (track.duration < 30 && durationPlayedSeconds >= 10) ||
-                (track.duration >= 30 && durationPlayedSeconds >= 30);
+        if (!trackId) {
+          logger.warn(`Could not extract track ID from mediaUrl: ${mediaUrl}, full report: ${JSON.stringify(report)}`);
+          continue; // Skip this report, process next one
+        }
 
-              if (shouldScrobble) {
-                logger.info(`Scrobbling track ${trackId} after ${durationPlayedSeconds}s playback`);
-                return musicLibrary.scrobble(trackId);
-              } else {
-                logger.debug(
-                  `Not scrobbling track ${trackId}: duration=${track.duration}s, played=${durationPlayedSeconds}s`
-                );
-                return Promise.resolve(false);
-              }
+        const durationPlayedSeconds = Math.floor((durationPlayedMillis || 0) / 1000);
+
+        logger.info(
+          `Sonos reporting: type=${type}, trackId=${trackId}, reportId=${reportId}, ` +
+          `durationPlayed=${durationPlayedSeconds}s, position=${positionMillis}ms`
+        );
+
+        // For "final" reports, determine if we should scrobble
+        if (type === "final" && durationPlayedSeconds > 0) {
+          // Extract authentication from request headers or body
+          // Sonos may send credentials in Authorization header or in the request
+          const authHeader = req.headers["authorization"];
+          let serviceToken: string | undefined;
+
+          if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.substring(7);
+            const smapiToken = serverOpts.smapiTokenStore.get(token);
+            if (smapiToken) {
+              serviceToken = pipe(
+                smapiAuthTokens.verify({ token, key: smapiToken.key }),
+                E.getOrElseW(() => undefined)
+              );
+            }
+          }
+
+          if (serviceToken) {
+            await musicService.login(serviceToken).then((musicLibrary) => {
+              // Get track duration to determine scrobbling threshold
+              return musicLibrary.track(trackId!).then((track) => {
+                const shouldScrobble =
+                  (track.duration < 30 && durationPlayedSeconds >= 10) ||
+                  (track.duration >= 30 && durationPlayedSeconds >= 30);
+
+                if (shouldScrobble) {
+                  logger.info(`Scrobbling track ${trackId} after ${durationPlayedSeconds}s playback`);
+                  return musicLibrary.scrobble(trackId!);
+                } else {
+                  logger.debug(
+                    `Not scrobbling track ${trackId}: duration=${track.duration}s, played=${durationPlayedSeconds}s`
+                  );
+                  return Promise.resolve(false);
+                }
+              });
+            }).catch((e) => {
+              logger.error(`Failed to process scrobble for track ${trackId}`, { error: e });
             });
-          }).catch((e) => {
-            logger.error(`Failed to process scrobble for track ${trackId}`, { error: e });
-          });
-        } else {
-          logger.debug("No authentication available for reporting endpoint scrobble");
+          } else {
+            logger.debug("No authentication available for reporting endpoint scrobble");
+          }
         }
       }
 
