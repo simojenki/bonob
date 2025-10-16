@@ -68,6 +68,13 @@ export class FileSmapiTokenStore implements SmapiTokenStore {
 
   private saveToFile(): void {
     try {
+      // Ensure the directory exists before writing
+      const dir = path.dirname(this.filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        logger.info(`Created token storage directory: ${dir}`);
+      }
+
       const data = JSON.stringify(this.tokens, null, 2);
       fs.writeFileSync(this.filePath, data, "utf8");
       logger.debug(`Saved ${Object.keys(this.tokens).length} token(s) to ${this.filePath}`);
