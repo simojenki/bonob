@@ -43,6 +43,25 @@ import { SmapiTokenStore, InMemorySmapiTokenStore } from "./smapi_token_store";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
+// Session storage for tracking active streams (for scrobbling)
+type StreamSession = {
+  serviceToken: string;
+  trackId: string;
+  timestamp: number;
+};
+
+const streamSessions = new Map<string, StreamSession>();
+
+// Clean up old sessions (older than 1 hour)
+setInterval(() => {
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  for (const [sid, session] of streamSessions.entries()) {
+    if (session.timestamp < oneHourAgo) {
+      streamSessions.delete(sid);
+    }
+  }
+}, 5 * 60 * 1000); // Run every 5 minutes
+
 interface RangeFilter extends Transform {
   range: (length: number) => string;
 }
@@ -401,6 +420,14 @@ function server(
     if (!serviceToken) {
       return res.status(401).send();
     } else {
+      // Store session for scrobbling later (when Sonos reports playback)
+      streamSessions.set(id, {
+        serviceToken,
+        trackId: id,
+        timestamp: Date.now(),
+      });
+      logger.debug(`Stored stream session for track ${id}`);
+
       return musicService
         .login(serviceToken)
         .then((it) =>
@@ -655,19 +682,22 @@ function server(
 
         // For "final" reports, determine if we should scrobble
         if (type === "final" && durationPlayedSeconds > 0) {
-          // Extract authentication from request headers or body
-          // Sonos may send credentials in Authorization header or in the request
-          const authHeader = req.headers["authorization"];
-          let serviceToken: string | undefined;
+          // Retrieve authentication from stream session storage
+          const session = streamSessions.get(trackId!);
+          let serviceToken: string | undefined = session?.serviceToken;
 
-          if (authHeader && authHeader.startsWith("Bearer ")) {
-            const token = authHeader.substring(7);
-            const smapiToken = serverOpts.smapiTokenStore.get(token);
-            if (smapiToken) {
-              serviceToken = pipe(
-                smapiAuthTokens.verify({ token, key: smapiToken.key }),
-                E.getOrElseW(() => undefined)
-              );
+          if (!serviceToken) {
+            // Fallback: try to extract from Authorization header (if present)
+            const authHeader = req.headers["authorization"];
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+              const token = authHeader.substring(7);
+              const smapiToken = serverOpts.smapiTokenStore.get(token);
+              if (smapiToken) {
+                serviceToken = pipe(
+                  smapiAuthTokens.verify({ token, key: smapiToken.key }),
+                  E.getOrElseW(() => undefined)
+                );
+              }
             }
           }
 
