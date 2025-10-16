@@ -984,8 +984,8 @@ describe("wsdl api", () => {
                 });
                 expect(result[0]).toEqual(
                   searchResult({
-                    mediaCollection: tracks.map((it) =>
-                      album(bonobUrlWithAccessToken, it.album)
+                    mediaMetadata: tracks.map((it) =>
+                      track(bonobUrlWithAccessToken, it)
                     ),
                     index: 0,
                     total: 2,
