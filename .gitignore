@@ -12,3 +12,5 @@ node_modules
 !.yarn/versions
 .pnp.*
 log.txt
+navidrome.txt
+bonob.txt
