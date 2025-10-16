@@ -638,8 +638,14 @@ export class SubsonicMusicLibrary implements MusicLibrary {
           id,
           submission: true,
         })
-        .then((_) => true)
-        .catch(() => false)
+        .then((_) => {
+          logger.debug(`Successfully scrobbled track ${id}`);
+          return true;
+        })
+        .catch((e) => {
+          logger.error(`Failed to scrobble track ${id}`, { error: e });
+          return false;
+        })
 
     nowPlaying = async (id: string) =>
         this.subsonic
@@ -647,8 +653,14 @@ export class SubsonicMusicLibrary implements MusicLibrary {
             id,
             submission: false,
           })
-          .then((_) => true)
-          .catch(() => false)
+          .then((_) => {
+            logger.debug(`Successfully reported now playing for track ${id}`);
+            return true;
+          })
+          .catch((e) => {
+            logger.error(`Failed to report now playing for track ${id}`, { error: e });
+            return false;
+          })
 
     searchArtists = async (query: string) =>
         this.subsonic
