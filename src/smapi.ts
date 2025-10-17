@@ -200,8 +200,8 @@ class SonosSoap {
     };
   }
 
-  reportAccountAction = (args: any, headers: any) => {
-    logger.info('Sonos reportAccountAction: ' + JSON.stringify(args) + ' Headers: ' + JSON.stringify(headers));
+  reportAccountAction = (args: any, _headers: any) => {
+    logger.info('Sonos reportAccountAction: ' + JSON.stringify(args));
     return {};
   }
 
@@ -470,8 +470,6 @@ function bindSmapiSoapServiceToExpress(
   }
 
   const useHeaderIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
-      logger.debug("useHeaderIfPresent header", headers);
-
     const headersProvidedWithToken = headers!==null && headers!== undefined && headers["authorization"];
     if(headersProvidedWithToken) {
       logger.debug("Will use authorization header");
