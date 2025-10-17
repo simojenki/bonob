@@ -406,7 +406,7 @@ function bindSmapiSoapServiceToExpress(
   i8n: I8N,
   smapiAuthTokens: SmapiAuthTokens,
   tokenStore: SmapiTokenStore,
-  logRequests: boolean
+  _logRequests: boolean
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, tokenStore);
 
