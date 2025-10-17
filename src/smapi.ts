@@ -355,7 +355,7 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
 
   trackMetadata: {
     album: track.album.name,
-    albumId: `album:${track.album.id}`,
+    albumId: track.album.id ? `album:${track.album.id}` : undefined,
     albumArtist: track.artist.name,
     albumArtistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
     albumArtURI: coverArtURI(bonobUrl, track).href(),
