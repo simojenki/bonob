@@ -502,8 +502,6 @@ function bindSmapiSoapServiceToExpress(
     const credentialsProvidedWithoutAuthToken = credentials && credentials.loginToken.token==null;
     if(credentialsProvidedWithoutAuthToken) {
       credentials = useHeaderIfPresent(credentials, headers);
-            console.log("headers", headers)
-      console.log("credentials", credentials)
     }
     const authOrFail = pipe(
       auth(credentials),
