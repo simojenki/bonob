@@ -528,9 +528,13 @@ function bindSmapiSoapServiceToExpress(
     } else if (isExpiredTokenError(authOrFail)) {
       // Don't pass old token here to avoid circular reference issues with Jest/SOAP
       // Old expired tokens will be cleaned up by TTL or manual cleanup later
+      logger.info("Token expired, attempting refresh...");
       throw await pipe(
         musicService.refreshToken(authOrFail.expiredToken),
-        TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
+        TE.map((it) => {
+          logger.info("Token refresh successful, issuing new SMAPI token");
+          return smapiAuthTokens.issue(it.serviceToken);
+        }),
         TE.tap(swapToken(undefined)),
         TE.map((newToken) => ({
           Fault: {
@@ -544,7 +548,10 @@ function bindSmapiSoapServiceToExpress(
             },
           },
         })),
-        TE.getOrElse(() => T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED))
+        TE.getOrElse((err) => {
+          logger.error("Token refresh failed", { error: err });
+          return T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED);
+        })
       )();
     } else {
       throw authOrFail.toSmapiFault();
