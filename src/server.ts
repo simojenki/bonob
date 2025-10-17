@@ -60,7 +60,7 @@ setInterval(() => {
       streamSessions.delete(sid);
     }
   }
-}, 5 * 60 * 1000); // Run every 5 minutes
+}, 5 * 60 * 1000).unref(); // Run every 5 minutes, but don't prevent process exit
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;
