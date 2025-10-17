@@ -693,7 +693,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     playlists = async () =>
       this.subsonic
         .getJSON<GetPlaylistsResponse>(this.credentials, "/rest/getPlaylists")
-        .then(({ playlists }) => (playlists.playlist || []).map(asPlayListSummary))
+        .then(({ playlists }) => (playlists?.playlist || []).map(asPlayListSummary))
 
     playlist = async (id: string) =>
       this.subsonic
