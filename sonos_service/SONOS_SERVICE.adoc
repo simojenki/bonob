@@ -1,14 +1,16 @@
 = Setting up Sonos Service
 
-* Prerequisites
-** In your Sonos App get your Sonos ID (About my Sonos System)
+== Prerequisites
+* In your Sonos App get your Sonos ID (About my Sonos System)
 +
-image::images/about.png
+image::images/about.png[]
 
-** Navidrome running and available from the Internet. E.g. via https://music.mydomain.com
-** Bonob running and available from the Internet. E.g. via https://bonob.mydomain.com
+* Navidrome running and available from the Internet. E.g. via https://music.mydomain.com
+* Bonob running and available from the Internet. E.g. via https://bonob.mydomain.com
 
 You can use any method to make these URLs available. Cloudflare Tunnels, Pangolin, reverse proxy, etc.
+
+== Sonos Service Integration
 
 * Log into https://play.sonos.com
 * Once logged in go to https://developer.sonos.com/s/integrations
