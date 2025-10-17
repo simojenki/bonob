@@ -2,7 +2,8 @@
 
 * Prerequisites
 ** In your Sonos App get your Sonos ID (About my Sonos System)
-+ image::images/about.png
++
+image::images/about.png
 
 ** Navidrome running and available from the Internet. E.g. via https://music.mydomain.com
 ** Bonob running and available from the Internet. E.g. via https://bonob.mydomain.com
@@ -36,23 +37,23 @@ You can use any method to make these URLs available. Cloudflare Tunnels, Pangoli
 
 ** Brand Assets
 
-Just upload the various assets from the `sonos_artwork` directory.
+*** Just upload the various assets from the `sonos_artwork` directory.
 
 ** Localization Resources
 
-Write something about your service in the various fields (except Explicit Filter Description).
+*** Write something about your service in the various fields (except Explicit Filter Description).
 
 ** Integration Capabilities
 
-Check the first two (*Enable Extended Metadata* and *Enable Extended Metadata for Playlists*) and nothing else.
+*** Check the first two (*Enable Extended Metadata* and *Enable Extended Metadata for Playlists*) and nothing else.
 
 ** Image Replacement Rules
 
-No changes
+*** No changes
 
 ** Browse Options
 
-No changes
+*** No changes
 
 ** Search Capabilities
 
@@ -60,15 +61,15 @@ No changes
 *** Catalog Title: Music
 *** Catalog Type: GLOBAL
 
-Add Three Categories with ID and Mapped ID:
-
+*** Add Three Categories with ID and Mapped ID:
++
 Albums - albums
 Artists - artists
 Tracks - tracks
 
 ** Content Actions
 
-No changes
+*** No changes
 
 ** Service Deployment Settings
 
@@ -77,6 +78,6 @@ No changes
 
 ** Service Configuration
 
-Click on *Refresh* and then *Send*. You should get a success message that you can dismiss with *Done*.
+*** Click on *Refresh* and then *Send*. You should get a success message that you can dismiss with *Done*.
 
 * In your app search for your service name and add Service in your app as usual.
