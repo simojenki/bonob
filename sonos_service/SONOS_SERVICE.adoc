@@ -1,4 +1,4 @@
-# Setting up Sonos Service
+= Setting up Sonos Service
 
 * Prerequisites
 ** In your Sonos App get your Sonos ID (About my Sonos System)

@@ -6,7 +6,7 @@ Bonob now needs a volume to store OAuth Tokens. In the example below that direct
 Also the example below uses a `bonob` user on the system with ID `1210` and group `100`. The directory should be owned by that user.
 
 Example systemd file (`/usr/lib/systemd/system/bonob.service`):
-====
+```
 [Unit]
 Description=bonob Container Service
 Wants=network.target
@@ -23,8 +23,8 @@ ExecStart=/usr/bin/podman run --rm \
   --env BNB_SONOS_SERVICE_NAME="Navidrome" \
   --env BNB_PORT=8200 \
   --env BNB_URL="https://bonob.mydomain.com" \
-  --env BNB_SECRET="<Some random string>" \
-  --env BNB_SONOS_SERVICE_ID=<Your Sonos ID> \
+  --env BNB_SECRET="Some random string" \
+  --env BNB_SONOS_SERVICE_ID=Your Sonos ID \
   --env BNB_SUBSONIC_URL=https://music.mydomain.com \
   --env BNB_ICON_FOREGROUND_COLOR="black" \
   --env BNB_ICON_BACKGROUND_COLOR="#65d7f4" \
@@ -42,4 +42,4 @@ SyslogIdentifier=bonob
 
 [Install]
 WantedBy=multi-user.target default.target
-====
+```
