@@ -172,8 +172,8 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
       );
     } catch (e) {
       const err = e as Error;
-      logger.error("JWT verification failed", { error: err, message: err.message, stack: err.stack });
       if (isTokenExpiredError(e)) {
+        logger.debug("JWT token expired, will attempt refresh", { expiredAt: (e as TokenExpiredError).expiredAt });
         const serviceToken = (
           jwt.verify(
             smapiToken.token,
@@ -182,8 +182,11 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
           ) as any
         ).serviceToken;
         return E.left(new ExpiredTokenError(serviceToken));
-      } else if (isError(e)) return E.left(new InvalidTokenError(err.message));
-      else return E.left(new InvalidTokenError("Failed to verify token"));
+      } else {
+        logger.warn("JWT verification failed - token may be invalid or from different secret", { message: err.message });
+        if (isError(e)) return E.left(new InvalidTokenError(err.message));
+        else return E.left(new InvalidTokenError("Failed to verify token"));
+      }
     }
   };
 }
