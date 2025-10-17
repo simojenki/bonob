@@ -545,9 +545,9 @@ function bindSmapiSoapServiceToExpress(
       Sonos: {
         SonosSoap: {
           getAppLink: () => sonosSoap.getAppLink(),
-          reportAccountAction: (args: any, _: any, __: any, { headers }: Pick<Request, "headers">) => 
-            sonosSoap.reportAccountAction(args, headers),
-          getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>{
+          reportAccountAction: (args: any) =>
+            sonosSoap.reportAccountAction(args, undefined),
+          getDeviceAuthToken: ({ linkCode }: { linkCode: string}) =>{
             const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
             const smapiToken:SmapiToken = {
               token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken,
