@@ -566,8 +566,8 @@ function bindSmapiSoapServiceToExpress(
             },
           }),
           refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">) => {
-            const creds = useHeaderIfPresent(soapyHeaders?.credentials, headers);
+            req: Pick<Request, "headers">) => {
+            const creds = useHeaderIfPresent(soapyHeaders?.credentials, req.headers);
             // Get the old SMAPI token from credentials before refreshing
             const oldSmapiToken = creds?.loginToken.token;
             const serviceToken = pipe(
@@ -602,9 +602,9 @@ function bindSmapiSoapServiceToExpress(
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(({ musicLibrary, credentials, type, typeId }) => {
                 switch (type) {
@@ -642,9 +642,9 @@ function bindSmapiSoapServiceToExpress(
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 switch (type) {
@@ -664,9 +664,9 @@ function bindSmapiSoapServiceToExpress(
             { id, term }: { id: string; term: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey }) => {
                 switch (id) {
@@ -710,9 +710,9 @@ function bindSmapiSoapServiceToExpress(
             { id: string; index: number; count: number; recursive: boolean },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
@@ -782,13 +782,13 @@ function bindSmapiSoapServiceToExpress(
             { id: string; index: number; count: number; recursive: boolean },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
-                const acceptLanguage = headers["accept-language"];
+                const acceptLanguage = req.headers["accept-language"];
                 logger.debug(
                   `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
                 );
@@ -1108,9 +1108,9 @@ function bindSmapiSoapServiceToExpress(
             { title, seedId }: { title: string; seedId: string | undefined },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(({ musicLibrary }) =>
                 musicLibrary
                   .createPlaylist(title)
@@ -1135,18 +1135,18 @@ function bindSmapiSoapServiceToExpress(
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
               .then((_) => ({ deleteContainerResult: {} })),
           addToContainer: async (
             { id, parentId }: { id: string; parentId: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
@@ -1156,9 +1156,9 @@ function bindSmapiSoapServiceToExpress(
             { id, indices }: { id: string; indices: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then((it) => ({
                 ...it,
@@ -1180,9 +1180,9 @@ function bindSmapiSoapServiceToExpress(
             { id, rating }: { id: string; rating: number },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
@@ -1193,9 +1193,9 @@ function bindSmapiSoapServiceToExpress(
             { id, seconds }: { id: string; seconds: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(({ musicLibrary, type, typeId }) => {
                 switch (type) {
@@ -1223,9 +1223,9 @@ function bindSmapiSoapServiceToExpress(
             { id, seconds }: { id: string; seconds: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(({ type, typeId }) => {
                 if (type === "track") {
@@ -1243,9 +1243,9 @@ function bindSmapiSoapServiceToExpress(
             { id, status }: { id: string; status: string },
             _,
             soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
+            req: Pick<Request, "headers">
           ) =>
-            login(soapyHeaders?.credentials, headers)
+            login(soapyHeaders?.credentials, req.headers)
               .then(splitId(id))
               .then(({ musicLibrary, type, typeId }) => {
                 if (type === "track") {
