@@ -462,7 +462,7 @@ function bindSmapiSoapServiceToExpress(
     );
   };
 
-  const swapToken = (expiredToken:string) => (newToken:SmapiToken) => {
+  const swapToken = (expiredToken:string | undefined) => (newToken:SmapiToken) => {
     logger.debug("oldToken: "+expiredToken);
     logger.debug("newToken: "+JSON.stringify(newToken));
     sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
@@ -517,10 +517,12 @@ function bindSmapiSoapServiceToExpress(
           throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
         });
     } else if (isExpiredTokenError(authOrFail)) {
+      // Get the old SMAPI token from credentials before refreshing
+      const oldSmapiToken = credentials?.loginToken.token;
       throw await pipe(
         musicService.refreshToken(authOrFail.expiredToken),
         TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(authOrFail.expiredToken)),
+        TE.tap(swapToken(oldSmapiToken)),
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -570,6 +572,8 @@ function bindSmapiSoapServiceToExpress(
           refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">) => {
             const creds = useHeaderIfPresent(soapyHeaders?.credentials, headers);
+            // Get the old SMAPI token from credentials before refreshing
+            const oldSmapiToken = creds?.loginToken.token;
             const serviceToken = pipe(
               auth(creds),
               E.fold(
@@ -586,7 +590,7 @@ function bindSmapiSoapServiceToExpress(
             return pipe(
               musicService.refreshToken(serviceToken),
               TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-              TE.tap(swapToken(serviceToken)), // ignores the return value, like a tee or peek
+              TE.tap(swapToken(oldSmapiToken)), // ignores the return value, like a tee or peek
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,
