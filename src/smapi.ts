@@ -410,6 +410,16 @@ function bindSmapiSoapServiceToExpress(
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, tokenStore);
 
+  // Clean up expired tokens on startup
+  try {
+    const cleaned = tokenStore.cleanupExpired(smapiAuthTokens);
+    if (cleaned > 0) {
+      logger.info(`Cleaned up ${cleaned} expired token(s) on startup`);
+    }
+  } catch (error) {
+    logger.error("Failed to cleanup expired tokens on startup", { error });
+  }
+
   // Clean up expired tokens every hour
   setInterval(() => {
     try {
