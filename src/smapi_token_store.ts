@@ -1,13 +1,15 @@
 import fs from "fs";
 import path from "path";
 import logger from "./logger";
-import { SmapiToken } from "./smapi_auth";
+import { SmapiToken, SmapiAuthTokens } from "./smapi_auth";
+import { either as E } from "fp-ts";
 
 export interface SmapiTokenStore {
   get(token: string): SmapiToken | undefined;
   set(token: string, fullSmapiToken: SmapiToken): void;
   delete(token: string): void;
   getAll(): { [tokenKey: string]: SmapiToken };
+  cleanupExpired(smapiAuthTokens: SmapiAuthTokens): number;
 }
 
 export class InMemorySmapiTokenStore implements SmapiTokenStore {
@@ -27,6 +29,29 @@ export class InMemorySmapiTokenStore implements SmapiTokenStore {
 
   getAll(): { [tokenKey: string]: SmapiToken } {
     return this.tokens;
+  }
+
+  cleanupExpired(smapiAuthTokens: SmapiAuthTokens): number {
+    const tokenKeys = Object.keys(this.tokens);
+    let deletedCount = 0;
+
+    for (const tokenKey of tokenKeys) {
+      const smapiToken = this.tokens[tokenKey];
+      if (smapiToken) {
+        const verifyResult = smapiAuthTokens.verify(smapiToken);
+        // Delete if token verification fails (expired or invalid)
+        if (E.isLeft(verifyResult)) {
+          delete this.tokens[tokenKey];
+          deletedCount++;
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      logger.info(`Cleaned up ${deletedCount} expired token(s) from in-memory store`);
+    }
+
+    return deletedCount;
   }
 }
 
@@ -99,5 +124,29 @@ export class FileSmapiTokenStore implements SmapiTokenStore {
 
   getAll(): { [tokenKey: string]: SmapiToken } {
     return this.tokens;
+  }
+
+  cleanupExpired(smapiAuthTokens: SmapiAuthTokens): number {
+    const tokenKeys = Object.keys(this.tokens);
+    let deletedCount = 0;
+
+    for (const tokenKey of tokenKeys) {
+      const smapiToken = this.tokens[tokenKey];
+      if (smapiToken) {
+        const verifyResult = smapiAuthTokens.verify(smapiToken);
+        // Delete if token verification fails (expired or invalid)
+        if (E.isLeft(verifyResult)) {
+          delete this.tokens[tokenKey];
+          deletedCount++;
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      logger.info(`Cleaned up ${deletedCount} expired token(s) from file store`);
+      this.saveToFile();
+    }
+
+    return deletedCount;
   }
 }

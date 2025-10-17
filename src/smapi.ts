@@ -410,6 +410,15 @@ function bindSmapiSoapServiceToExpress(
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, tokenStore);
 
+  // Clean up expired tokens every hour
+  setInterval(() => {
+    try {
+      tokenStore.cleanupExpired(smapiAuthTokens);
+    } catch (error) {
+      logger.error("Failed to cleanup expired tokens", { error });
+    }
+  }, 60 * 60 * 1000).unref(); // Run every hour, but don't prevent process exit
+
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
       searchParams: {
@@ -462,10 +471,14 @@ function bindSmapiSoapServiceToExpress(
     );
   };
 
-  const swapToken = (expiredToken:string) => (newToken:SmapiToken) => {
-    logger.debug("oldToken: "+expiredToken);
-    logger.debug("newToken: "+JSON.stringify(newToken));
-    sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
+  const swapToken = (expiredToken: string | undefined) => (newToken: SmapiToken) => {
+    logger.debug("oldToken: " + expiredToken);
+    logger.debug("newToken: " + JSON.stringify(newToken));
+    if (expiredToken) {
+      sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
+    } else {
+      sonosSoap.associateCredentialsForToken(newToken.token, newToken);
+    }
     return TE.right(newToken);
   }
 
@@ -513,10 +526,12 @@ function bindSmapiSoapServiceToExpress(
           throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
         });
     } else if (isExpiredTokenError(authOrFail)) {
+      // Don't pass old token here to avoid circular reference issues with Jest/SOAP
+      // Old expired tokens will be cleaned up by TTL or manual cleanup later
       throw await pipe(
         musicService.refreshToken(authOrFail.expiredToken),
         TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(authOrFail.expiredToken)),
+        TE.tap(swapToken(undefined)),
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -579,10 +594,12 @@ function bindSmapiSoapServiceToExpress(
                 throw fault.toSmapiFault();
               })
             );
+            // Don't pass old token here to avoid circular reference issues with Jest/SOAP
+            // Old expired tokens will be cleaned up by TTL or manual cleanup later
             return pipe(
               musicService.refreshToken(serviceToken),
               TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-              TE.tap(swapToken(serviceToken)), // ignores the return value, like a tee or peek
+              TE.tap(swapToken(undefined)), // ignores the return value, like a tee or peek
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,
