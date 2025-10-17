@@ -39,16 +39,22 @@ export class InMemorySmapiTokenStore implements SmapiTokenStore {
       const smapiToken = this.tokens[tokenKey];
       if (smapiToken) {
         const verifyResult = smapiAuthTokens.verify(smapiToken);
-        // Delete if token verification fails (expired or invalid)
+        // Only delete if token verification fails with InvalidTokenError
+        // Do NOT delete ExpiredTokenError as those can still be refreshed
         if (E.isLeft(verifyResult)) {
-          delete this.tokens[tokenKey];
-          deletedCount++;
+          const error = verifyResult.left;
+          // Only delete invalid tokens, not expired ones (which can be refreshed)
+          if (error._tag === 'InvalidTokenError') {
+            logger.debug(`Deleting invalid token from in-memory store`);
+            delete this.tokens[tokenKey];
+            deletedCount++;
+          }
         }
       }
     }
 
     if (deletedCount > 0) {
-      logger.info(`Cleaned up ${deletedCount} expired token(s) from in-memory store`);
+      logger.info(`Cleaned up ${deletedCount} invalid token(s) from in-memory store`);
     }
 
     return deletedCount;
@@ -134,16 +140,22 @@ export class FileSmapiTokenStore implements SmapiTokenStore {
       const smapiToken = this.tokens[tokenKey];
       if (smapiToken) {
         const verifyResult = smapiAuthTokens.verify(smapiToken);
-        // Delete if token verification fails (expired or invalid)
+        // Only delete if token verification fails with InvalidTokenError
+        // Do NOT delete ExpiredTokenError as those can still be refreshed
         if (E.isLeft(verifyResult)) {
-          delete this.tokens[tokenKey];
-          deletedCount++;
+          const error = verifyResult.left;
+          // Only delete invalid tokens, not expired ones (which can be refreshed)
+          if (error._tag === 'InvalidTokenError') {
+            logger.debug(`Deleting invalid token from file store`);
+            delete this.tokens[tokenKey];
+            deletedCount++;
+          }
         }
       }
     }
 
     if (deletedCount > 0) {
-      logger.info(`Cleaned up ${deletedCount} expired token(s) from file store`);
+      logger.info(`Cleaned up ${deletedCount} invalid token(s) from file store`);
       this.saveToFile();
     }
 
