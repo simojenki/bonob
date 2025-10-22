@@ -289,6 +289,7 @@ const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
   title: playlist.name,
   albumArtURI: coverArtURI(bonobUrl, playlist).href(),
   canPlay: true,
+  canEnumerate: true,
   attributes: {
     readOnly: false,
     userContent: false,
@@ -881,6 +882,7 @@ function bindSmapiSoapServiceToExpress(
                           title: lang("playlists"),
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
                           itemType: "playlist",
+                          canEnumerate: true,
                           attributes: {
                             readOnly: false,
                             userContent: true,
