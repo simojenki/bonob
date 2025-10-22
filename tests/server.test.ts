@@ -240,7 +240,7 @@ describe("server", () => {
                 .send();
 
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch(`<h2>${lang("devices")} \(0\)</h2>`);
+              expect(res.text).toMatch(new RegExp(`${lang("devices")}.*\\(0\\)`));
               expect(res.text).not.toMatch(/class=device/);
               expect(res.text).toContain(lang("noSonosDevices"));
             });
@@ -276,7 +276,7 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("devices")} \(0\)</h2>`);
+                expect(res.text).toMatch(new RegExp(`${lang("devices")}.*\\(0\\)`));
                 expect(res.text).not.toMatch(/class=device/);
                 expect(res.text).toContain(lang("noSonosDevices"));
               });
@@ -290,7 +290,7 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("services")} \(0\)</h2>`);
+                expect(res.text).toMatch(new RegExp(`${lang("services")}.*\\(0\\)`));
               });
             });
           });
@@ -352,9 +352,9 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("devices")} \(2\)</h2>`);
-                expect(res.text).toMatch(/device1\s+\(172.0.0.1:4301\)/);
-                expect(res.text).toMatch(/device2\s+\(172.0.0.2:4302\)/);
+                expect(res.text).toMatch(new RegExp(`${lang("devices")}.*\\(2\\)`));
+                expect(res.text).toMatch(/device1.*172\.0\.0\.1:4301/);
+                expect(res.text).toMatch(/device2.*172\.0\.0\.2:4302/);
               });
             });
 
@@ -366,11 +366,11 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("services")} \(4\)</h2>`);
-                expect(res.text).toMatch(/s1\s+\(1\)/);
-                expect(res.text).toMatch(/s2\s+\(2\)/);
-                expect(res.text).toMatch(/s3\s+\(3\)/);
-                expect(res.text).toMatch(/s4\s+\(4\)/);
+                expect(res.text).toMatch(new RegExp(`${lang("services")}.*\\(4\\)`));
+                expect(res.text).toMatch(/s1.*SID:\s*1/);
+                expect(res.text).toMatch(/s2.*SID:\s*2/);
+                expect(res.text).toMatch(/s3.*SID:\s*3/);
+                expect(res.text).toMatch(/s4.*SID:\s*4/);
               });
             });
 
@@ -382,14 +382,11 @@ describe("server", () => {
                   .send();
                 expect(res.status).toEqual(200);
                 expect(res.text).toMatch(
-                  `<input type="submit" value="${lang("register")}">`
+                  `<input type="submit" value="${lang("register")}" id="submit">`
                 );
-                expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
-                expect(res.text).toMatch(
-                  `<h3>${lang("noExistingServiceRegistration")}</h3>`
-                );
+                expect(res.text).toContain(lang("noExistingServiceRegistration"));
                 expect(res.text).not.toMatch(
-                  `<input type="submit" value="${lang("removeRegistration")}">`
+                  `value="${lang("removeRegistration")}"`
                 );
               });
             });
@@ -440,14 +437,11 @@ describe("server", () => {
                   .send();
                 expect(res.status).toEqual(200);
                 expect(res.text).toMatch(
-                  `<input type="submit" value="${lang("register")}">`
+                  `<input type="submit" value="${lang("register")}" id="submit">`
                 );
-                expect(res.text).toMatch(`<h3>${lang("expectedConfig")}</h3>`);
+                expect(res.text).toContain(lang("existingServiceConfig"));
                 expect(res.text).toMatch(
-                  `<h3>${lang("existingServiceConfig")}</h3>`
-                );
-                expect(res.text).toMatch(
-                  `<input type="submit" value="${lang("removeRegistration")}">`
+                  `<input type="submit" value="${lang("removeRegistration")}" id="submit"`
                 );
               });
             });
@@ -632,13 +626,13 @@ describe("server", () => {
           expect(res.status).toEqual(200);
           expect(res.text).toMatch(`<title>${lang("login")}</title>`);
           expect(res.text).toMatch(
-            `<h1 class="login one-word-per-line">${lang("logInToBonob")}</h1>`
+            `<h1>${lang("logInToBonob")}</h1>`
           );
           expect(res.text).toMatch(
-            `<label for="username">${lang("username")}:</label>`
+            `<label for="username">${lang("username")}</label>`
           );
           expect(res.text).toMatch(
-            `<label for="password">${lang("password")}:</label>`
+            `<label for="password">${lang("password")}</label>`
           );
           expect(res.text).toMatch(
             `<input type="submit" value="${lang("login")}" id="submit">`

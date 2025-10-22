@@ -1,6 +1,12 @@
 <% layout('./layout', { title: it.lang("failure") }) %>
 
 <div id="content">
-  <h1 class="failure"><%= it.message %></h1>
-  <h1 class="cause"><%= it.cause || "" %></h1>
+  <div class="message-container">
+    <div class="logo">✗</div>
+    <h1><%= it.message %></h1>
+    <% if (it.cause) { %>
+      <p style="color: #dc3545; margin-top: 15px;"><%= it.cause %></p>
+    <% } %>
+    <p style="color: #dc3545; font-weight: 600; margin-top: 10px;"><%= it.lang("failure") %></p>
+  </div>
 </div>

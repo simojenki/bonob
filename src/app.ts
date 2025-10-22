@@ -107,7 +107,8 @@ const app = server(
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher,
-    smapiTokenStore
+    smapiTokenStore,
+    tokenCleanupIntervalMinutes: config.tokenStore.cleanupIntervalMinutes
   }
 );
 

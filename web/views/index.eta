@@ -1,45 +1,61 @@
 <% layout('./layout') %>
 
-<div id="content">
-  <div width="100%" style="text-align:right;color:grey"><%= it.version %></div>
-  <h1><%= it.bonobService.name %> (<%= it.bonobService.sid %>)</h1>
-  <h3><%= it.lang("expectedConfig") %></h3>
-  <div><%= JSON.stringify(it.bonobService) %></div>
-  <br/>
+<div id="content" class="index-content">
+  <div style="text-align:right;color:#999;font-size:0.85rem;margin-bottom:20px"><%= it.version %></div>
+  <div class="logo">🎵</div>
+  <h1><%= it.bonobService.name %></h1>
+  <p style="color:#999;margin-bottom:30px">Service ID: <%= it.bonobService.sid %></p>
+
   <% if(it.devices.length > 0) { %>
-  <form action="<%= it.createRegistrationRoute %>" method="POST">
-    <input type="submit" value="<%= it.lang("register") %>">
+  <form action="<%= it.createRegistrationRoute %>" method="POST" style="margin-bottom:30px">
+    <input type="submit" value="<%= it.lang("register") %>" id="submit">
   </form>
-  <br/>
   <% } else { %>
-  <h3><%= it.lang("noSonosDevices") %></h3>
-  <br/>
+  <p style="color:#dc3545;font-weight:600;margin:30px 0"><%= it.lang("noSonosDevices") %></p>
   <% } %>
 
   <% if(it.registeredBonobService) { %>
-    <h3><%= it.lang("existingServiceConfig") %></h3>
-    <div><%= JSON.stringify(it.registeredBonobService) %></div>
+    <div style="margin:20px 0;padding:15px;background:#f8f9fa;border-radius:8px">
+      <h3 style="font-size:1.1rem;margin-bottom:10px;color:#667eea"><%= it.lang("existingServiceConfig") %></h3>
+      <pre style="font-size:0.85rem;text-align:left;overflow-x:auto"><%= JSON.stringify(it.registeredBonobService, null, 2) %></pre>
+    </div>
   <% } else { %>
-    <h3><%= it.lang("noExistingServiceRegistration") %></h3>
+    <p style="color:#999;margin:20px 0"><%= it.lang("noExistingServiceRegistration") %></p>
   <% } %>
+
   <% if(it.registeredBonobService) { %>
-    <br/>
-    <form action="<%= it.removeRegistrationRoute %>" method="POST">
-      <input type="submit" value="<%= it.lang("removeRegistration") %>">
+    <form action="<%= it.removeRegistrationRoute %>" method="POST" style="margin:20px 0">
+      <input type="submit" value="<%= it.lang("removeRegistration") %>" id="submit" style="background:#dc3545">
     </form>
   <% } %>
 
-  <br/>
-  <h2><%= it.lang("devices") %> (<%= it.devices.length %>)</h2>
-  <ul>
-    <% it.devices.forEach(function(d){ %>
-      <li><%= d.name %> (<%= d.ip %>:<%= d.port %>)</li>
-    <% }) %>
-  </ul>
-  <h2><%= it.lang("services") %> (<%= it.services.length %>)</h2>
-  <ul>
-    <% it.services.forEach(function(s){ %>
-      <li><%= s.name %> (<%= s.sid %>)</li>
-    <% }) %>
-  </ul>
+  <div style="margin-top:40px;padding-top:30px;border-top:2px solid #e0e0e0">
+    <h2 style="font-size:1.5rem;margin-bottom:15px"><%= it.lang("devices") %> (<%= it.devices.length %>)</h2>
+    <% if(it.devices.length > 0) { %>
+    <ul style="list-style:none;text-align:left;padding:0">
+      <% it.devices.forEach(function(d){ %>
+        <li style="padding:10px;margin:5px 0;background:#f8f9fa;border-radius:6px">
+          <strong><%= d.name %></strong> <span style="color:#999">(<%= d.ip %>:<%= d.port %>)</span>
+        </li>
+      <% }) %>
+    </ul>
+    <% } else { %>
+    <p style="color:#999">No devices found</p>
+    <% } %>
+  </div>
+
+  <div style="margin-top:30px">
+    <h2 style="font-size:1.5rem;margin-bottom:15px"><%= it.lang("services") %> (<%= it.services.length %>)</h2>
+    <% if(it.services.length > 0) { %>
+    <ul style="list-style:none;text-align:left;padding:0">
+      <% it.services.forEach(function(s){ %>
+        <li style="padding:10px;margin:5px 0;background:#f8f9fa;border-radius:6px">
+          <strong><%= s.name %></strong> <span style="color:#999">(SID: <%= s.sid %>)</span>
+        </li>
+      <% }) %>
+    </ul>
+    <% } else { %>
+    <p style="color:#999">No services registered</p>
+    <% } %>
+  </div>
 </div>

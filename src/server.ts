@@ -113,6 +113,7 @@ export type ServerOpts = {
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
   smapiTokenStore: SmapiTokenStore;
+  tokenCleanupIntervalMinutes: number;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -130,6 +131,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   ),
   externalImageResolver: axiosImageFetcher,
   smapiTokenStore: new InMemorySmapiTokenStore(),
+  tokenCleanupIntervalMinutes: 60,
 };
 
 function server(
@@ -747,7 +749,8 @@ function server(
     i8n,
     serverOpts.smapiAuthTokens,
     serverOpts.smapiTokenStore,
-    serverOpts.logRequests
+    serverOpts.logRequests,
+    serverOpts.tokenCleanupIntervalMinutes
   );
 
   if (serverOpts.applyContextPath) {
