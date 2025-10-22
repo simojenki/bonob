@@ -4,6 +4,8 @@ import logger from "./logger";
 import { SmapiToken, SmapiAuthTokens } from "./smapi_auth";
 import { either as E } from "fp-ts";
 
+export { SQLiteSmapiTokenStore } from "./sqlite_smapi_token_store";
+
 export interface SmapiTokenStore {
   get(token: string): SmapiToken | undefined;
   set(token: string, fullSmapiToken: SmapiToken): void;

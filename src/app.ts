@@ -18,7 +18,7 @@ import sonos, { bonobService } from "./sonos";
 import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
 import { JWTSmapiLoginTokens } from "./smapi_auth";
-import { FileSmapiTokenStore } from "./smapi_token_store";
+import { SQLiteSmapiTokenStore } from "./smapi_token_store";
 
 const config = readConfig();
 const clock = SystemClock;
@@ -82,6 +82,16 @@ const version = fs.existsSync(GIT_INFO)
   ? fs.readFileSync(GIT_INFO).toString().trim()
   : "v??";
 
+// Initialize SQLite token store
+const smapiTokenStore = new SQLiteSmapiTokenStore(config.tokenStore.dbPath);
+
+// Migrate existing JSON tokens if they exist
+const legacyJsonPath = "/config/tokens.json";
+if (fs.existsSync(legacyJsonPath)) {
+  logger.info(`Found legacy JSON token file at ${legacyJsonPath}, attempting migration...`);
+  smapiTokenStore.migrateFromJSON(legacyJsonPath);
+}
+
 const app = server(
   sonosSystem,
   bonob,
@@ -97,7 +107,7 @@ const app = server(
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher,
-    smapiTokenStore: new FileSmapiTokenStore("/config/tokens.json")
+    smapiTokenStore
   }
 );
 
@@ -126,6 +136,7 @@ process.on('SIGTERM', () => {
   expressServer.close(() => {
     logger.info('HTTP server closed');
   });
+  smapiTokenStore.close();
   process.exit(0);
 });
 
