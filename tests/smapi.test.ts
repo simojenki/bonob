@@ -1160,7 +1160,7 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Playlists",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
                       canEnumerate: true,
                       attributes: {
                         readOnly: "false",
@@ -1261,7 +1261,7 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Afspeellijsten",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
                       canEnumerate: true,
                       attributes: {
                         readOnly: "false",

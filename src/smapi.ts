@@ -881,7 +881,7 @@ function bindSmapiSoapServiceToExpress(
                           id: "playlists",
                           title: lang("playlists"),
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "playlist",
+                          itemType: "container",
                           canEnumerate: true,
                           attributes: {
                             readOnly: false,
