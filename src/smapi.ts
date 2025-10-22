@@ -806,6 +806,30 @@ function bindSmapiSoapServiceToExpress(
                         // </getExtendedMetadataResult>
                       },
                     }));
+                  case "playlists":
+                    return musicLibrary
+                      .playlists()
+                      .then((it) =>
+                        Promise.all(
+                          it.map((playlist) => ({
+                            id: playlist.id,
+                            name: playlist.name,
+                            coverArt: playlist.coverArt,
+                            entries: [],
+                          }))
+                        )
+                      )
+                      .then(slice2(paging))
+                      .then(([page, total]) => ({
+                        getExtendedMetadataResult: {
+                          count: page.length,
+                          index: paging._index,
+                          total,
+                          mediaCollection: page.map((it) =>
+                            playlist(urlWithToken(apiKey), it)
+                          ),
+                        },
+                      }));
                   default:
                     throw `Unsupported getExtendedMetadata id=${id}`;
                 }
