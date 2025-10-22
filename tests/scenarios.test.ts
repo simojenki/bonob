@@ -94,7 +94,7 @@ class SonosDriver {
       .get(this.bonobUrl.append({ pathname: "/" }).pathname())
       .expect(200)
       .then((response) => {
-        const m = response.text.match(/ action="(.*)" /i);
+        const m = response.text.match(/ action="([^"]+)"/i);
         return m![1]!;
       });
 
