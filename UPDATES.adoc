@@ -1,0 +1,67 @@
+= Updates for SMAPI
+
+Run Bonob on your server.
+
+== Updates made to original code
+
+* Proper Token handling after login. Also handling of periodic token refresh.
+* Store Tokens in an SQLite database (in mounted `/config` directory).
+* Added variable `BNB_TOKEN_CLEANUP_INTERVAL` with a default of `60` (minutes) to set how often expired tokens should be cleaned up out of the database.
+* Multi-account logins. Register one Bonob and log in with multiple Navidrome users for easy account switching in the Sonos app.
+* Global Search integration (Artist, Album, Track)
+* Scrobbling support to Navidrome. After one song has been completely played the album will show up in the "Recently played" section.
+* Playlist support. It shows both public and private (for the current account) playlists.
+* Modernized Login page.
+
+== To be done
+
+* Remove all now unnecessary logic:
+** Handling of `BNB_SONOS_SEED_HOST`
+** Autoregistration with Sonos devices (`BNB_SONOS_AUTO_REGISTER`)
+** Handling of `BNB_SONOS_DEVICE_DISCOVERY`
+* Implement Thumbs Up/Down or Star ratings (this is probably a Sonos Service configuration thing - with maybe some code changes).
+* Implement Playlist editing
+
+== Running Bonob
+
+Bonob now needs a volume to store the token database. In the example below that directory is `/var/containers/bonob`. Adapt as needed.
+Also the example below uses a `bonob` user on the system with ID `1210` and group `100`. The database directory should be owned by that user.
+
+.Example systemd file (`/usr/lib/systemd/system/bonob.service`)
+====
+[Unit]
+Description=Bonob container service
+Wants=network.target
+After=network-online.target
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=always
+ExecStartPre=-/usr/bin/podman rm -f bonob
+ExecStart=/usr/bin/podman run --rm \
+  --name bonob \
+  --label "io.containers.autoupdate=image" \
+  --user 1210:100 \
+  --env BNB_SONOS_SERVICE_NAME="Navidrome" \
+  --env BNB_PORT=8200 \
+  --env BNB_URL="https://bonob.mydomain.com" \
+  --env BNB_SECRET="Some random string" \
+  --env BNB_SONOS_SERVICE_ID=Your Sonos ID \
+  --env BNB_SUBSONIC_URL=https://music.mydomain.com \
+  --env BNB_ICON_FOREGROUND_COLOR="black" \
+  --env BNB_ICON_BACKGROUND_COLOR="#65d7f4" \
+  --env BNB_SONOS_AUTO_REGISTER=false \
+  --env BNB_SONOS_DEVICE_DISCOVERY=false \
+  --env BNB_LOG_LEVEL="info" \
+  --env TZ="Europe/Vienna" \
+  --volume /var/containers/bonob:/config:Z \
+  --publish 8200:8200 \
+  quay.io/wkulhanek/bonob:latest
+ExecStop=/usr/bin/podman rm -f bonob
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=bonob
+
+[Install]
+WantedBy=multi-user.target default.target
+====
