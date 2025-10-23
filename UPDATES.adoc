@@ -29,7 +29,7 @@ Also the example below uses a `bonob` user on the system with ID `1210` and grou
 
 .Example systemd file (`/usr/lib/systemd/system/bonob.service`)
 +
-[source]
+[source,ini]
 ====
 [Unit]
 Description=Bonob container service
