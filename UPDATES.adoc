@@ -28,6 +28,7 @@ Bonob now needs a volume to store the token database. In the example below that 
 Also the example below uses a `bonob` user on the system with ID `1210` and group `100`. The database directory should be owned by that user.
 
 .Example systemd file (`/usr/lib/systemd/system/bonob.service`)
+[source]
 ====
 [Unit]
 Description=Bonob container service
