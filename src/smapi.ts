@@ -547,7 +547,7 @@ function bindSmapiSoapServiceToExpress(
           logger.info("Token refresh successful, issuing new SMAPI token");
           return smapiAuthTokens.issue(it.serviceToken);
         }),
-        TE.tap(swapToken(undefined)), // Don't pass old token to avoid circular reference issues
+        TE.tap(swapToken(authOrFail.expiredToken)), // Pass the expired token to ensure it gets deleted
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -616,7 +616,7 @@ function bindSmapiSoapServiceToExpress(
             return pipe(
               musicService.refreshToken(serviceToken),
               TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-              TE.tap(swapToken(undefined)), // Don't pass old token to avoid circular reference issues
+              TE.tap(swapToken(serviceToken)), // Pass the expired token to ensure it gets deleted
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,

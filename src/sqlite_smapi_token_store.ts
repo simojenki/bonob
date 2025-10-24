@@ -126,9 +126,9 @@ export class SQLiteSmapiTokenStore implements SmapiTokenStore {
           // Do NOT delete ExpiredTokenError as those can still be refreshed
           if (E.isLeft(verifyResult)) {
             const error = verifyResult.left;
-            // Only delete invalid tokens, not expired ones (which can be refreshed)
-            if (error._tag === 'InvalidTokenError') {
-              logger.debug(`Deleting invalid token from SQLite store`);
+            // Delete both invalid and expired tokens to prevent accumulation
+            if (error._tag === 'InvalidTokenError' || error._tag === 'ExpiredTokenError') {
+              logger.debug(`Deleting ${error._tag} token from SQLite store`);
               this.delete(tokenKey);
               deletedCount++;
             }
