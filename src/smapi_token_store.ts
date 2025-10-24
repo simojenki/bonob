@@ -41,11 +41,13 @@ export class InMemorySmapiTokenStore implements SmapiTokenStore {
       const smapiToken = this.tokens[tokenKey];
       if (smapiToken) {
         const verifyResult = smapiAuthTokens.verify(smapiToken);
+        // Only delete if token verification fails with InvalidTokenError
+        // Do NOT delete ExpiredTokenError as those can still be refreshed
         if (E.isLeft(verifyResult)) {
           const error = verifyResult.left;
-          // Delete both invalid and expired tokens to prevent accumulation
-          if (error._tag === 'InvalidTokenError' || error._tag === 'ExpiredTokenError') {
-            logger.debug(`Deleting ${error._tag} token from in-memory store`);
+          // Only delete invalid tokens, not expired ones (which can be refreshed)
+          if (error._tag === 'InvalidTokenError') {
+            logger.debug(`Deleting invalid token from in-memory store`);
             delete this.tokens[tokenKey];
             deletedCount++;
           }
@@ -54,7 +56,7 @@ export class InMemorySmapiTokenStore implements SmapiTokenStore {
     }
 
     if (deletedCount > 0) {
-      logger.info(`Cleaned up ${deletedCount} token(s) from in-memory store`);
+      logger.info(`Cleaned up ${deletedCount} invalid token(s) from in-memory store`);
     }
 
     return deletedCount;
@@ -140,11 +142,13 @@ export class FileSmapiTokenStore implements SmapiTokenStore {
       const smapiToken = this.tokens[tokenKey];
       if (smapiToken) {
         const verifyResult = smapiAuthTokens.verify(smapiToken);
+        // Only delete if token verification fails with InvalidTokenError
+        // Do NOT delete ExpiredTokenError as those can still be refreshed
         if (E.isLeft(verifyResult)) {
           const error = verifyResult.left;
-          // Delete both invalid and expired tokens to prevent accumulation
-          if (error._tag === 'InvalidTokenError' || error._tag === 'ExpiredTokenError') {
-            logger.debug(`Deleting ${error._tag} token from file store`);
+          // Only delete invalid tokens, not expired ones (which can be refreshed)
+          if (error._tag === 'InvalidTokenError') {
+            logger.debug(`Deleting invalid token from file store`);
             delete this.tokens[tokenKey];
             deletedCount++;
           }
@@ -153,7 +157,7 @@ export class FileSmapiTokenStore implements SmapiTokenStore {
     }
 
     if (deletedCount > 0) {
-      logger.info(`Cleaned up ${deletedCount} token(s) from file store`);
+      logger.info(`Cleaned up ${deletedCount} invalid token(s) from file store`);
       this.saveToFile();
     }
 

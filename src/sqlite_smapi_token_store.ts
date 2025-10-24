@@ -122,11 +122,13 @@ export class SQLiteSmapiTokenStore implements SmapiTokenStore {
         const smapiToken = tokens[tokenKey];
         if (smapiToken) {
           const verifyResult = smapiAuthTokens.verify(smapiToken);
+          // Only delete if token verification fails with InvalidTokenError
+          // Do NOT delete ExpiredTokenError as those can still be refreshed
           if (E.isLeft(verifyResult)) {
             const error = verifyResult.left;
-            // Delete both invalid and expired tokens to prevent accumulation
-            if (error._tag === 'InvalidTokenError' || error._tag === 'ExpiredTokenError') {
-              logger.debug(`Deleting ${error._tag} token from SQLite store`);
+            // Only delete invalid tokens, not expired ones (which can be refreshed)
+            if (error._tag === 'InvalidTokenError') {
+              logger.debug(`Deleting invalid token from SQLite store`);
               this.delete(tokenKey);
               deletedCount++;
             }
@@ -135,7 +137,7 @@ export class SQLiteSmapiTokenStore implements SmapiTokenStore {
       }
 
       if (deletedCount > 0) {
-        logger.info(`Cleaned up ${deletedCount} token(s) from SQLite store`);
+        logger.info(`Cleaned up ${deletedCount} invalid token(s) from SQLite store`);
       }
 
       return deletedCount;

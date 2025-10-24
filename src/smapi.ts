@@ -248,32 +248,7 @@ class SonosSoap {
   getCredentialsForToken(token: string): SmapiToken | undefined {
     logger.debug("getCredentialsForToken called with: " + token);
     logger.debug("Current tokens: " + JSON.stringify(this.tokenStore.getAll()));
-    
-    // First try direct lookup
-    let smapiToken = this.tokenStore.get(token);
-    if (smapiToken) {
-      return smapiToken;
-    }
-    
-    // If not found, try to find by service token (for cases where token was refreshed)
-    // This is a fallback mechanism to handle token refresh scenarios
-    const allTokens = this.tokenStore.getAll();
-    for (const [storedToken, storedSmapiToken] of Object.entries(allTokens)) {
-      try {
-        const verifyResult = this.smapiAuthTokens.verify(storedSmapiToken);
-        if (E.isRight(verifyResult)) {
-          // This token is valid, check if it matches our service token
-          const serviceToken = verifyResult.right;
-          // We can't easily extract the service token from the JWT without the key,
-          // so we'll rely on the direct lookup for now
-        }
-      } catch (error) {
-        // Token is invalid/expired, skip it
-        continue;
-      }
-    }
-    
-    return undefined;
+    return this.tokenStore.get(token);
   }
   associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?:string) {
     logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
@@ -572,7 +547,7 @@ function bindSmapiSoapServiceToExpress(
           logger.info("Token refresh successful, issuing new SMAPI token");
           return smapiAuthTokens.issue(it.serviceToken);
         }),
-        TE.tap(swapToken(credentials?.loginToken?.token)),
+        TE.tap(swapToken(undefined)), // Don't pass old token to avoid circular reference issues
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -641,7 +616,7 @@ function bindSmapiSoapServiceToExpress(
             return pipe(
               musicService.refreshToken(serviceToken),
               TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-              TE.tap(swapToken(creds?.loginToken?.token)), // Pass the old token to be replaced
+              TE.tap(swapToken(undefined)), // Don't pass old token to avoid circular reference issues
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,
