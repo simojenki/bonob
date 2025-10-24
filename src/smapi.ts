@@ -250,11 +250,10 @@ class SonosSoap {
     logger.debug("Current tokens: " + JSON.stringify(this.tokenStore.getAll()));
     return this.tokenStore.get(token);
   }
-  associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?:string) {
+  associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken) {
     logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
-    if(oldToken) {
-      this.tokenStore.delete(oldToken);
-    }
+    // Don't immediately delete old token to avoid race conditions
+    // The cleanup process will handle expired tokens later
     this.tokenStore.set(token, fullSmapiToken);
   }
 }
@@ -488,11 +487,9 @@ function bindSmapiSoapServiceToExpress(
   const swapToken = (expiredToken: string | undefined) => (newToken: SmapiToken) => {
     logger.debug("oldToken: " + expiredToken);
     logger.debug("newToken: " + JSON.stringify(newToken));
-    if (expiredToken) {
-      sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
-    } else {
-      sonosSoap.associateCredentialsForToken(newToken.token, newToken);
-    }
+    // Always add the new token, but don't immediately delete the old one
+    // to avoid race conditions where Sonos might still be using the old token
+    sonosSoap.associateCredentialsForToken(newToken.token, newToken);
     return TE.right(newToken);
   }
 
