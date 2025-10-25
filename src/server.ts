@@ -369,6 +369,11 @@ function server(
     </Presentation>`);
   });
 
+  // app.post("/report/:version/timePlayed", async (_, res) => {
+  //   console.log(`!!!!!!!!!!!!!!!!!!!!!!!!!!!! report`)
+  //   return res.status(200).json({ status: "ok" });
+  // }),
+
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
     const trace = uuid();

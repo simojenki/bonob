@@ -635,7 +635,7 @@ describe("wsdl api", () => {
       const apiToken = `apiToken-${uuid()}`;
       const smapiAuthToken: SmapiToken = {
         token: `smapiAuthToken.token-${uuid()}`,
-        key: `smapiAuthToken.key-${uuid()}`
+        key: "nonsense"
       };
 
       const bonobUrlWithAccessToken = bonobUrl.append({
@@ -702,6 +702,21 @@ describe("wsdl api", () => {
                 },
               },
             });
+          });
+        });
+
+        describe("reportAccountAction", () => {
+          it("should do something", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            const type = "something";
+
+            const result = await ws.reportAccountActionAsync({ type });
+
+            expect(result[0]).toEqual(null);
           });
         });
 

@@ -193,6 +193,8 @@ class SonosSoap {
     };
   }
 
+  reportAccountAction = (_: { type: string }) => ({})
+
   getDeviceAuthToken({
     linkCode,
   }: {
@@ -399,7 +401,8 @@ function bindSmapiSoapServiceToExpress(
         pipe(
           smapiAuthTokens.verify({
             token: credentials.loginToken.token,
-            key: credentials.loginToken.key,
+            //todo: remove me
+            key: "nonsense",
           }),
           E.map((serviceToken) => ({
             serviceToken,
@@ -432,17 +435,17 @@ function bindSmapiSoapServiceToExpress(
         musicService.refreshToken(authOrFail.expiredToken),
         TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
         TE.map((newToken) => ({
-          Fault: {
-            faultcode: "Client.TokenRefreshRequired",
-            faultstring: "Token has expired",
-            detail: {
-              refreshAuthTokenResult: {
-                authToken: newToken.token,
-                privateKey: newToken.key,
+            Fault: {
+              faultcode: "Client.TokenRefreshRequired",
+              faultstring: "Token has expired",
+              detail: {
+                refreshAuthTokenResult: {
+                  authToken: newToken.token,
+                  privateKey: newToken.key,
+                },
               },
             },
-          },
-        })),
+          })),
         TE.getOrElse(() => T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED))
       )();
     } else {
@@ -457,6 +460,8 @@ function bindSmapiSoapServiceToExpress(
       Sonos: {
         SonosSoap: {
           getAppLink: () => sonosSoap.getAppLink(),
+          reportAccountAction: ({ type } : { type: string }) =>
+            sonosSoap.reportAccountAction({ type }),
           getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>
             sonosSoap.getDeviceAuthToken({ linkCode }),
           getLastUpdate: () => ({
@@ -467,7 +472,7 @@ function bindSmapiSoapServiceToExpress(
               pollInterval: 60,
             },
           }),
-          refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders) => {
+          refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders) => {       
             const serviceToken = pipe(
               auth(soapyHeaders?.credentials),
               E.fold(

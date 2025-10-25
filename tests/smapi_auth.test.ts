@@ -63,8 +63,7 @@ describe("auth", () => {
 
     const expiresIn = "1h";
     const secret = `secret-${uuid()}`;
-    const key = uuid();
-    const smapiLoginTokens = new JWTSmapiLoginTokens(clock, secret, expiresIn, () => key);
+    const smapiLoginTokens = new JWTSmapiLoginTokens(clock, secret, expiresIn);
 
     describe("issuing a new token", () => {
       it("should issue a token that can then be verified", () => {
@@ -77,7 +76,7 @@ describe("auth", () => {
             serviceToken,
             iat: clock.now().unix(),
           },
-          secret + SMAPI_TOKEN_VERSION + key,
+          secret + "." + SMAPI_TOKEN_VERSION,
           { expiresIn }
         );
 
@@ -100,16 +99,13 @@ describe("auth", () => {
           const vXSmapiTokens = new JWTSmapiLoginTokens(
             clock,
             secret,
-            expiresIn,
-            uuid,
-            SMAPI_TOKEN_VERSION
+            expiresIn
           );
 
           const vXPlus1SmapiTokens = new JWTSmapiLoginTokens(
             clock,
             secret,
             expiresIn,
-            () => uuid(),
             SMAPI_TOKEN_VERSION + 1
           );
 
@@ -146,10 +142,7 @@ describe("auth", () => {
 
           const smapiToken = smapiLoginTokens.issue(authToken);
 
-          const result = smapiLoginTokens.verify({
-            ...smapiToken,
-            key: "some other key",
-          });
+          const result = new JWTSmapiLoginTokens(clock, "different-secret", expiresIn).verify(smapiToken);
           expect(result).toEqual(
             E.left(new InvalidTokenError("invalid signature"))
           );
