@@ -105,5 +105,9 @@ export default function () {
     scrobbleTracks: bnbEnvVar<boolean>("SCROBBLE_TRACKS", { default: true, parser: asBoolean }),
     reportNowPlaying:
       bnbEnvVar<boolean>("REPORT_NOW_PLAYING", { default: true, parser: asBoolean }),
+    tokenStore: {
+      dbPath: bnbEnvVar<string>("TOKEN_DB_PATH", { default: "/config/tokens.db" })!,
+      cleanupIntervalMinutes: bnbEnvVar<number>("TOKEN_CLEANUP_INTERVAL", { default: 60, parser: asInt })!,
+    },
   };
 }

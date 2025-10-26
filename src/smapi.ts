@@ -38,7 +38,9 @@ import {
   ToSmapiFault,
   SmapiToken,
 } from "./smapi_auth";
+import { InvalidTokenError } from "./smapi_auth";
 import { IncomingHttpHeaders } from "http2";
+import { SmapiTokenStore } from "./smapi_token_store";
 
 export const LOGIN_ROUTE = "/login";
 export const CREATE_REGISTRATION_ROUTE = "/registration/add";
@@ -163,20 +165,20 @@ class SonosSoap {
   bonobUrl: URLBuilder;
   smapiAuthTokens: SmapiAuthTokens;
   clock: Clock;
-  tokens: {[tokenKey:string]:SmapiToken};
+  tokenStore: SmapiTokenStore;
 
   constructor(
     bonobUrl: URLBuilder,
     linkCodes: LinkCodes,
     smapiAuthTokens: SmapiAuthTokens,
-    clock: Clock
-
+    clock: Clock,
+    tokenStore: SmapiTokenStore
   ) {
     this.bonobUrl = bonobUrl;
     this.linkCodes = linkCodes;
     this.smapiAuthTokens = smapiAuthTokens;
     this.clock = clock;
-    this.tokens = {};
+    this.tokenStore = tokenStore;
   }
 
   getAppLink(): GetAppLinkResult {
@@ -196,6 +198,11 @@ class SonosSoap {
         },
       },
     };
+  }
+
+  reportAccountAction = (args: any, _headers: any) => {
+    logger.info('Sonos reportAccountAction: ' + JSON.stringify(args));
+    return {};
   }
 
   getDeviceAuthToken({
@@ -238,15 +245,16 @@ class SonosSoap {
       };
     }
   }
-  getCredentialsForToken(token: string): SmapiToken {
-    return this.tokens[token]!;
+  getCredentialsForToken(token: string): SmapiToken | undefined {
+    logger.debug("getCredentialsForToken called with: " + token);
+    logger.debug("Current tokens: " + JSON.stringify(this.tokenStore.getAll()));
+    return this.tokenStore.get(token);
   }
-  associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?:string) {
+  associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken) {
     logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
-    if(oldToken) {
-      delete this.tokens[oldToken];
-    }
-    this.tokens[token] = fullSmapiToken;  
+    // Don't immediately delete old token to avoid race conditions
+    // The cleanup process will handle expired tokens later
+    this.tokenStore.set(token, fullSmapiToken);
   }
 }
 
@@ -280,6 +288,7 @@ const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
   title: playlist.name,
   albumArtURI: coverArtURI(bonobUrl, playlist).href(),
   canPlay: true,
+  canEnumerate: true,
   attributes: {
     readOnly: false,
     userContent: false,
@@ -395,9 +404,33 @@ function bindSmapiSoapServiceToExpress(
   apiKeys: APITokens,
   clock: Clock,
   i8n: I8N,
-  smapiAuthTokens: SmapiAuthTokens
+  smapiAuthTokens: SmapiAuthTokens,
+  tokenStore: SmapiTokenStore,
+  _logRequests: boolean,
+  tokenCleanupIntervalMinutes: number = 60
 ) {
-  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock);
+  const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, tokenStore);
+
+  // Clean up expired tokens on startup
+  try {
+    const cleaned = tokenStore.cleanupExpired(smapiAuthTokens);
+    if (cleaned > 0) {
+      logger.info(`Cleaned up ${cleaned} expired token(s) on startup`);
+    }
+  } catch (error) {
+    logger.error("Failed to cleanup expired tokens on startup", { error });
+  }
+
+  // Clean up expired tokens periodically
+  const cleanupIntervalMs = tokenCleanupIntervalMinutes * 60 * 1000;
+  logger.info(`Token cleanup will run every ${tokenCleanupIntervalMinutes} minute(s)`);
+  setInterval(() => {
+    try {
+      tokenStore.cleanupExpired(smapiAuthTokens);
+    } catch (error) {
+      logger.error("Failed to cleanup expired tokens", { error });
+    }
+  }, cleanupIntervalMs).unref(); // Don't prevent process exit
 
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
@@ -410,18 +443,39 @@ function bindSmapiSoapServiceToExpress(
     const credentialsFrom = E.fromNullable(new MissingLoginTokenError());
     return pipe(
       credentialsFrom(credentials),
-      E.chain((credentials) =>
-        pipe(
+      E.chain((credentials) => {
+        // Check if token/key is associated with a user
+        const smapiToken = sonosSoap.getCredentialsForToken(credentials.loginToken.token);
+        if (!smapiToken) {
+          logger.warn("Token not found in store - possibly old/expired token from Sonos cache. Try removing and re-adding the service in Sonos app.");
+          return E.left(new InvalidTokenError("Token not found"));
+        }
+
+        // If credentials don't have a key, use the stored one
+        const effectiveKey = credentials.loginToken.key || smapiToken.key;
+
+        if (smapiToken.key !== effectiveKey) {
+          logger.warn("Token key mismatch", { storedKey: smapiToken.key, providedKey: effectiveKey });
+          return E.left(new InvalidTokenError("Token key mismatch"));
+        }
+
+        return pipe(
           smapiAuthTokens.verify({
             token: credentials.loginToken.token,
-            key: credentials.loginToken.key,
+            key: effectiveKey,
           }),
           E.map((serviceToken) => ({
             serviceToken,
-            credentials,
+            credentials: {
+              ...credentials,
+              loginToken: {
+                ...credentials.loginToken,
+                key: effectiveKey,
+              },
+            },
           }))
-        )
-      ),
+        );
+      }),
       E.map(({ serviceToken, credentials }) => ({
         serviceToken,
         credentials,
@@ -430,16 +484,16 @@ function bindSmapiSoapServiceToExpress(
     );
   };
 
-  const swapToken = (expiredToken:string) => (newToken:SmapiToken) => {
-    logger.debug("oldToken: "+expiredToken);
-    logger.debug("newToken: "+JSON.stringify(newToken));
-    sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
+  const swapToken = (expiredToken: string | undefined) => (newToken: SmapiToken) => {
+    logger.debug("oldToken: " + expiredToken);
+    logger.debug("newToken: " + JSON.stringify(newToken));
+    // Always add the new token, but don't immediately delete the old one
+    // to avoid race conditions where Sonos might still be using the old token
+    sonosSoap.associateCredentialsForToken(newToken.token, newToken);
     return TE.right(newToken);
   }
 
   const useHeaderIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
-      logger.debug("useHeaderIfPresent header", headers);
-
     const headersProvidedWithToken = headers!==null && headers!== undefined && headers["authorization"];
     if(headersProvidedWithToken) {
       logger.debug("Will use authorization header");
@@ -470,8 +524,6 @@ function bindSmapiSoapServiceToExpress(
     const credentialsProvidedWithoutAuthToken = credentials && credentials.loginToken.token==null;
     if(credentialsProvidedWithoutAuthToken) {
       credentials = useHeaderIfPresent(credentials, headers);
-            console.log("headers", headers)
-      console.log("credentials", credentials)
     }
     const authOrFail = pipe(
       auth(credentials),
@@ -485,10 +537,14 @@ function bindSmapiSoapServiceToExpress(
           throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
         });
     } else if (isExpiredTokenError(authOrFail)) {
+      logger.info("Token expired, attempting refresh...");
       throw await pipe(
         musicService.refreshToken(authOrFail.expiredToken),
-        TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(authOrFail.expiredToken)),
+        TE.map((it) => {
+          logger.info("Token refresh successful, issuing new SMAPI token");
+          return smapiAuthTokens.issue(it.serviceToken);
+        }),
+        TE.tap(swapToken(authOrFail.expiredToken)), // Pass the expired token to ensure it gets deleted
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -501,7 +557,10 @@ function bindSmapiSoapServiceToExpress(
             },
           },
         })),
-        TE.getOrElse(() => T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED))
+        TE.getOrElse((err) => {
+          logger.error("Token refresh failed", { error: err });
+          return T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED);
+        })
       )();
     } else {
       throw authOrFail.toSmapiFault();
@@ -515,7 +574,9 @@ function bindSmapiSoapServiceToExpress(
       Sonos: {
         SonosSoap: {
           getAppLink: () => sonosSoap.getAppLink(),
-          getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>{
+          reportAccountAction: (args: any) =>
+            sonosSoap.reportAccountAction(args, undefined),
+          getDeviceAuthToken: ({ linkCode }: { linkCode: string}) =>{
             const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
             const smapiToken:SmapiToken = {
               token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken,
@@ -552,7 +613,7 @@ function bindSmapiSoapServiceToExpress(
             return pipe(
               musicService.refreshToken(serviceToken),
               TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-              TE.tap(swapToken(serviceToken)), // ignores the return value, like a tee or peek
+              TE.tap(swapToken(serviceToken)), // Pass the expired token to ensure it gets deleted
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,
@@ -569,8 +630,8 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(({ musicLibrary, credentials, type, typeId }) => {
                 switch (type) {
@@ -603,14 +664,15 @@ function bindSmapiSoapServiceToExpress(
                   default:
                     throw `Unsupported type:${type}`;
                   }
-              }),
+              });
+          },
           getMediaMetadata: async (
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 switch (type) {
@@ -625,14 +687,15 @@ function bindSmapiSoapServiceToExpress(
                   default:
                     throw `Unsupported type:${type}`;
                 }
-              }),
+              });
+          },
           search: async (
             { id, term }: { id: string; term: string },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey }) => {
                 switch (id) {
@@ -658,15 +721,16 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary.searchTracks(term).then((it) =>
                       searchResult({
                         count: it.length,
-                        mediaCollection: it.map((aTrack) =>
-                          album(urlWithToken(apiKey), aTrack.album)
+                        mediaMetadata: it.map((aTrack) =>
+                          track(urlWithToken(apiKey), aTrack)
                         ),
                       })
                     );
                   default:
                     throw `Unsupported search by:${id}`;
                 }
-              }),
+              });
+          },
           getExtendedMetadata: async (
             {
               id,
@@ -677,8 +741,8 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
@@ -735,10 +799,35 @@ function bindSmapiSoapServiceToExpress(
                         // </getExtendedMetadataResult>
                       },
                     }));
+                  case "playlists":
+                    return musicLibrary
+                      .playlists()
+                      .then((it) =>
+                        Promise.all(
+                          it.map((playlist) => ({
+                            id: playlist.id,
+                            name: playlist.name,
+                            coverArt: playlist.coverArt,
+                            entries: [],
+                          }))
+                        )
+                      )
+                      .then(slice2(paging))
+                      .then(([page, total]) => ({
+                        getExtendedMetadataResult: {
+                          count: page.length,
+                          index: paging._index,
+                          total,
+                          mediaCollection: page.map((it) =>
+                            playlist(urlWithToken(apiKey), it)
+                          ),
+                        },
+                      }));
                   default:
                     throw `Unsupported getExtendedMetadata id=${id}`;
                 }
-              }),
+              });
+          },
           getMetadata: async (
             {
               id,
@@ -749,16 +838,15 @@ function bindSmapiSoapServiceToExpress(
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            const acceptLanguage = headers["accept-language"];
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
-                const acceptLanguage = headers["accept-language"];
                 logger.debug(
                   `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
                 );
-                console.log("getMetadata headers", headers)
                 const lang = i8n(...asLANGs(acceptLanguage));
 
                 const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
@@ -810,7 +898,8 @@ function bindSmapiSoapServiceToExpress(
                           id: "playlists",
                           title: lang("playlists"),
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "playlist",
+                          itemType: "container",
+                          canEnumerate: true,
                           attributes: {
                             readOnly: false,
                             userContent: true,
@@ -1070,14 +1159,15 @@ function bindSmapiSoapServiceToExpress(
                   default:
                     throw `Unsupported getMetadata id=${id}`;
                 }
-              }),
+              });
+          },
           createContainer: async (
             { title, seedId }: { title: string; seedId: string | undefined },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(({ musicLibrary }) =>
                 musicLibrary
                   .createPlaylist(title)
@@ -1097,35 +1187,38 @@ function bindSmapiSoapServiceToExpress(
                   id: `playlist:${it.id}`,
                   updateId: "",
                 },
-              })),
+              }));
+          },
           deleteContainer: async (
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
-              .then((_) => ({ deleteContainerResult: {} })),
+              .then((_) => ({ deleteContainerResult: {} }));
+          },
           addToContainer: async (
             { id, parentId }: { id: string; parentId: string },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
               )
-              .then((_) => ({ addToContainerResult: { updateId: "" } })),
+              .then((_) => ({ addToContainerResult: { updateId: "" } }));
+          },
           removeFromContainer: async (
             { id, indices }: { id: string; indices: string },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then((it) => ({
                 ...it,
@@ -1142,27 +1235,29 @@ function bindSmapiSoapServiceToExpress(
                   musicLibrary.removeFromPlaylist(typeId, indices);
                 }
               })
-              .then((_) => ({ removeFromContainerResult: { updateId: "" } })),
+              .then((_) => ({ removeFromContainerResult: { updateId: "" } }));
+          },
           rateItem: async (
             { id, rating }: { id: string; rating: number },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
               )
-              .then((_) => ({ rateItemResult: { shouldSkip: false } })),
+              .then((_) => ({ rateItemResult: { shouldSkip: false } }));
+          },
 
           setPlayedSeconds: async (
             { id, seconds }: { id: string; seconds: string },
             _,
             soapyHeaders: SoapyHeaders,
             { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
               .then(splitId(id))
               .then(({ musicLibrary, type, typeId }) => {
                 switch (type) {
@@ -1184,7 +1279,49 @@ function bindSmapiSoapServiceToExpress(
               })
               .then((_) => ({
                 setPlayedSecondsResult: {},
-              })),
+              }));
+          },
+
+          reportPlaySeconds: async (
+            { id, seconds }: { id: string; seconds: string },
+            _,
+            soapyHeaders: SoapyHeaders,
+            { headers }: Pick<Request, "headers">
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
+              .then(splitId(id))
+              .then(({ type, typeId }) => {
+                if (type === "track") {
+                  logger.debug(`reportPlaySeconds called for track ${typeId}, seconds: ${seconds}`);
+                  // Return interval of 30 seconds for next update
+                  return Promise.resolve(true);
+                }
+                return Promise.resolve(true);
+              })
+              .then((_) => ({
+                reportPlaySecondsResult: { interval: 30 },
+              }));
+          },
+
+          reportPlayStatus: async (
+            { id, status }: { id: string; status: string },
+            _,
+            soapyHeaders: SoapyHeaders,
+            { headers }: Pick<Request, "headers">
+          ) => {
+            return login(soapyHeaders?.credentials, headers)
+              .then(splitId(id))
+              .then(({ musicLibrary, type, typeId }) => {
+                if (type === "track") {
+                  logger.info(`reportPlayStatus called for track ${typeId}, status: ${status}`);
+                  if (status === "PLAY_START" || status === "PAUSED_PLAYBACK") {
+                    return musicLibrary.nowPlaying(typeId);
+                  }
+                }
+                return Promise.resolve(true);
+              })
+              .then((_) => ({}));
+          },
         },
       },
     },

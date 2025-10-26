@@ -984,8 +984,8 @@ describe("wsdl api", () => {
                 });
                 expect(result[0]).toEqual(
                   searchResult({
-                    mediaCollection: tracks.map((it) =>
-                      album(bonobUrlWithAccessToken, it.album)
+                    mediaMetadata: tracks.map((it) =>
+                      track(bonobUrlWithAccessToken, it)
                     ),
                     index: 0,
                     total: 2,
@@ -1160,7 +1160,8 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Playlists",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
+                      canEnumerate: true,
                       attributes: {
                         readOnly: "false",
                         renameable: "false",
@@ -1260,7 +1261,8 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Afspeellijsten",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
+                      canEnumerate: true,
                       attributes: {
                         readOnly: "false",
                         renameable: "false",
@@ -1497,6 +1499,7 @@ describe("wsdl api", () => {
                           playlist
                         ).href(),
                         canPlay: true,
+                        canEnumerate: true,
                         attributes: {
                           readOnly: "false",
                           userContent: "false",
@@ -1529,6 +1532,7 @@ describe("wsdl api", () => {
                             playlist
                           ).href(),
                           canPlay: true,
+                          canEnumerate: true,
                           attributes: {
                             readOnly: "false",
                             userContent: "false",

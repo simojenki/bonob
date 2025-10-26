@@ -39,8 +39,28 @@ import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
 } from "./smapi_auth";
+import { SmapiTokenStore, InMemorySmapiTokenStore } from "./smapi_token_store";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
+
+// Session storage for tracking active streams (for scrobbling)
+type StreamSession = {
+  serviceToken: string;
+  trackId: string;
+  timestamp: number;
+};
+
+const streamSessions = new Map<string, StreamSession>();
+
+// Clean up old sessions (older than 1 hour)
+setInterval(() => {
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  for (const [sid, session] of streamSessions.entries()) {
+    if (session.timestamp < oneHourAgo) {
+      streamSessions.delete(sid);
+    }
+  }
+}, 5 * 60 * 1000).unref(); // Run every 5 minutes, but don't prevent process exit
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;
@@ -92,6 +112,8 @@ export type ServerOpts = {
   version: string;
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
+  smapiTokenStore: SmapiTokenStore;
+  tokenCleanupIntervalMinutes: number;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -108,6 +130,8 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
     "1m"
   ),
   externalImageResolver: axiosImageFetcher,
+  smapiTokenStore: new InMemorySmapiTokenStore(),
+  tokenCleanupIntervalMinutes: 60,
 };
 
 function server(
@@ -133,6 +157,7 @@ function server(
     app.use(morgan("combined"));
   }
   app.use(express.urlencoded({ extended: false }));
+  app.use(express.json());
 
   app.use(express.static(path.resolve(__dirname, "..", "web", "public")));
   app.engine("eta", Eta.renderFile);
@@ -397,6 +422,14 @@ function server(
     if (!serviceToken) {
       return res.status(401).send();
     } else {
+      // Store session for scrobbling later (when Sonos reports playback)
+      streamSessions.set(id, {
+        serviceToken,
+        trackId: id,
+        timestamp: Date.now(),
+      });
+      logger.debug(`Stored stream session for track ${id}`);
+
       return musicService
         .login(serviceToken)
         .then((it) =>
@@ -598,6 +631,113 @@ function server(
       });
   });
 
+  // Sonos Reporting Endpoint for playback analytics
+  app.post("/report/:version/timePlayed", async (req, res) => {
+    const version = req.params["version"];
+    logger.debug(`Received Sonos reporting event (v${version}): ${JSON.stringify(req.body)}`);
+
+    try {
+      // Sonos may send an array of reports or a single report with items array
+      const reports = Array.isArray(req.body) ? req.body : [req.body];
+
+      for (const report of reports) {
+        // Handle both direct report format and items array format
+        const items = report.items || [report];
+
+        for (const item of items) {
+          const {
+            reportId,
+            mediaUrl,
+            durationPlayedMillis,
+            positionMillis,
+            type,
+          } = item;
+
+        // Extract track ID from mediaUrl (format: /stream/track/{id} or x-sonos-http:track%3a{id}.mp3)
+        let trackId: string | undefined;
+
+        if (mediaUrl) {
+          // Try standard URL format first
+          const standardMatch = mediaUrl.match(/\/stream\/track\/([^?]+)/);
+          if (standardMatch) {
+            trackId = standardMatch[1];
+          } else {
+            // Try x-sonos-http format (track%3a{id}.mp3)
+            const sonosMatch = mediaUrl.match(/track%3[aA]([^.?&]+)/);
+            if (sonosMatch) {
+              trackId = sonosMatch[1];
+            }
+          }
+        }
+
+        if (!trackId) {
+          logger.warn(`Could not extract track ID from mediaUrl: ${mediaUrl}, full report: ${JSON.stringify(report)}`);
+          continue; // Skip this report, process next one
+        }
+
+        const durationPlayedSeconds = Math.floor((durationPlayedMillis || 0) / 1000);
+
+        logger.info(
+          `Sonos reporting: type=${type}, trackId=${trackId}, reportId=${reportId}, ` +
+          `durationPlayed=${durationPlayedSeconds}s, position=${positionMillis}ms`
+        );
+
+        // For "final" reports, determine if we should scrobble
+        if (type === "final" && durationPlayedSeconds > 0) {
+          // Retrieve authentication from stream session storage
+          const session = streamSessions.get(trackId!);
+          let serviceToken: string | undefined = session?.serviceToken;
+
+          if (!serviceToken) {
+            // Fallback: try to extract from Authorization header (if present)
+            const authHeader = req.headers["authorization"];
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+              const token = authHeader.substring(7);
+              const smapiToken = serverOpts.smapiTokenStore.get(token);
+              if (smapiToken) {
+                serviceToken = pipe(
+                  smapiAuthTokens.verify({ token, key: smapiToken.key }),
+                  E.getOrElseW(() => undefined)
+                );
+              }
+            }
+          }
+
+          if (serviceToken) {
+            await musicService.login(serviceToken).then((musicLibrary) => {
+              // Get track duration to determine scrobbling threshold
+              return musicLibrary.track(trackId!).then((track) => {
+                const shouldScrobble =
+                  (track.duration < 30 && durationPlayedSeconds >= 10) ||
+                  (track.duration >= 30 && durationPlayedSeconds >= 30);
+
+                if (shouldScrobble) {
+                  logger.info(`Scrobbling track ${trackId} after ${durationPlayedSeconds}s playback`);
+                  return musicLibrary.scrobble(trackId!);
+                } else {
+                  logger.debug(
+                    `Not scrobbling track ${trackId}: duration=${track.duration}s, played=${durationPlayedSeconds}s`
+                  );
+                  return Promise.resolve(false);
+                }
+              });
+            }).catch((e) => {
+              logger.error(`Failed to process scrobble for track ${trackId}`, { error: e });
+            });
+          } else {
+            logger.debug("No authentication available for reporting endpoint scrobble");
+          }
+        }
+        }
+      }
+
+      return res.status(200).json({ status: "ok" });
+    } catch (error) {
+      logger.error("Error processing Sonos reporting event", { error });
+      return res.status(500).json({ status: "error" });
+    }
+  });
+
   bindSmapiSoapServiceToExpress(
     app,
     SOAP_PATH,
@@ -607,7 +747,10 @@ function server(
     apiTokens,
     clock,
     i8n,
-    serverOpts.smapiAuthTokens
+    serverOpts.smapiAuthTokens,
+    serverOpts.smapiTokenStore,
+    serverOpts.logRequests,
+    serverOpts.tokenCleanupIntervalMinutes
   );
 
   if (serverOpts.applyContextPath) {

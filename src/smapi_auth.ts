@@ -4,6 +4,8 @@ import { v4 as uuid } from "uuid";
 import { b64Decode, b64Encode } from "./b64";
 import { Clock } from "./clock";
 
+import logger from "./logger";
+
 export type SmapiFault = { Fault: { faultcode: string; faultstring: string } };
 export type SmapiRefreshTokenResultFault = SmapiFault & {
   Fault: {
@@ -14,6 +16,7 @@ export type SmapiRefreshTokenResultFault = SmapiFault & {
 };
 
 function isError(thing: any): thing is Error {
+  logger.debug("isError check", { thing });
   return thing.name && thing.message;
 }
 
@@ -151,6 +154,13 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   };
 
   verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
+    logger.debug("Verifying JWT", {
+      token: smapiToken.token,
+      key: smapiToken.key,
+      secret: this.secret,
+      version: this.version,
+      secretKey: this.secret + this.version + smapiToken.key,
+    });
     try {
       return E.right(
         (
@@ -161,7 +171,9 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         ).serviceToken
       );
     } catch (e) {
+      const err = e as Error;
       if (isTokenExpiredError(e)) {
+        logger.debug("JWT token expired, will attempt refresh", { expiredAt: (e as TokenExpiredError).expiredAt });
         const serviceToken = (
           jwt.verify(
             smapiToken.token,
@@ -170,8 +182,11 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
           ) as any
         ).serviceToken;
         return E.left(new ExpiredTokenError(serviceToken));
-      } else if (isError(e)) return E.left(new InvalidTokenError(e.message));
-      else return E.left(new InvalidTokenError("Failed to verify token"));
+      } else {
+        logger.warn("JWT verification failed - token may be invalid or from different secret", { message: err.message });
+        if (isError(e)) return E.left(new InvalidTokenError(err.message));
+        else return E.left(new InvalidTokenError("Failed to verify token"));
+      }
     }
   };
 }
