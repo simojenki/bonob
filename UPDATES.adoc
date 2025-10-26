@@ -4,7 +4,7 @@ Run Bonob on your server.
 
 == Updates made to original code
 
-* Proper Token handling after login. Also handling of periodic token refresh.
+* Proper Token handling after login. Also handling of periodic token refresh. Something is still funky here after a day or two...
 * Store Tokens in an SQLite database (in mounted `/config` directory).
 * Added variable `BNB_TOKEN_CLEANUP_INTERVAL` with a default of `60` (minutes) to set how often expired tokens should be cleaned up out of the database.
 * Multi-account logins. Register one Bonob and log in with multiple Navidrome users for easy account switching in the Sonos app.
@@ -27,6 +27,7 @@ Run Bonob on your server.
 Bonob now needs a volume to store the token database. In the example below that directory is `/var/containers/bonob`. Adapt as needed.
 Also the example below uses a `bonob` user on the system with ID `1210` and group `100`. The database directory should be owned by that user.
 
+Also for `BNB_SUBSONIC_URL` you can use the internal or external URL. So instead of `https://music.mydomain.com` you could use `http://192.168.1.100:4533` if your Navidrome runs on a server with IP `192.168.1.100`.
 .Example systemd file (`/usr/lib/systemd/system/bonob.service`)
 [source]
 ----

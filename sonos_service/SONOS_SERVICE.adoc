@@ -5,7 +5,7 @@
 +
 image::images/about.png[]
 
-* Navidrome running and available from the Internet. E.g. via https://music.mydomain.com
+* Navidrome running and available from the server that Bonob is running on. This can be a public URL like https://music.mydomain.com or just a local URL like http://192.168.1.100:4533.
 * Bonob running and available from the Internet. E.g. via https://bonob.mydomain.com
 
 You can use any method to make these URLs available. Cloudflare Tunnels, Pangolin, reverse proxy, etc.
@@ -21,7 +21,7 @@ You can use any method to make these URLs available. Cloudflare Tunnels, Pangoli
 *** Service Name: Navidrome
 *** Service Availability: Global
 *** Checkbox checked
-*** Website/Social Media URLs: https://music.mydomain.com (Some URL - e.g. your Navidrome server)
+*** Website/Social Media URLs: https://music.mydomain.com (Some URL - e.g. your Navidrome server). This has to be a valid URL.
 
 ** Sonos Music API
 *** Integration ID: com.mydomain.music (your domain in reverse)
