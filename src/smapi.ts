@@ -534,6 +534,16 @@ function bindSmapiSoapServiceToExpress(
     }
   };
 
+  // Middleware to force content-type to application/xml for SOAP responses
+  app.use(soapPath, (_req, res, next) => {
+    const originalWriteHead = res.writeHead.bind(res);
+    res.writeHead = function(statusCode: number, ...args: any[]) {
+      res.setHeader('content-type', 'application/xml; charset=utf-8');
+      return originalWriteHead(statusCode, ...args);
+    };
+    next();
+  });
+
   const soapyService = listen(
     app,
     soapPath,
