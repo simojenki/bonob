@@ -106,6 +106,7 @@ export default function () {
     reportNowPlaying:
       bnbEnvVar<boolean>("REPORT_NOW_PLAYING", { default: true, parser: asBoolean }),
     tokenStore: {
+      filesystemDirectory: bnbEnvVar<string>("TOKEN_STORE_FILESYSTEM_DIRECTORY"),
       s3Endpoint: bnbEnvVar<string>("TOKEN_STORE_S3_ENDPOINT"),
       s3Port: bnbEnvVar<number>("TOKEN_STORE_S3_PORT", { parser: asInt }),
       s3UseSsl: bnbEnvVar<boolean>("TOKEN_STORE_S3_USE_SSL", { default: true, parser: asBoolean }),

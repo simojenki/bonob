@@ -18,7 +18,7 @@ import { MusicService } from "./music_service";
 import { SystemClock } from "./clock";
 import { JWTSmapiLoginTokens } from "./smapi_auth";
 import * as Minio from 'minio'
-import { PersistentTokenStore, NoopPersistentTokenStore } from "./api_tokens";
+import { PersistentTokenStore, NoopPersistentTokenStore, FilesystemPersistentTokenStore } from "./api_tokens";
 
 const config = readConfig();
 const clock = SystemClock;
@@ -131,6 +131,21 @@ class MinioPersistentTokenStore implements PersistentTokenStore {
   }
 }
 
+function selectTokenStore(): PersistentTokenStore {
+  if (config.tokenStore.filesystemDirectory !== undefined) {
+    const directory = config.tokenStore.filesystemDirectory;
+    const store = new FilesystemPersistentTokenStore(directory);
+    logger.info(`Using filesystem token store at ${store['directory']}`);
+    return store;
+  } else if (config.tokenStore.s3Endpoint) {
+    logger.info(`Using S3 token store at ${config.tokenStore.s3Endpoint}`);
+    return new MinioPersistentTokenStore();
+  } else {
+    logger.info("Using no-op token store (tokens will not be persisted)");
+    return new NoopPersistentTokenStore();
+  }
+}
+
 const app = server(
   sonosSystem,
   bonob,
@@ -146,7 +161,7 @@ const app = server(
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher
-  }, config.tokenStore.s3Endpoint ? new MinioPersistentTokenStore() : new NoopPersistentTokenStore()
+  }, selectTokenStore()
 );
 
 const expressServer = app.listen(config.port, () => {
