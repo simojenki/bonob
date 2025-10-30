@@ -632,9 +632,9 @@ function server(
   });
 
   // Sonos Reporting Endpoint for playback analytics
-  app.post("/report/:version/timePlayed", async (req, res) => {
-    const version = req.params["version"];
-    logger.debug(`Received Sonos reporting event (v${version}): ${JSON.stringify(req.body)}`);
+  app.post("/report/timePlayed", async (req, res) => {
+    // const version = req.params["version"] || "??";
+    logger.debug(`Received Sonos reporting event: ${JSON.stringify(req.body)}`);
 
     try {
       // Sonos may send an array of reports or a single report with items array

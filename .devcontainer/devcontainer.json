@@ -6,7 +6,8 @@
     "containerEnv": {
         // these env vars need to be configured appropriately for your local dev env
         "BNB_DEV_SONOS_DEVICE_IP": "${localEnv:BNB_DEV_SONOS_DEVICE_IP}",
-        "BNB_DEV_HOST_IP": "${localEnv:BNB_DEV_HOST_IP}",
+        "BNB_DEV_URL": "${localEnv:BNB_DEV_URL}",
+        "BNB_DEV_LOCAL_URL": "${localEnv:BNB_DEV_LOCAL_URL}",
         "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}"
     },
     "remoteUser": "node",
