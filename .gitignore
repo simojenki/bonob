@@ -13,3 +13,4 @@ node_modules
 .pnp.*
 .gitinfo
 core.*
+token-store
