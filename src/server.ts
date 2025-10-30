@@ -369,10 +369,10 @@ function server(
     </Presentation>`);
   });
 
-  // app.post("/report/:version/timePlayed", async (_, res) => {
-  //   console.log(`!!!!!!!!!!!!!!!!!!!!!!!!!!!! report`)
-  //   return res.status(200).json({ status: "ok" });
-  // }),
+  app.post("/report/timePlayed", async (_, res) => {
+    return res.status(200).json({ items: [] });
+  }),
+
 
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;

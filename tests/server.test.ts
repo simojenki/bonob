@@ -1591,6 +1591,31 @@ describe("server", () => {
           });
         });
       });
+
+      describe("/report/timePlayed", () => {
+        const sonos = {
+          register: jest.fn(),
+        };
+        const theService = aService({
+          name: "We can all live a life of service",
+          sid: 999,
+        });
+        const server = makeServer(
+          sonos as unknown as Sonos,
+          theService,
+          bonobUrl,
+          new InMemoryMusicService()
+        );
+
+        it("should return empty json as sonos doesnt seem to send any data anyway", async () => {
+          const res = await request(server)
+            .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+            .send()
+            .expect(200);
+
+          expect(res.body).toEqual({ items: [] });
+        });
+      });
     });
   });
 });

@@ -536,6 +536,7 @@ function bindSmapiSoapServiceToExpress(
                       ],
                     };
                   default:
+                    // todo: maybe not throw this?
                     throw `Unsupported type:${type}`;
                   }
               }),
@@ -557,6 +558,7 @@ function bindSmapiSoapServiceToExpress(
                       getMediaMetadataResult: track(urlWithToken(apiKey), it),
                     }));
                   default:
+                    //todo: maybe not throw this?
                     throw `Unsupported type:${type}`;
                 }
               }),
@@ -668,6 +670,7 @@ function bindSmapiSoapServiceToExpress(
                       },
                     }));
                   default:
+                    // unsupported "artists"
                     throw `Unsupported getExtendedMetadata id=${id}`;
                 }
               }),
