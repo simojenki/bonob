@@ -208,6 +208,10 @@ class SonosSoap {
       const smapiAuthToken = this.smapiAuthTokens.issue(
         association.serviceToken
       );
+      console.log('第1个serviceToken = ', association.serviceToken)
+
+      console.log('第2个smapiAuthToken = ', smapiAuthToken.token)
+
       return {
         getDeviceAuthTokenResult: {
           authToken: smapiAuthToken.token,
@@ -238,16 +242,7 @@ class SonosSoap {
       };
     }
   }
-  getCredentialsForToken(token: string): SmapiToken {
-    return this.tokens[token]!;
-  }
-  associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?:string) {
-    logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
-    if(oldToken) {
-      delete this.tokens[oldToken];
-    }
-    this.tokens[token] = fullSmapiToken;  
-  }
+
 }
 
 export type ContainerType = "container" | "search" | "albumList";
@@ -430,36 +425,20 @@ function bindSmapiSoapServiceToExpress(
     );
   };
 
-  const swapToken = (expiredToken:string) => (newToken:SmapiToken) => {
-    logger.debug("oldToken: "+expiredToken);
-    logger.debug("newToken: "+JSON.stringify(newToken));
-    sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
-    return TE.right(newToken);
-  }
-
   const useHeaderIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
-      logger.debug("useHeaderIfPresent header", headers);
-
     const headersProvidedWithToken = headers!==null && headers!== undefined && headers["authorization"];
     if(headersProvidedWithToken) {
-      logger.debug("Will use authorization header");
       const bearer = headers["authorization"];
       const token = bearer?.split(" ")[1];
       if(token) {
-        const credsForToken = sonosSoap.getCredentialsForToken(token);
-        if(credsForToken==undefined) {
-          logger.debug("No creds for "+JSON.stringify(token));
-        } else {
-          credentials = {
+        credentials = {
             ...credentials!,
             loginToken: {
               ...credentials?.loginToken!,
-              token: credsForToken.token,
-              key: credsForToken.key,
+              token: token,
+              key: 'nonsense',
             }
           }
-          logger.debug("Updated credentials to " + JSON.stringify(credentials));
-        }
       }
     }
     return credentials;
@@ -470,8 +449,6 @@ function bindSmapiSoapServiceToExpress(
     const credentialsProvidedWithoutAuthToken = credentials && credentials.loginToken.token==null;
     if(credentialsProvidedWithoutAuthToken) {
       credentials = useHeaderIfPresent(credentials, headers);
-            console.log("headers", headers)
-      console.log("credentials", credentials)
     }
     const authOrFail = pipe(
       auth(credentials),
@@ -488,7 +465,6 @@ function bindSmapiSoapServiceToExpress(
       throw await pipe(
         musicService.refreshToken(authOrFail.expiredToken),
         TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(authOrFail.expiredToken)),
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -517,12 +493,6 @@ function bindSmapiSoapServiceToExpress(
           getAppLink: () => sonosSoap.getAppLink(),
           getDeviceAuthToken: ({ linkCode }: { linkCode: string }) =>{
             const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
-            const smapiToken:SmapiToken = {
-              token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken,
-              key: deviceAuthTokenResult.getDeviceAuthTokenResult.privateKey
-            }
-  
-            sonosSoap.associateCredentialsForToken(smapiToken.token, smapiToken);
             return deviceAuthTokenResult;
           },
           getLastUpdate: () => ({
@@ -552,7 +522,6 @@ function bindSmapiSoapServiceToExpress(
             return pipe(
               musicService.refreshToken(serviceToken),
               TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-              TE.tap(swapToken(serviceToken)), // ignores the return value, like a tee or peek
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,

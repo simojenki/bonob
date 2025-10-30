@@ -1,6 +1,5 @@
 import { either as E } from "fp-ts";
 import jwt from "jsonwebtoken";
-import { v4 as uuid } from "uuid";
 import { b64Decode, b64Encode } from "./b64";
 import { Clock } from "./clock";
 
@@ -115,40 +114,35 @@ export const smapiTokenAsString = (smapiToken: SmapiToken) =>
 export const smapiTokenFromString = (smapiTokenString: string): SmapiToken =>
   JSON.parse(b64Decode(smapiTokenString));
 
-export const SMAPI_TOKEN_VERSION = 2;
+export const SMAPI_TOKEN_VERSION = 3;
 
 export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   private readonly clock: Clock;
   private readonly secret: string;
   private readonly expiresIn: string;
-  private readonly version: number;
-  private readonly keyGenerator: () => string;
+  private readonly key: string;
 
   constructor(
     clock: Clock,
     secret: string,
     expiresIn: string,
-    keyGenerator: () => string = uuid,
     version: number = SMAPI_TOKEN_VERSION
   ) {
     this.clock = clock;
     this.secret = secret;
     this.expiresIn = expiresIn;
-    this.version = version;
-    this.keyGenerator = keyGenerator;
+    this.key = this.secret + "." + version 
   }
 
-  issue = (serviceToken: string) => {
-    const key = this.keyGenerator();
-    return {
+  issue = (serviceToken: string) => ({
       token: jwt.sign(
         { serviceToken, iat: this.clock.now().unix() },
-        this.secret + this.version + key,
+        this.key,
         { expiresIn: this.expiresIn }
       ),
-      key,
-    };
-  };
+      // todo: remove this entirely
+      key: "nonsense"
+    });
 
   verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
     try {
@@ -156,7 +150,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         (
           jwt.verify(
             smapiToken.token,
-            this.secret + this.version + smapiToken.key
+            this.key
           ) as any
         ).serviceToken
       );
@@ -165,7 +159,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         const serviceToken = (
           jwt.verify(
             smapiToken.token,
-            this.secret + this.version + smapiToken.key,
+            this.key,
             { ignoreExpiration: true }
           ) as any
         ).serviceToken;
