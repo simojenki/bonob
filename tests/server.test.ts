@@ -13,7 +13,7 @@ import makeServer, {
 
 import { Device, Sonos, SONOS_DISABLED } from "../src/sonos";
 
-import { aDevice, aService } from "./builders";
+import { aDevice, aService, aTrack } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import { APITokens, InMemoryAPITokens } from "../src/api_tokens";
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
@@ -1593,27 +1593,174 @@ describe("server", () => {
       });
 
       describe("/report/timePlayed", () => {
-        const sonos = {
-          register: jest.fn(),
+        const musicService = {
+          login: jest.fn(),
         };
-        const theService = aService({
-          name: "We can all live a life of service",
-          sid: 999,
-        });
+        const musicLibrary = {
+          track: jest.fn(),
+          scrobble: jest.fn(),
+        };
+        const smapiAuthTokens = {
+          verify: jest.fn(),
+        };
         const server = makeServer(
-          sonos as unknown as Sonos,
-          theService,
+          jest.fn() as unknown as Sonos,
+          aService(),
           bonobUrl,
-          new InMemoryMusicService()
+          musicService as unknown as MusicService,
+          {
+            smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens
+          }
         );
+        const authToken = `token-${uuid()}`
+        const serviceToken = `serviceToken-${uuid()}`;
 
-        it("should return empty json as sonos doesnt seem to send any data anyway", async () => {
-          const res = await request(server)
-            .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
-            .send()
-            .expect(200);
+        describe("when no auth token is provided", () => {
+          it("should return a 401", async () => {
+            await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [] })
+                .expect(401);
 
-          expect(res.body).toEqual({ items: [] });
+            expect(smapiAuthTokens.verify).not.toHaveBeenCalled();
+          });
+        });
+
+        describe("when the auth token is not valid", () => {
+          beforeEach(() => {
+            smapiAuthTokens.verify.mockReturnValue(E.left("no good"));
+          });
+
+          it("should return a 401", async () => {
+            await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [] })
+                .set('authorization', "not-a-valid-token")
+                .expect(401);
+
+            expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: "not-a-valid-token", key: "nonsense" });
+          });
+        });
+
+        describe("when the auth token is valid", () => {
+          beforeEach(() => {
+            smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
+            musicService.login.mockResolvedValue(musicLibrary);
+          });
+
+          it("should auth using the provided authorization header", async () => {
+            const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [] })
+                .set('authorization', authToken);
+
+            expect(res.status).toEqual(200);
+            expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: authToken, key: "nonsense" });
+          });
+
+          describe("and there are no items to report", () => {
+            it("should report ok", async () => {
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [] })
+                .set('authorization', authToken)
+                .expect(200);
+
+
+                expect(res.body).toEqual({ scrobbled: 0 });
+                expect(musicLibrary.track).not.toHaveBeenCalled();
+                expect(musicLibrary.scrobble).not.toHaveBeenCalled();
+            });
+          });
+
+          describe("there is only an update", () => {
+            it("should not scrobble", async () => {
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [
+                  { mediaUrl: "x-sonos-http:track%3xyz.mp3?a=b&c=d", type: "update", durationPlayedMillis: 123000 },
+                ]})
+                .set('authorization', authToken)
+                .expect(200);
+
+                expect(res.body).toEqual({ scrobbled: 0 });
+                expect(musicLibrary.track).not.toHaveBeenCalled();
+                expect(musicLibrary.scrobble).not.toHaveBeenCalled();
+            });
+          });
+
+          describe("there is a single final play that has gone > 30s", () => {
+            it("should scrobble", async () => {
+              const id = "XYZ"
+              musicLibrary.track.mockResolvedValue(aTrack({ id, duration: 200 }));
+              musicLibrary.scrobble.mockResolvedValue(true);
+
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [
+                  { mediaUrl: `x-sonos-http:track%3a${id}.mp3?a=b&c=d`, type: "final", durationPlayedMillis: 123000 },
+                ]})
+                .set('authorization', authToken)
+                .expect(200);
+
+                expect(res.body).toEqual({ scrobbled: 1 });
+                expect(musicLibrary.scrobble).toHaveBeenCalledWith(id);
+            });
+          });
+
+          describe("there is a single final play that has gone for not long enough to scrobble", () => {
+            it("should scrobble", async () => {
+              const id = "XYZ"
+              musicLibrary.track.mockResolvedValue(aTrack({ id, duration: 200 }));
+              musicLibrary.scrobble.mockResolvedValue(true);
+
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [
+                  { mediaUrl: `x-sonos-http:track%3a${id}.mp3?a=b&c=d`, type: "final", durationPlayedMillis: 29000 },
+                ]})
+                .set('authorization', authToken)
+                .expect(200);
+
+                expect(res.body).toEqual({ scrobbled: 0 });
+                expect(musicLibrary.scrobble).not.toHaveBeenCalled();
+            });
+          });
+
+          describe("there are a number of scrobbles", () => {
+            it("should scrobble", async () => {
+              const id1 = "should-scrobble-long-track"
+              const id2 = "should-not-scrobble-long-track"
+              const id3 = "should-scrobble-short-track"
+              const id4 = "should-not-scrobble-short-track"
+              const id5 = "should-not-scrobble-not-final"
+
+              musicLibrary.track
+                .mockResolvedValueOnce(aTrack({ id: id1, duration: 200 }))
+                .mockResolvedValueOnce(aTrack({ id: id2, duration: 200 }))
+                .mockResolvedValueOnce(aTrack({ id: id3, duration: 20 }))
+                .mockResolvedValueOnce(aTrack({ id: id4, duration: 20 }));
+
+              musicLibrary.scrobble.mockResolvedValue(true);
+
+              const res = await request(server)
+                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .send({ items: [
+                  { mediaUrl: `x-sonos-http:track%3a${id1}.mp3?a=b&c=d`,  type: "final", durationPlayedMillis: 31000 },
+                  { mediaUrl: `x-sonos-http:track%3a${id2}.flac?a=b&c=d`, type: "final", durationPlayedMillis: 29000 },
+                  { mediaUrl: `x-sonos-http:track%3a${id3}.gif?a=b&c=d`,  type: "final", durationPlayedMillis: 11000 },
+                  { mediaUrl: `x-sonos-http:track%3a${id4}.jpg?a=b&c=d`,  type: "final", durationPlayedMillis: 3000 },
+                  { mediaUrl: `x-sonos-http:track%3a${id5}.bob?a=b&c=d`,  type: "update", durationPlayedMillis: 29000 },
+                ]})
+                .set('authorization', authToken)
+                .expect(200);
+
+                expect(res.body).toEqual({ scrobbled: 2 });
+                expect(musicLibrary.scrobble).toHaveBeenCalledWith(id1);
+                expect(musicLibrary.scrobble).toHaveBeenCalledWith(id3);
+            });
+          });
+
         });
       });
     });

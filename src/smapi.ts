@@ -261,6 +261,10 @@ const yyyy = (bonobUrl: URLBuilder, year: Year) => ({
   albumArtURI: year.year !== "?" ? iconArtURI(bonobUrl, "yyyy", year.year).href() : iconArtURI(bonobUrl, "music").href(),
 });
 
+export const shouldScrobble = (track: Track, playbackTime: number) => (
+  (track.duration < 30 && playbackTime >= 10) ||
+  (track.duration >= 30 && playbackTime >= 30))
+
 const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
   itemType: "playlist",
   id: `playlist:${playlist.id}`,
@@ -350,12 +354,18 @@ export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
   albumArtURI: coverArtURI(bonobUrl, { coverArt: artist.image }).href(),
 });
 
-function splitId<T>(id: string) {
-  const [type, typeId] = id.split(":");
+export const splitId = (id: string) => {
+  const [type, typeId] = id.split(":")
+  return {
+    type: type!!,
+    typeId: typeId!!
+  }
+}
+
+export function withSplitId<T>(id: string) {
   return (t: T) => ({
     ...t,
-    type,
-    typeId: typeId!,
+    ...splitId(id)
   });
 }
 
@@ -506,7 +516,7 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(({ musicLibrary, credentials, type, typeId }) => {
                 switch (type) {
                   case "internetRadioStation":
@@ -546,7 +556,7 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 switch (type) {
                   case "internetRadioStation":
@@ -568,7 +578,7 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(async ({ musicLibrary, apiKey }) => {
                 switch (id) {
                   case "albums":
@@ -613,7 +623,7 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
                 switch (type) {
@@ -686,7 +696,7 @@ function bindSmapiSoapServiceToExpress(
             { headers }: Pick<Request, "headers">
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(({ musicLibrary, apiKey, type, typeId }) => {
                 const paging = { _index: index, _count: count };
                 const acceptLanguage = headers["accept-language"];
@@ -1045,7 +1055,7 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
               )
@@ -1056,7 +1066,7 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then((it) => ({
                 ...it,
                 indices: indices.split(",").map((it) => +it),
@@ -1073,13 +1083,14 @@ function bindSmapiSoapServiceToExpress(
                 }
               })
               .then((_) => ({ removeFromContainerResult: { updateId: "" } })),
+
           rateItem: async (
             { id, rating }: { id: string; rating: number },
             _,
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(({ musicLibrary, typeId }) =>
                 musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
               )
@@ -1091,15 +1102,12 @@ function bindSmapiSoapServiceToExpress(
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
-              .then(splitId(id))
+              .then(withSplitId(id))
               .then(({ musicLibrary, type, typeId }) => {
                 switch (type) {
                   case "track":
-                    return musicLibrary.track(typeId).then(({ duration }) => {
-                      if (
-                        (duration < 30 && +seconds >= 10) ||
-                        (duration >= 30 && +seconds >= 30)
-                      ) {
+                    return musicLibrary.track(typeId).then(track => {
+                      if (shouldScrobble(track, +seconds)) {
                         return musicLibrary.scrobble(typeId);
                       } else {
                         return Promise.resolve(true);

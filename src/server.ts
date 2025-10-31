@@ -20,6 +20,8 @@ import {
   sonosifyMimeType,
   ratingFromInt,
   ratingAsInt,
+  splitId,
+  shouldScrobble
 } from "./smapi";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, AuthFailure, AuthSuccess } from "./music_service";
@@ -44,6 +46,14 @@ export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;
+}
+
+type TimePlayed = {
+  items: {
+      mediaUrl: string,
+      type: "update" | "final"
+      durationPlayedMillis: number
+  }[]
 }
 
 export function rangeFilterFor(rangeHeader: string): RangeFilter {
@@ -133,6 +143,7 @@ function server(
     app.use(morgan("combined"));
   }
   app.use(express.urlencoded({ extended: false }));
+  app.use(express.json());
 
   app.use(express.static(path.resolve(__dirname, "..", "web", "public")));
   app.engine("eta", Eta.renderFile);
@@ -369,15 +380,56 @@ function server(
     </Presentation>`);
   });
 
-  app.post("/report/timePlayed", async (_, res) => {
-    return res.status(200).json({ items: [] });
-  }),
+  app.post("/report/timePlayed", async (req, res) => {
+    const serviceToken = pipe(
+      E.fromNullable("Missing authorization header")(req.headers["authorization"] as string),
+      E.flatMap((token) => {
+        return pipe(
+         smapiAuthTokens.verify({ token, key: "nonsense" }),
+          E.mapLeft((_) => "Auth token failed to verify")
+      )
+      }),
+      E.getOrElseW(() => undefined)
+    );
 
+    if (!serviceToken) {
+      return res.status(401).send();
+    } else {
+      return musicService
+        .login(serviceToken)
+        .then(musicLibrary => {
+          const scrobbles = (req.body as TimePlayed).items
+            .filter(it => it.type == 'final')
+            .map(({ mediaUrl, durationPlayedMillis }) => ({
+              ...splitId(decodeURIComponent(new URL(mediaUrl).pathname).split(".")[0]!),
+              durationPlayedMillis
+            }))
+            .map(({ type, typeId, durationPlayedMillis }) => {
+              return type == "track" ? ({ trackId: typeId, durationPlayedMillis }) : null
+            })
+            .filter((it) => it != null)
+            .map(({ trackId, durationPlayedMillis }) => 
+              musicLibrary
+                .track(trackId)
+                .then(track => {
+                  if(shouldScrobble(track, durationPlayedMillis / 1000))
+                    return musicLibrary.scrobble(trackId).then(scrobbled => ({ trackId, scrobbled }))
+                  else
+                    return Promise.resolve({ trackId, scrobbled: false })
+                })
+            );
+          return Promise.all(scrobbles)
+        })
+        .then(it => res.status(200).json({ 
+          scrobbled: it.filter(scrobble => scrobble.scrobbled).length 
+        }));
+    }
+  }),
 
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
     const trace = uuid();
-
+    
     logger.debug(
       `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query

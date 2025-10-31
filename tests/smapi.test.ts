@@ -24,7 +24,7 @@ import {
   sonosifyMimeType,
   ratingAsInt,
   ratingFromInt,
-  internetRadioStation
+  internetRadioStation,
 } from "../src/smapi";
 
 import { keys as i8nKeys } from "../src/i8n";
