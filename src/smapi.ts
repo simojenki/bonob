@@ -70,7 +70,6 @@ const WSDL_FILE = path.resolve(
 export type Credentials = {
   loginToken: {
     token: string;
-    key: string;
     householdId: string;
   };
   deviceId: string;
