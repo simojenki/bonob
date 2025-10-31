@@ -381,18 +381,14 @@ function server(
 
     const serviceToken = pipe(
       E.fromNullable("Missing bnbt header")(req.headers["bnbt"] as string),
-      E.chain(token => pipe(
-        E.fromNullable("Missing bnbk header")(req.headers["bnbk"] as string),
-        E.map(key => ({ token, key }))
-      )),
-      E.chain((auth) =>
+      E.chain(token => 
         pipe(
-          smapiAuthTokens.verify(auth),
+          smapiAuthTokens.verify({ token }),
           E.mapLeft((_) => "Auth token failed to verify")
         )
       ),
       E.getOrElseW(() => undefined)
-    )
+    );
 
     if (!serviceToken) {
       return res.status(401).send();

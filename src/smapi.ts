@@ -429,7 +429,6 @@ function bindSmapiSoapServiceToExpress(
             loginToken: {
               ...credentials?.loginToken!,
               token: token,
-              key: 'nonsense',
             }
           }
       }
@@ -439,10 +438,7 @@ function bindSmapiSoapServiceToExpress(
 
   const login = async (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
 
-    const credentialsProvidedWithoutAuthToken = credentials && credentials.loginToken.token==null;
-    if(credentialsProvidedWithoutAuthToken) {
-      credentials = useHeaderIfPresent(credentials, headers);
-    }
+    credentials = useHeaderIfPresent(credentials, headers);
     const authOrFail = pipe(
       auth(credentials),
       E.getOrElseW((fault) => fault)
@@ -552,12 +548,7 @@ function bindSmapiSoapServiceToExpress(
                             value: credentials.loginToken.token,
                           },
                         },
-                        {
-                          httpHeader: {
-                            header: "bnbk",
-                            value: credentials.loginToken.key,
-                          },
-                        },
+                      
                       ],
                     };
                   default:
