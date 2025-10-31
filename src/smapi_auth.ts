@@ -24,7 +24,6 @@ export function isSmapiRefreshTokenResultFault(
 
 export type SmapiToken = {
   token: string;
-  key: string;
 };
 
 export interface ToSmapiFault {
@@ -108,7 +107,6 @@ export const smapiTokenAsString = (smapiToken: SmapiToken) =>
   b64Encode(
     JSON.stringify({
       token: smapiToken.token,
-      key: smapiToken.key,
     })
   );
 export const smapiTokenFromString = (smapiTokenString: string): SmapiToken =>
@@ -140,8 +138,6 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         this.key,
         { expiresIn: this.expiresIn }
       ),
-      // todo: remove this entirely
-      key: "nonsense"
     });
 
   verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {

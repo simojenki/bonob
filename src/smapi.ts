@@ -89,7 +89,6 @@ export type GetAppLinkResult = {
 export type GetDeviceAuthTokenResult = {
   getDeviceAuthTokenResult: {
     authToken: string;
-    privateKey: string;
     userInfo: {
       nickname: string;
       userIdHashCode: string;
@@ -208,14 +207,9 @@ class SonosSoap {
       const smapiAuthToken = this.smapiAuthTokens.issue(
         association.serviceToken
       );
-      console.log('第1个serviceToken = ', association.serviceToken)
-
-      console.log('第2个smapiAuthToken = ', smapiAuthToken.token)
-
       return {
         getDeviceAuthTokenResult: {
           authToken: smapiAuthToken.token,
-          privateKey: smapiAuthToken.key,
           userInfo: {
             nickname: association.nickname,
             userIdHashCode: crypto
@@ -409,7 +403,6 @@ function bindSmapiSoapServiceToExpress(
         pipe(
           smapiAuthTokens.verify({
             token: credentials.loginToken.token,
-            key: credentials.loginToken.key,
           }),
           E.map((serviceToken) => ({
             serviceToken,
@@ -472,7 +465,6 @@ function bindSmapiSoapServiceToExpress(
             detail: {
               refreshAuthTokenResult: {
                 authToken: newToken.token,
-                privateKey: newToken.key,
               },
             },
           },
@@ -525,7 +517,6 @@ function bindSmapiSoapServiceToExpress(
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,
-                  privateKey: it.key,
                 },
               })),
               TE.getOrElse((_) => {
