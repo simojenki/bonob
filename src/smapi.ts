@@ -546,8 +546,7 @@ function bindSmapiSoapServiceToExpress(
                             header: "bnbt",
                             value: credentials.loginToken.token,
                           },
-                        },
-                      
+                        }
                       ],
                     };
                   default:

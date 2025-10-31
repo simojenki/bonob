@@ -2910,22 +2910,18 @@ describe("wsdl api", () => {
                   id: `track:${trackId}`,
                 });
 
-                console.log('roooooooot', root)
-
                 expect(root[0]).toEqual({
                   getMediaURIResult: bonobUrl
                     .append({
                       pathname: `/stream/track/${trackId}`,
                     })
                     .href(),
-                  httpHeaders: [
-                    {
+                  httpHeaders: {
                       httpHeader: [{
                           header: "bnbt",
                           value: smapiAuthToken.token,
                       }],
                     }
-                  ],
                 });
 
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);

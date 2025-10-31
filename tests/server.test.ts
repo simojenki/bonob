@@ -950,7 +950,6 @@ describe("server", () => {
                         .path()
                     )
                     .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -994,7 +993,6 @@ describe("server", () => {
                         .path()
                     )
                     .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -1036,7 +1034,6 @@ describe("server", () => {
                         .path()
                     )
                     .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
@@ -1079,7 +1076,6 @@ describe("server", () => {
                         .path()
                     )
                     .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
