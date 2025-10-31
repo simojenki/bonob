@@ -1466,14 +1466,14 @@ describe("server", () => {
                   const response = await request(
                     server(SystemClock, {
                       foregroundColor: "black",
-                      backgroundColor: "brightpink",
+                      backgroundColor: "orange",
                     })
                   ).get(`/icon/${type}/size/180`);
 
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();
                   expect(svg).toContain(`fill="black"`);
-                  expect(svg).toContain(`fill="brightpink"`);
+                  expect(svg).toContain(`fill="orange"`);
                 });
 
                 function itShouldBeFestive(
