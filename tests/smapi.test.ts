@@ -620,7 +620,7 @@ describe("wsdl api", () => {
   };
 
   const smapiAuthTokens = {
-    issue: jest.fn(() => ({ token: `default-smapiToken-${uuid()}`, key: `default-smapiKey-${uuid()}` })),
+    issue: jest.fn(() => ({ token: `default-smapiToken-${uuid()}` })),
     verify: jest.fn<E.Either<ToSmapiFault, string>, []>(() => E.right(`default-serviceToken-${uuid()}`)),
   };
 
@@ -634,8 +634,7 @@ describe("wsdl api", () => {
       const serviceToken = `serviceToken-${uuid()}`;
       const apiToken = `apiToken-${uuid()}`;
       const smapiAuthToken: SmapiToken = {
-        token: `smapiAuthToken.token-${uuid()}`,
-        key: `smapiAuthToken.key-${uuid()}`
+        token: `smapiAuthToken.token-${uuid()}`
       };
 
       const bonobUrlWithAccessToken = bonobUrl.append({
@@ -727,7 +726,6 @@ describe("wsdl api", () => {
               expect(result[0]).toEqual({
                 getDeviceAuthTokenResult: {
                   authToken: smapiAuthToken.token,
-                  privateKey: smapiAuthToken.key,
                   userInfo: {
                     nickname: association.nickname,
                     userIdHashCode: crypto
@@ -804,7 +802,7 @@ describe("wsdl api", () => {
           describe("when token has expired", () => {
             it("should return a refreshed auth token", async () => {
               const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
-              const newSmapiAuthToken = { token: `newToken-${uuid()}`, key: `newKey-${uuid()}` };
+              const newSmapiAuthToken = { token: `newToken-${uuid()}` };
 
               smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)));
               musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }));
@@ -823,7 +821,6 @@ describe("wsdl api", () => {
               expect(result[0]).toEqual({
                 refreshAuthTokenResult: {
                   authToken: newSmapiAuthToken.token,
-                  privateKey: newSmapiAuthToken.key,
                 },
               });
 
@@ -857,7 +854,7 @@ describe("wsdl api", () => {
           describe("when existing auth token has not expired", () => {
             it("should return a refreshed auth token", async () => {
               const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
-              const newSmapiAuthToken = { token: `newToken-${uuid()}`, key: `newKey-${uuid()}` };
+              const newSmapiAuthToken = { token: `newToken-${uuid()}` };
 
               smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
               musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }));
@@ -875,8 +872,7 @@ describe("wsdl api", () => {
 
               expect(result[0]).toEqual({
                 refreshAuthTokenResult: {
-                  authToken: newSmapiAuthToken.token,
-                  privateKey: newSmapiAuthToken.key
+                  authToken: newSmapiAuthToken.token
                 },
               });
 
@@ -1029,7 +1025,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials({ token: 'tokenThatFails', key: `keyThatFails` }) });
+            ws.addSoapHeader({ credentials: someCredentials({ token: 'tokenThatFails' }) });
 
             await action(ws)
               .then(() => fail("shouldnt get here"))
@@ -1061,8 +1057,7 @@ describe("wsdl api", () => {
             it("should return a fault of Client.TokenRefreshRequired with a refreshAuthTokenResult", async () => {
               const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
               const newToken = {
-                token: `newToken-${uuid()}`,
-                key: `newKey-${uuid()}`
+                token: `newToken-${uuid()}`
               };
   
               smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
@@ -1088,7 +1083,6 @@ describe("wsdl api", () => {
                     detail: {
                       refreshAuthTokenResult: {
                         authToken: newToken.token,
-                        privateKey: newToken.key,
                       },
                     },
                   });
@@ -2916,6 +2910,8 @@ describe("wsdl api", () => {
                   id: `track:${trackId}`,
                 });
 
+                console.log('roooooooot', root)
+
                 expect(root[0]).toEqual({
                   getMediaURIResult: bonobUrl
                     .append({
@@ -2927,12 +2923,6 @@ describe("wsdl api", () => {
                       httpHeader: [{
                           header: "bnbt",
                           value: smapiAuthToken.token,
-                      }],
-                    },
-                    {
-                      httpHeader: [{
-                          header: "bnbk",
-                          value: smapiAuthToken.key,
                       }],
                     }
                   ],

@@ -7,7 +7,7 @@ export type SmapiFault = { Fault: { faultcode: string; faultstring: string } };
 export type SmapiRefreshTokenResultFault = SmapiFault & {
   Fault: {
     detail: {
-      refreshAuthTokenResult: { authToken: string; privateKey: string };
+      refreshAuthTokenResult: { authToken: string};
     };
   };
 };

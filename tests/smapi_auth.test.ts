@@ -17,16 +17,14 @@ import { b64Encode } from "../src/b64";
 
 describe("smapiTokenAsString", () => {
   it("can round trip token to and from string", () => {
-    const smapiToken = { token: uuid(), key: uuid(), someOtherStuff: 'this needs to be explicitly ignored' };
+    const smapiToken = { token: uuid(), someOtherStuff: 'this needs to be explicitly ignored' };
     const asString = smapiTokenAsString(smapiToken)
 
     expect(asString).toEqual(b64Encode(JSON.stringify({
       token: smapiToken.token,
-      key: smapiToken.key,
     })));
     expect(smapiTokenFromString(asString)).toEqual({
       token: smapiToken.token,
-      key: smapiToken.key
     });
   });
 });
@@ -40,7 +38,6 @@ describe("isSmapiRefreshTokenResultFault", () => {
         detail: {
           refreshAuthTokenResult: {
             authToken: "x",
-            privateKey: "x",
           },
         },
       },
