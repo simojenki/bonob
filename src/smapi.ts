@@ -718,7 +718,6 @@ function bindSmapiSoapServiceToExpress(
                 logger.debug(
                   `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
                 );
-                console.log("getMetadata headers", headers)
                 const lang = i8n(...asLANGs(acceptLanguage));
 
                 const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
