@@ -1465,15 +1465,15 @@ describe("server", () => {
                 it("should return icon colors as per config if overriden", async () => {
                   const response = await request(
                     server(SystemClock, {
-                      foregroundColor: "black",
-                      backgroundColor: "orange",
+                      foregroundColor: "brightblue",
+                      backgroundColor: "brightpink",
                     })
-                  ).get(`/icon/${type}/size/180`);
+                  ).get(`/icon/${type}/size/180?nofest`);
 
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();
-                  expect(svg).toContain(`fill="black"`);
-                  expect(svg).toContain(`fill="orange"`);
+                  expect(svg).toContain(`fill="brightblue"`);
+                  expect(svg).toContain(`fill="brightpink"`);
                 });
 
                 function itShouldBeFestive(
@@ -1565,7 +1565,7 @@ describe("server", () => {
           describe("svg icon", () => {
             it(`should return an svg image with the text replaced`, async () => {
               const response = await request(server()).get(
-                `/icon/yyyy:${text}/size/60`
+                `/icon/yyyy:${text}/size/60?nofest`
               );
 
               expect(response.status).toEqual(200);
