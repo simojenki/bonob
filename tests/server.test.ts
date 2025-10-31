@@ -1479,7 +1479,7 @@ describe("server", () => {
                       foregroundColor: "brightblue",
                       backgroundColor: "brightpink",
                     })
-                  ).get(`/icon/${type}/size/180`);
+                  ).get(`/icon/${type}/size/180?nofest`);
 
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();
@@ -1576,7 +1576,7 @@ describe("server", () => {
           describe("svg icon", () => {
             it(`should return an svg image with the text replaced`, async () => {
               const response = await request(server()).get(
-                `/icon/yyyy:${text}/size/60`
+                `/icon/yyyy:${text}/size/60?nofest`
               );
 
               expect(response.status).toEqual(200);

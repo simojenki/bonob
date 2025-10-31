@@ -32,7 +32,7 @@ import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
-import { Icon, ICONS, festivals, features } from "./icon";
+import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
 import _ from "underscore";
 import morgan from "morgan";
 import { parse } from "./burn";
@@ -556,6 +556,7 @@ function server(
   });
 
   app.get("/icon/:type_text/size/:size", (req, res) => {
+    const apply_festivals = req.query["nofest"] == null
     const match = (req.params["type_text"] || "")!.match("^([A-Za-z0-9]+)(?:\:([A-Za-z0-9]+))?$")
     if (!match)
       return res.status(400).send();
@@ -591,7 +592,7 @@ function server(
               text: text
             })
           )
-          .apply(festivals(clock))
+          .apply(apply_festivals ? festivals(clock) : no_festivals)
           .toString()
       )
         .then(spec.responseFormatter)

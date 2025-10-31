@@ -68,7 +68,10 @@ export interface Icon {
   apply(transformer: Transformer): Icon;
 }
 
+
 export type Transformer = (icon: Icon) => Icon;
+
+export const no_festivals: Transformer = (icon: Icon) => icon
 
 export function transform(spec: Partial<IconSpec>): Transformer {
   return (icon: Icon) =>
