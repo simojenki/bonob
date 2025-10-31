@@ -1465,14 +1465,14 @@ describe("server", () => {
                 it("should return icon colors as per config if overriden", async () => {
                   const response = await request(
                     server(SystemClock, {
-                      foregroundColor: "brightblue",
+                      foregroundColor: "black",
                       backgroundColor: "brightpink",
                     })
                   ).get(`/icon/${type}/size/180`);
 
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();
-                  expect(svg).toContain(`fill="brightblue"`);
+                  expect(svg).toContain(`fill="black"`);
                   expect(svg).toContain(`fill="brightpink"`);
                 });
 
