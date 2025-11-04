@@ -2,6 +2,7 @@ import { either as E } from "fp-ts";
 import jwt from "jsonwebtoken";
 import { b64Decode, b64Encode } from "./b64";
 import { Clock } from "./clock";
+import { StringValue } from 'ms'
 
 export type SmapiFault = { Fault: { faultcode: string; faultstring: string } };
 export type SmapiRefreshTokenResultFault = SmapiFault & {
@@ -119,13 +120,13 @@ export const SMAPI_TOKEN_VERSION = 3;
 export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   private readonly clock: Clock;
   private readonly secret: string;
-  private readonly expiresIn: string;
+  private readonly expiresIn: StringValue;
   private readonly key: string;
 
   constructor(
     clock: Clock,
     secret: string,
-    expiresIn: string,
+    expiresIn: StringValue,
     version: number = SMAPI_TOKEN_VERSION
   ) {
     this.clock = clock;

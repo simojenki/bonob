@@ -22,9 +22,9 @@
     "customizations": {
         "vscode": {
           "extensions": [
-            "esbenp.prettier-vscode",
-            "redhat.vscode-xml"
-        ]
+                "esbenp.prettier-vscode",
+                "redhat.vscode-xml"
+            ]
         }
     }
 }
