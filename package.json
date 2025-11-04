@@ -71,6 +71,6 @@
     "register-dev": "ts-node ./src/register.ts http://${BNB_DEV_HOST_IP}:4534",
     "test": "jest",
     "testw": "jest --watch",
-    "gitinfo": "git describe --tags > .gitinfo"
+    "gitinfo": "git rev-parse --short HEAD > .gitinfo"
   }
 }
