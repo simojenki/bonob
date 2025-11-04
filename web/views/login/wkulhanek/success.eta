@@ -1,0 +1,9 @@
+<% layout('./layout', { title: it.lang("success") }) %>
+
+<div id="content">
+  <div class="message-container">
+    <div class="logo">✓</div>
+    <h1><%= it.message %></h1>
+    <p style="color: #28a745; font-weight: 600; margin-top: 10px;"><%= it.lang("success") %></p>
+  </div>
+</div>

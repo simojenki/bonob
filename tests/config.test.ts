@@ -244,6 +244,22 @@ describe("config", () => {
     });
   });
 
+  describe("login theme", () => {
+    it("should default to classic", () => {
+      expect(config().loginTheme).toEqual("classic");
+    });
+
+    it(`should be overridable to navidrome-ish using BNB_LOGIN_THEME`, () => {
+      process.env["BNB_LOGIN_THEME"] = "navidrome-ish";
+      expect(config().loginTheme).toEqual("navidrome-ish");
+    });
+
+    it(`should be fall back to classic if invalid value is provided`, () => {
+      process.env["BNB_LOGIN_THEME"] = "not-valid";
+      expect(config().loginTheme).toEqual("classic");
+    });
+  });
+
   describe("secret", () => {
     it("should default to bonob", () => {
       expect(config().secret).toEqual("bonob");

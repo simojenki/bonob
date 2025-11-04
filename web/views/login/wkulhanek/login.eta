@@ -1,0 +1,30 @@
+<% layout('./layout', { title: it.lang("login") }) %>
+
+<div id="content">
+  <% if (it.status == "fail") { %>
+    <div class="message-container">
+      <div class="logo">✗</div>
+      <h1><%= it.message %></h1>
+      <% if (it.cause) { %>
+        <p style="color: #dc3545; margin-top: 15px;"><%= it.cause %></p>
+      <% } %>
+      <p style="color: #dc3545; font-weight: 600; margin-top: 10px;"><%= it.lang("failure") %></p>
+    </div>
+  <% } else { %>
+    <div class="logo">🎵</div>
+    <h1><%= it.lang("logInToBonob") %></h1>
+  <% } %>
+
+  <form action="<%= it.loginRoute %>" method="POST">
+    <div class="form-group">
+      <label for="username"><%= it.lang("username") %></label>
+      <input type="text" id="username" name="username" required autofocus>
+    </div>
+    <div class="form-group">
+      <label for="password"><%= it.lang("password") %></label>
+      <input type="password" id="password" name="password" required>
+    </div>
+    <input type="hidden" name="linkCode" value="<%= it.linkCode %>">
+    <input type="submit" value="<%= it.lang("login") %>" id="submit">
+  </form>
+</div>

@@ -1,0 +1,26 @@
+<% layout('./layout') %>
+
+<div id="root">
+  <div tabindex="-1">
+      <div class="jss1">
+        <div class="MuiPaper-root MuiCard-root jss2 MuiPaper-elevation1 MuiPaper-rounded">
+          <div class="jss3">
+            <img src="/navidrome-ish/android-icon-192x192-D_ka5daf.png" class="jss4" alt="logo">
+          </div>
+          <div class="jss5">
+            <a target="_blank" rel="noopener noreferrer" class="jss11">Navidrome (via bonob)</a>
+          </div>
+          <div class="jss6">
+            <p class="MuiFormHelperText-root"><%= it.message %></p><br>
+          </div>
+          <!--
+          <div class="jss7">
+            <div class="jss8">
+              
+            </div>
+          </div>-->
+        </div>
+      </div>
+  </div>
+</div>
+

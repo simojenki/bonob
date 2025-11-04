@@ -33,6 +33,7 @@ import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
+import { DEFAULT_LOGIN_THEME } from './config'
 import _ from "underscore";
 import morgan from "morgan";
 import { parse } from "./burn";
@@ -102,6 +103,7 @@ export type ServerOpts = {
   version: string;
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
+  loginTheme: string;
 };
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
@@ -118,6 +120,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
     "1m"
   ),
   externalImageResolver: axiosImageFetcher,
+  loginTheme: DEFAULT_LOGIN_THEME
 };
 
 function server(
@@ -133,6 +136,7 @@ function server(
   const smapiAuthTokens = serverOpts.smapiAuthTokens;
   const apiTokens = serverOpts.apiTokens();
   const clock = serverOpts.clock;
+  const loginTheme = serverOpts.loginTheme || "classic"
 
   const startUpTime = dayjs();
 
@@ -230,20 +234,23 @@ function server(
 
   app.get(LOGIN_ROUTE, (req, res) => {
     const lang = langFor(req);
-    res.render("login", {
+    res.render(`login/${loginTheme}/login`, {
       lang,
       linkCode: req.query.linkCode,
       loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
     });
   });
 
+
   app.post(LOGIN_ROUTE, async (req, res) => {
     const lang = langFor(req);
     const { username, password, linkCode } = req.body;
     if (!linkCodes.has(linkCode)) {
-      return res.status(400).render("failure", {
+      return res.status(400).render(`login/${loginTheme}/login`, {
         lang,
+        status: "fail",
         message: lang("invalidLinkCode"),
+        loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
       });
     } else {
       return pipe(
@@ -254,18 +261,21 @@ function server(
         TE.match(
           (e: AuthFailure) => ({
             status: 403,
-            template: "failure",
+            template: `login/${loginTheme}/login`,
             params: {
               lang,
+              status: "fail",
               message: lang("loginFailed"),
               cause: e.message,
+              linkCode: linkCode,
+              loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
             },
           }),
           (success: AuthSuccess) => {
             linkCodes.associate(linkCode, success);
             return {
               status: 200,
-              template: "success",
+              template: `login/${loginTheme}/success`,
               params: {
                 lang,
                 message: lang("loginSuccessful"),

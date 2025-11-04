@@ -1,0 +1,54 @@
+
+<% layout('./layout', { title: it.lang("login") }) %>
+
+<div id="root">
+  <div tabindex="-1">
+    <form action="<%= it.loginRoute %>" method="POST">
+      <input type="hidden" name="linkCode" value="<%= it.linkCode %>">
+      <div class="jss1">
+        <div class="MuiPaper-root MuiCard-root jss2 MuiPaper-elevation1 MuiPaper-rounded">
+          <div class="jss3">
+            <img src="/navidrome-ish/android-icon-192x192-D_ka5daf.png" class="jss4" alt="logo">
+          </div>
+          <div class="jss5">
+            <a target="_blank" rel="noopener noreferrer" class="jss11">Navidrome (via bonob)</a>
+          </div>
+          <div class="jss6">
+            <% if (it.message != null) { %>
+            <p class="MuiFormHelperText-root Mui-error"><%= it.message %></p><br>
+            <% } %>
+          </div>
+          <div class="jss6">
+            <% if (it.cause != null) { %>
+            <p class="MuiFormHelperText-root Mui-error"><%= it.cause || "" %></p>
+            <% } %>
+          </div>
+          <div class="jss7">
+            <div class="jss8">
+              <div class="MuiFormControl-root MuiTextField-root MuiFormControl-fullWidth" spellcheck="false">
+                <label class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-shrink MuiInputLabel-animated" data-shrink="true">Username</label>
+                <div class="MuiInputBase-root MuiInput-root MuiInput-underline MuiInputBase-fullWidth MuiInput-fullWidth MuiInputBase-formControl MuiInput-formControl">
+                  <input aria-invalid="true" name="username" type="text" class="MuiInputBase-input MuiInput-input" value="">
+                </div>
+              </div>
+            </div>
+            <div class="jss8">
+              <div class="MuiFormControl-root MuiTextField-root MuiFormControl-fullWidth">
+                <label class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-shrink MuiInputLabel-animated" data-shrink="true">Password</label>
+                <div class="MuiInputBase-root MuiInput-root MuiInput-underline MuiInputBase-fullWidth MuiInput-fullWidth MuiInputBase-formControl MuiInput-formControl">
+                  <input aria-invalid="false" name="password" type="password" class="MuiInputBase-input MuiInput-input" value="">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="MuiCardActions-root jss9 MuiCardActions-spacing">
+            <button class="MuiButtonBase-root MuiButton-root MuiButton-contained jss10 MuiButton-containedPrimary MuiButton-fullWidth" tabindex="0" type="submit">
+              <span class="MuiButton-label">Sign in</span>
+              <span class="MuiTouchRipple-root"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
