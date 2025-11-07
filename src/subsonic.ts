@@ -526,14 +526,29 @@ export class Subsonic implements MusicService {
     { username, password }: Credentials,
     path: string,
     q: {} = {}
-  ): Promise<T> =>
-    this.get({ username, password }, path, { f: "json", ...q })
-      .then((response) => response.data as SubsonicEnvelope)
+  ): Promise<T> => {
+    let rawResponse: any;
+    return this.get({ username, password }, path, { f: "json", ...q })
+      .then((response) => {
+        rawResponse = response.data;
+        return response.data as SubsonicEnvelope;
+      })
       .then((json) => json["subsonic-response"])
       .then((json) => {
         if (isError(json)) throw `Subsonic error:${json.error.message}`;
         else return json as unknown as T;
+      })
+      .catch((error) => {
+        console.error('[ERROR] Subsonic request failed:', {
+          path,
+          query: q,
+          rawResponse: JSON.stringify(rawResponse, null, 2),
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        throw error;
       });
+  };
 
   generateToken = (credentials: Credentials) =>
     pipe(
