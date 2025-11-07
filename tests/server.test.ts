@@ -41,7 +41,7 @@ describe("rangeFilterFor", () => {
       ];
 
       for (let range in cases) {
-        expect(() => rangeFilterFor(range)).toThrowError(
+        expect(() => rangeFilterFor(range)).toThrow(
           `Unsupported range: ${range}`
         );
       }
@@ -71,7 +71,7 @@ describe("rangeFilterFor", () => {
 
     describe("-900", () => {
       it("should fail", () => {
-        expect(() => rangeFilterFor("bytes=-900")).toThrowError(
+        expect(() => rangeFilterFor("bytes=-900")).toThrow(
           "Unsupported range: bytes=-900"
         );
       });
@@ -79,7 +79,7 @@ describe("rangeFilterFor", () => {
 
     describe("100-200", () => {
       it("should fail", () => {
-        expect(() => rangeFilterFor("bytes=100-200")).toThrowError(
+        expect(() => rangeFilterFor("bytes=100-200")).toThrow(
           "Unsupported range: bytes=100-200"
         );
       });
@@ -87,7 +87,7 @@ describe("rangeFilterFor", () => {
 
     describe("100-200, 400-500", () => {
       it("should fail", () => {
-        expect(() => rangeFilterFor("bytes=100-200, 400-500")).toThrowError(
+        expect(() => rangeFilterFor("bytes=100-200, 400-500")).toThrow(
           "Unsupported range: bytes=100-200, 400-500"
         );
       });
@@ -103,7 +103,7 @@ describe("rangeFilterFor", () => {
       ];
 
       for (let range in cases) {
-        expect(() => rangeFilterFor(range)).toThrowError(
+        expect(() => rangeFilterFor(range)).toThrow(
           `Unsupported range: ${range}`
         );
       }

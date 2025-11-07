@@ -1,4 +1,4 @@
-FROM node:22-bullseye-slim AS build
+FROM node:22-bookworm-slim AS build
 
 WORKDIR /bonob
 
@@ -36,7 +36,7 @@ RUN apt-get update && \
     NODE_ENV=production npm install --omit=dev
 
 
-FROM node:22-bullseye-slim
+FROM node:22-bookworm-slim
 
 LABEL   maintainer="simojenki" \
         org.opencontainers.image.source="https://github.com/simojenki/bonob" \

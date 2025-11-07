@@ -1,6 +1,7 @@
 import { hostname } from "os";
 import logger from "./logger";
 import url from "./url_builder";
+import { StringValue } from 'ms'
 
 export const WORD = /^\w+$/;
 export const COLOR = /^#?\w+$/;
@@ -76,7 +77,7 @@ export default function () {
     port,
     bonobUrl: url(bonobUrl),
     secret: bnbEnvVar<string>("SECRET", { default: "bonob" })!,
-    authTimeout: bnbEnvVar<string>("AUTH_TIMEOUT", { default: "1h" })!,
+    authTimeout: bnbEnvVar<StringValue>("AUTH_TIMEOUT", { default: "1h" })!,
     icons: {
       foregroundColor: bnbEnvVar<string>("ICON_FOREGROUND_COLOR", {
         validationPattern: COLOR,

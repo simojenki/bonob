@@ -70,7 +70,7 @@ describe("envVar", () => {
         envVar("bnb-var", {
           validationPattern: /^foobar$/,
         })
-      ).toThrowError(
+      ).toThrow(
         `Invalid value specified for 'bnb-var', must match ${/^foobar$/}`
       );
     });

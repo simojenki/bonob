@@ -183,11 +183,10 @@ describe("i8n", () => {
 
     describe("when the lang exists but the KEY doesnt", () => {
       it("should blow up", () => {
-        expect(() => i8n("foo")("en-US")("foobar123" as KEY)).toThrowError(
+        expect(() => i8n("foo")("en-US")("foobar123" as KEY)).toThrow(
           "No translation found for en-US:foobar123"
         );
       });
     });
-
   });
 });
