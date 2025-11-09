@@ -289,6 +289,10 @@ And then configure the 'bonob+audio/mpeg' player in your subsonic server.
 ![Spotify-ish](https://github.com/simojenki/bonob/blob/master/docs/images/spotify-ish.png?raw=true)
 
 
+## Notes on using Cloudflare/cloudflared tunnels.
+As discussed [here](https://github.com/simojenki/bonob/issues/101#issuecomment-1471635855) and [here](https://github.com/simojenki/bonob/issues/205#issuecomment-3461453809), there is an issue playing tracks via cloudflare.  Until otherwise resolved the current 'solution' is to "disable CF proxy feature and leave DNS-only for bonob.example.com record".  (Note you may need to wait some time for DNS caches to propogate)
+
+
 ## Credits
 
 - Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and @jicho
