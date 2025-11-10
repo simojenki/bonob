@@ -609,118 +609,119 @@ describe("server", () => {
           now: jest.fn(),
         };
 
-        const server = makeServer(
-          sonos as unknown as Sonos,
-          theService,
-          bonobUrl,
-          musicService as unknown as MusicService,
-          {
-            linkCodes: () => linkCodes as unknown as LinkCodes,
-            apiTokens: () => apiTokens as unknown as APITokens,
-            clock,
-          }
-        );
-
-        it("should return the login page", async () => {
-          sonos.register.mockResolvedValue(true);
-
-          const res = await request(server)
-            .get(bonobUrl.append({ pathname: "/login" }).path())
-            .set("accept-language", acceptLanguage)
-            .send();
-
-          expect(res.status).toEqual(200);
-          expect(res.text).toMatch(`<title>${lang("login")}</title>`);
-          expect(res.text).toMatch(
-            `<h1 class="login one-word-per-line">${lang("logInToBonob")}</h1>`
-          );
-          expect(res.text).toMatch(
-            `<label for="username">${lang("username")}:</label>`
-          );
-          expect(res.text).toMatch(
-            `<label for="password">${lang("password")}:</label>`
-          );
-          expect(res.text).toMatch(
-            `<input type="submit" value="${lang("login")}" id="submit">`
-          );
-        });
-
-        describe("when the credentials are valid", () => {
-          it("should return 200 ok and have associated linkCode with user", async () => {
-            const username = "jane";
-            const password = "password100";
-            const linkCode = `linkCode-${uuid()}`;
-            const authSuccess = {
-              serviceToken: `serviceToken-${uuid()}`,
-              userId: `${username}-uid`,
-              nickname: `${username}-nickname`,
-            };
-
-            linkCodes.has.mockReturnValue(true);
-            musicService.generateToken.mockReturnValue(TE.right(authSuccess))
-            linkCodes.associate.mockReturnValue(true);
-
-            const res = await request(server)
-              .post(bonobUrl.append({ pathname: "/login" }).pathname())
-              .set("accept-language", acceptLanguage)
-              .type("form")
-              .send({ username, password, linkCode })
-              .expect(200);
-
-            expect(res.text).toContain(lang("loginSuccessful"));
-
-            expect(musicService.generateToken).toHaveBeenCalledWith({
-              username,
-              password,
-            });
-            expect(linkCodes.has).toHaveBeenCalledWith(linkCode);
-            expect(linkCodes.associate).toHaveBeenCalledWith(
-              linkCode,
-              authSuccess
+        [
+          { loginTheme: null, msg: lang("logInToBonob") }, 
+          { loginTheme: "classic", msg: lang("logInToBonob") }, 
+          { loginTheme: "wkulhanek", msg: lang("logInToBonob") }, 
+          { loginTheme: "navidrome-ish", msg: "Navidrome (via bonob)" }, 
+        ].forEach( ({ loginTheme, msg }) => {
+          describe(`when the login theme is ${loginTheme}`, () => {
+            const server = makeServer(
+              sonos as unknown as Sonos,
+              theService,
+              bonobUrl,
+              musicService as unknown as MusicService,
+              {
+                linkCodes: () => linkCodes as unknown as LinkCodes,
+                apiTokens: () => apiTokens as unknown as APITokens,
+                clock,
+                loginTheme: loginTheme || undefined
+              },
             );
+          
+            it("should return the login page", async () => {
+              sonos.register.mockResolvedValue(true);
+
+              const res = await request(server)
+                .get(bonobUrl.append({ pathname: "/login" }).path())
+                .set("accept-language", acceptLanguage)
+                .send();
+
+              expect(res.status).toEqual(200);
+              expect(res.text).toMatch(`<title>${lang("login")}</title>`);
+              expect(res.text).toMatch(msg);
+            });
+
+            describe("when the credentials are valid", () => {
+              it("should return 200 ok and have associated linkCode with user", async () => {
+                const username = "jane";
+                const password = "password100";
+                const linkCode = `linkCode-${uuid()}`;
+                const authSuccess = {
+                  serviceToken: `serviceToken-${uuid()}`,
+                  userId: `${username}-uid`,
+                  nickname: `${username}-nickname`,
+                };
+
+                linkCodes.has.mockReturnValue(true);
+                musicService.generateToken.mockReturnValue(TE.right(authSuccess))
+                linkCodes.associate.mockReturnValue(true);
+
+                const res = await request(server)
+                  .post(bonobUrl.append({ pathname: "/login" }).pathname())
+                  .set("accept-language", acceptLanguage)
+                  .type("form")
+                  .send({ username, password, linkCode })
+                  .expect(200);
+
+                expect(res.text).toContain(lang("loginSuccessful"));
+
+                expect(musicService.generateToken).toHaveBeenCalledWith({
+                  username,
+                  password,
+                });
+                expect(linkCodes.has).toHaveBeenCalledWith(linkCode);
+                expect(linkCodes.associate).toHaveBeenCalledWith(
+                  linkCode,
+                  authSuccess
+                );
+              });
+            });
+
+            describe("when credentials are invalid", () => {
+              it("should return 403 with message", async () => {
+                const username = "userDoesntExist";
+                const password = "password";
+                const linkCode = uuid();
+                const message = `Invalid user:${username}`;
+
+                linkCodes.has.mockReturnValue(true);
+                musicService.generateToken.mockReturnValue(TE.left(new AuthFailure(message)))
+
+                const res = await request(server)
+                  .post(bonobUrl.append({ pathname: "/login" }).pathname())
+                  .set("accept-language", acceptLanguage)
+                  .type("form")
+                  .send({ username, password, linkCode })
+                  .expect(403);
+
+                expect(res.text).toContain(lang("loginFailed"));
+                expect(res.text).toContain(message);
+              });
+            });
+
+            describe("when linkCode is invalid", () => {
+              it("should return 400 with message", async () => {
+                const username = "jane";
+                const password = "password100";
+                const linkCode = "someLinkCodeThatDoesntExist";
+
+                linkCodes.has.mockReturnValue(false);
+
+                const res = await request(server)
+                  .post(bonobUrl.append({ pathname: "/login" }).pathname())
+                  .set("accept-language", acceptLanguage)
+                  .type("form")
+                  .send({ username, password, linkCode })
+                  .expect(400);
+
+                expect(res.text).toContain(lang("invalidLinkCode"));
+              });
+            });
           });
-        });
+        })
 
-        describe("when credentials are invalid", () => {
-          it("should return 403 with message", async () => {
-            const username = "userDoesntExist";
-            const password = "password";
-            const linkCode = uuid();
-            const message = `Invalid user:${username}`;
 
-            linkCodes.has.mockReturnValue(true);
-            musicService.generateToken.mockReturnValue(TE.left(new AuthFailure(message)))
-
-            const res = await request(server)
-              .post(bonobUrl.append({ pathname: "/login" }).pathname())
-              .set("accept-language", acceptLanguage)
-              .type("form")
-              .send({ username, password, linkCode })
-              .expect(403);
-
-            expect(res.text).toContain(lang("loginFailed"));
-            expect(res.text).toContain(message);
-          });
-        });
-
-        describe("when linkCode is invalid", () => {
-          it("should return 400 with message", async () => {
-            const username = "jane";
-            const password = "password100";
-            const linkCode = "someLinkCodeThatDoesntExist";
-
-            linkCodes.has.mockReturnValue(false);
-
-            const res = await request(server)
-              .post(bonobUrl.append({ pathname: "/login" }).pathname())
-              .set("accept-language", acceptLanguage)
-              .type("form")
-              .send({ username, password, linkCode })
-              .expect(400);
-
-            expect(res.text).toContain(lang("invalidLinkCode"));
-          });
-        });
       });
 
       describe("/stream", () => {

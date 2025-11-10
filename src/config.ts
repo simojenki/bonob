@@ -59,6 +59,20 @@ const asBoolean = (value: string) => value == "true";
 
 const asInt = (value: string) => Number.parseInt(value);
 
+export const DEFAULT_LOGIN_THEME = "classic"
+const VALID_LOGIN_THEMES = [DEFAULT_LOGIN_THEME, "navidrome-ish", "wkulhanek"]
+
+const cleanLoginTheme = (value: string) => {
+  if(VALID_LOGIN_THEMES.includes(value)) {
+    return value
+  } else {
+    logger.error(
+      `Invalid valid of '${value}' for BNB_LOGIN_THEME, defaulting to '${DEFAULT_LOGIN_THEME}'`
+    );
+    return DEFAULT_LOGIN_THEME
+  }
+}
+
 export default function () {
   const port = bnbEnvVar<number>("PORT", { default: 4534, parser: asInt })!;
   const bonobUrl = bnbEnvVar("URL", {
@@ -106,5 +120,6 @@ export default function () {
     scrobbleTracks: bnbEnvVar<boolean>("SCROBBLE_TRACKS", { default: true, parser: asBoolean }),
     reportNowPlaying:
       bnbEnvVar<boolean>("REPORT_NOW_PLAYING", { default: true, parser: asBoolean }),
+    loginTheme: bnbEnvVar<string>("LOGIN_THEME", { default: "classic", parser: cleanLoginTheme }),
   };
 }
