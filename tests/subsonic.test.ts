@@ -322,7 +322,7 @@ const asSongJson = (track: Track) => ({
   type: "music",
   starred: track.rating.love ? "sometime" : undefined,
   userRating: track.rating.stars,
-  year: "",
+  year: track.album.year,
 });
 
 const getAlbumListJson = (albums: [Artist, Album][]) =>
@@ -4295,17 +4295,15 @@ describe("Subsonic", () => {
           artist: artistToArtistSummary(artist),
           album: albumToAlbumSummary(album),
           genre: pop,
+          coverArt: album.coverArt, // Use album's coverArt for consistency with search results
         });
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ tracks: [track] })))
-          )
-          .mockImplementationOnce(() => Promise.resolve(ok(getSongJson(track))))
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist, album, [])))
           );
+          // No more getSong/getAlbum mocks needed
 
         const result = await login({ username, password })
           .then((it) => it.searchTracks("foo"));
@@ -4340,6 +4338,7 @@ describe("Subsonic", () => {
           artist: artistToArtistSummary(artist1),
           album: albumToAlbumSummary(album1),
           genre: pop,
+          coverArt: album1.coverArt, // Use album's coverArt for consistency with search results
         });
 
         const album2 = anAlbum({ id: "album2", name: "Bobbin", genre: pop });
@@ -4353,6 +4352,7 @@ describe("Subsonic", () => {
           artist: artistToArtistSummary(artist2),
           album: albumToAlbumSummary(album2),
           genre: pop,
+          coverArt: album2.coverArt, // Use album's coverArt for consistency with search results
         });
 
         mockGET
@@ -4365,19 +4365,8 @@ describe("Subsonic", () => {
                 })
               )
             )
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSongJson(track1)))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSongJson(track2)))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist1, album1, [])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(artist2, album2, [])))
           );
+          // No more getSong/getAlbum mocks needed
 
         const result = await login({ username, password })
           .then((it) => it.searchTracks("moo"));
