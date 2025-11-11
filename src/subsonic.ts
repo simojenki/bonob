@@ -314,6 +314,30 @@ export const asTrack = (album: Album, song: song, customPlayers: CustomPlayers):
   },
 });
 
+/**
+ * Converts a song from search results directly to a Track.
+ * Uses embedded album fields from the song instead of making separate getAlbum call.
+ *
+ * @param song - Song object from search3 results with embedded album fields
+ * @param customPlayers - Custom player configuration for encoding
+ * @returns Track object with all metadata
+ */
+const asTrackFromSearchResult = (song: song, customPlayers: CustomPlayers): Track => {
+  // Build Album object from embedded fields in song
+  const album: Album = {
+    id: song.albumId || '',
+    name: song.album || '',
+    year: song.year,
+    genre: maybeAsGenre(song.genre),
+    artistId: song.artistId,
+    artistName: song.artist,
+    coverArt: coverArtURN(song.coverArt),
+  };
+
+  // Reuse existing asTrack transformation logic
+  return asTrack(album, song, customPlayers);
+};
+
 const asAlbum = (album: album): Album => ({
   id: album.id,
   name: album.name,
@@ -921,9 +945,7 @@ export class Subsonic implements MusicService {
         subsonic
           .search3(credentials, { query, songCount: 20 })
           .then(({ songs }) =>
-            Promise.all(
-              songs.map((it) => subsonic.getTrack(credentials, it.id))
-            )
+            songs.map((song) => asTrackFromSearchResult(song, subsonic.customPlayers))
           ),
       playlists: async () =>
         subsonic

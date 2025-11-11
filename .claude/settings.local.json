@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Read(/home/gravelld/Downloads/**)"
+      "Read(/home/gravelld/Downloads/**)",
+      "Bash(nvm exec 20 npm test:*)",
+      "Bash(node --version:*)",
+      "Bash(source ~/.nvm/nvm.sh)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

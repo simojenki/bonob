@@ -1,0 +1,1 @@
+../../../Astiga/play/.claude/agents/codebase-locator.md
