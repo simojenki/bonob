@@ -118,6 +118,7 @@ describe("config", () => {
         it("should be used", () => {
           const url = "http://bonob1.example.com:8877/";
 
+          process.env["BNB_SECRET"] = "bonob";
           process.env["BNB_URL"] = "";
           process.env["BONOB_URL"] = "";
           process.env["BONOB_WEB_ADDRESS"] = "";
@@ -127,7 +128,20 @@ describe("config", () => {
         });
     });
 
+    describe(`when BNB_URL is 'http://localhost'`, () => {
+      it(`should process exit 1`, () => {
+        process.env["BNB_URL"] = "http://localhost";
+        const mockDeath = jest.fn() as unknown as (code?: number) => never;
+        expect(config(mockDeath));
+        expect(mockDeath).toHaveBeenCalledWith(1);
+      });
+    });
+
     describe("when none of BNB_URL, BONOB_URL, BONOB_WEB_ADDRESS are specified", () => {
+      beforeEach(() => {
+        process.env["BNB_SECRET"] = "bonob";
+      });
+
       describe("when BONOB_PORT is not specified", () => {
         it(`should default to http://${hostname()}:4534`, () => {
           expect(config().bonobUrl.href()).toEqual(
@@ -157,6 +171,10 @@ describe("config", () => {
   });
 
   describe("icons", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = "bonob";
+    });
+
     describe("foregroundColor", () => {
       describe.each([
         "BNB_ICON_FOREGROUND_COLOR",
@@ -245,6 +263,10 @@ describe("config", () => {
   });
 
   describe("login theme", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = "bonob";
+    });
+
     it("should default to classic", () => {
       expect(config().loginTheme).toEqual("classic");
     });
@@ -261,8 +283,10 @@ describe("config", () => {
   });
 
   describe("secret", () => {
-    it("should default to bonob", () => {
-      expect(config().secret).toEqual("bonob");
+    it("should process exit 1 if not provided", () => {
+      const mockDeath = jest.fn() as unknown as (code?: number) => never;
+      expect(config(mockDeath));
+      expect(mockDeath).toHaveBeenCalledWith(1);
     });
 
     describe.each([
@@ -270,13 +294,18 @@ describe("config", () => {
       "BONOB_SECRET"
     ])("%s", (k) => {
       it(`should be overridable using ${k}`, () => {
-        process.env[k] = "new secret";
-        expect(config().secret).toEqual("new secret");
+        const secret = "new-secret-that-is-really-really-really-long-isnt-it"
+        process.env[k] = secret;
+        expect(config().secret).toEqual(secret);
       });
     });
   });
 
   describe("authTimeout", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = "bonob";
+    });
+
     it("should default to 1h", () => {
       expect(config().authTimeout).toEqual("1h");
     });
@@ -288,6 +317,10 @@ describe("config", () => {
   });
   
   describe("logRequests", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = "bonob";
+    });
+
     describeBooleanConfigValue(
       "logRequests",
       "BNB_SERVER_LOG_REQUESTS",
@@ -297,6 +330,10 @@ describe("config", () => {
   });
 
   describe("sonos", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = "bonob";
+    });
+
     describe("serviceName", () => {
       it("should default to bonob", () => {
         expect(config().sonos.serviceName).toEqual("bonob");
@@ -383,6 +420,10 @@ describe("config", () => {
   });
 
   describe("subsonic", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = "bonob";
+    });
+
     describe("url", () => {
       describe.each([
         "BNB_SUBSONIC_URL",
@@ -449,30 +490,36 @@ describe("config", () => {
     });
   });
 
-  describe.each([
-    "BNB_SCROBBLE_TRACKS", 
-    "BONOB_SCROBBLE_TRACKS"
-  ])("%s", (k) => {
-    describeBooleanConfigValue(
-      "scrobbleTracks",
-      k,
-      true,
-      (config) => config.scrobbleTracks
-    );
-  });
+  describe("scrobbling and reporting", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = "bonob";
+    });
 
-  describe.each([
-    "BNB_REPORT_NOW_PLAYING", 
-    "BONOB_REPORT_NOW_PLAYING"
-  ])(
-    "%s",
-    (k) => {
+    describe.each([
+      "BNB_SCROBBLE_TRACKS", 
+      "BONOB_SCROBBLE_TRACKS"
+    ])("%s", (k) => {
       describeBooleanConfigValue(
-        "reportNowPlaying",
+        "scrobbleTracks",
         k,
         true,
-        (config) => config.reportNowPlaying
+        (config) => config.scrobbleTracks
       );
-    }
-  );
+    });
+
+    describe.each([
+      "BNB_REPORT_NOW_PLAYING", 
+      "BONOB_REPORT_NOW_PLAYING"
+    ])(
+      "%s",
+      (k) => {
+        describeBooleanConfigValue(
+          "reportNowPlaying",
+          k,
+          true,
+          (config) => config.reportNowPlaying
+        );
+      }
+    );
+  });
 });

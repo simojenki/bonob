@@ -73,7 +73,7 @@ const cleanLoginTheme = (value: string) => {
   }
 }
 
-export default function () {
+export default function (die: (code?: number) => never = process.exit) {
   const port = bnbEnvVar<number>("PORT", { default: 4534, parser: asInt })!;
   const bonobUrl = bnbEnvVar("URL", {
     legacy: ["BONOB_WEB_ADDRESS"],
@@ -84,13 +84,21 @@ export default function () {
     logger.error(
       "BNB_URL containing localhost is almost certainly incorrect, sonos devices will not be able to communicate with bonob using localhost, please specify either public IP or DNS entry"
     );
-    process.exit(1);
+    die(1);
+  }
+
+  const secret = bnbEnvVar<string>("SECRET")!
+  if(secret == null || secret === "") {
+    logger.error("BNB_SECRET not provided, choose a secret, make it long");
+    die(1);
+  } else if(secret.length < 32) {
+    logger.warn("BNB_SECRET length is <32 chars");
   }
 
   return {
     port,
     bonobUrl: url(bonobUrl),
-    secret: bnbEnvVar<string>("SECRET", { default: "bonob" })!,
+    secret,
     authTimeout: bnbEnvVar<StringValue>("AUTH_TIMEOUT", { default: "1h" })!,
     icons: {
       foregroundColor: bnbEnvVar<string>("ICON_FOREGROUND_COLOR", {

@@ -8,7 +8,8 @@
         "BNB_DEV_SONOS_DEVICE_IP": "${localEnv:BNB_DEV_SONOS_DEVICE_IP}",
         "BNB_DEV_URL": "${localEnv:BNB_DEV_URL}",
         "BNB_DEV_LOCAL_URL": "${localEnv:BNB_DEV_LOCAL_URL}",
-        "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}"
+        "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}",
+        "BNB_SECRET": "${localEnv:BNB_SECRET}"
     },
     "remoteUser": "node",
     "runArgs": ["-p", "0.0.0.0:4534:4534"],

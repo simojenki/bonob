@@ -1,6 +1,5 @@
 import { either as E } from "fp-ts";
 import jwt from "jsonwebtoken";
-import { b64Decode, b64Encode } from "./b64";
 import { Clock } from "./clock";
 import { StringValue } from 'ms'
 
@@ -24,8 +23,7 @@ export function isSmapiRefreshTokenResultFault(
 }
 
 export type SmapiToken = {
-  token: string;
-  key: string;
+  token: string
 };
 
 export interface ToSmapiFault {
@@ -105,23 +103,12 @@ function isTokenExpiredError(thing: any): thing is TokenExpiredError {
   return thing.name == "TokenExpiredError";
 }
 
-export const smapiTokenAsString = (smapiToken: SmapiToken) =>
-  b64Encode(
-    JSON.stringify({
-      token: smapiToken.token,
-      key: smapiToken.key,
-    })
-  );
-export const smapiTokenFromString = (smapiTokenString: string): SmapiToken =>
-  JSON.parse(b64Decode(smapiTokenString));
-
-export const SMAPI_TOKEN_VERSION = 3;
+export const SMAPI_TOKEN_VERSION = 4;
 
 export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   private readonly clock: Clock;
   private readonly secret: string;
   private readonly expiresIn: StringValue;
-  private readonly key: string;
 
   constructor(
     clock: Clock,
@@ -130,19 +117,20 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
     version: number = SMAPI_TOKEN_VERSION
   ) {
     this.clock = clock;
-    this.secret = secret;
     this.expiresIn = expiresIn;
-    this.key = this.secret + "." + version 
+    this.secret = secret + "." + version 
   }
 
   issue = (serviceToken: string) => ({
       token: jwt.sign(
         { serviceToken, iat: this.clock.now().unix() },
-        this.key,
-        { expiresIn: this.expiresIn }
-      ),
-      // todo: remove this entirely
-      key: "nonsense"
+        this.secret,
+        { 
+          algorithm: "HS256",
+          expiresIn: this.expiresIn,
+          issuer: "bonob"
+        }
+      )
     });
 
   verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
@@ -151,7 +139,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         (
           jwt.verify(
             smapiToken.token,
-            this.key
+            this.secret
           ) as any
         ).serviceToken
       );
@@ -160,7 +148,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
         const serviceToken = (
           jwt.verify(
             smapiToken.token,
-            this.key,
+            this.secret,
             { ignoreExpiration: true }
           ) as any
         ).serviceToken;

@@ -6,30 +6,12 @@ import {
   InvalidTokenError,
   isSmapiRefreshTokenResultFault,
   JWTSmapiLoginTokens,
-  smapiTokenAsString,
-  smapiTokenFromString,
   SMAPI_TOKEN_VERSION,
 } from "../src/smapi_auth";
 import { either as E } from "fp-ts";
 import { FixedClock } from "../src/clock";
 import dayjs from "dayjs";
-import { b64Encode } from "../src/b64";
 
-describe("smapiTokenAsString", () => {
-  it("can round trip token to and from string", () => {
-    const smapiToken = { token: uuid(), key: uuid(), someOtherStuff: 'this needs to be explicitly ignored' };
-    const asString = smapiTokenAsString(smapiToken)
-
-    expect(asString).toEqual(b64Encode(JSON.stringify({
-      token: smapiToken.token,
-      key: smapiToken.key,
-    })));
-    expect(smapiTokenFromString(asString)).toEqual({
-      token: smapiToken.token,
-      key: smapiToken.key
-    });
-  });
-});
 
 describe("isSmapiRefreshTokenResultFault", () => {
   it("should return true for a refreshAuthTokenResult fault", () => {
@@ -77,7 +59,11 @@ describe("auth", () => {
             iat: clock.now().unix(),
           },
           secret + "." + SMAPI_TOKEN_VERSION,
-          { expiresIn }
+          { 
+            algorithm: "HS256",
+            expiresIn,
+            issuer: "bonob"
+          }
         );
 
         expect(smapiToken.token).toEqual(expected);

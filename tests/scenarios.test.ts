@@ -35,7 +35,6 @@ class LoggedInSonosDriver {
     this.client.addSoapHeader({
       credentials: someCredentials({
         token: this.token.getDeviceAuthTokenResult.authToken,
-        key: this.token.getDeviceAuthTokenResult.privateKey
       }),
     });
   }

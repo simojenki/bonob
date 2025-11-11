@@ -752,7 +752,7 @@ describe("server", () => {
 
         const serviceToken = `serviceToken-${uuid()}`;
         const trackId = `t-${uuid()}`;
-        const smapiAuthToken: SmapiToken = { token: `token-${uuid()}`, key: `key-${uuid()}` };
+        const smapiAuthToken: SmapiToken = { token: `token-${uuid()}` };
 
         const streamContent = (content: string) => {
           const self = {
@@ -793,8 +793,7 @@ describe("server", () => {
                   })
                   .path(),
               )
-              .set('bnbt', smapiAuthToken.token)
-              .set('bnbk', smapiAuthToken.key);
+              .set('authorization', smapiAuthToken.token);
 
               expect(res.status).toEqual(401);
             });
@@ -826,8 +825,7 @@ describe("server", () => {
                       .append({ pathname: `/stream/track/${trackId}`})
                       .path()
                   )
-                  .set('bnbt', smapiAuthToken.token)
-                  .set('bnbk', smapiAuthToken.key);
+                  .set('authorization', smapiAuthToken.token);
 
                 expect(res.status).toEqual(trackStream.status);
                 expect(res.headers["content-type"]).toEqual(
@@ -856,8 +854,7 @@ describe("server", () => {
                     .append({ pathname: `/stream/track/${trackId}` })
                     .path()
                   )
-                  .set('bnbt', smapiAuthToken.token)
-                  .set('bnbk', smapiAuthToken.key);
+                  .set('authorization', smapiAuthToken.token);
       
 
                 expect(res.status).toEqual(404);
@@ -890,8 +887,7 @@ describe("server", () => {
                     .append({ pathname: `/stream/track/${trackId}` })
                     .path()
                 )                  
-                .set('bnbt', smapiAuthToken.token)
-                .set('bnbk', smapiAuthToken.key);
+                .set('authorization', smapiAuthToken.token);
 
               expect(res.status).toEqual(401);
             });
@@ -919,8 +915,7 @@ describe("server", () => {
                       .append({ pathname: `/stream/track/${trackId}` })
                       .path()
                   )                
-                  .set('bnbt', smapiAuthToken.token)
-                  .set('bnbk', smapiAuthToken.key);
+                  .set('authorization', smapiAuthToken.token);
   
                 expect(res.status).toEqual(404);
   
@@ -955,8 +950,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
+                    .set('authorization', smapiAuthToken.token);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -999,8 +993,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
+                    .set('authorization', smapiAuthToken.token);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -1041,8 +1034,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
+                    .set('authorization', smapiAuthToken.token);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
@@ -1084,8 +1076,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key);
+                    .set('authorization', smapiAuthToken.token);
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
@@ -1132,8 +1123,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key)
+                    .set('authorization', smapiAuthToken.token)
                     .set("Range", requestedRange);
   
                   expect(res.status).toEqual(stream.status);
@@ -1179,8 +1169,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('bnbt', smapiAuthToken.token)
-                    .set('bnbk', smapiAuthToken.key)
+                    .set('authorization', smapiAuthToken.token)
                     .set("Range", "4000-5000");
   
                   expect(res.status).toEqual(stream.status);
@@ -1639,7 +1628,7 @@ describe("server", () => {
                 .set('authorization', "not-a-valid-token")
                 .expect(401);
 
-            expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: "not-a-valid-token", key: "nonsense" });
+            expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: "not-a-valid-token" });
           });
         });
 
@@ -1656,7 +1645,7 @@ describe("server", () => {
                 .set('authorization', authToken);
 
             expect(res.status).toEqual(200);
-            expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: authToken, key: "nonsense" });
+            expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: authToken });
           });
 
           describe("and there are no items to report", () => {

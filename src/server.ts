@@ -395,7 +395,7 @@ function server(
       E.fromNullable("Missing authorization header")(req.headers["authorization"] as string),
       E.flatMap((token) => {
         return pipe(
-         smapiAuthTokens.verify({ token, key: "nonsense" }),
+         smapiAuthTokens.verify({ token }),
           E.mapLeft((_) => "Auth token failed to verify")
       )
       }),
@@ -443,18 +443,14 @@ function server(
     logger.debug(
       `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query
-      )}, headers=${JSON.stringify({ ...req.headers, "bnbt": "*****", "bnbk": "*****" })}`
+      )}, headers=${JSON.stringify({ ...req.headers, "authorization": "*****" })}`
     );
 
     const serviceToken = pipe(
-      E.fromNullable("Missing bnbt header")(req.headers["bnbt"] as string),
-      E.chain(token => pipe(
-        E.fromNullable("Missing bnbk header")(req.headers["bnbk"] as string),
-        E.map(key => ({ token, key }))
-      )),
-      E.chain((auth) =>
+      E.fromNullable("Missing authorization header")(req.headers["authorization"] as string),
+      E.chain((authorization) =>
         pipe(
-          smapiAuthTokens.verify(auth),
+          smapiAuthTokens.verify({ token: authorization }),
           E.mapLeft((_) => "Auth token failed to verify")
         )
       ),

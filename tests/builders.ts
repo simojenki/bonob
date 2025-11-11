@@ -91,11 +91,10 @@ export function getAppLinkMessage() {
   };
 }
 
-export function someCredentials({ token, key } : { token: string, key: string }): Credentials {
+export function someCredentials({ token } : { token: string }): Credentials {
   return {
     loginToken: {
       token,
-      key,
       householdId: "hh1",
     },
     deviceId: "d1",

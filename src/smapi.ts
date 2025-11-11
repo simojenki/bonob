@@ -68,7 +68,6 @@ const WSDL_FILE = path.resolve(
 export type Credentials = {
   loginToken: {
     token: string;
-    key: string;
     householdId: string;
   };
   deviceId: string;
@@ -87,7 +86,7 @@ export type GetAppLinkResult = {
 export type GetDeviceAuthTokenResult = {
   getDeviceAuthTokenResult: {
     authToken: string;
-    privateKey: string;
+    // todo: appears this thing can be optional
     userInfo: {
       nickname: string;
       userIdHashCode: string;
@@ -208,7 +207,6 @@ class SonosSoap {
       return {
         getDeviceAuthTokenResult: {
           authToken: smapiAuthToken.token,
-          privateKey: smapiAuthToken.key,
           userInfo: {
             nickname: association.nickname,
             userIdHashCode: crypto
@@ -410,9 +408,7 @@ function bindSmapiSoapServiceToExpress(
       E.chain((credentials) =>
         pipe(
           smapiAuthTokens.verify({
-            token: credentials.loginToken.token,
-            //todo: remove me
-            key: "nonsense",
+            token: credentials.loginToken.token
           }),
           E.map((serviceToken) => ({
             serviceToken,
@@ -451,7 +447,7 @@ function bindSmapiSoapServiceToExpress(
               detail: {
                 refreshAuthTokenResult: {
                   authToken: newToken.token,
-                  privateKey: newToken.key,
+                  privateKey: "nonsense",
                 },
               },
             },
@@ -502,7 +498,7 @@ function bindSmapiSoapServiceToExpress(
               TE.map((it) => ({
                 refreshAuthTokenResult: {
                   authToken: it.token,
-                  privateKey: it.key,
+                  privateKey: "nonsense",
                 },
               })),
               TE.getOrElse((_) => {
@@ -533,14 +529,8 @@ function bindSmapiSoapServiceToExpress(
                       httpHeaders: [
                         {
                           httpHeader: {
-                            header: "bnbt",
+                            header: "authorization",
                             value: credentials.loginToken.token,
-                          },
-                        },
-                        {
-                          httpHeader: {
-                            header: "bnbk",
-                            value: credentials.loginToken.key,
                           },
                         },
                       ],

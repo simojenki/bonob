@@ -620,7 +620,7 @@ describe("wsdl api", () => {
   };
 
   const smapiAuthTokens = {
-    issue: jest.fn(() => ({ token: `default-smapiToken-${uuid()}`, key: `default-smapiKey-${uuid()}` })),
+    issue: jest.fn(() => ({ token: `default-smapiToken-${uuid()}` })),
     verify: jest.fn<E.Either<ToSmapiFault, string>, []>(() => E.right(`default-serviceToken-${uuid()}`)),
   };
 
@@ -634,8 +634,7 @@ describe("wsdl api", () => {
       const serviceToken = `serviceToken-${uuid()}`;
       const apiToken = `apiToken-${uuid()}`;
       const smapiAuthToken: SmapiToken = {
-        token: `smapiAuthToken.token-${uuid()}`,
-        key: "nonsense"
+        token: `smapiAuthToken.token-${uuid()}`
       };
 
       const bonobUrlWithAccessToken = bonobUrl.append({
@@ -742,7 +741,6 @@ describe("wsdl api", () => {
               expect(result[0]).toEqual({
                 getDeviceAuthTokenResult: {
                   authToken: smapiAuthToken.token,
-                  privateKey: smapiAuthToken.key,
                   userInfo: {
                     nickname: association.nickname,
                     userIdHashCode: crypto
@@ -838,7 +836,7 @@ describe("wsdl api", () => {
               expect(result[0]).toEqual({
                 refreshAuthTokenResult: {
                   authToken: newSmapiAuthToken.token,
-                  privateKey: newSmapiAuthToken.key,
+                  privateKey: "nonsense"
                 },
               });
 
@@ -891,7 +889,7 @@ describe("wsdl api", () => {
               expect(result[0]).toEqual({
                 refreshAuthTokenResult: {
                   authToken: newSmapiAuthToken.token,
-                  privateKey: newSmapiAuthToken.key
+                  privateKey: "nonsense"
                 },
               });
 
@@ -1044,7 +1042,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials({ token: 'tokenThatFails', key: `keyThatFails` }) });
+            ws.addSoapHeader({ credentials: someCredentials({ token: 'tokenThatFails' }) });
 
             await action(ws)
               .then(() => fail("shouldnt get here"))
@@ -1103,7 +1101,7 @@ describe("wsdl api", () => {
                     detail: {
                       refreshAuthTokenResult: {
                         authToken: newToken.token,
-                        privateKey: newToken.key,
+                        privateKey: "nonsense",
                       },
                     },
                   });
@@ -2937,20 +2935,12 @@ describe("wsdl api", () => {
                       pathname: `/stream/track/${trackId}`,
                     })
                     .href(),
-                  httpHeaders: [
-                    {
+                  httpHeaders: {
                       httpHeader: [{
-                          header: "bnbt",
+                          header: "authorization",
                           value: smapiAuthToken.token,
                       }],
                     },
-                    {
-                      httpHeader: [{
-                          header: "bnbk",
-                          value: smapiAuthToken.key,
-                      }],
-                    }
-                  ],
                 });
 
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);
