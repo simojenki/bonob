@@ -225,4 +225,5 @@ As discussed [here](https://github.com/simojenki/bonob/issues/101#issuecomment-1
 ## Credits
 
 - Icons courtesy of [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and [@jicho](https://github.com/jicho)
-- Sonos S2 support courtest of everyone involved in issue [205](https://github.com/simojenki/bonob/issues/205)
+- Sonos S2 setup documentation and navidrome images courtesy of [@wkulhanek](https://github.com/wkulhanek)
+- Sonos S2 support courtest of everyone involved with issue [205](https://github.com/simojenki/bonob/issues/205)

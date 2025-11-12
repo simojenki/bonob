@@ -1,6 +1,6 @@
 = Setting up Sonos Service
 
-Credit goes to [@wkulhanek](https://github.com/wkulhanek) for writing these instructions up.
+Credit goes to https://github.com/wkulhanek[@wkulhanek] for writing these instructions up.
 
 == Prerequisites
 * In your Sonos App get your Sonos ID (About my Sonos System)
