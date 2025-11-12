@@ -19,11 +19,10 @@ import {
   slice2,
   asResult,
   artistToArtistSummary,
-  albumToAlbumSummary,
   Track,
   Genre,
   Rating,
-} from "../src/music_service";
+} from "../src/music_library";
 import { BUrn } from "../src/burn";
 
 export class InMemoryMusicService implements MusicService {
@@ -97,14 +96,13 @@ export class InMemoryMusicService implements MusicService {
             }
           })
           .then((matches) => matches.map((it) => it.album))
-          .then((it) => it.map(albumToAlbumSummary))
           .then(slice2(q))
           .then(asResult),
       album: (id: string) =>
         pipe(
           this.artists.flatMap((it) => it.albums).find((it) => it.id === id),
           O.fromNullable,
-          O.map((it) => Promise.resolve(it)),
+          O.map((it) => Promise.resolve({ ...it, tracks: [] })),
           O.getOrElse(() => Promise.reject(`No album with id '${id}'`))
         ),
       genres: () =>
@@ -118,12 +116,6 @@ export class InMemoryMusicService implements MusicService {
             A.uniq(fromEquals((x, y) => x.id === y.id)),
             A.sort(fromCompare<Genre>((x, y) => ordString.compare(x.id, y.id)))
           )
-        ),
-      tracks: (albumId: string) =>
-        Promise.resolve(
-          this.tracks
-            .filter((it) => it.album.id === albumId)
-            .map((it) => ({ ...it, rating: { love: false, stars: 0 } }))
         ),
       rate: (_: string, _2: Rating) => Promise.resolve(false),
       track: (trackId: string) =>
