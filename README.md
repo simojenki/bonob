@@ -68,7 +68,8 @@ See [here](./docs/sonos-s2-setup.adoc)
 
 ## Configuration
 
-General configuration items
+### General configuration items
+
 item | default value | description
 ---- | ------------- | -----------
 BNB_PORT | 4534 | Default http port for bonob to listen on
@@ -87,9 +88,9 @@ BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in Sonos app, must
 BNB_LOGIN_THEME | classic | Theme for login page. Options are: <p>'classic' for the original styless bonob login page.<p>'navidrome-ish' for a simplified navidrome login page courtesy of [@deluan](https://github.com/deluan))<p>'wkulhanek' for more 'modernized login page' courtesy of [@wkulhanek](https://github.com/wkulhanek)
 TZ | UTC | Your timezone from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) ie. 'Australia/Melbourne'
 
-<p>
 
-Additional configuration for S1 setups.
+### Additional configuration for S1 setups.
+
 item | default value | description
 ---- | ------------- | -----------
 BNB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable Sonos device discovery entirely.  Setting this to 'false' will disable Sonos device search, regardless of whether a seed host is specified.
