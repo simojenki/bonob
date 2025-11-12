@@ -72,7 +72,7 @@ General configuration items
 item | default value | description
 ---- | ------------- | -----------
 BNB_PORT | 4534 | Default http port for bonob to listen on
-BNB_URL | http://$(hostname):4534 | **S1:** <p> URL (including path) for bonob so that Sonos devices can communicate. **This can be an IP address or hostname on your local network, it must however be accessible by your Sonos S1 devices** <p>  **S2:** <p> This must be the publicly available DNS entry for your bonob instance, ie. https://bonob.example.com
+BNB_URL | http://$(hostname):4534 | **S1:** <p> URL (including path) for bonob so that Sonos devices can communicate. This can be an IP address or hostname on your local network, it must however be accessible by your Sonos S1 devices.  ie. http://192.168.1.5:4534 <p>  **S2:** <p> This must be the publicly available DNS entry for your bonob instance, ie. https://bonob.example.com
 BNB_SECRET | undefined | Secret used for encrypting credentials, must be provided, make it long, make it secure
 BNB_AUTH_TIMEOUT | 1h | Timeout for the Sonos auth token, described in the format [ms](https://github.com/vercel/ms), ie. '5s' == 5 seconds, '11h' == 11 hours.  In the case of using Navidrome this should be less than the value for ND_SESSIONTIMEOUT
 BNB_LOG_LEVEL | info | Log level. One of ['debug', 'info', 'warn', 'error']
@@ -87,6 +87,7 @@ BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in Sonos app, must
 BNB_LOGIN_THEME | classic | Theme for login page. Options are: <p>'classic' for the original styless bonob login page.<p>'navidrome-ish' for a simplified navidrome login page courtesy of [@deluan](https://github.com/deluan))<p>'wkulhanek' for more 'modernized login page' courtesy of [@wkulhanek](https://github.com/wkulhanek)
 TZ | UTC | Your timezone from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) ie. 'Australia/Melbourne'
 
+<p>
 
 Additional configuration for S1 setups.
 item | default value | description
