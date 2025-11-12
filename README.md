@@ -177,6 +177,7 @@ BNB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it ha
 BNB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
 BNB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
 BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
+BNB_LOGIN_THEME | classic | Theme for login page. Options are: <p>'classic' for the original styless bonob login page.<p>'navidrome-ish' for a simplified navidrome login page courtesy of [@deluan](https://github.com/deluan))<p>'wkulhanek' for more 'modernized login page' courtesy of [@wkulhanek](https://github.com/wkulhanek)
 TZ | UTC | Your timezone from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) ie. 'Australia/Melbourne'
 
 ## Initialising service within sonos app
@@ -295,4 +296,4 @@ As discussed [here](https://github.com/simojenki/bonob/issues/101#issuecomment-1
 
 ## Credits
 
-- Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and @jicho
+- Icons courtesy of: [Navidrome](https://www.navidrome.org/), [Vectornator](https://www.vectornator.io/icons), and [@jicho](https://github.com/jicho)
