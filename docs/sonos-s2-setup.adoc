@@ -1,6 +1,6 @@
 = Setting up Sonos Service
 
-Credit goes to https://github.com/wkulhanek[@wkulhanek] for writing these instructions up.
+Credit goes to https://github.com/wkulhanek[@wkulhanek] for writing up these instructions and providing the navidrome artwork.
 
 == Prerequisites
 * In your Sonos App get your Sonos ID (About my Sonos System)
