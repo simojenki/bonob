@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bonob Navidrome Music Server</title>
+  <desc id="desc">Blue rounded square with a white music note and two small circles representing family.</desc>
+
+  <!-- Blue rounded background -->
+  <rect x="0" y="0" width="40" height="40" rx="6" ry="6" fill="#1976d2"/>
+
+  <!-- Family dots (simple, symbolic) -->
+  <circle cx="11.5" cy="15.5" r="1.6" fill="#ffffff"/>
+  <circle cx="11.5" cy="22.5" r="1.6" fill="#ffffff"/>
+
+  <!-- Note head -->
+  <circle cx="22" cy="26" r="4" fill="#ffffff"/>
+
+  <!-- Note stem -->
+  <rect x="24" y="10" width="1.6" height="16" rx="0.8" fill="#ffffff"/>
+
+  <!-- Note flag (simple, filled shape) -->
+  <path d="M25.6 11.2 C29.0 10.6 30.2 13.6 27.4 14.6 C29.2 15.4 27.6 16.6 25.6 15.8 Z" fill="#ffffff"/>
+</svg>
