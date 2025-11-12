@@ -4,7 +4,6 @@ A Sonos SMAPI implementation to allow registering sources of music with Sonos.
 
 Support for Subsonic API clones (tested against Navidrome and Gonic).
 
-![Build](https://github.com/simojenki/bonob/workflows/Build/badge.svg)
 
 ## Features
 
@@ -25,18 +24,8 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 - SONOS S1 and S2 support
 - Auto registration with Sonos on start for Sonos S1 devices
 
-## Sonos S1 vs S2
 
-Unfortunately in May 2024 Sonos decided to release an update to the Sonos S2 app that broken bonob and necessitate that bonob be exposed to the internet to continue to work.  There is a length thread on the issue [here](https://github.com/simojenki/bonob/issues/205).
-
-The tldr; is:
-- If you have devices that can be down graded to Sonos S1 then you can continue to use bonob within your network without exposing anything to the internet, support for this mode of operation will continue until Sonos themselves EOL S1.
-- If you have devices that cannot be downgraded to S1 then you must use S2, in which case you need to expose bonob to the internet so that it can be called by Sonos itself.  Exposing services to the internet comes with additional risk, tread carefully.
-
-See below for instructions on how to set up bonob for S1 or S2.
-
-
-## Running
+## Running bonob
 
 bonob is packaged as an OCI image to both the docker hub registry and github registry.
 
@@ -56,6 +45,17 @@ master | Lastest build from master, probably works, however is currently under t
 vX.Y.Z | Fixed release versions from tags, for those that want to pin to a specific release
 
 
+## Sonos S1 vs S2
+
+Unfortunately in May 2024 Sonos released an update to the Sonos S2 app that required bonob be exposed to the internet to continue to work on S2. S1 devices continue to work locally within youur network.  There is a lengthy thread on the issue [here](https://github.com/simojenki/bonob/issues/205).
+
+The tldr; is:
+- If you have devices that can be down graded to Sonos S1 then you can continue to use bonob within your network without exposing anything to the internet, support for this mode of operation will continue until Sonos themselves EOL S1.  
+- If you have devices that cannot be downgraded to S1 then you must use S2, in which case you need to expose bonob to the internet so that it can be called by Sonos itself.  Exposing services to the internet comes with additional risk, tread carefully.
+
+See below for instructions on how to set up bonob for S1 or S2.
+
+
 ## Sonos S1 setup:
 
 See [here](./docs/sonos-s1-setup.md)
@@ -63,24 +63,20 @@ See [here](./docs/sonos-s1-setup.md)
 
 ## Sonos S2 setup:
 
-See [here](./sonos_service/SONOS_SERVICE.adoc)
+See [here](./docs/sonos-s2-setup.adoc)
 
 
 ## Configuration
 
+General configuration items
 item | default value | description
 ---- | ------------- | -----------
 BNB_PORT | 4534 | Default http port for bonob to listen on
-BNB_URL | http://$(hostname):4534 | URL (including path) for bonob so that Sonos devices can communicate. **This must be either the public IP or DNS entry of the bonob instance so that the Sonos devices can communicate with it.**
-BNB_SECRET | undefined | secret used for encrypting credentials, must be provided, make it long, make it secure
+BNB_URL | http://$(hostname):4534 | **S1:** <p> URL (including path) for bonob so that Sonos devices can communicate. **This can be an IP address or hostname on your local network, it must however be accessible by your Sonos S1 devices** <p>  **S2:** <p> This must be the publicly available DNS entry for your bonob instance, ie. https://bonob.example.com
+BNB_SECRET | undefined | Secret used for encrypting credentials, must be provided, make it long, make it secure
 BNB_AUTH_TIMEOUT | 1h | Timeout for the Sonos auth token, described in the format [ms](https://github.com/vercel/ms), ie. '5s' == 5 seconds, '11h' == 11 hours.  In the case of using Navidrome this should be less than the value for ND_SESSIONTIMEOUT
 BNB_LOG_LEVEL | info | Log level. One of ['debug', 'info', 'warn', 'error']
 BNB_SERVER_LOG_REQUESTS | false | Whether or not to log http requests
-BNB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register on startup
-BNB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable Sonos device discovery entirely.  Setting this to 'false' will disable Sonos device search, regardless of whether a seed host is specified.
-BNB_SONOS_SEED_HOST | undefined | Sonos device seed host for discovery, or ommitted for for auto-discovery
-BNB_SONOS_SERVICE_NAME | bonob | service name for Sonos
-BNB_SONOS_SERVICE_ID | 246 | service id for Sonos
 BNB_SUBSONIC_URL | http://$(hostname):4533 | URL for subsonic clone
 BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | Comma delimeted mime types for custom subsonic clients when streaming. <P>Must specify the source mime type and optionally the transcoded mime type. <p>For example; <p>If you want to simply re-encode some flacs, then you could specify just "audio/flac".  <p>However; <p>if your subsonic server will transcode the track then you need to specify the resulting mime type, ie. "audio/flac>audio/mp3" <p>If you want to specify many something like; "audio/flac>audio/mp3,audio/ogg" would use client = 'bonob+audio/flac' for flacs, and 'bonob+audio/ogg' for oggs.  <p>Disclaimer: Getting this configuration wrong will cause Sonos to refuse to play your music, by all means experiment, however know that this may well break your setup.
 BNB_SUBSONIC_ARTIST_IMAGE_CACHE | undefined | Path for caching of artist images that are sourced externally. ie. Navidrome provides spotify URLs. Remember to provide a volume-mapping for Docker, when enabling this cache.
@@ -90,6 +86,16 @@ BNB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in Sonos app, must
 BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in Sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
 BNB_LOGIN_THEME | classic | Theme for login page. Options are: <p>'classic' for the original styless bonob login page.<p>'navidrome-ish' for a simplified navidrome login page courtesy of [@deluan](https://github.com/deluan))<p>'wkulhanek' for more 'modernized login page' courtesy of [@wkulhanek](https://github.com/wkulhanek)
 TZ | UTC | Your timezone from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) ie. 'Australia/Melbourne'
+
+
+Additional configuration for S1 setups.
+item | default value | description
+---- | ------------- | -----------
+BNB_SONOS_DEVICE_DISCOVERY | true | Enable/Disable Sonos device discovery entirely.  Setting this to 'false' will disable Sonos device search, regardless of whether a seed host is specified.
+BNB_SONOS_SEED_HOST | undefined | Sonos device seed host for discovery, or ommitted for for auto-discovery
+BNB_SONOS_SERVICE_NAME | bonob | S1 service name for Sonos, doesn't seem to apply for S2 setups
+BNB_SONOS_SERVICE_ID | 246 | service id for Sonos
+BNB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register with S1 devices on startup.  **For S2 ensure that this is false.**
 
 
 ## Transcoding
