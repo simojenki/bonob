@@ -1,4 +1,9 @@
 # Bonob Project Guide
+Bonob is a one-way adapter API between SMAPI (Sonos) and Subsonic. SMAPI clients (e.g. Sonos app) send SMAPI SOAP messages to Bonob which adapts and forwards messages onto a backend Subsonic server, returning the result after converting Subsonic responses to SMAPI responses.
+
+    Sonos app -> Bonob -> Subsonic
+
+In our case, the Subsonic server is Astiga.
 
 ## Language and Version
 

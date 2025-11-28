@@ -12,6 +12,7 @@ import {
   ArtistQuery,
   MusicLibrary,
   AlbumSummary,
+  ArtistSummary,
   Genre,
   Track,
   CoverArt,
@@ -130,10 +131,6 @@ type artistInfo = images & {
   musicBrainzId: string | undefined;
   lastFmUrl: string | undefined;
   similarArtist: artist[];
-};
-
-type ArtistSummary = IdName & {
-  image: BUrn | undefined;
 };
 
 type GetArtistInfoResponse = SubsonicResponse & {
@@ -283,36 +280,41 @@ export const artistImageURN = (
   }
 };
 
-export const asTrack = (album: Album, song: song, customPlayers: CustomPlayers): Track => ({
-  id: song.id,
-  name: song.title,
-  encoding: pipe(
-    customPlayers.encodingFor({ mimeType: song.contentType }),
-    O.getOrElse(() => ({ 
-      player: DEFAULT_CLIENT_APPLICATION, 
-      mimeType: song.transcodedContentType ? song.transcodedContentType : song.contentType
-    }))
-  ),
-  duration: song.duration || 0,
-  number: song.track || 0,
-  genre: maybeAsGenre(song.genre),
-  coverArt: coverArtURN(song.coverArt),
-  album,
-  artist: {
-    id: song.artistId,
-    name: song.artist ? song.artist : "?",
-    image: song.artistId
-      ? artistImageURN({ artistId: song.artistId })
-      : undefined,
-  },
-  rating: {
-    love: song.starred != undefined,
-    stars:
-      song.userRating && song.userRating <= 5 && song.userRating >= 0
-        ? song.userRating
-        : 0,
-  },
-});
+export const asTrack = (album: Album | undefined, song: song, customPlayers: CustomPlayers): Track => {
+  // Only create artist if artistId exists
+  const artist: ArtistSummary | undefined = song.artistId
+    ? {
+        id: song.artistId,
+        name: song.artist || "?",
+        image: artistImageURN({ artistId: song.artistId }),
+      }
+    : undefined;
+
+  return {
+    id: song.id,
+    name: song.title,
+    encoding: pipe(
+      customPlayers.encodingFor({ mimeType: song.contentType }),
+      O.getOrElse(() => ({
+        player: DEFAULT_CLIENT_APPLICATION,
+        mimeType: song.transcodedContentType || song.contentType
+      }))
+    ),
+    duration: song.duration || 0,
+    number: song.track || 0,
+    genre: album?.genre || maybeAsGenre(song.genre), // Use album genre if available, else song genre
+    coverArt: coverArtURN(song.coverArt),
+    album,      // Can be undefined
+    artist,     // Can be undefined
+    rating: {
+      love: song.starred !== undefined,
+      stars:
+        song.userRating && song.userRating <= 5 && song.userRating >= 0
+          ? song.userRating
+          : 0,
+    },
+  };
+};
 
 /**
  * Converts a song from search results directly to a Track.
@@ -323,18 +325,19 @@ export const asTrack = (album: Album, song: song, customPlayers: CustomPlayers):
  * @returns Track object with all metadata
  */
 const asTrackFromSearchResult = (song: song, customPlayers: CustomPlayers): Track => {
-  // Build Album object from embedded fields in song
-  const album: Album = {
-    id: song.albumId || '',
-    name: song.album || '',
-    year: song.year,
-    genre: maybeAsGenre(song.genre),
-    artistId: song.artistId,
-    artistName: song.artist,
-    coverArt: coverArtURN(song.coverArt),
-  };
+  // Only create album if albumId exists
+  const album: Album | undefined = song.albumId
+    ? {
+        id: song.albumId,
+        name: song.album || '',
+        year: song.year,
+        genre: maybeAsGenre(song.genre),
+        artistId: song.artistId,
+        artistName: song.artist,
+        coverArt: coverArtURN(song.coverArt),
+      }
+    : undefined;
 
-  // Reuse existing asTrack transformation logic
   return asTrack(album, song, customPlayers);
 };
 
@@ -728,11 +731,22 @@ export class Subsonic implements MusicService {
       id,
     })
       .then((it) => it.song)
-      .then((song) =>
-        this.getAlbum(credentials, song.albumId!).then((album) =>
-          asTrack(album, song, this.customPlayers)
-        )
-      );
+      .then((song) => {
+        // Only create album if albumId exists
+        const album: Album | undefined = song.albumId
+          ? {
+              id: song.albumId,
+              name: song.album || '',
+              year: song.year,
+              genre: maybeAsGenre(song.genre),
+              artistId: song.artistId,
+              artistName: song.artist,
+              coverArt: coverArtURN(song.coverArt),
+            }
+          : undefined;
+
+        return asTrack(album, song, this.customPlayers);
+      });
 
   getStarred = (credentials: Credentials) =>
     this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2").then(
@@ -964,22 +978,25 @@ export class Subsonic implements MusicService {
               id: playlist.id,
               name: playlist.name,
               coverArt: coverArtURN(playlist.coverArt),
-              entries: (playlist.entry || []).map((entry) => ({
-                ...asTrack(
-                  {
-                    id: entry.albumId!,
-                    name: entry.album!,
-                    year: entry.year,
-                    genre: maybeAsGenre(entry.genre),
-                    artistName: entry.artist,
-                    artistId: entry.artistId,
-                    coverArt: coverArtURN(entry.coverArt),
-                  },
-                  entry,
-                  this.customPlayers
-                ),
-                number: trackNumber++,
-              })),
+              entries: (playlist.entry || []).map((entry) => {
+                // Only create album if albumId exists
+                const album: Album | undefined = entry.albumId
+                  ? {
+                      id: entry.albumId,
+                      name: entry.album || '',
+                      year: entry.year,
+                      genre: maybeAsGenre(entry.genre),
+                      artistId: entry.artistId,
+                      artistName: entry.artist,
+                      coverArt: coverArtURN(entry.coverArt),
+                    }
+                  : undefined;
+
+                return {
+                  ...asTrack(album, entry, this.customPlayers),
+                  number: trackNumber++,
+                };
+              }),
             };
           }),
       createPlaylist: async (name: string) =>
@@ -1023,13 +1040,22 @@ export class Subsonic implements MusicService {
           )
           .then((it) => it.similarSongs2.song || [])
           .then((songs) =>
-            Promise.all(
-              songs.map((song) =>
-                subsonic
-                  .getAlbum(credentials, song.albumId!)
-                  .then((album) => asTrack(album, song, this.customPlayers))
-              )
-            )
+            songs.map((song) => {
+              // Only create album if albumId exists
+              const album: Album | undefined = song.albumId
+                ? {
+                    id: song.albumId,
+                    name: song.album || '',
+                    year: song.year,
+                    genre: maybeAsGenre(song.genre),
+                    artistId: song.artistId,
+                    artistName: song.artist,
+                    coverArt: coverArtURN(song.coverArt),
+                  }
+                : undefined;
+
+              return asTrack(album, song, this.customPlayers);
+            })
           ),
       topSongs: async (artistId: string) =>
         subsonic.getArtist(credentials, artistId).then(({ name }) =>
@@ -1040,13 +1066,22 @@ export class Subsonic implements MusicService {
             })
             .then((it) => it.topSongs.song || [])
             .then((songs) =>
-              Promise.all(
-                songs.map((song) =>
-                  subsonic
-                    .getAlbum(credentials, song.albumId!)
-                    .then((album) => asTrack(album, song, this.customPlayers))
-                )
-              )
+              songs.map((song) => {
+                // Only create album if albumId exists
+                const album: Album | undefined = song.albumId
+                  ? {
+                      id: song.albumId,
+                      name: song.album || '',
+                      year: song.year,
+                      genre: maybeAsGenre(song.genre),
+                      artistId: song.artistId,
+                      artistName: song.artist,
+                      coverArt: coverArtURN(song.coverArt),
+                    }
+                  : undefined;
+
+                return asTrack(album, song, this.customPlayers);
+              })
             )
         ),
       radioStations: async () => subsonic

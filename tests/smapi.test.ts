@@ -387,18 +387,18 @@ describe("track", () => {
       title: someTrack.name,
 
       trackMetadata: {
-        album: someTrack.album.name,
-        albumId: `album:${someTrack.album.id}`,
-        albumArtist: someTrack.artist.name,
-        albumArtistId: `artist:${someTrack.artist.id}`,
+        album: someTrack.album!.name,
+        albumId: `album:${someTrack.album!.id}`,
+        albumArtist: someTrack.artist!.name,
+        albumArtistId: `artist:${someTrack.artist!.id}`,
         albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
           formatForURL(someTrack.coverArt!)
         )}/size/180?access-token=1234`,
-        artist: someTrack.artist.name,
-        artistId: `artist:${someTrack.artist.id}`,
+        artist: someTrack.artist!.name,
+        artistId: `artist:${someTrack.artist!.id}`,
         duration: someTrack.duration,
-        genre: someTrack.album.genre?.name,
-        genreId: someTrack.album.genre?.id,
+        genre: someTrack.album?.genre?.name,
+        genreId: someTrack.album?.genre?.id,
         trackNumber: someTrack.number,
       },
       dynamic: {
@@ -445,18 +445,18 @@ describe("track", () => {
         title: someTrack.name,
 
         trackMetadata: {
-          album: someTrack.album.name,
-          albumId: `album:${someTrack.album.id}`,
-          albumArtist: someTrack.artist.name,
+          album: someTrack.album!.name,
+          albumId: `album:${someTrack.album!.id}`,
+          albumArtist: someTrack.artist!.name,
           albumArtistId: undefined,
           albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
             formatForURL(someTrack.coverArt!)
           )}/size/180?access-token=1234`,
-          artist: someTrack.artist.name,
+          artist: someTrack.artist!.name,
           artistId: undefined,
           duration: someTrack.duration,
-          genre: someTrack.album.genre?.name,
-          genreId: someTrack.album.genre?.id,
+          genre: someTrack.album?.genre?.name,
+          genreId: someTrack.album?.genre?.id,
           trackNumber: someTrack.number,
         },
         dynamic: {
@@ -975,7 +975,7 @@ describe("wsdl api", () => {
                 expect(result[0]).toEqual(
                   searchResult({
                     mediaCollection: tracks.map((it) =>
-                      album(bonobUrlWithAccessToken, it.album)
+                      album(bonobUrlWithAccessToken, it.album!)
                     ),
                     index: 0,
                     total: 2,
@@ -2760,12 +2760,12 @@ describe("wsdl api", () => {
                         title: track.name,
                         mimeType: track.encoding.mimeType,
                         trackMetadata: {
-                          artistId: `artist:${track.artist.id}`,
-                          artist: track.artist.name,
-                          albumId: `album:${track.album.id}`,
-                          albumArtist: track.artist.name,
-                          albumArtistId: `artist:${track.artist.id}`,
-                          album: track.album.name,
+                          artistId: `artist:${track.artist!.id}`,
+                          artist: track.artist!.name,
+                          albumId: `album:${track.album!.id}`,
+                          albumArtist: track.artist!.name,
+                          albumArtistId: `artist:${track.artist!.id}`,
+                          album: track.album!.name,
                           genre: track.genre?.name,
                           genreId: track.genre?.id,
                           duration: track.duration,
@@ -2808,12 +2808,12 @@ describe("wsdl api", () => {
                         title: track.name,
                         mimeType: track.encoding.mimeType,
                         trackMetadata: {
-                          artistId: `artist:${track.artist.id}`,
-                          artist: track.artist.name,
-                          albumId: `album:${track.album.id}`,
-                          albumArtist: track.artist.name,
-                          albumArtistId: `artist:${track.artist.id}`,
-                          album: track.album.name,
+                          artistId: `artist:${track.artist!.id}`,
+                          artist: track.artist!.name,
+                          albumId: `album:${track.album!.id}`,
+                          albumArtist: track.artist!.name,
+                          albumArtistId: `artist:${track.artist!.id}`,
+                          album: track.album!.name,
                           genre: track.genre?.name,
                           genreId: track.genre?.id,
                           duration: track.duration,

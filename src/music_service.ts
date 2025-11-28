@@ -16,7 +16,7 @@ export class AuthFailure extends Error {
 };
 
 export type ArtistSummary = {
-  id: string | undefined;
+  id: string;
   name: string;
   image: BUrn | undefined;
 };
@@ -68,8 +68,8 @@ export type Track = {
   number: number | undefined;
   genre: Genre | undefined;
   coverArt: BUrn | undefined;
-  album: AlbumSummary;
-  artist: ArtistSummary;
+  album: AlbumSummary | undefined;
+  artist: ArtistSummary | undefined;
   rating: Rating;
 };
 

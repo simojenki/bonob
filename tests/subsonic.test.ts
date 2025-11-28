@@ -300,10 +300,10 @@ const asAlbumJson = (
 
 const asSongJson = (track: Track) => ({
   id: track.id,
-  parent: track.album.id,
+  parent: track.album?.id,
   title: track.name,
-  album: track.album.name,
-  artist: track.artist.name,
+  album: track.album?.name,
+  artist: track.artist?.name,
   track: track.number,
   genre: track.genre?.name,
   isDir: "false",
@@ -317,12 +317,12 @@ const asSongJson = (track: Track) => ({
   transcodedContentType: undefined,
   isVideo: "false",
   path: "ACDC/High voltage/ACDC - The Jack.mp3",
-  albumId: track.album.id,
-  artistId: track.artist.id,
+  albumId: track.album?.id,
+  artistId: track.artist?.id,
   type: "music",
   starred: track.rating.love ? "sometime" : undefined,
   userRating: track.rating.stars,
-  year: track.album.year,
+  year: track.album?.year,
 });
 
 const getAlbumListJson = (albums: [Artist, Album][]) =>
@@ -445,11 +445,11 @@ const getPlayListJson = (playlist: Playlist) =>
         parent: "...",
         isDir: false,
         title: it.name,
-        album: it.album.name,
-        artist: it.artist.name,
+        album: it.album?.name,
+        artist: it.artist?.name,
         track: it.number,
-        year: it.album.year,
-        genre: it.album.genre?.name,
+        year: it.album?.year,
+        genre: it.album?.genre?.name,
         coverArt: maybeIdFromCoverArtUrn(it.coverArt),
         size: 123,
         contentType: it.encoding.mimeType,
@@ -459,8 +459,8 @@ const getPlayListJson = (playlist: Playlist) =>
         path: "...",
         discNumber: 1,
         created: "2019-09-04T04:07:00.138169924Z",
-        albumId: it.album.id,
-        artistId: it.artist.id,
+        albumId: it.album?.id,
+        artistId: it.artist?.id,
         type: "music",
         isVideo: false,
         starred: it.rating.love ? "sometime" : undefined,
@@ -657,13 +657,11 @@ describe("asTrack", () => {
 
   describe("when the song has no artistId", () => {
     const album = anAlbum();
-    const track = aTrack({ artist: { id: undefined, name: "Not in library so no id", image: undefined }});
+    const track = aTrack({ artist: undefined });
 
-    it("should provide no artistId", () => {
-      const result = asTrack(album, { ...asSongJson(track) }, NO_CUSTOM_PLAYERS);
-      expect(result.artist.id).toBeUndefined();
-      expect(result.artist.name).toEqual("Not in library so no id");
-      expect(result.artist.image).toBeUndefined();
+    it("should provide no artist", () => {
+      const result = asTrack(album, { ...asSongJson(track), artistId: undefined }, NO_CUSTOM_PLAYERS);
+      expect(result.artist).toBeUndefined();
     });
   });
 
@@ -671,10 +669,10 @@ describe("asTrack", () => {
     const album = anAlbum();
 
     it("should provide a ? to sonos", () => {
-      const result = asTrack(album, { id: '1' } as any as song, NO_CUSTOM_PLAYERS);
-      expect(result.artist.id).toBeUndefined();
-      expect(result.artist.name).toEqual("?");
-      expect(result.artist.image).toBeUndefined();
+      const result = asTrack(album, { id: '1', artistId: 'some-id' } as any as song, NO_CUSTOM_PLAYERS);
+      expect(result.artist?.id).toEqual('some-id');
+      expect(result.artist?.name).toEqual("?");
+      expect(result.artist?.image).toBeDefined();
     });
   });
 
