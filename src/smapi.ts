@@ -354,16 +354,21 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
   title: track.name,
 
   trackMetadata: {
-    album: track.album.name,
-    albumId: track.album.id ? `album:${track.album.id}` : undefined,
-    albumArtist: track.artist.name,
-    albumArtistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
+    // Only include album fields if album exists
+    ...(track.album && {
+      album: track.album.name,
+      albumId: `album:${track.album.id}`,
+      albumArtist: track.artist?.name,
+      albumArtistId: track.artist?.id ? `artist:${track.artist.id}` : undefined,
+    }),
+    // Always include albumArtURI if available
     albumArtURI: coverArtURI(bonobUrl, track).href(),
-    artist: track.artist.name,
-    artistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
+    // Artist fields (independent of album)
+    artist: track.artist?.name,
+    artistId: track.artist?.id ? `artist:${track.artist.id}` : undefined,
     duration: track.duration,
-    genre: track.album.genre?.name,
-    genreId: track.album.genre?.id,
+    genre: track.album?.genre?.name,
+    genreId: track.album?.genre?.id,
     trackNumber: track.number,
   },
   dynamic: {

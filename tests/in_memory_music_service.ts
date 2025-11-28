@@ -122,7 +122,7 @@ export class InMemoryMusicService implements MusicService {
       tracks: (albumId: string) =>
         Promise.resolve(
           this.tracks
-            .filter((it) => it.album.id === albumId)
+            .filter((it) => it.album?.id === albumId)
             .map((it) => ({ ...it, rating: { love: false, stars: 0 } }))
         ),
       rate: (_: string, _2: Rating) => Promise.resolve(false),
