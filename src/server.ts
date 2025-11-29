@@ -447,7 +447,7 @@ function server(
     );
 
     if(process.env["BNB_DEBUG_CF"] == "true") {
-      console.log(`/stream auth header == '${req.headers["authorization"]}'`)  
+      console.log(`DEBUG_CF /stream auth header == '${req.headers["authorization"]}'`)  
     }
 
     const serviceToken = pipe(

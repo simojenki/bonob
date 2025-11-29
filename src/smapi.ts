@@ -521,7 +521,7 @@ function bindSmapiSoapServiceToExpress(
                     }));
                   case "track":
                     if(process.env["BNB_DEBUG_CF"] == "true") {
-                      console.log(`getMediaURIResult header 'authorization'== '${credentials.loginToken.token}'`)  
+                      console.log(`DEBUG_CF getMediaURIResult header 'authorization'== '${credentials.loginToken.token}'`)  
                     }
                     return {
                       getMediaURIResult: bonobUrl
