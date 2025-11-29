@@ -510,7 +510,7 @@ function bindSmapiSoapServiceToExpress(
             { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders
-          ) =>
+          ) => 
             login(soapyHeaders?.credentials)
               .then(withSplitId(id))
               .then(({ musicLibrary, credentials, type, typeId }) => {
@@ -520,6 +520,9 @@ function bindSmapiSoapServiceToExpress(
                       getMediaURIResult: it.url,
                     }));
                   case "track":
+                    if(process.env["BNB_DEBUG_CF"] == "true") {
+                      console.log(`getMediaURIResult header 'authorization'== '${credentials.loginToken.token}'`)  
+                    }
                     return {
                       getMediaURIResult: bonobUrl
                         .append({
@@ -539,7 +542,8 @@ function bindSmapiSoapServiceToExpress(
                     // todo: maybe not throw this?
                     throw `Unsupported type:${type}`;
                   }
-              }),
+              })
+          ,
           getMediaMetadata: async (
             { id }: { id: string },
             _,
