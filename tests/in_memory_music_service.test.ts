@@ -5,8 +5,7 @@ import { InMemoryMusicService } from "./in_memory_music_service";
 import {
   MusicLibrary,
   artistToArtistSummary,
-  albumToAlbumSummary,
-} from "../src/music_service";
+} from "../src/music_library";
 import { v4 as uuid } from "uuid";
 import {
   anArtist,
@@ -17,6 +16,7 @@ import {
   METAL,
   HIP_HOP,
   SKA,
+  anAlbumSummary,
 } from "./builders";
 import _ from "underscore";
 
@@ -167,23 +167,6 @@ describe("InMemoryMusicService", () => {
         service.hasTracks(track1, track2, track3, track4);
       });
 
-      describe("fetching tracks for an album", () => {
-        it("should return only tracks on that album", async () => {
-          expect(await musicLibrary.tracks(artist1Album1.id)).toEqual([
-            { ...track1, rating: { love: false, stars: 0 } },
-            { ...track2, rating: { love: false, stars: 0 } },
-          ]);
-        });
-      });
-
-      describe("fetching tracks for an album that doesnt exist", () => {
-        it("should return empty array", async () => {
-          expect(await musicLibrary.tracks("non existant album id")).toEqual(
-            []
-          );
-        });
-      });
-
       describe("fetching a single track", () => {
         describe("when it exists", () => {
           it("should return the track", async () => {
@@ -194,16 +177,16 @@ describe("InMemoryMusicService", () => {
     });
 
     describe("albums", () => {
-      const artist1_album1 = anAlbum({ genre: POP });
-      const artist1_album2 = anAlbum({ genre: ROCK });
-      const artist1_album3 = anAlbum({ genre: METAL });
-      const artist1_album4 = anAlbum({ genre: POP });
-      const artist1_album5 = anAlbum({ genre: POP });
+      const artist1_album1 = anAlbumSummary({ genre: POP });
+      const artist1_album2 = anAlbumSummary({ genre: ROCK });
+      const artist1_album3 = anAlbumSummary({ genre: METAL });
+      const artist1_album4 = anAlbumSummary({ genre: POP });
+      const artist1_album5 = anAlbumSummary({ genre: POP });
 
-      const artist2_album1 = anAlbum({ genre: METAL });
+      const artist2_album1 = anAlbumSummary({ genre: METAL });
 
-      const artist3_album1 = anAlbum({ genre: HIP_HOP });
-      const artist3_album2 = anAlbum({ genre: POP });
+      const artist3_album1 = anAlbumSummary({ genre: HIP_HOP });
+      const artist3_album2 = anAlbumSummary({ genre: POP });
 
       const artist1 = anArtist({
         name: "artist1",
@@ -212,8 +195,8 @@ describe("InMemoryMusicService", () => {
           artist1_album2,
           artist1_album3,
           artist1_album4,
-          artist1_album5,
-        ],
+          artist1_album5
+        ]
       });
       const artist2 = anArtist({ name: "artist2", albums: [artist2_album1] });
       const artist3 = anArtist({
@@ -275,16 +258,16 @@ describe("InMemoryMusicService", () => {
                   })
                 ).toEqual({
                   results: [
-                    albumToAlbumSummary(artist1_album1),
-                    albumToAlbumSummary(artist1_album2),
-                    albumToAlbumSummary(artist1_album3),
-                    albumToAlbumSummary(artist1_album4),
-                    albumToAlbumSummary(artist1_album5),
+                    artist1_album1,
+                    artist1_album2,
+                    artist1_album3,
+                    artist1_album4,
+                    artist1_album5,
 
-                    albumToAlbumSummary(artist2_album1),
+                    artist2_album1,
 
-                    albumToAlbumSummary(artist3_album1),
-                    albumToAlbumSummary(artist3_album2),
+                    artist3_album1,
+                    artist3_album2,
                   ],
                   total: totalAlbumCount,
                 });
@@ -300,7 +283,7 @@ describe("InMemoryMusicService", () => {
                     type: "alphabeticalByName",
                   })
                 ).toEqual({
-                  results: _.sortBy(allAlbums, "name").map(albumToAlbumSummary),
+                  results: _.sortBy(allAlbums, "name"),
                   total: totalAlbumCount,
                 });
               });
@@ -317,9 +300,9 @@ describe("InMemoryMusicService", () => {
                 })
               ).toEqual({
                 results: [
-                  albumToAlbumSummary(artist1_album5),
-                  albumToAlbumSummary(artist2_album1),
-                  albumToAlbumSummary(artist3_album1),
+                  artist1_album5,
+                  artist2_album1,
+                  artist3_album1,
                 ],
                 total: totalAlbumCount,
               });
@@ -336,8 +319,8 @@ describe("InMemoryMusicService", () => {
                 })
               ).toEqual({
                 results: [
-                  albumToAlbumSummary(artist3_album1),
-                  albumToAlbumSummary(artist3_album2),
+                  artist3_album1,
+                  artist3_album2,
                 ],
                 total: totalAlbumCount,
               });
@@ -357,10 +340,10 @@ describe("InMemoryMusicService", () => {
                 })
               ).toEqual({
                 results: [
-                  albumToAlbumSummary(artist1_album1),
-                  albumToAlbumSummary(artist1_album4),
-                  albumToAlbumSummary(artist1_album5),
-                  albumToAlbumSummary(artist3_album2),
+                  artist1_album1,
+                  artist1_album4,
+                  artist1_album5,
+                  artist3_album2,
                 ],
                 total: 4,
               });
@@ -379,8 +362,8 @@ describe("InMemoryMusicService", () => {
                   })
                 ).toEqual({
                   results: [
-                    albumToAlbumSummary(artist1_album4),
-                    albumToAlbumSummary(artist1_album5),
+                    artist1_album4,
+                    artist1_album5,
                   ],
                   total: 4,
                 });
@@ -397,7 +380,7 @@ describe("InMemoryMusicService", () => {
                     _count: 100,
                   })
                 ).toEqual({
-                  results: [albumToAlbumSummary(artist3_album2)],
+                  results: [artist3_album2],
                   total: 4,
                 });
               });
@@ -424,7 +407,10 @@ describe("InMemoryMusicService", () => {
         describe("when it exists", () => {
           it("should provide an album", async () => {
             expect(await musicLibrary.album(artist1_album5.id)).toEqual(
-              artist1_album5
+              {
+                ...artist1_album5,
+                tracks: []
+              }
             );
           });
         });

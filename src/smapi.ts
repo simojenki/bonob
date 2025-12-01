@@ -10,7 +10,6 @@ import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
 import {
-  Album,
   AlbumQuery,
   AlbumSummary,
   ArtistSummary,
@@ -22,7 +21,7 @@ import {
   Rating,
   slice2,
   Track,
-} from "./music_service";
+} from "./music_library";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
 import { URLBuilder } from "./url_builder";
@@ -623,7 +622,7 @@ function bindSmapiSoapServiceToExpress(
                 switch (type) {
                   case "artist":
                     return musicLibrary.artist(typeId).then((artist) => {
-                      const [page, total] = slice2<Album>(paging)(
+                      const [page, total] = slice2<AlbumSummary>(paging)(
                         artist.albums
                       );
                       return {
@@ -994,7 +993,8 @@ function bindSmapiSoapServiceToExpress(
                       });
                   case "album":
                     return musicLibrary
-                      .tracks(typeId!)
+                      .album(typeId!)
+                      .then(it => it.tracks)
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({
