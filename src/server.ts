@@ -106,9 +106,11 @@ export type ServerOpts = {
   loginTheme: string;
 };
 
+const DEFAULT_TIMEOUT = "1h"
+
 const DEFAULT_SERVER_OPTS: ServerOpts = {
   linkCodes: () => new InMemoryLinkCodes(),
-  apiTokens: () => new InMemoryAPITokens(),
+  apiTokens: () => new InMemoryAPITokens(SystemClock, DEFAULT_TIMEOUT),
   clock: SystemClock,
   iconColors: { foregroundColor: undefined, backgroundColor: undefined },
   applyContextPath: true,
@@ -117,7 +119,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   smapiAuthTokens: new JWTSmapiLoginTokens(
     SystemClock,
     `bonob-${uuid()}`,
-    "1m"
+    DEFAULT_TIMEOUT
   ),
   externalImageResolver: axiosImageFetcher,
   loginTheme: DEFAULT_LOGIN_THEME
@@ -454,8 +456,8 @@ function server(
       E.fromNullable("Missing authorization header")(req.headers["authorization"] as string),
       E.chain((authorization) =>
         pipe(
-          smapiAuthTokens.verify({ token: authorization }),
-          E.mapLeft((_) => "Auth token failed to verify")
+          apiTokens.authTokenFor(authorization),
+          E.fromNullable("Failed to find matching API token, or API token has expired")
         )
       ),
       E.getOrElseW(() => undefined)

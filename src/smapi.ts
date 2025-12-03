@@ -513,7 +513,7 @@ function bindSmapiSoapServiceToExpress(
           ) => 
             login(soapyHeaders?.credentials)
               .then(withSplitId(id))
-              .then(({ musicLibrary, credentials, type, typeId }) => {
+              .then(({ musicLibrary, apiKey, type, typeId }) => {
                 switch (type) {
                   case "internetRadioStation":
                     return musicLibrary.radioStation(typeId).then((it) => ({
@@ -521,7 +521,7 @@ function bindSmapiSoapServiceToExpress(
                     }));
                   case "track":
                     if(process.env["BNB_DEBUG_CF"] == "true") {
-                      console.log(`DEBUG_CF getMediaURIResult header 'authorization'== '${credentials.loginToken.token}'`)  
+                      console.log(`DEBUG_CF getMediaURIResult header 'authorization'== '${apiKey}'`)  
                     }
                     return {
                       getMediaURIResult: bonobUrl
@@ -533,7 +533,7 @@ function bindSmapiSoapServiceToExpress(
                         {
                           httpHeader: {
                             header: "authorization",
-                            value: credentials.loginToken.token,
+                            value: apiKey,
                           },
                         },
                       ],

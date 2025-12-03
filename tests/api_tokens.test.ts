@@ -1,5 +1,6 @@
 import { v4 as uuid } from "uuid";
 
+import { FixedClock } from "../src/clock";
 import {
   InMemoryAPITokens,
   sha256
@@ -36,9 +37,12 @@ describe('sha256 minter', () => {
 });
 
 describe("InMemoryAPITokens", () => {
+  const clock = new FixedClock();
+  const timeout_ms = 10;
+
   const reverseAuthToken = (authToken: string) => authToken.split("").reverse().join("");
 
-  const accessTokens = new InMemoryAPITokens(reverseAuthToken);
+  const accessTokens = new InMemoryAPITokens(clock, `${timeout_ms}ms`, reverseAuthToken);
 
   it("should return the same access token for the same auth token", () => {
     const authToken = "token1";
@@ -62,6 +66,30 @@ describe("InMemoryAPITokens", () => {
   describe("when there is no auth token for the access token", () => {
     it("should return undefined", () => {
       expect(accessTokens.authTokenFor(uuid())).toBeUndefined();
+    });
+  });
+
+  describe("when a token has expired", () => {
+    it("should not be returned", () => {
+      const authToken = "token1";
+      const accessToken = accessTokens.mint(authToken);
+      expect(accessTokens.authTokenFor(accessToken)).toEqual(authToken);
+
+      clock.add(timeout_ms + 1, "ms");
+
+      expect(accessTokens.authTokenFor(accessToken)).toBeUndefined();
+    });
+
+    it("should be removed on next invocation to mint", () => {
+      accessTokens.mint("token1")
+      accessTokens.mint("token2")
+      expect(accessTokens.authTokens()).toStrictEqual(["token1", "token2"])
+
+      clock.add(timeout_ms + 1, "ms");
+      expect(accessTokens.authTokens()).toStrictEqual(["token1", "token2"])
+
+      accessTokens.mint("token3")
+      expect(accessTokens.authTokens()).toStrictEqual(["token3"])
     });
   });
 });

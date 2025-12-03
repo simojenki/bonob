@@ -2938,7 +2938,7 @@ describe("wsdl api", () => {
                   httpHeaders: {
                       httpHeader: [{
                           header: "authorization",
-                          value: smapiAuthToken.token,
+                          value: apiToken,
                       }],
                     },
                 });

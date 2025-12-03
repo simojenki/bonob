@@ -88,7 +88,7 @@ const app = server(
   featureFlagAwareMusicService,
   {
     linkCodes: () => new InMemoryLinkCodes(),
-    apiTokens: () => new InMemoryAPITokens(sha256(config.secret)),
+    apiTokens: () => new InMemoryAPITokens(clock, config.authTimeout, sha256(config.secret)),
     clock,
     iconColors: config.icons,
     applyContextPath: true,

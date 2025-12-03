@@ -22,9 +22,9 @@ import { Transform } from "stream";
 import url from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
 import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
-import { Clock, SystemClock } from "../src/clock";
+import { Clock, FixedClock, SystemClock } from "../src/clock";
 import { formatForURL } from "../src/burn";
-import { ExpiredTokenError, SmapiAuthTokens, SmapiToken } from "../src/smapi_auth";
+import { SmapiAuthTokens } from "../src/smapi_auth";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -736,7 +736,8 @@ describe("server", () => {
         const smapiAuthTokens = {
           verify: jest.fn(),
         }
-        const apiTokens = new InMemoryAPITokens();
+        const clock = new FixedClock();
+        const apiTokens = new InMemoryAPITokens(clock, "1h");
 
         const server = makeServer(
           jest.fn() as unknown as Sonos,
@@ -752,7 +753,6 @@ describe("server", () => {
 
         const serviceToken = `serviceToken-${uuid()}`;
         const trackId = `t-${uuid()}`;
-        const smapiAuthToken: SmapiToken = { token: `token-${uuid()}` };
 
         const streamContent = (content: string) => {
           const self = {
@@ -782,9 +782,10 @@ describe("server", () => {
             });
           });
 
-          describe("when the authorization has expired", () => {
+          describe("when the authorisation header api key has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
+              const apiToken = apiTokens.mint(serviceToken);
+              clock.add(2, "h");
 
               const res = await request(server).head(
                 bonobUrl
@@ -793,17 +794,13 @@ describe("server", () => {
                   })
                   .path(),
               )
-              .set('authorization', smapiAuthToken.token);
+              .set('authorization', apiToken);
 
               expect(res.status).toEqual(401);
             });
           });
 
           describe("when the authorization token & key are valid", () => {
-            beforeEach(() => {
-              smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
-            });
-
             describe("and the track exists", () => {
               it("should return a 200", async () => {
                 const trackStream = {
@@ -825,7 +822,7 @@ describe("server", () => {
                       .append({ pathname: `/stream/track/${trackId}`})
                       .path()
                   )
-                  .set('authorization', smapiAuthToken.token);
+                  .set('authorization', apiTokens.mint(serviceToken));
 
                 expect(res.status).toEqual(trackStream.status);
                 expect(res.headers["content-type"]).toEqual(
@@ -854,7 +851,7 @@ describe("server", () => {
                     .append({ pathname: `/stream/track/${trackId}` })
                     .path()
                   )
-                  .set('authorization', smapiAuthToken.token);
+                  .set('authorization', apiTokens.mint(serviceToken));
       
 
                 expect(res.status).toEqual(404);
@@ -877,9 +874,10 @@ describe("server", () => {
             });
           });
 
-          describe("when the Bearer token has expired", () => {
+          describe("when the authorisation header api key has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
+              const apiToken = apiTokens.mint(serviceToken);
+              clock.add(2, "h");
 
               const res = await request(server)
                 .get(
@@ -887,17 +885,13 @@ describe("server", () => {
                     .append({ pathname: `/stream/track/${trackId}` })
                     .path()
                 )                  
-                .set('authorization', smapiAuthToken.token);
+                .set('authorization', apiToken);
 
               expect(res.status).toEqual(401);
             });
           });
 
-          describe("when the authorization token & key is valid", () => {
-            beforeEach(() => {
-              smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
-            });
-
+          describe("when the authorization token & key are valid", () => {
             describe("when the track doesnt exist", () => {
               it("should return a 404", async () => {
                 const stream = {
@@ -915,7 +909,7 @@ describe("server", () => {
                       .append({ pathname: `/stream/track/${trackId}` })
                       .path()
                   )                
-                  .set('authorization', smapiAuthToken.token);
+                  .set('authorization', apiTokens.mint(serviceToken));
   
                 expect(res.status).toEqual(404);
   
@@ -950,7 +944,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('authorization', smapiAuthToken.token);
+                    .set('authorization', apiTokens.mint(serviceToken));
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -993,7 +987,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('authorization', smapiAuthToken.token);
+                    .set('authorization', apiTokens.mint(serviceToken));
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.headers["content-type"]).toEqual(
@@ -1034,7 +1028,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('authorization', smapiAuthToken.token);
+                    .set('authorization', apiTokens.mint(serviceToken));
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
@@ -1076,7 +1070,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('authorization', smapiAuthToken.token);
+                    .set('authorization', apiTokens.mint(serviceToken));
   
                   expect(res.status).toEqual(stream.status);
                   expect(res.header["content-type"]).toEqual(
@@ -1123,7 +1117,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('authorization', smapiAuthToken.token)
+                    .set('authorization', apiTokens.mint(serviceToken))
                     .set("Range", requestedRange);
   
                   expect(res.status).toEqual(stream.status);
@@ -1169,7 +1163,7 @@ describe("server", () => {
                         .append({ pathname: `/stream/track/${trackId}` })
                         .path()
                     )
-                    .set('authorization', smapiAuthToken.token)
+                    .set('authorization', apiTokens.mint(serviceToken))
                     .set("Range", "4000-5000");
   
                   expect(res.status).toEqual(stream.status);
@@ -1195,7 +1189,6 @@ describe("server", () => {
               });
             });
           });
-          
         });
       });
 
