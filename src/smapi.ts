@@ -539,6 +539,40 @@ function bindSmapiSoapServiceToExpress(
     }
   };
 
+  /**
+   * Wraps a SOAP method handler to catch all errors (including promise rejections)
+   * and convert them to SOAP faults that node-soap can serialize.
+   *
+   * @param methodName - Name of the SOAP method for logging
+   * @param handler - The SOAP method handler function
+   * @returns Wrapped handler that catches errors and returns SOAP faults
+   */
+  const wrapSoapMethod = (methodName: string, handler: Function) => {
+    return async (...args: any[]) => {
+      try {
+        // Await the handler to catch promise rejections
+        const result = await handler(...args);
+        return result;
+      } catch (error) {
+        // Extract first argument (usually contains request parameters)
+        const params = args[0] || {};
+
+        logger.error(`${methodName} failed`, {
+          params,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
+
+        throw {
+          Fault: {
+            faultcode: "Server.InternalError",
+            faultstring: error instanceof Error ? error.message : String(error),
+          },
+        };
+      }
+    };
+  };
+
   // Middleware to force content-type to application/xml for SOAP responses
   app.use(soapPath, (_req, res, next) => {
     const originalWriteHead = res.writeHead.bind(res);
@@ -549,689 +583,712 @@ function bindSmapiSoapServiceToExpress(
     next();
   });
 
+  // Define all SOAP methods
+  const soapMethods = {
+    getAppLink: () => sonosSoap.getAppLink(),
+
+    getDeviceAuthToken: ({ linkCode }: { linkCode: string }) => {
+      const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
+      const smapiToken: SmapiToken = {
+        token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken,
+        key: deviceAuthTokenResult.getDeviceAuthTokenResult.privateKey
+      };
+
+      sonosSoap.associateCredentialsForToken(smapiToken.token, smapiToken);
+      return deviceAuthTokenResult;
+    },
+
+    getLastUpdate: () => ({
+      getLastUpdateResult: {
+        autoRefreshEnabled: true,
+        favorites: clock.now().unix(),
+        catalog: clock.now().unix(),
+        pollInterval: 60,
+      },
+    }),
+
+    refreshAuthToken: async (
+      _: any,
+      _2: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) => {
+      const creds = await usePartialCredentialsIfPresent(soapyHeaders?.credentials, headers);
+      const serviceToken = pipe(
+        auth(creds),
+        E.fold(
+          (fault) =>
+            isExpiredTokenError(fault)
+              ? E.right(fault.expiredToken)
+              : E.left(fault),
+          (creds) => E.right(creds.serviceToken)
+        ),
+        E.getOrElseW((fault) => {
+          throw fault.toSmapiFault();
+        })
+      );
+      return pipe(
+        musicService.refreshToken(serviceToken),
+        TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
+        TE.tap(swapToken(serviceToken)), // ignores the return value, like a tee or peek
+        TE.map((it) => ({
+          refreshAuthTokenResult: {
+            authToken: it.token,
+            privateKey: it.key,
+          },
+        })),
+        TE.getOrElse((_) => {
+          throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
+        })
+      )();
+    },
+
+    getMediaURI: async (
+      { id }: { id: string },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(({ musicLibrary, credentials, type, typeId }) => {
+          switch (type) {
+            case "internetRadio":
+            case "internetRadioStation":
+              return musicLibrary.radioStation(typeId).then((it) => ({
+                getMediaURIResult: it.url,
+              }));
+            case "track":
+              return {
+                getMediaURIResult: bonobUrl
+                  .append({
+                    pathname: `/stream/${type}/${typeId}`,
+                  })
+                  .href(),
+                httpHeaders: [
+                  {
+                    httpHeader: {
+                      header: "bnbt",
+                      value: credentials.loginToken.token,
+                    },
+                  },
+                  {
+                    httpHeader: {
+                      header: "bnbk",
+                      value: credentials.loginToken.key,
+                    },
+                  },
+                ],
+              };
+            default:
+              throw `Unsupported type:${type}`;
+          }
+        }),
+
+    getMediaMetadata: async (
+      { id }: { id: string },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(async ({ musicLibrary, apiKey, type, typeId }) => {
+          switch (type) {
+            case "internetRadio":
+            case "internetRadioStation":
+              return musicLibrary.radioStation(typeId).then((it) => ({
+                getMediaMetadataResult: internetRadioStation(it),
+              }));
+            case "track":
+              return musicLibrary.track(typeId!).then((it) => ({
+                getMediaMetadataResult: track(urlWithToken(apiKey), it),
+              }));
+            default:
+              throw `Unsupported type:${type}`;
+          }
+        }),
+
+    search: async (
+      { id, term }: { id: string; term: string },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(async ({ musicLibrary, apiKey }) => {
+          switch (id) {
+            case "albums":
+              return musicLibrary.searchAlbums(term).then((it) =>
+                searchResult({
+                  count: it.length,
+                  mediaCollection: it.map((albumSummary) =>
+                    album(urlWithToken(apiKey), albumSummary)
+                  ),
+                })
+              );
+            case "artists":
+              return musicLibrary.searchArtists(term).then((it) =>
+                searchResult({
+                  count: it.length,
+                  mediaCollection: it.map((artistSummary) =>
+                    artist(urlWithToken(apiKey), artistSummary)
+                  ),
+                })
+              );
+            case "tracks":
+              return musicLibrary.searchTracks(term).then((it) =>
+                searchResult({
+                  count: it.length,
+                  mediaCollection: it.map((aTrack) =>
+                    track(urlWithToken(apiKey), aTrack)
+                  ),
+                })
+              );
+            default:
+              throw `Unsupported search by:${id}`;
+          }
+        }),
+
+    getExtendedMetadata: async (
+      { id }: { id: string; index: number; count: number; recursive: boolean },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(async ({ musicLibrary, apiKey, type, typeId }) => {
+          switch (type) {
+            case "artist":
+              return musicLibrary.artist(typeId).then((theArtist) => {
+                const res = {
+                  getExtendedMetadataResult: {
+                    mediaCollection: artist(urlWithToken(apiKey), theArtist),
+                    relatedBrowse:
+                      theArtist.similarArtists.filter((it) => it.inLibrary)
+                        .length > 0
+                        ? [
+                            {
+                              id: `relatedArtists:${theArtist.id}`,
+                              type: "RELATED_ARTISTS",
+                            },
+                          ]
+                        : [],
+                  },
+                };
+                logger.debug("res: " + JSON.stringify(res));
+                return res;
+              });
+            case "track":
+              return musicLibrary.track(typeId).then((it) => ({
+                getExtendedMetadataResult: {
+                  mediaMetadata: track(urlWithToken(apiKey), it),
+                },
+              }));
+            case "album":
+              return musicLibrary.album(typeId).then((it) => ({
+                getExtendedMetadataResult: {
+                  mediaCollection: {
+                    attributes: {
+                      readOnly: true,
+                      userContent: false,
+                      renameable: false,
+                    },
+                    ...album(urlWithToken(apiKey), it),
+                  },
+                },
+              }));
+            case "playlist":
+              return musicLibrary
+                .playlist(typeId!)
+                .then((thePlaylist) => {
+                  return {
+                    getExtendedMetadataResult: {
+                      mediaCollection: playlist(urlWithToken(apiKey), thePlaylist)
+                    }
+                  };
+                });
+            case "internetRadio":
+              return Promise.resolve({
+                getExtendedMetadataResult: {
+                  mediaCollection: {
+                    attributes: {
+                      readOnly: true,
+                      userContent: false,
+                      renameable: false,
+                    }
+                  }
+                }
+              });
+            default:
+              return Promise.resolve({
+                getExtendedMetadataResult: {
+                  mediaCollection: {
+                    attributes: {
+                      readOnly: true,
+                      userContent: false,
+                      renameable: false,
+                    }
+                  }
+                }
+              });
+          }
+        }),
+
+    getMetadata: async (
+      {
+        id,
+        index,
+        count,
+      }: { id: string; index: number; count: number; recursive: boolean },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(({ musicLibrary, apiKey, type, typeId }) => {
+          const paging = { _index: index, _count: count };
+          const acceptLanguage = headers["accept-language"];
+          logger.debug(
+            `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
+          );
+          const lang = i8n(...asLANGs(acceptLanguage));
+
+          const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
+            musicLibrary.albums(q).then((result) => {
+              return getMetadataResult({
+                mediaCollection: result.results.map((it) =>
+                  album(urlWithToken(apiKey), it)
+                ),
+                index: paging._index,
+                total: result.total,
+              });
+            });
+
+          switch (type) {
+            case "root":
+              return getMetadataResult({
+                mediaCollection: [
+                  {
+                    id: "artists",
+                    title: lang("artists"),
+                    albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                    itemType: "container",
+                  },
+                  {
+                    id: "albums",
+                    title: lang("albums"),
+                    albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                    itemType: "albumList",
+                  },
+                  {
+                    id: "randomAlbums",
+                    title: lang("random"),
+                    albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                    itemType: "albumList",
+                  },
+                  {
+                    id: "favouriteAlbums",
+                    title: lang("favourites"),
+                    albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                    itemType: "albumList",
+                  },
+                  {
+                    id: "playlists",
+                    title: lang("playlists"),
+                    albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                    itemType: "container",
+                    attributes: {
+                      readOnly: false,
+                      userContent: true,
+                      renameable: false,
+                    },
+                  },
+                  {
+                    id: "genres",
+                    title: lang("genres"),
+                    albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                    itemType: "container",
+                  },
+                  {
+                    id: "years",
+                    title: lang("years"),
+                    albumArtURI: iconArtURI(bonobUrl, "music").href(),
+                    itemType: "container",
+                  },
+                  {
+                    id: "recentlyAdded",
+                    title: lang("recentlyAdded"),
+                    albumArtURI: iconArtURI(
+                      bonobUrl,
+                      "recentlyAdded"
+                    ).href(),
+                    itemType: "albumList",
+                  },
+                  {
+                    id: "recentlyPlayed",
+                    title: lang("recentlyPlayed"),
+                    albumArtURI: iconArtURI(
+                      bonobUrl,
+                      "recentlyPlayed"
+                    ).href(),
+                    itemType: "albumList",
+                  },
+                  {
+                    id: "mostPlayed",
+                    title: lang("mostPlayed"),
+                    albumArtURI: iconArtURI(
+                      bonobUrl,
+                      "mostPlayed"
+                    ).href(),
+                    itemType: "albumList",
+                  },
+                ],
+              });
+            case "search":
+              return getMetadataResult({
+                mediaCollection: [
+                  {
+                    itemType: "search",
+                    id: "artists",
+                    title: lang("artists"),
+                  },
+                  {
+                    itemType: "search",
+                    id: "albums",
+                    title: lang("albums"),
+                  },
+                  {
+                    itemType: "search",
+                    id: "tracks",
+                    title: lang("tracks"),
+                  },
+                ],
+              });
+            case "artists":
+              return musicLibrary.artists(paging).then((result) => {
+                return getMetadataResult({
+                  mediaCollection: result.results.map((it) =>
+                    artist(urlWithToken(apiKey), it)
+                  ),
+                  index: paging._index,
+                  total: result.total,
+                });
+              });
+            case "albums": {
+              return albums({
+                type: "alphabeticalByName",
+                ...paging,
+              });
+            }
+            case "genre":
+              return albums({
+                type: "byGenre",
+                genre: typeId,
+                ...paging,
+              });
+            case "year":
+              return albums({
+                type: "byYear",
+                fromYear: typeId,
+                toYear: typeId,
+                ...paging,
+              });
+            case "randomAlbums":
+              return albums({
+                type: "random",
+                ...paging,
+              });
+            case "favouriteAlbums":
+              return albums({
+                type: "favourited",
+                ...paging,
+              });
+            case "starredAlbums":
+              return albums({
+                type: "starred",
+                ...paging,
+              });
+            case "recentlyAdded":
+              return albums({
+                type: "recentlyAdded",
+                ...paging,
+              });
+            case "recentlyPlayed":
+              return albums({
+                type: "recentlyPlayed",
+                ...paging,
+              });
+            case "mostPlayed":
+              return albums({
+                type: "mostPlayed",
+                ...paging,
+              });
+            case "internetRadio":
+              return musicLibrary
+                .radioStations()
+                .then(slice2(paging))
+                .then(([page, total]) =>
+                  getMetadataResult({
+                    mediaMetadata: page.map((it) =>
+                      internetRadioStation(it)
+                    ),
+                    index: paging._index,
+                    total,
+                  })
+                );
+            case "years":
+              return musicLibrary
+                .years()
+                .then(slice2(paging))
+                .then(([page, total]) =>
+                  getMetadataResult({
+                    mediaCollection: page.map((it) =>
+                      year(bonobUrl, it)
+                    ),
+                    index: paging._index,
+                    total,
+                  })
+                );
+            case "genres":
+              return musicLibrary
+                .genres()
+                .then(slice2(paging))
+                .then(([page, total]) =>
+                  getMetadataResult({
+                    mediaCollection: page.map((it) =>
+                      genre(bonobUrl, it)
+                    ),
+                    index: paging._index,
+                    total,
+                  })
+                );
+            case "playlists":
+              return musicLibrary
+                .playlists()
+                .then(slice2(paging))
+                .then(([page, total]) => {
+                  const playlists = page.map((it) =>
+                    playlist(urlWithToken(apiKey), {id:it.id, name:it.name, coverArt:it.coverArt, entries:[]})
+                  );
+                  return getMetadataResult({
+                    mediaCollection: playlists,
+                    index: paging._index,
+                    total,
+                  });
+                });
+            case "playlist":
+              return musicLibrary
+                .playlist(typeId!)
+                .then((playlist) => playlist.entries)
+                .then(slice2(paging))
+                .then(([page, total]) => {
+                  const playlistTracks = page.map((it) =>
+                    track(urlWithToken(apiKey), it)
+                  );
+                  return getMetadataResult({
+                    mediaMetadata: playlistTracks,
+                    index: paging._index,
+                    total,
+                  });
+                });
+            case "artist":
+              return musicLibrary
+                .artist(typeId!)
+                .then((artist) => artist.albums)
+                .then(slice2(paging))
+                .then(([page, total]) =>
+                  getMetadataResult({
+                    mediaCollection: page.map((it) =>
+                      album(urlWithToken(apiKey), it)
+                    ),
+                    index: paging._index,
+                    total,
+                  })
+                );
+            case "relatedArtists":
+              return musicLibrary
+                .artist(typeId!)
+                .then((artist) => artist.similarArtists)
+                .then((similarArtists) =>
+                  similarArtists.filter((it) => it.inLibrary)
+                )
+                .then(slice2(paging))
+                .then(([page, total]) => {
+                  return getMetadataResult({
+                    mediaCollection: page.map((it) =>
+                      artist(urlWithToken(apiKey), it)
+                    ),
+                    index: paging._index,
+                    total,
+                  });
+                });
+            case "album":
+              return musicLibrary
+                .tracks(typeId!)
+                .then(slice2(paging))
+                .then(([page, total]) => {
+                  return getMetadataResult({
+                    mediaMetadata: page.map((it) =>
+                      track(urlWithToken(apiKey), it)
+                    ),
+                    index: paging._index,
+                    total,
+                  });
+                });
+            case "track":
+              return musicLibrary
+                .track(typeId!)
+                .then((t) => {
+                  const trackRet = [track(urlWithToken(apiKey), t)];
+                  return getMetadataResult({
+                    mediaMetadata: trackRet
+                  });
+                });
+            default:
+              throw `Unsupported getMetadata id=${id}`;
+          }
+        }),
+
+    createContainer: async (
+      { title, seedId }: { title: string; seedId: string | undefined },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(({ musicLibrary }) =>
+          musicLibrary
+            .createPlaylist(title)
+            .then((playlist) => ({ playlist, musicLibrary }))
+        )
+        .then(({ musicLibrary, playlist }) => {
+          if (seedId) {
+            musicLibrary.addToPlaylist(
+              playlist.id,
+              seedId.split(":")[1]!
+            );
+          }
+          return playlist;
+        })
+        .then((it) => ({
+          createContainerResult: {
+            id: `playlist:${it.id}`,
+            updateId: "",
+          },
+        })),
+
+    deleteContainer: async (
+      { id }: { id: string },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
+        .then((_) => ({ deleteContainerResult: {} })),
+
+    addToContainer: async (
+      { id, parentId }: { id: string; parentId: string },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(({ musicLibrary, typeId }) =>
+          musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
+        )
+        .then((_) => ({ addToContainerResult: { updateId: "" } })),
+
+    removeFromContainer: async (
+      { id, indices }: { id: string; indices: string },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then((it) => ({
+          ...it,
+          indices: indices.split(",").map((it) => +it),
+        }))
+        .then(({ musicLibrary, typeId, indices }) => {
+          if (id == "playlists") {
+            musicLibrary.playlists().then((it) => {
+              indices.forEach((i) => {
+                musicLibrary.deletePlaylist(it[i]?.id!);
+              });
+            });
+          } else {
+            musicLibrary.removeFromPlaylist(typeId, indices);
+          }
+        })
+        .then((_) => ({ removeFromContainerResult: { updateId: "" } })),
+
+    rateItem: async (
+      { id, rating }: { id: string; rating: number },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(({ musicLibrary, typeId }) =>
+          musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
+        )
+        .then((_) => ({ rateItemResult: { shouldSkip: false } })),
+
+    setPlayedSeconds: async (
+      { id, seconds }: { id: string; seconds: string },
+      _: any,
+      soapyHeaders: SoapyHeaders,
+      { headers }: Pick<Request, "headers">
+    ) =>
+      login(soapyHeaders?.credentials, headers)
+        .then(splitId(id))
+        .then(({ musicLibrary, type, typeId }) => {
+          switch (type) {
+            case "track":
+              return musicLibrary.track(typeId).then(({ duration }) => {
+                if (
+                  (duration < 30 && +seconds >= 10) ||
+                  (duration >= 30 && +seconds >= 30)
+                ) {
+                  return musicLibrary.scrobble(typeId);
+                } else {
+                  return Promise.resolve(true);
+                }
+              });
+            default:
+              logger.info("Unsupported scrobble", { id, seconds });
+              return Promise.resolve(true);
+          }
+        })
+        .then((_) => ({
+          setPlayedSecondsResult: {},
+        })),
+    reportAccountAction: () => {
+      return { reportAccountActionResult: {} };
+    },
+  };
+
+  // Wrap all SOAP methods with error handling
+  const wrappedSoapMethods = Object.fromEntries(
+    Object.entries(soapMethods).map(([methodName, handler]) =>
+      [methodName, wrapSoapMethod(methodName, handler)]
+    )
+  );
+
   const soapyService = listen(
     app,
     soapPath,
     {
       Sonos: {
-        SonosSoap: {
-          getAppLink: () => sonosSoap.getAppLink(),
-          getDeviceAuthToken: ({ linkCode }: { linkCode: string }) => {
-            const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
-            const smapiToken:SmapiToken = {
-              token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken,
-              key: deviceAuthTokenResult.getDeviceAuthTokenResult.privateKey
-            }
-  
-            sonosSoap.associateCredentialsForToken(smapiToken.token, smapiToken);
-            return deviceAuthTokenResult;
-          },
-          getLastUpdate: () => ({
-            getLastUpdateResult: {
-              autoRefreshEnabled: true,
-              favorites: clock.now().unix(),
-              catalog: clock.now().unix(),
-              pollInterval: 60,
-            },
-          }),
-          refreshAuthToken: async (_, _2, soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">) => {
-            const creds = await usePartialCredentialsIfPresent(soapyHeaders?.credentials, headers);
-            const serviceToken = pipe(
-              auth(creds),
-              E.fold(
-                (fault) =>
-                  isExpiredTokenError(fault)
-                    ? E.right(fault.expiredToken)
-                    : E.left(fault),
-                (creds) => E.right(creds.serviceToken)
-              ),
-              E.getOrElseW((fault) => {
-                throw fault.toSmapiFault();
-              })
-            );
-            return pipe(
-              musicService.refreshToken(serviceToken),
-              TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-              TE.tap(swapToken(serviceToken)), // ignores the return value, like a tee or peek
-              TE.map((it) => ({
-                refreshAuthTokenResult: {
-                  authToken: it.token,
-                  privateKey: it.key,
-                },
-              })),
-              TE.getOrElse((_) => {
-                throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
-              })
-            )();
-          },
-          getMediaURI: async (
-            { id }: { id: string },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(({ musicLibrary, credentials, type, typeId }) => {
-                switch (type) {
-                  case "internetRadio":
-                  case "internetRadioStation":
-                    return musicLibrary.radioStation(typeId).then((it) => ({
-                      getMediaURIResult: it.url,
-                    }));
-                  case "track":
-                    return {
-                      getMediaURIResult: bonobUrl
-                        .append({
-                          pathname: `/stream/${type}/${typeId}`,
-                        })
-                        .href(),
-                      httpHeaders: [
-                        {
-                          httpHeader: {
-                            header: "bnbt",
-                            value: credentials.loginToken.token,
-                          },
-                        },
-                        {
-                          httpHeader: {
-                            header: "bnbk",
-                            value: credentials.loginToken.key,
-                          },
-                        },
-                      ],
-                    };
-                  default:
-                    throw `Unsupported type:${type}`;
-                  }
-              }),
-          getMediaMetadata: async (
-            { id }: { id: string },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(async ({ musicLibrary, apiKey, type, typeId }) => {
-                switch (type) {
-                  case "internetRadio":
-                  case "internetRadioStation":
-                    return musicLibrary.radioStation(typeId).then((it) => ({
-                      getMediaMetadataResult: internetRadioStation(it),
-                    }));
-                  case "track":
-                    return musicLibrary.track(typeId!).then((it) => ({
-                      getMediaMetadataResult: track(urlWithToken(apiKey), it),
-                    }));
-                  default:
-                    throw `Unsupported type:${type}`;
-                }
-              }),
-          search: async (
-            { id, term }: { id: string; term: string },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(async ({ musicLibrary, apiKey }) => {
-                switch (id) {
-                  case "albums":
-                    return musicLibrary.searchAlbums(term).then((it) =>
-                      searchResult({
-                        count: it.length,
-                        mediaCollection: it.map((albumSummary) =>
-                          album(urlWithToken(apiKey), albumSummary)
-                        ),
-                      })
-                    );
-                  case "artists":
-                    return musicLibrary.searchArtists(term).then((it) =>
-                      searchResult({
-                        count: it.length,
-                        mediaCollection: it.map((artistSummary) =>
-                          artist(urlWithToken(apiKey), artistSummary)
-                        ),
-                      })
-                    );
-                  case "tracks":
-                    return musicLibrary.searchTracks(term).then((it) =>
-                      searchResult({
-                        count: it.length,
-                        mediaCollection: it.map((aTrack) =>
-                          track(urlWithToken(apiKey), aTrack)
-                        ),
-                      })
-                    );
-                  default:
-                    throw `Unsupported search by:${id}`;
-                }
-              }),
-          getExtendedMetadata: async (
-            {
-              id
-            }:
-            { id: string; index: number; count: number; recursive: boolean },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(async ({ musicLibrary, apiKey, type, typeId }) => {
-                switch (type) {
-                  case "artist":
-                    return musicLibrary.artist(typeId).then((theArtist) => {
-                      const res = {
-                        getExtendedMetadataResult: {
-                          mediaCollection: artist(urlWithToken(apiKey), theArtist),
-                          relatedBrowse:
-                            theArtist.similarArtists.filter((it) => it.inLibrary)
-                              .length > 0
-                              ? [
-                                  {
-                                    id: `relatedArtists:${theArtist.id}`,
-                                    type: "RELATED_ARTISTS",
-                                  },
-                                ]
-                              : [],
-                        },
-                      };
-                      logger.debug("res: " + JSON.stringify(res));
-                      return res;
-                    });
-                  case "track":
-                    return musicLibrary.track(typeId).then((it) => ({
-                      getExtendedMetadataResult: {
-                        mediaMetadata: track(urlWithToken(apiKey), it),
-                      },
-                    }));
-                  case "album":
-                    return musicLibrary.album(typeId).then((it) => ({
-                      getExtendedMetadataResult: {
-                        mediaCollection: {
-                          attributes: {
-                            readOnly: true,
-                            userContent: false,
-                            renameable: false,
-                          },
-                          ...album(urlWithToken(apiKey), it),
-                        },
-                      },
-                    }));
-                  case "playlist":
-                    return musicLibrary
-                      .playlist(typeId!)
-                      .then((thePlaylist) => {
-                        return { 
-                          getExtendedMetadataResult: {
-                            mediaCollection: playlist(urlWithToken(apiKey), thePlaylist)
-                          }
-                        };
-                      });
-                  case "internetRadio":
-                    return Promise.resolve({
-                      getExtendedMetadataResult: {
-                        mediaCollection: {
-                          attributes: {
-                            readOnly: true,
-                            userContent: false,
-                            renameable: false,
-                          }
-                        }
-                      }
-                    });
-                  default:
-                    return Promise.resolve({
-                      getExtendedMetadataResult: {
-                        mediaCollection: {
-                          attributes: {
-                            readOnly: true,
-                            userContent: false,
-                            renameable: false,
-                          }
-                        }
-                      }
-                    });
-                }
-              }),
-          getMetadata: async (
-            {
-              id,
-              index,
-              count,
-            }: // recursive,
-            { id: string; index: number; count: number; recursive: boolean },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(({ musicLibrary, apiKey, type, typeId }) => {
-                const paging = { _index: index, _count: count };
-                const acceptLanguage = headers["accept-language"];
-                logger.debug(
-                  `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
-                );
-                const lang = i8n(...asLANGs(acceptLanguage));
-
-                const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
-                  musicLibrary.albums(q).then((result) => {
-                    return getMetadataResult({
-                      mediaCollection: result.results.map((it) =>
-                        album(urlWithToken(apiKey), it)
-                      ),
-                      index: paging._index,
-                      total: result.total,
-                    });
-                  });
-
-                switch (type) {
-                  case "root":
-                    return getMetadataResult({
-                      mediaCollection: [
-                        {
-                          id: "artists",
-                          title: lang("artists"),
-                          albumArtURI: iconArtURI(bonobUrl, "artists").href(),
-                          itemType: "container",
-                        },
-                        {
-                          id: "albums",
-                          title: lang("albums"),
-                          albumArtURI: iconArtURI(bonobUrl, "albums").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "randomAlbums",
-                          title: lang("random"),
-                          albumArtURI: iconArtURI(bonobUrl, "random").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "favouriteAlbums",
-                          title: lang("favourites"),
-                          albumArtURI: iconArtURI(bonobUrl, "heart").href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "playlists",
-                          title: lang("playlists"),
-                          albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "container",
-                          attributes: {
-                            readOnly: false,
-                            userContent: true,
-                            renameable: false,
-                          },
-                        },
-                        {
-                          id: "genres",
-                          title: lang("genres"),
-                          albumArtURI: iconArtURI(bonobUrl, "genres").href(),
-                          itemType: "container",
-                        },
-                        {
-                          id: "years",
-                          title: lang("years"),
-                          albumArtURI: iconArtURI(bonobUrl, "music").href(),
-                          itemType: "container",
-                        },
-                        {
-                          id: "recentlyAdded",
-                          title: lang("recentlyAdded"),
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "recentlyAdded"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "recentlyPlayed",
-                          title: lang("recentlyPlayed"),
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "recentlyPlayed"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                        {
-                          id: "mostPlayed",
-                          title: lang("mostPlayed"),
-                          albumArtURI: iconArtURI(
-                            bonobUrl,
-                            "mostPlayed"
-                          ).href(),
-                          itemType: "albumList",
-                        },
-                      ],
-                    });
-                  case "search":
-                    return getMetadataResult({
-                      mediaCollection: [
-                        {
-                          itemType: "search",
-                          id: "artists",
-                          title: lang("artists"),
-                        },
-                        {
-                          itemType: "search",
-                          id: "albums",
-                          title: lang("albums"),
-                        },
-                        {
-                          itemType: "search",
-                          id: "tracks",
-                          title: lang("tracks"),
-                        },
-                      ],
-                    });
-                  case "artists":
-                    return musicLibrary.artists(paging).then((result) => {
-                      return getMetadataResult({
-                        mediaCollection: result.results.map((it) =>
-                          artist(urlWithToken(apiKey), it)
-                        ),
-                        index: paging._index,
-                        total: result.total,
-                      });
-                    });
-                  case "albums": {
-                    return albums({
-                      type: "alphabeticalByName",
-                      ...paging,
-                    });
-                  }
-                  case "genre":
-                    return albums({
-                      type: "byGenre",
-                      genre: typeId,
-                      ...paging,
-                    });
-                  case "year":
-                    return albums({
-                      type: "byYear",
-                      fromYear: typeId,
-                      toYear: typeId,
-                      ...paging,
-                    });
-                  case "randomAlbums":
-                    return albums({
-                      type: "random",
-                      ...paging,
-                    });
-                  case "favouriteAlbums":
-                    return albums({
-                      type: "favourited",
-                      ...paging,
-                    });
-                  case "starredAlbums":
-                    return albums({
-                      type: "starred",
-                      ...paging,
-                    });
-                  case "recentlyAdded":
-                    return albums({
-                      type: "recentlyAdded",
-                      ...paging,
-                    });
-                  case "recentlyPlayed":
-                    return albums({
-                      type: "recentlyPlayed",
-                      ...paging,
-                    });
-                  case "mostPlayed":
-                    return albums({
-                      type: "mostPlayed",
-                      ...paging,
-                    });
-                  case "internetRadio":
-                    return musicLibrary
-                      .radioStations()
-                      .then(slice2(paging))
-                      .then(([page, total]) =>
-                        getMetadataResult({
-                          mediaMetadata: page.map((it) =>
-                            internetRadioStation(it)
-                          ),
-                          index: paging._index,
-                          total,
-                        })
-                      );
-                  case "years":
-                    return musicLibrary
-                      .years()
-                      .then(slice2(paging))
-                      .then(([page, total]) =>
-                        getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            year(bonobUrl, it)
-                          ),
-                          index: paging._index,
-                          total,
-                        })
-                      );
-                  case "genres":
-                    return musicLibrary
-                      .genres()
-                      .then(slice2(paging))
-                      .then(([page, total]) =>
-                        getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            genre(bonobUrl, it)
-                          ),
-                          index: paging._index,
-                          total,
-                        })
-                      );
-                  case "playlists":
-                    return musicLibrary
-                      .playlists()
-                      .then(slice2(paging))
-                      .then(([page, total]) => {
-                        const playlists = page.map((it) =>
-                          playlist(urlWithToken(apiKey), {id:it.id, name:it.name, coverArt:it.coverArt, entries:[]})
-                        );
-                        return getMetadataResult({
-                          mediaCollection: playlists,
-                          index: paging._index,
-                          total,
-                        });
-                      });
-                  case "playlist":
-                    return musicLibrary
-                      .playlist(typeId!)
-                      .then((playlist) => playlist.entries)
-                      .then(slice2(paging))
-                      .then(([page, total]) => {
-                        const playlistTracks = page.map((it) =>
-                          track(urlWithToken(apiKey), it)
-                        );
-                        return getMetadataResult({  
-                          mediaMetadata: playlistTracks,
-                          index: paging._index,
-                          total,
-                        });
-                      });
-                  case "artist":
-                    return musicLibrary
-                      .artist(typeId!)
-                      .then((artist) => artist.albums)
-                      .then(slice2(paging))
-                      .then(([page, total]) =>
-                        getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            album(urlWithToken(apiKey), it)
-                          ),
-                          index: paging._index,
-                          total,
-                        })
-                      );
-                  case "relatedArtists":
-                    return musicLibrary
-                      .artist(typeId!)
-                      .then((artist) => artist.similarArtists)
-                      .then((similarArtists) =>
-                        similarArtists.filter((it) => it.inLibrary)
-                      )
-                      .then(slice2(paging))
-                      .then(([page, total]) => {
-                        return getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            artist(urlWithToken(apiKey), it)
-                          ),
-                          index: paging._index,
-                          total,
-                        });
-                      });
-                  case "album":
-                    return musicLibrary
-                      .tracks(typeId!)
-                      .then(slice2(paging))
-                      .then(([page, total]) => {
-                        return getMetadataResult({
-                          mediaMetadata: page.map((it) =>
-                            track(urlWithToken(apiKey), it)
-                          ),
-                          index: paging._index,
-                          total,
-                        });
-                      });
-                  case "track":
-                    return musicLibrary
-                      .track(typeId!)
-                      .then((t) => {
-                        const trackRet = [track(urlWithToken(apiKey), t)];
-                        return getMetadataResult({
-                          mediaMetadata: trackRet
-                        });
-                      });
-                      default:
-                   throw `Unsupported getMetadata id=${id}`;
-                }
-              }),
-          createContainer: async (
-            { title, seedId }: { title: string; seedId: string | undefined },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(({ musicLibrary }) =>
-                musicLibrary
-                  .createPlaylist(title)
-                  .then((playlist) => ({ playlist, musicLibrary }))
-              )
-              .then(({ musicLibrary, playlist }) => {
-                if (seedId) {
-                  musicLibrary.addToPlaylist(
-                    playlist.id,
-                    seedId.split(":")[1]!
-                  );
-                }
-                return playlist;
-              })
-              .then((it) => ({
-                createContainerResult: {
-                  id: `playlist:${it.id}`,
-                  updateId: "",
-                },
-              })),
-          deleteContainer: async (
-            { id }: { id: string },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
-              .then((_) => ({ deleteContainerResult: {} })),
-          addToContainer: async (
-            { id, parentId }: { id: string; parentId: string },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(({ musicLibrary, typeId }) =>
-                musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
-              )
-              .then((_) => ({ addToContainerResult: { updateId: "" } })),
-          removeFromContainer: async (
-            { id, indices }: { id: string; indices: string },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then((it) => ({
-                ...it,
-                indices: indices.split(",").map((it) => +it),
-              }))
-              .then(({ musicLibrary, typeId, indices }) => {
-                if (id == "playlists") {
-                  musicLibrary.playlists().then((it) => {
-                    indices.forEach((i) => {
-                      musicLibrary.deletePlaylist(it[i]?.id!);
-                    });
-                  });
-                } else {
-                  musicLibrary.removeFromPlaylist(typeId, indices);
-                }
-              })
-              .then((_) => ({ removeFromContainerResult: { updateId: "" } })),
-          rateItem: async (
-            { id, rating }: { id: string; rating: number },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(({ musicLibrary, typeId }) =>
-                musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
-              )
-              .then((_) => ({ rateItemResult: { shouldSkip: false } })),
-
-          setPlayedSeconds: async (
-            { id, seconds }: { id: string; seconds: string },
-            _,
-            soapyHeaders: SoapyHeaders,
-            { headers }: Pick<Request, "headers">
-          ) =>
-            login(soapyHeaders?.credentials, headers)
-              .then(splitId(id))
-              .then(({ musicLibrary, type, typeId }) => {
-                switch (type) {
-                  case "track":
-                    return musicLibrary.track(typeId).then(({ duration }) => {
-                      if (
-                        (duration < 30 && +seconds >= 10) ||
-                        (duration >= 30 && +seconds >= 30)
-                      ) {
-                        return musicLibrary.scrobble(typeId);
-                      } else {
-                        return Promise.resolve(true);
-                      }
-                    });
-                  default:
-                    logger.info("Unsupported scrobble", { id, seconds });
-                    return Promise.resolve(true);
-                }
-              })
-              .then((_) => ({
-                setPlayedSecondsResult: {},
-              })),
-          reportAccountAction: () => {
-            return { reportAccountActionResult: {} }
-          },
-        },
+        SonosSoap: wrappedSoapMethods
       },
     },
     readFileSync(WSDL_FILE, "utf8"),
