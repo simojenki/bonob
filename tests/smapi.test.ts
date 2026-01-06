@@ -3485,6 +3485,173 @@ describe("wsdl api", () => {
             });
           });
         });
+
+        describe("SOAP error handling", () => {
+          it("should return SOAP fault when getExtendedMetadata fails", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            // Mock musicLibrary.album to throw an error
+            musicLibrary.album.mockRejectedValue(new Error("Backend service unavailable"));
+
+            await ws
+              .getExtendedMetadataAsync({
+                id: "album:test-album-id",
+              })
+              .then(() => {
+                fail("Should not succeed");
+              })
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toBeDefined();
+                expect(e.root.Envelope.Body.Fault.faultcode).toEqual("Server.InternalError");
+                expect(e.root.Envelope.Body.Fault.faultstring).toContain("Backend service unavailable");
+              });
+          });
+
+          it("should return SOAP fault when getMetadata fails", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            // Mock musicLibrary.albums to throw an error
+            musicLibrary.albums.mockRejectedValue(new Error("Database connection failed"));
+
+            await ws
+              .getMetadataAsync({
+                id: "albums",
+                index: 0,
+                count: 100,
+              })
+              .then(() => {
+                fail("Should not succeed");
+              })
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toBeDefined();
+                expect(e.root.Envelope.Body.Fault.faultcode).toEqual("Server.InternalError");
+                expect(e.root.Envelope.Body.Fault.faultstring).toContain("Database connection failed");
+              });
+          });
+
+          it("should return SOAP fault when getMediaMetadata fails", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            // Mock musicLibrary.track to throw an error
+            musicLibrary.track.mockRejectedValue(new Error("Track not found"));
+
+            await ws
+              .getMediaMetadataAsync({
+                id: "track:nonexistent-track",
+              })
+              .then(() => {
+                fail("Should not succeed");
+              })
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toBeDefined();
+                expect(e.root.Envelope.Body.Fault.faultcode).toEqual("Server.InternalError");
+                expect(e.root.Envelope.Body.Fault.faultstring).toContain("Track not found");
+              });
+          });
+
+          it("should return SOAP fault when search fails", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            // Mock musicLibrary.searchAlbums to throw an error
+            musicLibrary.searchAlbums.mockRejectedValue(new Error("Search service timeout"));
+
+            await ws
+              .searchAsync({
+                id: "albums",
+                term: "test",
+              })
+              .then(() => {
+                fail("Should not succeed");
+              })
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toBeDefined();
+                expect(e.root.Envelope.Body.Fault.faultcode).toEqual("Server.InternalError");
+                expect(e.root.Envelope.Body.Fault.faultstring).toContain("Search service timeout");
+              });
+          });
+
+          it("should return SOAP fault when rateItem fails", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            // Mock musicLibrary.rate to throw an error
+            musicLibrary.rate.mockRejectedValue(new Error("Rating service unavailable"));
+
+            await ws
+              .rateItemAsync({
+                id: "track:test-track",
+                rating: 150,
+              })
+              .then(() => {
+                fail("Should not succeed");
+              })
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toBeDefined();
+                expect(e.root.Envelope.Body.Fault.faultcode).toEqual("Server.InternalError");
+                expect(e.root.Envelope.Body.Fault.faultstring).toContain("Rating service unavailable");
+              });
+          });
+
+          it("should return SOAP fault when createContainer fails", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            // Mock musicLibrary.createPlaylist to throw an error
+            musicLibrary.createPlaylist.mockRejectedValue(new Error("Insufficient permissions"));
+
+            await ws
+              .createContainerAsync({
+                title: "Test Playlist",
+              })
+              .then(() => {
+                fail("Should not succeed");
+              })
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toBeDefined();
+                expect(e.root.Envelope.Body.Fault.faultcode).toEqual("Server.InternalError");
+                expect(e.root.Envelope.Body.Fault.faultstring).toContain("Insufficient permissions");
+              });
+          });
+
+          it("should return SOAP fault when deleteContainer fails", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+
+            // Mock musicLibrary.deletePlaylist to throw an error
+            musicLibrary.deletePlaylist.mockRejectedValue(new Error("Playlist is read-only"));
+
+            await ws
+              .deleteContainerAsync({
+                id: "test-playlist-id",
+              })
+              .then(() => {
+                fail("Should not succeed");
+              })
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toBeDefined();
+                expect(e.root.Envelope.Body.Fault.faultcode).toEqual("Server.InternalError");
+                expect(e.root.Envelope.Body.Fault.faultstring).toContain("Playlist is read-only");
+              });
+          });
+        });
       });
     });
   });
