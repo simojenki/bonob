@@ -263,12 +263,16 @@ export const shouldScrobble = (track: Track, playbackTime: number) => (
   (track.duration < 30 && playbackTime >= 10) ||
   (track.duration >= 30 && playbackTime >= 30))
 
-const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
-  itemType: "playlist",
+type PlaylistLike = Pick<Playlist, "id" | "name" | "coverArt">;
+
+const playlist = (bonobUrl: URLBuilder, playlist: PlaylistLike) => ({
+//const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
+  itemType: "container",
   id: `playlist:${playlist.id}`,
   title: playlist.name,
   albumArtURI: coverArtURI(bonobUrl, playlist).href(),
   canPlay: true,
+  canEnumerate: true,
   attributes: {
     readOnly: false,
     userContent: false,
@@ -673,6 +677,47 @@ function bindSmapiSoapServiceToExpress(
                         // </getExtendedMetadataResult>
                       },
                     }));
+                  case "playlists":
+                    return musicLibrary
+                      .playlists()
+                      .then((it) =>
+                        Promise.all(
+                          it.map((playlist) => {
+                            // todo: whats this odd copy all about, can we just delete it?
+                            return {
+                              id: playlist.id,
+                              name: playlist.name,
+                              coverArt: playlist.coverArt,
+                              // todo: are these every important?
+                              entries: [],
+                            };
+                          })
+                        )
+                      )
+                      .then(slice2(paging))
+                      .then(([page, total]) => {
+                        return getMetadataResult({
+                          mediaCollection: page.map((it) =>
+                            playlist(urlWithToken(apiKey), it)
+                          ),
+                          index: paging._index,
+                          total,
+                        });
+                      });
+                  case "playlist":
+                    return musicLibrary
+                      .playlist(typeId!)
+                      .then((playlist) => playlist.entries)
+                      .then(slice2(paging))
+                      .then(([page, total]) => {
+                        return getMetadataResult({
+                          mediaMetadata: page.map((it) =>
+                            track(urlWithToken(apiKey), it)
+                          ),
+                          index: paging._index,
+                          total,
+                        });
+                      });
                   default:
                     // unsupported "artists"
                     throw `Unsupported getExtendedMetadata id=${id}`;
@@ -748,7 +793,8 @@ function bindSmapiSoapServiceToExpress(
                           id: "playlists",
                           title: lang("playlists"),
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "playlist",
+                          itemType: "container",
+                          canEnumerate: true,
                           attributes: {
                             readOnly: false,
                             userContent: true,
