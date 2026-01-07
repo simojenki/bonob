@@ -1173,12 +1173,13 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Playlists",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
                       attributes: {
                         readOnly: "false",
                         renameable: "false",
                         userContent: "true",
                       },
+                      canEnumerate: true,
                     },
                     {
                       id: "genres",
@@ -1273,12 +1274,13 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Afspeellijsten",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
                       attributes: {
                         readOnly: "false",
                         renameable: "false",
                         userContent: "true",
                       },
+                      canEnumerate: true,
                     },
                     {
                       id: "genres",
@@ -1502,7 +1504,8 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaCollection: playlists.map((playlist) => ({
-                        itemType: "playlist",
+                        itemType: "container",
+                        canEnumerate: true,
                         id: `playlist:${playlist.id}`,
                         title: playlist.name,
                         albumArtURI: coverArtURI(
@@ -1534,7 +1537,8 @@ describe("wsdl api", () => {
                     getMetadataResult({
                       mediaCollection: [playlists[1]!, playlists[2]!].map(
                         (playlist) => ({
-                          itemType: "playlist",
+                          itemType: "container",
+                          canEnumerate: true,
                           id: `playlist:${playlist.id}`,
                           title: playlist.name,
                           albumArtURI: coverArtURI(
