@@ -1504,7 +1504,7 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaCollection: playlists.map((playlist) => ({
-                        itemType: "container",
+                        itemType: "playlist",
                         canEnumerate: true,
                         id: `playlist:${playlist.id}`,
                         title: playlist.name,
@@ -1537,7 +1537,7 @@ describe("wsdl api", () => {
                     getMetadataResult({
                       mediaCollection: [playlists[1]!, playlists[2]!].map(
                         (playlist) => ({
-                          itemType: "container",
+                          itemType: "playlist",
                           canEnumerate: true,
                           id: `playlist:${playlist.id}`,
                           title: playlist.name,
