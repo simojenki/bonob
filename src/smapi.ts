@@ -266,8 +266,9 @@ export const shouldScrobble = (track: Track, playbackTime: number) => (
 type PlaylistLike = Pick<Playlist, "id" | "name" | "coverArt">;
 
 const playlist = (bonobUrl: URLBuilder, playlist: PlaylistLike) => ({
-//const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
-  itemType: "container",
+  // Sonos Controller exposes Play Now / Play Next / etc. for items with itemType="playlist".
+  // Using "container" here makes the playlist browsable, but hides the playback actions.
+  itemType: "playlist",
   id: `playlist:${playlist.id}`,
   title: playlist.name,
   albumArtURI: coverArtURI(bonobUrl, playlist).href(),
