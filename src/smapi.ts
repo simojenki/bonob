@@ -721,7 +721,15 @@ function bindSmapiSoapServiceToExpress(
                       });
                   default:
                     // unsupported "artists"
-                    throw `Unsupported getExtendedMetadata id=${id}`;
+                    //throw `Unsupported getExtendedMetadata id=${id}`; //old code
+					  // Sonos may call getExtendedMetadata on top-level containers
+                      // (artists, albums, playlists, etc).
+                      // Returning an empty-but-valid result prevents browse/search errors.
+                      return getMetadataResult({
+                        mediaCollection: [],
+                        index: 0,
+                        total: 0,
+                      });
                 }
               }),
           getMetadata: async (
