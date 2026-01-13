@@ -554,19 +554,47 @@ function bindSmapiSoapServiceToExpress(
         const result = await handler(...args);
         return result;
       } catch (error) {
+        // If it's already a SOAP Fault, re-throw it as-is
+        if (error && typeof error === 'object' && 'Fault' in error) {
+          throw error;
+        }
+
         // Extract first argument (usually contains request parameters)
         const params = args[0] || {};
 
+        // Convert error to a readable string
+        let errorMessage: string;
+        let errorDetails: any;
+
+        if (error instanceof Error) {
+          errorMessage = error.message;
+          errorDetails = { message: error.message, stack: error.stack };
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+          errorDetails = error;
+        } else if (error && typeof error === 'object') {
+          // Try to stringify the object for better error messages
+          try {
+            errorMessage = JSON.stringify(error);
+            errorDetails = error;
+          } catch {
+            errorMessage = String(error);
+            errorDetails = String(error);
+          }
+        } else {
+          errorMessage = String(error);
+          errorDetails = String(error);
+        }
+
         logger.error(`${methodName} failed`, {
           params,
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined
+          error: errorDetails
         });
 
         throw {
           Fault: {
             faultcode: "Server.InternalError",
-            faultstring: error instanceof Error ? error.message : String(error),
+            faultstring: errorMessage,
           },
         };
       }
