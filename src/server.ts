@@ -142,7 +142,32 @@ function server(
 
   const startUpTime = dayjs();
 
-  const app = express();
+  
+/**
+ * Guard against invalid header values (e.g. undefined, non-strings, or values containing CR/LF/control chars)
+ * which can trigger Node's ERR_HTTP_INVALID_HEADER_VALUE.
+ */
+function isSafeHeaderValue(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  if (value.length === 0) return false;
+  // Disallow any CTLs including CR/LF and DEL
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if (c <= 31 || c === 127) return false;
+  }
+  return true;
+}
+
+/** Conservative MIME type validation for Content-Type header. */
+function coerceSafeContentType(value: unknown, fallback = "image/jpeg"): string {
+  if (!isSafeHeaderValue(value)) return fallback;
+  const v = value.trim();
+  // Basic type/subtype token check (RFC 6838-ish). Allow +.-_ chars.
+  if (!/^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/.test(v)) return fallback;
+  return v;
+}
+
+const app = express();
   const i8n = makeI8N(service.name);
 
   if (serverOpts.logRequests) {
@@ -654,7 +679,7 @@ function server(
       .then((coverArt) => {
         if(coverArt) {
           res.status(200);
-          res.setHeader("content-type", coverArt.contentType);
+          res.setHeader("content-type", coerceSafeContentType(coverArt.contentType, "image/jpeg"));
           return res.send(coverArt.data);
         } else {
           return res.status(404).send();
