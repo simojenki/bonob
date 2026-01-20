@@ -32,3 +32,9 @@ export function xmlTidy(xml: string | Node) {
   return xmlToString(doc as any);
 }
 
+const MIME_TYPE_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_.+-]{0,126}\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_.+-]{0,126}$/;
+
+export function isValidMimeType(value: string): boolean {
+  return MIME_TYPE_REGEX.test(value);
+}
+

@@ -1,4 +1,4 @@
-import { takeWithRepeats } from "../src/utils";
+import { isValidMimeType, takeWithRepeats } from "../src/utils";
 
 describe("takeWithRepeat", () => {
   describe("when there is nothing in the input", () => {
@@ -31,5 +31,19 @@ describe("takeWithRepeat", () => {
       expect(takeWithRepeats(["a", "b", "c"], 2)).toEqual(["a", "b"]);
       expect(takeWithRepeats(["a", undefined, "c"], 2)).toEqual(["a", undefined]);
     });
+  });
+});
+
+describe("isValidMimeType", () => {
+  [
+    ["application/json", true],
+    ["image/jpeg", true],
+    ["text/html", true],
+    ["application/vnd.api+json", true],
+    ["json", false],
+    ["application", false],
+    ["blahblah", false]
+  ].forEach((spec) => {
+    expect(isValidMimeType(spec[0] as string)).toEqual(spec[1])
   });
 });

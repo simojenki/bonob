@@ -42,6 +42,7 @@ import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
 } from "./smapi_auth";
+import { isValidMimeType } from "./utils";
 
 export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
@@ -652,12 +653,15 @@ function server(
         }
       })
       .then((coverArt) => {
-        if(coverArt) {
+        if(coverArt == undefined) {
+          return res.status(404).send();
+        } else if(isValidMimeType(coverArt.contentType)) {
           res.status(200);
           res.setHeader("content-type", coverArt.contentType);
           return res.send(coverArt.data);
         } else {
-          return res.status(404).send();
+          logger.warn(`Invalid content type of ${coverArt.contentType}, detected for ${urn}`);
+          return res.status(502).send();
         }
     })
       .catch((e: Error) => {

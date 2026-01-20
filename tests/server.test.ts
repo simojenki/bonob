@@ -1257,8 +1257,8 @@ describe("server", () => {
             });
 
             describe("fetching a single image", () => {
-              describe("when the images is available", () => {
-                it("should return the image and a 200", async () => {
+              describe("when the images is available and has a valid content type", () => {
+                it("should return the image with correct content type", async () => {
                   const coverArtURN = { system: "subsonic", resource: "art:200" };
 
                   const coverArt = coverArtResponse({});
@@ -1283,6 +1283,28 @@ describe("server", () => {
                     coverArtURN,
                     180
                   );
+                });
+              });
+
+              describe("when the images is available however it has an invalid content type", () => {
+                it("should return a 502", async () => {
+                  const coverArtURN = { system: "subsonic", resource: "art:200" };
+
+                  const coverArt = coverArtResponse({
+                    contentType: "not-valid"
+                  });
+
+                  musicService.login.mockResolvedValue(musicLibrary);
+
+                  musicLibrary.coverArt.mockResolvedValue(coverArt);
+
+                  const res = await request(server)
+                    .get(
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
+                    )
+                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
+
+                  expect(res.status).toEqual(502);
                 });
               });
 
