@@ -10,18 +10,17 @@ import logger from "./logger";
 
 import { LinkCodes } from "./link_codes";
 import {
-  Album,
   AlbumQuery,
   AlbumSummary,
   ArtistSummary,
   Genre,
   Year,
   MusicService,
-  Playlist,
   RadioStation,
   Rating,
   slice2,
   Track,
+  PlaylistSummary,
 } from "./music_service";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
@@ -244,6 +243,16 @@ export type Container = {
   displayType: string | undefined;
 };
 
+// const collection = () => ({
+//   itemType: "collection",
+//   canScroll: false,
+//   canPlay: false,
+//   canEnumerate: true,
+//   canAddToFavorites: true,
+//   containsFavorite: false,
+//   canSkip: true, 
+// })
+
 const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
   itemType: "albumList",
   id: `genre:${genre.id}`,
@@ -263,17 +272,25 @@ export const shouldScrobble = (track: Track, playbackTime: number) => (
   (track.duration < 30 && playbackTime >= 10) ||
   (track.duration >= 30 && playbackTime >= 30))
 
-const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
+// canPlay: true,
+// canEnumerate: true,
+// canResume: false,
+// attributes: {
+//   readOnly: false,
+//   userContent: true,
+//   renameable: true,
+// },
+
+
+const playlist = (bonobUrl: URLBuilder, playlist: PlaylistSummary) => ({
   itemType: "playlist",
   id: `playlist:${playlist.id}`,
   title: playlist.name,
   albumArtURI: coverArtURI(bonobUrl, playlist).href(),
   canPlay: true,
   attributes: {
-    readOnly: false,
-    userContent: false,
-    renameable: false,
-  },
+    userContent: true,
+  },  
 });
 
 export const coverArtURI = (
@@ -539,11 +556,12 @@ function bindSmapiSoapServiceToExpress(
                       ],
                     };
                   default:
-                    // todo: maybe not throw this?
-                    throw `Unsupported type:${type}`;
+                    logger.info(`Sonos asked for an unsupported getMediaURI: ${type}:${typeId}`);
+                    return {
+                      getMediaURIResult: iconArtURI(bonobUrl, "error", "?").href(),
+                    }
                   }
-              })
-          ,
+              }),
           getMediaMetadata: async (
             { id }: { id: string },
             _,
@@ -562,8 +580,10 @@ function bindSmapiSoapServiceToExpress(
                       getMediaMetadataResult: track(urlWithToken(apiKey), it),
                     }));
                   default:
-                    //todo: maybe not throw this?
-                    throw `Unsupported type:${type}`;
+                    logger.info(`Sonos asked for an unsupported getMediaMetadata: ${type}:${typeId}`);
+                    return {
+                      getMediaMetadataResult: {}
+                    }
                 }
               }),
           search: async (
@@ -603,59 +623,48 @@ function bindSmapiSoapServiceToExpress(
                       })
                     );
                   default:
-                    throw `Unsupported search by:${id}`;
+                    logger.info(`Sonos asked for an unsupported search of: ${id}, term=${term}`);
+                    return searchResult({
+                      count: 0,
+                      mediaCollection: [],
+                    })
                 }
               }),
           getExtendedMetadata: async (
-            {
-              id,
-              index,
-              count,
-            }: // recursive,
-            { id: string; index: number; count: number; recursive: boolean },
+            { id }: { id: string },
             _,
             soapyHeaders: SoapyHeaders
           ) =>
             login(soapyHeaders?.credentials)
               .then(withSplitId(id))
               .then(async ({ musicLibrary, apiKey, type, typeId }) => {
-                const paging = { _index: index, _count: count };
                 switch (type) {
                   case "artist":
-                    return musicLibrary.artist(typeId).then((artist) => {
-                      const [page, total] = slice2<Album>(paging)(
-                        artist.albums
-                      );
-                      return {
+                    return musicLibrary
+                      .artist(typeId)
+                      .then((it) => ({
                         getExtendedMetadataResult: {
-                          count: page.length,
-                          index: paging._index,
-                          total,
-                          mediaCollection: page.map((it) =>
-                            album(urlWithToken(apiKey), it)
-                          ),
-                          relatedBrowse:
-                            artist.similarArtists.filter((it) => it.inLibrary)
-                              .length > 0
-                              ? [
-                                  {
-                                    id: `relatedArtists:${artist.id}`,
-                                    type: "RELATED_ARTISTS",
-                                  },
-                                ]
-                              : [],
+                          mediaCollection: artist(urlWithToken(apiKey), it),
+                          relatedBrowse: it
+                            .similarArtists
+                            .filter((it) => it.inLibrary)
+                            .length > 0 
+                            ? ([{ id: `relatedArtists:${it.id}`, type: "RELATED_ARTISTS" }]) 
+                            : []
                         },
-                      };
-                    });
+                      }));
                   case "track":
-                    return musicLibrary.track(typeId).then((it) => ({
-                      getExtendedMetadataResult: {
-                        mediaMetadata: track(urlWithToken(apiKey), it),
-                      },
-                    }));
+                    return musicLibrary
+                      .track(typeId)
+                      .then((it) => ({
+                        getExtendedMetadataResult: {
+                          mediaMetadata: track(urlWithToken(apiKey), it),
+                        },
+                      }));
                   case "album":
                     return musicLibrary.album(typeId).then((it) => ({
                       getExtendedMetadataResult: {
+                        // todo: can these go in the album function?  Also used in search....
                         mediaCollection: {
                           attributes: {
                             readOnly: true,
@@ -664,18 +673,21 @@ function bindSmapiSoapServiceToExpress(
                           },
                           ...album(urlWithToken(apiKey), it),
                         },
-                        // <mediaCollection readonly="true">
-                        //   </mediaCollection>
-                        //   <relatedText>
-                        //     <id>AL:123456</id>
-                        //     <type>ALBUM_NOTES</type>
-                        //   </relatedText>
-                        // </getExtendedMetadataResult>
                       },
                     }));
+                  case "playlist":
+                    return musicLibrary
+                      .playlist(typeId!)
+                      .then(it => ({
+                        getExtendedMetadataResult: {
+                          mediaCollection: playlist(urlWithToken(apiKey), it),
+                        },
+                      }));                    
                   default:
-                    // unsupported "artists"
-                    throw `Unsupported getExtendedMetadata id=${id}`;
+                    logger.info(`Sonos requested extended meta data for currently unsupported type=${type}, typeId=${typeId}`)
+                    return {
+                      getExtendedMetadataResult: {}                      
+                    };
                 }
               }),
           getMetadata: async (
@@ -748,11 +760,9 @@ function bindSmapiSoapServiceToExpress(
                           id: "playlists",
                           title: lang("playlists"),
                           albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                          itemType: "playlist",
+                          itemType: "collection",
                           attributes: {
-                            readOnly: false,
                             userContent: true,
-                            renameable: false,
                           },
                         },
                         {
@@ -913,9 +923,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(slice2(paging))
                       .then(([page, total]) =>
                         getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            genre(bonobUrl, it)
-                          ),
+                          mediaCollection: page.map((it) => genre(bonobUrl, it)),
                           index: paging._index,
                           total,
                         })
@@ -923,26 +931,10 @@ function bindSmapiSoapServiceToExpress(
                   case "playlists":
                     return musicLibrary
                       .playlists()
-                      .then((it) =>
-                        Promise.all(
-                          it.map((playlist) => {
-                            // todo: whats this odd copy all about, can we just delete it?
-                            return {
-                              id: playlist.id,
-                              name: playlist.name,
-                              coverArt: playlist.coverArt,
-                              // todo: are these every important?
-                              entries: [],
-                            };
-                          })
-                        )
-                      )
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            playlist(urlWithToken(apiKey), it)
-                          ),
+                          mediaCollection: page.map((it) => playlist(urlWithToken(apiKey), it)),
                           index: paging._index,
                           total,
                         });
@@ -978,10 +970,7 @@ function bindSmapiSoapServiceToExpress(
                   case "relatedArtists":
                     return musicLibrary
                       .artist(typeId!)
-                      .then((artist) => artist.similarArtists)
-                      .then((similarArtists) =>
-                        similarArtists.filter((it) => it.inLibrary)
-                      )
+                      .then((artist) => artist.similarArtists.filter((it) => it.inLibrary))
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({
@@ -1006,7 +995,12 @@ function bindSmapiSoapServiceToExpress(
                         });
                       });
                   default:
-                    throw `Unsupported getMetadata id=${id}`;
+                    logger.info(`Sonos asked for an unsupported getMetadata: ${type}:${typeId}`);
+                    return getMetadataResult({
+                      mediaMetadata: [],
+                      index: paging._index,
+                      total: 0,
+                    });
                 }
               }),
           createContainer: async (

@@ -1007,6 +1007,24 @@ describe("wsdl api", () => {
                 expect(musicLibrary.searchTracks).toHaveBeenCalledWith(term);
               });
             });
+
+            describe("searching for an unsupported type", () => {
+              it("should return the tracks", async () => {
+                const term = "whoopie";
+
+                const result = await ws.searchAsync({
+                  id: "foobar",
+                  term,
+                });
+                expect(result[0]).toEqual(
+                  searchResult({
+                    count: 0,
+                    index: 0,
+                    total: 0,
+                  })
+                );
+              });
+            });
           });
         });
 
@@ -1173,10 +1191,8 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Playlists",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "collection",
                       attributes: {
-                        readOnly: "false",
-                        renameable: "false",
                         userContent: "true",
                       },
                     },
@@ -1273,10 +1289,8 @@ describe("wsdl api", () => {
                       id: "playlists",
                       title: "Afspeellijsten",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "collection",
                       attributes: {
-                        readOnly: "false",
-                        renameable: "false",
                         userContent: "true",
                       },
                     },
@@ -1331,14 +1345,31 @@ describe("wsdl api", () => {
               });
             });
 
+            describe("asking for a type that doesnt exist", () => {
+              it("should return an empty result", async () => {
+                const foobar= await ws.getMetadataAsync({
+                  id: "foobar",
+                  index: 0,
+                  count: 100,
+                });
+                expect(foobar[0]).toEqual(
+                  getMetadataResult({
+                    count: 0,
+                    index: 0,
+                    total: 0,
+                  })
+                );
+              });
+            });
+
             describe("asking for the search container", () => {
               it("should return it", async () => {
-                const root = await ws.getMetadataAsync({
+                const search = await ws.getMetadataAsync({
                   id: "search",
                   index: 0,
                   count: 100,
                 });
-                expect(root[0]).toEqual(
+                expect(search[0]).toEqual(
                   getMetadataResult({
                     mediaCollection: [
                       { itemType: "search", id: "artists", title: "Artists" },
@@ -1511,9 +1542,7 @@ describe("wsdl api", () => {
                         ).href(),
                         canPlay: true,
                         attributes: {
-                          readOnly: "false",
-                          userContent: "false",
-                          renameable: "false",
+                          userContent: "true",
                         },
                       })),
                       index: 0,
@@ -1543,9 +1572,7 @@ describe("wsdl api", () => {
                           ).href(),
                           canPlay: true,
                           attributes: {
-                            readOnly: "false",
-                            userContent: "false",
-                            renameable: "false",
+                            userContent: "true",
                           },
                         })
                       ),
@@ -2582,7 +2609,7 @@ describe("wsdl api", () => {
 
         describe("getExtendedMetadata", () => {
           itShouldHandleInvalidCredentials((ws) =>
-            ws.getExtendedMetadataAsync({ id: "root", index: 0, count: 0 })
+            ws.getExtendedMetadataAsync({ id: "root" })
           );
 
           describe("when valid credentials are provided", () => {
@@ -2597,71 +2624,6 @@ describe("wsdl api", () => {
             });
 
             describe("asking for an artist", () => {
-              describe("when it has some albums", () => {
-                const album1 = anAlbum();
-                const album2 = anAlbum();
-                const album3 = anAlbum();
-
-                const artist = anArtist({
-                  similarArtists: [],
-                  albums: [album1, album2, album3],
-                });
-
-                beforeEach(() => {
-                  musicLibrary.artist.mockResolvedValue(artist);
-                });
-
-                describe("when all albums fit on a page", () => {
-                  it("should return the albums", async () => {
-                    const paging = {
-                      index: 0,
-                      count: 100,
-                    };
-
-                    const root = await ws.getExtendedMetadataAsync({
-                      id: `artist:${artist.id}`,
-                      ...paging,
-                    });
-
-                    expect(root[0]).toEqual({
-                      getExtendedMetadataResult: {
-                        count: "3",
-                        index: "0",
-                        total: "3",
-                        mediaCollection: artist.albums.map((it) =>
-                          album(bonobUrlWithAccessToken, it)
-                        ),
-                      },
-                    });
-                  });
-                });
-
-                describe("getting a page of albums", () => {
-                  it("should return only that page", async () => {
-                    const paging = {
-                      index: 1,
-                      count: 2,
-                    };
-
-                    const root = await ws.getExtendedMetadataAsync({
-                      id: `artist:${artist.id}`,
-                      ...paging,
-                    });
-
-                    expect(root[0]).toEqual({
-                      getExtendedMetadataResult: {
-                        count: "2",
-                        index: "1",
-                        total: "3",
-                        mediaCollection: [album2, album3].map((it) =>
-                          album(bonobUrlWithAccessToken, it)
-                        ),
-                      },
-                    });
-                  });
-                });
-              });
-
               describe("when it has similar artists, some in the library and some not", () => {
                 const similar1 = anArtist();
                 const similar2 = anArtist();
@@ -2674,8 +2636,7 @@ describe("wsdl api", () => {
                     { ...similar2, inLibrary: false },
                     { ...similar3, inLibrary: false },
                     { ...similar4, inLibrary: true },
-                  ],
-                  albums: [],
+                  ]
                 });
 
                 beforeEach(() => {
@@ -2683,28 +2644,23 @@ describe("wsdl api", () => {
                 });
 
                 it("should return a RELATED_ARTISTS browse option", async () => {
-                  const paging = {
-                    index: 0,
-                    count: 100,
-                  };
-
                   const root = await ws.getExtendedMetadataAsync({
-                    id: `artist:${artist.id}`,
-                    ...paging,
+                    id: `artist:${artist.id}`
                   });
 
                   expect(root[0]).toEqual({
                     getExtendedMetadataResult: {
-                      // artist has no albums
-                      count: "0",
-                      index: "0",
-                      total: "0",
-                      relatedBrowse: [
-                        {
-                          id: `relatedArtists:${artist.id}`,
-                          type: "RELATED_ARTISTS",
-                        },
-                      ],
+                      mediaCollection: {
+                        itemType: "artist",
+                        id: `artist:${artist.id}`,
+                        artistId: artist.id,
+                        title: artist.name,
+                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                      },
+                      relatedBrowse: [{
+                        id: `relatedArtists:${artist.id}`,
+                        type: "RELATED_ARTISTS",
+                      }],
                     },
                   });
                 });
@@ -2722,16 +2678,17 @@ describe("wsdl api", () => {
 
                 it("should not return a RELATED_ARTISTS browse option", async () => {
                   const root = await ws.getExtendedMetadataAsync({
-                    id: `artist:${artist.id}`,
-                    index: 0,
-                    count: 100,
+                    id: `artist:${artist.id}`
                   });
                   expect(root[0]).toEqual({
                     getExtendedMetadataResult: {
-                      // artist has no albums
-                      count: "0",
-                      index: "0",
-                      total: "0",
+                      mediaCollection: {
+                        itemType: "artist",
+                        id: `artist:${artist.id}`,
+                        artistId: artist.id,
+                        title: artist.name,
+                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                      }
                     },
                   });
                 });
@@ -2754,16 +2711,17 @@ describe("wsdl api", () => {
 
                 it("should not return a RELATED_ARTISTS browse option", async () => {
                   const root = await ws.getExtendedMetadataAsync({
-                    id: `artist:${artist.id}`,
-                    index: 0,
-                    count: 100,
+                    id: `artist:${artist.id}`
                   });
                   expect(root[0]).toEqual({
                     getExtendedMetadataResult: {
-                      // artist has no albums
-                      count: "0",
-                      index: "0",
-                      total: "0",
+                      mediaCollection: {
+                        itemType: "artist",
+                        id: `artist:${artist.id}`,
+                        artistId: artist.id,
+                        title: artist.name,
+                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                      }
                     },
                   });
                 });
@@ -2902,6 +2860,18 @@ describe("wsdl api", () => {
                 expect(musicLibrary.album).toHaveBeenCalledWith(album.id);
               });
             });
+
+            describe("asking for something that doesnt exist", () => {
+              it("should return an empty result rather than throwing an error", async () => {
+                const root = await ws.getExtendedMetadataAsync({
+                  id: `foobar:1000`,
+                });
+
+                expect(root[0]).toEqual({
+                  getExtendedMetadataResult: null
+                });
+              });
+            });
           });
         });
 
@@ -2965,6 +2935,20 @@ describe("wsdl api", () => {
 
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.radioStation).toHaveBeenCalledWith(someStation.id);
+              });
+            });  
+            
+            describe("asking for a URI for an unsupported type", () => {
+              it("should return an error icon", async () => {
+                const root = await ws.getMediaURIAsync({
+                  id: `foobar:1000`,
+                });
+
+                expect(root[0]).toEqual({
+                  getMediaURIResult: iconArtURI(bonobUrl, "error", "?").href()
+                });
+
+                expect(musicService.login).toHaveBeenCalledWith(serviceToken);
               });
             });            
           });
@@ -3032,7 +3016,19 @@ describe("wsdl api", () => {
                 expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.radioStation).toHaveBeenCalledWith(someStation.id);
               });
-          });
+            });
+
+            describe("asking for media metadata for an unsupported type", () => {
+              it("should return it with auth header", async () => {
+                const root = await ws.getMediaMetadataAsync({
+                  id: `foobar:1000`,
+                });
+
+                expect(root[0]).toEqual({
+                  getMediaMetadataResult: null,
+                });
+              });
+            });
           });
         });
 
