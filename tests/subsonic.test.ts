@@ -1,11 +1,10 @@
-
+import { option as O, either as E } from "fp-ts";
 import { v4 as uuid } from "uuid";
 import { Md5 } from "ts-md5";
 import tmp from "tmp";
 import fse from "fs-extra";
 import path from "path";
 import { pipe } from "fp-ts/lib/function";
-import { option as O } from "fp-ts";
 
 import sharp from "sharp";
 jest.mock("sharp");
@@ -30,14 +29,15 @@ import {
   CustomPlayers,
   NO_CUSTOM_PLAYERS,
   Subsonic,
-  asGenre
+  asGenre,
+  PingResponse
 } from "../src/subsonic";
 
 import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_music_library.test";
 
 import { b64Encode } from "../src/b64";
 
-import { Album, Artist, Track, AlbumSummary } from "../src/music_library";
+import { Album, Artist, Track, AlbumSummary, AuthFailure } from "../src/music_library";
 import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP } from "./builders";
 import { BUrn } from "../src/burn";
 
@@ -254,6 +254,16 @@ export type ArtistWithAlbum = {
   artist: Artist;
   album: Album;
 };
+
+const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
+  "subsonic-response": {
+    status: "ok",
+    version: "1.16.1",
+    type: "subsonic",
+    serverVersion: "0.45.1 (c55e6590)",
+    ...pingResponse,
+  },
+});
 
 describe("artistImageURN", () => {
   describe("when artist URL is", () => {
@@ -701,6 +711,40 @@ describe("Subsonic", () => {
     mockRandomstring.mockReturnValue(salt);
   });
 
+  describe("ping", () => {
+    describe("when authenticates and status is ok", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(pingJson({ 
+            status: "ok",
+            type: "subsonic-that-works"
+          })))
+        );
+      });
+
+      it("should return authenticated", async () => {
+        const result = await subsonic.ping(credentials)();
+        expect(result).toEqual(E.right({ authenticated: true, type: "subsonic-that-works" }));
+      });
+    });
+
+    describe("when authenticates however status is not ok", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(pingJson({ 
+            status: "i am not ok",
+            type: "subsonic-that-doesnt-works"
+          })))
+        );
+      });
+
+      it("should return an error", async () => {
+        const result = await subsonic.ping(credentials)();
+        expect(result).toEqual(E.left(new AuthFailure("Not authenticated, status not 'ok'")));
+      });
+    });
+  });  
+
   describe("getting artists", () => {
     describe("when there are indexes, but no artists", () => {
       beforeEach(() => {
@@ -791,7 +835,6 @@ describe("Subsonic", () => {
       });
     });
   });
-
 
    describe("getArtist", () => {
       describe("when the artist exists", () => {

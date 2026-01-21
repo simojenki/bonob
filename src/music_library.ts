@@ -3,6 +3,7 @@ import { taskEither as TE } from "fp-ts";
 
 export type Credentials = { username: string; password: string };
 
+// todo: these are using in subsonic, maybe they should go in there?
 export type AuthSuccess = {
   serviceToken: string;
   userId: string;

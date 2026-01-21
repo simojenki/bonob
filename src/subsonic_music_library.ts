@@ -28,7 +28,6 @@ import {
 } from "./subsonic";
 import _ from "underscore";
 
-import axios from "axios";
 import logger from "./logger";
 import { assertSystem, BUrn } from "./burn";
 
@@ -49,16 +48,8 @@ export class SubsonicMusicService implements MusicService {
   ): TE.TaskEither<AuthFailure, AuthSuccess> => 
     pipe(
       this.subsonic.ping(credentials),
-      TE.flatMap(({ type }) => TE.tryCatch(
-        () => this.libraryFor({ ...credentials, type }).then(library => ({ type, library })),
-        () => new AuthFailure("Failed to get library")
-      )),
-      TE.flatMap(({ library, type }) => pipe(
-        library.bearerToken(credentials),
-        TE.map(bearer => ({ bearer, type }))
-      )),
-      TE.map(({ bearer, type}) => ({
-        serviceToken: asToken({ ...credentials, bearer, type }),
+      TE.map(() => ({
+        serviceToken: asToken(credentials),
         userId: credentials.username,
         nickname: credentials.username,
       }))
@@ -70,37 +61,13 @@ export class SubsonicMusicService implements MusicService {
   login = async (token: string) => this.libraryFor(parseToken(token));
 
   private libraryFor = (
-    credentials: Credentials & { type: string }
+    credentials: Credentials
   ): Promise<SubsonicMusicLibrary> => {
-    const genericSubsonic = new SubsonicMusicLibrary(
+    return Promise.resolve(new SubsonicMusicLibrary(
       this.subsonic,
       credentials,
       this.customPlayers
-    );
-    // return Promise.resolve(genericSubsonic);
-
-    if (credentials.type == "navidrome") {
-      // todo: there does not seem to be a test for this??
-      const nd: SubsonicMusicLibrary = {
-        ...genericSubsonic,
-        flavour: () => "navidrome",
-        bearerToken: (credentials: Credentials) =>
-          pipe(
-            TE.tryCatch(
-              () =>
-                axios.post(
-                  this.subsonic.url.append({ pathname: "/auth/login" }).href(),
-                  _.pick(credentials, "username", "password")
-                ),
-              () => new AuthFailure("Failed to get bearerToken")
-            ),
-            TE.map((it) => it.data.token as string | undefined)
-          ),
-      };
-      return Promise.resolve(nd);
-    } else {
-      return Promise.resolve(genericSubsonic);
-    }
+    ));
   };
 }
 
@@ -118,11 +85,6 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     this.credentials = credentials;
     this.customPlayers = customPlayers;
   }
-
-  flavour = () => "subsonic";
-
-  bearerToken = (_: Credentials) =>
-    TE.right<AuthFailure, string | undefined>(undefined);
 
   // todo: q needs to support greater than the max page size supported by subsonic
   // maybe subsonic should error?

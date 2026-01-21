@@ -477,15 +477,10 @@ const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
 const artistIsInLibrary = (artistId: string | undefined) =>
   artistId != undefined && artistId != "-1";
 
-type SubsonicCredentials = Credentials & {
-  type: string;
-  bearer: string | undefined;
-};
-
-export const asToken = (credentials: SubsonicCredentials) =>
+export const asToken = (credentials: Credentials) =>
   b64Encode(JSON.stringify(credentials));
 
-export const parseToken = (token: string): SubsonicCredentials =>
+export const parseToken = (token: string): Credentials =>
   JSON.parse(b64Decode(token));
 
 export class Subsonic {
@@ -548,15 +543,17 @@ export class Subsonic {
       });
 
   ping = (credentials: Credentials): TE.TaskEither<AuthFailure, { authenticated: Boolean, type: string}> => 
-    TE.tryCatch(
-      () => this.getJSON<PingResponse>(credentials, "/rest/ping.view")
-      .then(it => ({
-        authenticated: it.status == "ok",
-        type: it.type
-      })),
-      (e) => new AuthFailure(e as string)
-    )
-    
+    pipe(
+      TE.tryCatch(
+        () => this.getJSON<PingResponse>(credentials, "/rest/ping.view"),
+        (e) => new AuthFailure(String(e))
+      ),
+      TE.chain(it =>
+        it.status === "ok"
+          ? TE.right({ authenticated: true, type: it.type })
+          : TE.left(new AuthFailure("Not authenticated, status not 'ok'"))
+      )
+    );
 
   getArtists = (
     credentials: Credentials
