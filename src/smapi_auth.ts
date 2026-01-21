@@ -103,7 +103,7 @@ function isTokenExpiredError(thing: any): thing is TokenExpiredError {
   return thing.name == "TokenExpiredError";
 }
 
-export const SMAPI_TOKEN_VERSION = 4;
+export const SMAPI_TOKEN_VERSION = 5;
 
 export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   private readonly clock: Clock;

@@ -18,7 +18,7 @@ import {
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import { InMemoryLinkCodes } from "../src/link_codes";
-import { Credentials } from "../src/music_service";
+import { Credentials } from "../src/music_library";
 import makeServer from "../src/server";
 import { Service, bonobService, Sonos } from "../src/sonos";
 import supersoap from "./supersoap";
