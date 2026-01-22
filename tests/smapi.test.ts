@@ -389,7 +389,7 @@ describe("track", () => {
         albumArtistId: `artist:${someTrack.artist.id}`,
         albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
           formatForURL(someTrack.coverArt!)
-        )}/size/180?access-token=1234`,
+        )}/size/1500?access-token=1234`,
         artist: someTrack.artist.name,
         artistId: `artist:${someTrack.artist.id}`,
         duration: someTrack.duration,
@@ -447,7 +447,7 @@ describe("track", () => {
           albumArtistId: undefined,
           albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
             formatForURL(someTrack.coverArt!)
-          )}/size/180?access-token=1234`,
+          )}/size/1500?access-token=1234`,
           artist: someTrack.artist.name,
           artistId: undefined,
           duration: someTrack.duration,
@@ -528,7 +528,7 @@ describe("coverArtURI", () => {
         ).toEqual(
           `http://bonob.example.com:8080/context/art/${encodeURIComponent(
             formatForURL(coverArt)
-          )}/size/180?search=yes`
+          )}/size/1500?search=yes`
         );
       });
     });
@@ -544,7 +544,7 @@ describe("coverArtURI", () => {
         ).toEqual(
           `http://bonob.example.com:8080/context/art/${encodeURIComponent(
             formatForURL(coverArt)
-          )}/size/180?search=yes`
+          )}/size/1500?search=yes`
         );
       });
     });

@@ -1231,7 +1231,7 @@ describe("server", () => {
 
         describe("when there is no access-token", () => {
           it("should return a 401", async () => {
-            const res = await request(server).get(`/art/${encodeURIComponent(formatForURL({ system: "subsonic", resource: "art:whatever" }))}/size/180`);
+            const res = await request(server).get(`/art/${encodeURIComponent(formatForURL({ system: "subsonic", resource: "art:whatever" }))}/size/1500`);
 
             expect(res.status).toEqual(401);
           });
@@ -1269,7 +1269,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/1500?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
@@ -1281,7 +1281,7 @@ describe("server", () => {
                   expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.coverArt).toHaveBeenCalledWith(
                     coverArtURN,
-                    180
+                    1500
                   );
                 });
               });
@@ -1300,7 +1300,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/1500?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
@@ -1317,7 +1317,7 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
+                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/1500?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                     )
                     .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
@@ -1334,7 +1334,7 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/art/artist:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
+                    `/art/artist:${albumId}/size/1500?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
                   )
                   .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
@@ -1484,7 +1484,7 @@ describe("server", () => {
                       foregroundColor: "brightblue",
                       backgroundColor: "brightpink",
                     })
-                  ).get(`/icon/${type}/size/180?nofest`);
+                  ).get(`/icon/${type}/size/1500?nofest`);
 
                   expect(response.status).toEqual(200);
                   const svg = Buffer.from(response.body).toString();
@@ -1502,7 +1502,7 @@ describe("server", () => {
                   it(`should return a ${theme} icon on ${date}`, async () => {
                     const response = await request(
                       server({ now: () => dayjs(date) })
-                    ).get(`/icon/${type}/size/180`);
+                    ).get(`/icon/${type}/size/1500`);
 
                     expect(response.status).toEqual(200);
                     const svg = Buffer.from(response.body).toString();

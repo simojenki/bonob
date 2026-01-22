@@ -302,7 +302,7 @@ export const coverArtURI = (
     O.fromNullable,
     O.map((it) =>
       bonobUrl.append({
-        pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180`,
+        pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/1500`,
       })
     ),
     O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
