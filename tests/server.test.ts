@@ -1258,31 +1258,38 @@ describe("server", () => {
 
             describe("fetching a single image", () => {
               describe("when the images is available and has a valid content type", () => {
-                it("should return the image with correct content type", async () => {
-                  const coverArtURN = { system: "subsonic", resource: "art:200" };
+                [
+                  ["180", 180],
+                  ["1500.png", 1500],
+                ].forEach((spec) => {
+                  describe(`when the requested size is ${spec[0]}`, () => {
+                    it(`should ask for the image of size ${spec[1]} and return the result`, async () => {
+                      const coverArtURN = { system: "subsonic", resource: "art:200" };
 
-                  const coverArt = coverArtResponse({});
+                      const coverArt = coverArtResponse({});
 
-                  musicService.login.mockResolvedValue(musicLibrary);
+                      musicService.login.mockResolvedValue(musicLibrary);
 
-                  musicLibrary.coverArt.mockResolvedValue(coverArt);
+                      musicLibrary.coverArt.mockResolvedValue(coverArt);
 
-                  const res = await request(server)
-                    .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
-                    )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
+                      const res = await request(server)
+                        .get(
+                          `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/${spec[0]}?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
+                        )
+                        .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
 
-                  expect(res.status).toEqual(coverArt.status);
-                  expect(res.header["content-type"]).toEqual(
-                    coverArt.contentType
-                  );
+                      expect(res.status).toEqual(coverArt.status);
+                      expect(res.header["content-type"]).toEqual(
+                        coverArt.contentType
+                      );
 
-                  expect(musicService.login).toHaveBeenCalledWith(serviceToken);
-                  expect(musicLibrary.coverArt).toHaveBeenCalledWith(
-                    coverArtURN,
-                    180
-                  );
+                      expect(musicService.login).toHaveBeenCalledWith(serviceToken);
+                      expect(musicLibrary.coverArt).toHaveBeenCalledWith(
+                        coverArtURN,
+                        spec[1]
+                      );
+                    });
+                  });
                 });
               });
 
