@@ -7,7 +7,16 @@
       "Bash(source ~/.nvm/nvm.sh)",
       "Bash(npm:*)",
       "Bash(ls:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(python3:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git checkout:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git merge-base:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
