@@ -53,7 +53,71 @@ You can use any method to make these URLs available. Cloudflare Tunnels, Pangoli
 
 ** Image Replacement Rules
 
-*** No changes
+*** Pattern: \/size\/(?<size>\d+)
+*** Name: 60
+*** Replacement Text: /size/60.png
+*** Minimum & Maximum Scales: Empty
+*** Add Replacement Rule
+*** Name: 80
+*** Replacement Text: /size/80.png
+*** Minimum & Maximum Scales: Empty
+
+Should look like this:
+image::s2ImagePatterns.png[]
+
+Repeat for the following resolutions; 60,80,120,180,192,200,230,300,600,640,750,1000,1242,1500
+
+json in the Service Configuration should look like this.
+
+[source,json]
+----
+"image-replacement-rules" : {
+    "pattern" : "\\/size\\/(?<size>\\d+)",
+    "replacements" : [ {
+        "name" : "60",
+        "replacement" : "/size/60.png"
+    }, {
+        "name" : "80",
+        "replacement" : "/size/80.png"
+    }, {
+        "name" : "120",
+        "replacement" : "/size/120.png"
+    }, {
+        "name" : "180",
+        "replacement" : "/size/180.png"
+    }, {
+        "name" : "192",
+        "replacement" : "/size/192.png"
+    }, {
+        "name" : "200",
+        "replacement" : "/size/200.png"
+    }, {
+        "name" : "230",
+        "replacement" : "/size/230.png"
+    }, {
+        "name" : "300",
+        "replacement" : "/size/300.png"
+    }, {
+        "name" : "600",
+        "replacement" : "/size/600.png"
+    }, {
+        "name" : "640",
+        "replacement" : "/size/640.png"
+    }, {
+        "name" : "750",
+        "replacement" : "/size/750.png"
+    }, {
+        "name" : "1000",
+        "replacement" : "/size/1000.png"
+    }, {
+        "name" : "1242",
+        "replacement" : "/size/1242.png"
+    }, {
+        "name" : "1500",
+        "replacement" : "/size/1500.png"
+    } ]
+},
+----
 
 ** Browse Options
 
