@@ -55,6 +55,7 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "600",
   "640",
   "750",
+  "1000",
   "1242",
   "1500",
 ];

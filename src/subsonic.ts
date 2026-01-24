@@ -424,8 +424,11 @@ export const asURLSearchParams = (q: any) => {
 
 export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
-export const cachingImageFetcher =
-  (cacheDir: string, delegate: ImageFetcher, makeSharp = sharp) =>
+export const cachingImageFetcher = (
+  cacheDir: string, 
+  delegate: ImageFetcher, 
+  makeSharp = sharp
+) =>
   async (url: string): Promise<CoverArt | undefined> => {
     const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
     return fse
