@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="200" viewBox="0 0 800 200" role="img" aria-labelledby="title desc">
+  <title id="title">Bonob Subsonic Logo</title>
+  <desc id="desc">A blue music-note icon with family dots on the left, followed by stacked text Bonob Navidrome in blue.</desc>
+
+  <!-- Icon (scaled and positioned) -->
+  <g transform="translate(20,20) scale(4)">
+    <rect x="0" y="0" width="40" height="40" rx="6" ry="6" fill="#1976d2"/>
+    <circle cx="11.5" cy="15.5" r="1.6" fill="#ffffff"/>
+    <circle cx="11.5" cy="22.5" r="1.6" fill="#ffffff"/>
+    <circle cx="22" cy="26" r="4" fill="#ffffff"/>
+    <rect x="24" y="10" width="1.6" height="16" rx="0.8" fill="#ffffff"/>
+    <path d="M25.6 11.2 C29.0 10.6 30.2 13.6 27.4 14.6 C29.2 15.4 27.6 16.6 25.6 15.8 Z" fill="#ffffff"/>
+  </g>
+
+  <!-- Text stacked in two lines -->
+  <text x="240" y="90" font-family="Arial, Helvetica, sans-serif" font-size="80" fill="#1976d2">Bonob</text>
+  <text x="240" y="160" font-family="Arial, Helvetica, sans-serif" font-size="80" fill="#1976d2">Navidrome</text>
+</svg>
