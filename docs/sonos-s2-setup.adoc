@@ -1,5 +1,4 @@
 ifdef::env-github[]
-#todo: changeme
 :imagesdir: https://github.com/simojenki/bonob/blob/feature/s80docs/docs/images
 endif::[]
 
