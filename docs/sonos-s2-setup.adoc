@@ -9,7 +9,7 @@ Credit goes to https://github.com/wkulhanek[@wkulhanek] for writing up these ins
 == Prerequisites
 * In your Sonos App get your Sonos ID (About my Sonos System)
 +
-image::images/about.png[]
+image::about.png[]
 
 * Navidrome running and available from the server that Bonob is running on. This can be a public URL like https://music.mydomain.com or just a local URL like http://192.168.1.100:4533.
 * Bonob running and available from the Internet. E.g. via https://bonob.mydomain.com
