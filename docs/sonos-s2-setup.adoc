@@ -63,7 +63,7 @@ You can use any method to make these URLs available. Cloudflare Tunnels, Pangoli
 *** Minimum & Maximum Scales: Empty
 
 Should look like this:
-image::images/s2ImagePatterns.png[]
+image::s2ImagePatterns.png[Example Image Replacement Rules]
 
 Repeat for the following resolutions; 60,80,120,180,192,200,230,300,600,640,750,1000,1242,1500
 
