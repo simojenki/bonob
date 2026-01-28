@@ -42,10 +42,10 @@ export type Capability =
   | "manifest";
 
 export const BONOB_CAPABILITIES: Capability[] = [
-  "search",
-  "ucPlaylists",
   "extendedMD",
   "logging",
+  "search",
+  "ucPlaylists",
 ];
 
 export type Device = {

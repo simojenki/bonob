@@ -2,7 +2,7 @@ import { SonosDevice } from "@svrooij/sonos/lib";
 import { v4 as uuid } from "uuid";
 import randomstring from "randomstring";
 
-import { Credentials } from "../src/smapi";
+import { SoapyHeaders } from "../src/smapi";
 import { Service, Device } from "../src/sonos";
 import {
   Album,
@@ -89,16 +89,18 @@ export function getAppLinkMessage() {
     sonosAppName: "",
     callbackPath: "",
   };
-}
+};
 
-export function someCredentials({ token } : { token: string }): Credentials {
+export function someSoapHeadersForToken(token: string): SoapyHeaders {
   return {
-    loginToken: {
-      token,
-      householdId: "hh1",
-    },
-    deviceId: "d1",
-    deviceProvider: "dp1",
+    credentials: {
+      loginToken: {
+        token,
+        householdId: `householdId-${uuid()}`,
+      },
+      deviceId: `deviceId-${uuid()}`,
+      deviceProvider: `deviceProvider-${uuid()}`,
+    }
   };
 }
 
