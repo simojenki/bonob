@@ -25,6 +25,7 @@ import {
   ratingAsInt,
   ratingFromInt,
   internetRadioStation,
+  findLoginToken
 } from "../src/smapi";
 
 import { keys as i8nKeys } from "../src/i8n";
@@ -34,7 +35,6 @@ import {
   anArtist,
   anAlbum,
   aTrack,
-  someCredentials,
   POP,
   ROCK,
   TRIP_HOP,
@@ -43,6 +43,7 @@ import {
   aRadioStation,
   anArtistSummary,
   anAlbumSummary,
+  someSoapHeadersForToken,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import supersoap from "./supersoap";
@@ -87,6 +88,54 @@ describe("rating to and from ints", () => {
       });
     });
   });
+});
+
+describe("findLoginToken", () => {
+  describe("when there are credentials on the soap header only", () => {
+    it("should use them", () => {
+      expect(findLoginToken(
+        { credentials: { loginToken: { token: "soap-only-token", householdId: "the-household" } } }, 
+        {}
+      )).toEqual("soap-only-token")
+    });
+  });
+
+  describe("when the credentials are on the http request header", () => {
+    it("should use them", () => {
+      expect(findLoginToken(
+        { credentials: { loginToken: { householdId: "the-household" } } }, 
+        { "accept": "something", "authorization": `Bearer http-request-token` }
+      )).toEqual("http-request-token")
+    });
+  });
+
+  describe("when the credentials are on the http request header, and there are none on the soap header", () => {
+    it("should use them", () => {
+      expect(findLoginToken(
+        { }, 
+        { "accept": "something", "authorization": `Bearer http-request-token` }
+      )).toEqual("http-request-token")
+    });
+  });
+
+  describe("when there is no token on the soap header and no http request header", () => {
+    it("should return undefined", () => {
+      expect(findLoginToken(
+        { credentials: { loginToken: { householdId: "the-household" } } }, 
+        { "accept": "something" }
+      )).toEqual(undefined)
+    });
+  });
+
+  describe("when there are no credientials at all on the soap header and no http request header", () => {
+    it("should return undefined", () => {
+      expect(findLoginToken(
+        { }, 
+        { "accept": "something" }
+      )).toEqual(undefined)
+    });
+  });
+
 });
 
 describe("service config", () => {
@@ -662,14 +711,21 @@ describe("wsdl api", () => {
         jest.resetAllMocks();
       });
 
+      function randomlySetAuthenticationMethod(ws: Client, token: string) {
+        if(Math.random() < 0.5) {
+          // todo: soap will still sell some soap headers, need to add in here..
+          ws.addHttpHeader("authorization", `Bearer ${token}`)
+        } else {
+          ws.addSoapHeader(someSoapHeadersForToken(token));
+        }
+        return ws;
+      }
+
       function setupAuthenticatedRequest(ws: Client) {
         musicService.login.mockResolvedValue(musicLibrary);
         smapiAuthTokens.verify.mockReturnValue(E.right(serviceToken));
         apiTokens.mint.mockReturnValue(apiToken);
-        ws.addSoapHeader({
-          credentials: someCredentials(smapiAuthToken),
-        });
-        return ws;
+        return randomlySetAuthenticationMethod(ws, serviceToken)
       }
 
       describe("soap api", () => {
@@ -829,9 +885,7 @@ describe("wsdl api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({
-                credentials: someCredentials(smapiAuthToken),
-              });
+              randomlySetAuthenticationMethod(ws, smapiAuthToken.token)
 
               const result = await ws.refreshAuthTokenAsync({});
 
@@ -855,9 +909,7 @@ describe("wsdl api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({
-                credentials: someCredentials(smapiAuthToken),
-              });
+              randomlySetAuthenticationMethod(ws, smapiAuthToken.token)
 
               await ws.refreshAuthTokenAsync({})
               .then(() => fail("shouldnt get here"))
@@ -882,9 +934,7 @@ describe("wsdl api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({
-                credentials: someCredentials(smapiAuthToken),
-              });
+              randomlySetAuthenticationMethod(ws, smapiAuthToken.token)
 
               const result = await ws.refreshAuthTokenAsync({});
 
@@ -1062,7 +1112,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
-            ws.addSoapHeader({ credentials: someCredentials({ token: 'tokenThatFails' }) });
+            randomlySetAuthenticationMethod(ws, 'tokenThatFails');
 
             await action(ws)
               .then(() => fail("shouldnt get here"))
@@ -1109,9 +1159,7 @@ describe("wsdl api", () => {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
               });
-              ws.addSoapHeader({
-                credentials: someCredentials(smapiAuthToken),
-              });
+              randomlySetAuthenticationMethod(ws, smapiAuthToken.token);
               await action(ws)
                 .then(() => fail("shouldnt get here"))
                 .catch((e: any) => {
@@ -2966,7 +3014,6 @@ describe("wsdl api", () => {
 
           describe("when valid credentials are provided", () => {
             let ws: Client;
-
 
             beforeEach(async () => {
               ws = await createClientAsync(`${service.uri}?wsdl`, {

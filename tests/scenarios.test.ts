@@ -2,6 +2,7 @@ import { createClientAsync, Client } from "soap";
 import { Express } from "express";
 
 import request from "supertest";
+import { v4 as uuid } from "uuid";
 
 import {
   GetAppLinkResult,
@@ -14,7 +15,6 @@ import {
   BOB_MARLEY,
   getAppLinkMessage,
   MADONNA,
-  someCredentials,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
 import { InMemoryLinkCodes } from "../src/link_codes";
@@ -33,9 +33,14 @@ class LoggedInSonosDriver {
     this.client = client;
     this.token = token;
     this.client.addSoapHeader({
-      credentials: someCredentials({
-        token: this.token.getDeviceAuthTokenResult.authToken,
-      }),
+      credentials: {
+        loginToken: {
+          token: this.token.getDeviceAuthTokenResult.authToken,
+          householdId: `householdId-${uuid()}`,
+        },
+        deviceId: `deviceId-${uuid()}`,
+        deviceProvider: `deviceProvider-${uuid()}`
+      }
     });
   }
 
