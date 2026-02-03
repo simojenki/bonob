@@ -34,8 +34,8 @@ export class InMemoryAPITokens implements APITokens {
 
 type PersistentTokenStore = {
   get: (key:string) => Promise<string | undefined>;
-  put: (key: string, value: string) => void;
-  delete: (key: string) => void;
+  put: (key: string, value: string) => Promise<void>;
+  delete: (key: string) => Promise<void>;
 }
 export { PersistentTokenStore, NoopPersistentTokenStore, FilesystemPersistentTokenStore };
 
@@ -43,9 +43,11 @@ class NoopPersistentTokenStore implements PersistentTokenStore {
   get(_: string) : Promise<string | undefined> {
     return Promise.resolve(undefined);
   }
-  put(_key:string, _value:string) {
+  put(_key:string, _value:string): Promise<void> {
+    return Promise.resolve();
   }
-  delete(_key:string) {
+  delete(_key:string): Promise<void> {
+    return Promise.resolve();
   }
 
 }

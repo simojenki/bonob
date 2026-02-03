@@ -241,14 +241,22 @@ class SonosSoap {
     }
   }
 
-  associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?:string) {
+  async associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?: string): Promise<void> {
     logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
+
     if(oldToken) {
       delete this.tokens[oldToken];
-      this.s3Client.delete(token);
+      // Fire-and-forget delete (logs errors internally, doesn't block)
+      this.s3Client.delete(oldToken).catch(() => {
+        // Error already logged by delete() method, nothing to do
+      });
     }
-    this.tokens[token] = fullSmapiToken;  
-    this.s3Client.put(token, smapiTokenAsString(fullSmapiToken));
+
+    // Store in memory first (works even if S3 fails)
+    this.tokens[token] = fullSmapiToken;
+
+    // Then persist to S3 (will throw if S3 unavailable after retries)
+    await this.s3Client.put(token, smapiTokenAsString(fullSmapiToken));
   }
 
   async getCredentialsForToken(token: string): Promise<SmapiToken | undefined> {
@@ -452,12 +460,16 @@ function bindSmapiSoapServiceToExpress(
     );
   };
 
-  const swapToken = (expiredToken:string) => (newToken:SmapiToken) => {
-    logger.debug("oldToken: "+expiredToken);
-    logger.debug("newToken: "+JSON.stringify(newToken));
-    sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
-    return TE.right(newToken);
-  }
+  const swapToken = (expiredToken: string) => (newToken: SmapiToken) =>
+    TE.tryCatch(
+      async () => {
+        logger.debug("oldToken: " + expiredToken);
+        logger.debug("newToken: " + JSON.stringify(newToken));
+        await sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
+        return newToken;
+      },
+      (error) => error as Error
+    );
 
   const usePartialCredentialsIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
 
@@ -615,14 +627,14 @@ function bindSmapiSoapServiceToExpress(
   const soapMethods = {
     getAppLink: () => sonosSoap.getAppLink(),
 
-    getDeviceAuthToken: ({ linkCode }: { linkCode: string }) => {
+    getDeviceAuthToken: async ({ linkCode }: { linkCode: string }) => {
       const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
       const smapiToken: SmapiToken = {
         token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken,
         key: deviceAuthTokenResult.getDeviceAuthTokenResult.privateKey
       };
 
-      sonosSoap.associateCredentialsForToken(smapiToken.token, smapiToken);
+      await sonosSoap.associateCredentialsForToken(smapiToken.token, smapiToken);
       return deviceAuthTokenResult;
     },
 

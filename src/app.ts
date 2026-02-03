@@ -82,6 +82,12 @@ const version = fs.existsSync(GIT_INFO)
 
 const S3_BUCKET="astiga-sonos-tokens";
 
+// Retry configuration for S3 operations
+const S3_RETRY_ATTEMPTS = 3;
+const S3_RETRY_INITIAL_DELAY_MS = 500;
+const S3_RETRY_MAX_DELAY_MS = 5000;
+const S3_RETRY_BACKOFF_MULTIPLIER = 2;
+
 class MinioPersistentTokenStore implements PersistentTokenStore {
   client: Minio.Client;
   constructor() {
@@ -95,18 +101,57 @@ class MinioPersistentTokenStore implements PersistentTokenStore {
       pathStyle: config.tokenStore.s3PathStyle,
     });
   }
-  get(key: string) : Promise<string | undefined> {
-    var buff: Uint8Array[] = [];
 
-    return this.client.getObject(S3_BUCKET, key)
-      .then((dataStream: NodeJS.ReadableStream): Promise<string> => {
-        return new Promise((resolve, reject) => {
+  /**
+   * Retry a Minio operation with exponential backoff
+   * @param operation - The async operation to retry
+   * @param operationName - Name for logging
+   * @returns Promise that resolves/rejects after all retries
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    operationName: string
+  ): Promise<T> {
+    let lastError: any;
+    let delay = S3_RETRY_INITIAL_DELAY_MS;
+
+    for (let attempt = 1; attempt <= S3_RETRY_ATTEMPTS; attempt++) {
+      try {
+        return await operation();
+      } catch (err) {
+        lastError = err;
+
+        if (attempt < S3_RETRY_ATTEMPTS) {
+          logger.warn(
+            `S3 ${operationName} failed (attempt ${attempt}/${S3_RETRY_ATTEMPTS}), retrying in ${delay}ms`,
+            { error: err }
+          );
+
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delay));
+
+          // Calculate next delay with exponential backoff (capped at max)
+          delay = Math.min(delay * S3_RETRY_BACKOFF_MULTIPLIER, S3_RETRY_MAX_DELAY_MS);
+        }
+      }
+    }
+
+    // All retries exhausted, throw the last error
+    throw lastError;
+  }
+
+  async get(key: string): Promise<string | undefined> {
+    try {
+      return await this.retryWithBackoff(async () => {
+        const buff: Uint8Array[] = [];
+
+        const dataStream = await this.client.getObject(S3_BUCKET, key);
+
+        return new Promise<string>((resolve, reject) => {
           dataStream.on('data', (chunk: Uint8Array) => {
-            //logger.debug("data: " + chunk);
             buff.push(chunk);
           });
-          dataStream.on('error', function (err) {
-            logger.error("error");
+          dataStream.on('error', (err) => {
             reject(err);
           });
           dataStream.on('end', () => {
@@ -114,20 +159,56 @@ class MinioPersistentTokenStore implements PersistentTokenStore {
             resolve(value);
           });
         });
-      })
-      .catch(err => {
-        if (err.code === 'NoSuchKey') {
-          // Gracefully handle missing key — return undefined
-          return undefined;
-        }
-        throw err; // Propagate unexpected errors
+      }, `get(${key})`);
+    } catch (err: any) {
+      if (err.code === 'NoSuchKey') {
+        // Gracefully handle missing key — return undefined
+        return undefined;
+      }
+
+      // Log error and return undefined (graceful degradation)
+      logger.error(`S3 get failed after all retries for key: ${key}`, {
+        error: err,
+        code: err.code,
+        endpoint: config.tokenStore.s3Endpoint,
+        port: config.tokenStore.s3Port
       });
+      return undefined;
+    }
   }
-  put(key:string, value:string) {
-    this.client.putObject(S3_BUCKET, key, value);
+  async put(key: string, value: string): Promise<void> {
+    try {
+      await this.retryWithBackoff(async () => {
+        await this.client.putObject(S3_BUCKET, key, value);
+      }, `put(${key})`);
+    } catch (err: any) {
+      // Log error but don't throw - token is already in memory before this is called
+      // S3 is just backup storage, so we use graceful degradation
+      logger.error(`S3 put failed after all retries for key: ${key}`, {
+        error: err,
+        code: err.code,
+        endpoint: config.tokenStore.s3Endpoint,
+        port: config.tokenStore.s3Port
+      });
+      // Don't throw - graceful degradation (token works from memory even if S3 fails)
+    }
   }
-  delete(key:string) {
-    this.client.removeObject(S3_BUCKET, key);
+  async delete(key: string): Promise<void> {
+    try {
+      await this.retryWithBackoff(async () => {
+        await this.client.removeObject(S3_BUCKET, key);
+      }, `delete(${key})`);
+    } catch (err: any) {
+      // Log error but don't throw (idempotent operation, non-critical)
+      // Token is already removed from memory, S3 is just backup
+      logger.error(`S3 delete failed after all retries for key: ${key}`, {
+        error: err,
+        code: err.code,
+        endpoint: config.tokenStore.s3Endpoint,
+        port: config.tokenStore.s3Port
+      });
+      // Explicitly don't throw - delete failures are non-critical
+    }
   }
 }
 
