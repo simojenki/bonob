@@ -65,7 +65,7 @@ See [here](./docs/sonos-s1-setup.md)
 
 In order to use Sonos S2 you are going to need to expose your bonob service to the internet so that Sonos can hit it.  You may wish to restrict your firewall (TCP/443 only) to the Sonos IP addresses outlined [in here](https://docs.sonos.com/docs/key-requirements).  
 
-See [here](./docs/sonos-s2-setup.adoc)
+See [here](./docs/sonos-s2-setup.md)
 
 
 ## Configuration
