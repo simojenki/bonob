@@ -23,6 +23,7 @@
     "customizations": {
         "vscode": {
           "extensions": [
+                "davidanson.vscode-markdownlint",
                 "esbenp.prettier-vscode",
                 "redhat.vscode-xml"
             ]
