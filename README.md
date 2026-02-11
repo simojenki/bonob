@@ -221,7 +221,7 @@ services:
 
 
 ### Running bonob behind Cloudflare/cloudflared tunnels.
-As discussed [here](https://github.com/simojenki/bonob/issues/101#issuecomment-1471635855) and [here](https://github.com/simojenki/bonob/issues/205#issuecomment-3461453809), there is an issue playing tracks via cloudflare.  Until otherwise resolved the current 'solution' is to "disable CF proxy feature and leave DNS-only for bonob.example.com record".  (Note you may need to wait some time for DNS caches to propogate)
+This was an issue, however running bonob behind cloudflared should now work.
 
 
 ## Credits
