@@ -498,10 +498,13 @@ function server(
               nowPlaying: false,
             });
           }
+        })
+        .catch((error) => {
+          logger.error(`${trace} bnb-> /stream/track/${id} failed`, { error: error instanceof Error ? error.message : String(error) });
+          res.status(500).send();
         });
     }
   });
-
   app.get("/icon/:type/size/:size", (req, res) => {
     const type = req.params["type"]!;
     const size = req.params["size"]!;

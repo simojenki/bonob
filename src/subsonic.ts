@@ -541,6 +541,7 @@ export class Subsonic implements MusicService {
         ...config,
       })
       .catch((e) => {
+        logger.error(`Subsonic request failed: ${path}`, { query: q, error: e instanceof Error ? e.message : String(e) });
         throw `Subsonic failed with: ${e}`;
       })
       .then((response) => {
@@ -566,8 +567,7 @@ export class Subsonic implements MusicService {
         else return json as unknown as T;
       })
       .catch((error) => {
-        console.error('[ERROR] Subsonic request failed:', {
-          path,
+        logger.error(`Subsonic request failed: ${path}`, {
           query: q,
           rawResponse: JSON.stringify(rawResponse, null, 2),
           error: error instanceof Error ? error.message : String(error),
@@ -576,7 +576,6 @@ export class Subsonic implements MusicService {
         throw error;
       });
   };
-
   generateToken = (credentials: Credentials) =>
     pipe(
       TE.tryCatch(

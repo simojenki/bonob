@@ -21,6 +21,9 @@ import * as Minio from 'minio'
 import { PersistentTokenStore, NoopPersistentTokenStore, FilesystemPersistentTokenStore } from "./api_tokens";
 
 const config = readConfig();
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled Promise Rejection", { reason, promise });
+});
 const clock = SystemClock;
 
 logger.info(`Starting bonob with config ${JSON.stringify({ ...config, secret: "*******" })}`);
