@@ -561,11 +561,16 @@ function bindSmapiSoapServiceToExpress(
    */
   const wrapSoapMethod = (methodName: string, handler: Function) => {
     return async (...args: any[]) => {
+      const startTime = Date.now();
       try {
         // Await the handler to catch promise rejections
         const result = await handler(...args);
+        const durationMs = Date.now() - startTime;
+        logger.info(`[TIMING] SMAPI ${methodName} ${durationMs}ms`, { method: methodName, durationMs });
         return result;
       } catch (error) {
+        const durationMs = Date.now() - startTime;
+        logger.info(`[TIMING] SMAPI ${methodName} ${durationMs}ms FAILED`, { method: methodName, durationMs, failed: true });
         // If it's already a SOAP Fault, re-throw it as-is
         if (error && typeof error === 'object' && 'Fault' in error) {
           throw error;
