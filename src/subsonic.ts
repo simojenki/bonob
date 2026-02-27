@@ -526,6 +526,7 @@ export class Subsonic implements MusicService {
     config: AxiosRequestConfig | undefined = {}
   ) => {
     logger.debug(username + " " + path + " " + JSON.stringify(q));
+    const startTime = Date.now();
     return axios
       .get(this.url.append({ pathname: path }).href(), {
         params: asURLSearchParams({
@@ -541,10 +542,14 @@ export class Subsonic implements MusicService {
         ...config,
       })
       .catch((e) => {
+        const durationMs = Date.now() - startTime;
+        logger.info(`[TIMING] Subsonic ${path} ${durationMs}ms FAILED`, { path, durationMs, failed: true });
         logger.error(`Subsonic request failed: ${path}`, { query: q, error: e instanceof Error ? e.message : String(e) });
         throw `Subsonic failed with: ${e}`;
       })
       .then((response) => {
+        const durationMs = Date.now() - startTime;
+        logger.info(`[TIMING] Subsonic ${path} ${durationMs}ms`, { path, durationMs });
         if (response.status != 200 && response.status != 206) {
           throw `Subsonic failed with a ${response.status || "no!"} status`;
         } else return response;
