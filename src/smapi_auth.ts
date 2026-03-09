@@ -50,6 +50,11 @@ export const SMAPI_FAULT_LOGIN_UNAUTHORIZED = {
   },
 };
 
+export const smapiLoginUnauthorized = (faultstring?: string) =>
+  faultstring
+    ? { Fault: { ...SMAPI_FAULT_LOGIN_UNAUTHORIZED.Fault, faultstring } }
+    : SMAPI_FAULT_LOGIN_UNAUTHORIZED;
+
 export const SMAPI_FAULT_SERVICE_UNAVAILABLE = {
   Fault: {
     faultcode: "Server.ServiceUnavailable",
@@ -111,6 +116,7 @@ export class ExpiredTokenError extends Error implements ToSmapiFault {
 export type SmapiAuthTokens = {
   issue: (serviceToken: ServiceTokenString) => SmapiToken;
   verify: (smapiToken: SmapiToken) => E.Either<ToSmapiFault, ServiceTokenString>;
+  decodeUnverified: (token: JwtTokenString) => ServiceTokenString | undefined;
 };
 
 type TokenExpiredError = {
@@ -166,6 +172,15 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
       ) as JwtTokenString,
       key,
     };
+  };
+
+  decodeUnverified = (token: JwtTokenString): ServiceTokenString | undefined => {
+    try {
+      const decoded = jwt.decode(token) as any;
+      return decoded?.serviceToken as ServiceTokenString | undefined;
+    } catch {
+      return undefined;
+    }
   };
 
   verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, ServiceTokenString> => {

@@ -104,6 +104,30 @@ export function someCredentials({ token, key } : { token: string, key: string })
   };
 }
 
+export function someCredentialsWithHouseholdOnly(): Partial<Credentials> {
+  return {
+    loginToken: {
+      token: undefined as unknown as JwtTokenString,
+      key: undefined as unknown as SmapiKeyString,
+      householdId: "hh1",
+    },
+    deviceId: "d1",
+    deviceProvider: "dp1",
+  };
+}
+
+export function someCredentialsWithoutKey({ token } : { token: string }): Partial<Credentials> {
+  return {
+    loginToken: {
+      token: token as JwtTokenString,
+      key: undefined as unknown as SmapiKeyString,
+      householdId: "hh1",
+    },
+    deviceId: "d1",
+    deviceProvider: "dp1",
+  };
+}
+
 export function aSimilarArtist(
   fields: Partial<SimilarArtist> = {}
 ): SimilarArtist {

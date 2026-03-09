@@ -35,6 +35,8 @@ import {
   anAlbum,
   aTrack,
   someCredentials,
+  someCredentialsWithHouseholdOnly,
+  someCredentialsWithoutKey,
   POP,
   ROCK,
   TRIP_HOP,
@@ -610,6 +612,7 @@ describe("wsdl api", () => {
   const smapiAuthTokens = {
     issue: jest.fn(() => ({ token: `default-smapiToken-${uuid()}`, key: `default-smapiKey-${uuid()}` })),
     verify: jest.fn<E.Either<ToSmapiFault, string>, []>(() => E.right(`default-serviceToken-${uuid()}`)),
+    decodeUnverified: jest.fn<string | undefined, []>(() => undefined),
   };
 
   const clock = new FixedClock();
@@ -1061,7 +1064,7 @@ describe("wsdl api", () => {
               musicService.login.mockRejectedValue(
                 "fail, should not call login!"
               );
-  
+
               const ws = await createClientAsync(`${service.uri}?wsdl`, {
                 endpoint: service.uri,
                 httpClient: supersoap(server),
@@ -1083,10 +1086,143 @@ describe("wsdl api", () => {
                     },
                   });
                 });
-  
+
                 expect(smapiAuthTokens.verify).toHaveBeenCalledWith(smapiAuthToken);
                 expect(musicService.refreshToken).toHaveBeenCalledWith(serviceToken);
                 expect(smapiAuthTokens.issue).toHaveBeenCalledWith(refreshedServiceToken);
+            });
+          });
+
+          describe("when token is sent without key and not in cache", () => {
+            it("should decode the JWT unverified and return TokenRefreshRequired with a new token", async () => {
+              const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
+              const newToken = {
+                token: `newToken-${uuid()}` as JwtTokenString,
+                key: `newKey-${uuid()}` as SmapiKeyString
+              };
+
+              // verify will fail because key is missing
+              smapiAuthTokens.verify.mockReturnValue(E.left(new InvalidTokenError("invalid signature")));
+              // decodeUnverified should extract the serviceToken from the JWT without key
+              smapiAuthTokens.decodeUnverified = jest.fn().mockReturnValue(serviceToken);
+              musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }));
+              smapiAuthTokens.issue.mockReturnValue(newToken);
+              musicService.login.mockRejectedValue(
+                "fail, should not call login!"
+              );
+
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({
+                credentials: someCredentialsWithoutKey({ token: smapiAuthToken.token }),
+              });
+              await action(ws)
+                .then(() => fail("shouldnt get here"))
+                .catch((e: any) => {
+                  expect(e.root.Envelope.Body.Fault).toEqual({
+                    faultcode: "Client.TokenRefreshRequired",
+                    faultstring: "Token has expired",
+                    detail: {
+                      refreshAuthTokenResult: {
+                        authToken: newToken.token,
+                        privateKey: newToken.key,
+                      },
+                    },
+                  });
+                });
+
+              expect(musicService.refreshToken).toHaveBeenCalledWith(serviceToken);
+              expect(smapiAuthTokens.issue).toHaveBeenCalledWith(refreshedServiceToken);
+            });
+
+            it("should return LoginUnauthorized when JWT cannot be decoded", async () => {
+              smapiAuthTokens.verify.mockReturnValue(E.left(new InvalidTokenError("invalid signature")));
+              smapiAuthTokens.decodeUnverified = jest.fn().mockReturnValue(undefined);
+              musicService.login.mockRejectedValue("fail!");
+
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({
+                credentials: someCredentialsWithoutKey({ token: 'garbage-not-a-jwt' }),
+              });
+
+              await action(ws)
+                .then(() => fail("shouldnt get here"))
+                .catch((e: any) => {
+                  expect(e.root.Envelope.Body.Fault).toEqual({
+                    faultcode: "Client.LoginUnauthorized",
+                    faultstring:
+                      "Failed to authenticate, try Re-Authorising your account in the sonos app",
+                  });
+                });
+            });
+
+            it("should return LoginUnauthorized when refreshToken fails after decode", async () => {
+              smapiAuthTokens.verify.mockReturnValue(E.left(new InvalidTokenError("invalid signature")));
+              smapiAuthTokens.decodeUnverified = jest.fn().mockReturnValue(serviceToken);
+              musicService.refreshToken.mockReturnValue(TE.left(new Error("refresh failed")));
+              musicService.login.mockRejectedValue("fail!");
+
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({
+                credentials: someCredentialsWithoutKey({ token: smapiAuthToken.token }),
+              });
+
+              await action(ws)
+                .then(() => fail("shouldnt get here"))
+                .catch((e: any) => {
+                  expect(e.root.Envelope.Body.Fault).toEqual({
+                    faultcode: "Client.LoginUnauthorized",
+                    faultstring:
+                      "Failed to authenticate, try Re-Authorising your account in the sonos app",
+                  });
+                });
+            });
+
+            it("should decode the JWT from the Authorization header and return TokenRefreshRequired when no token is in loginToken", async () => {
+              const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
+              const newToken = {
+                token: `newToken-${uuid()}` as JwtTokenString,
+                key: `newKey-${uuid()}` as SmapiKeyString
+              };
+
+              smapiAuthTokens.verify.mockReturnValue(E.left(new InvalidTokenError("invalid signature")));
+              smapiAuthTokens.decodeUnverified = jest.fn().mockReturnValue(serviceToken);
+              musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }));
+              smapiAuthTokens.issue.mockReturnValue(newToken);
+              musicService.login.mockRejectedValue("fail, should not call login!");
+
+              const ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              ws.addSoapHeader({ credentials: someCredentialsWithHouseholdOnly() });
+              ws.addHttpHeader("Authorization", `Bearer ${smapiAuthToken.token}`);
+
+              await action(ws)
+                .then(() => fail("shouldnt get here"))
+                .catch((e: any) => {
+                  expect(e.root.Envelope.Body.Fault).toEqual({
+                    faultcode: "Client.TokenRefreshRequired",
+                    faultstring: "Token has expired",
+                    detail: {
+                      refreshAuthTokenResult: {
+                        authToken: newToken.token,
+                        privateKey: newToken.key,
+                      },
+                    },
+                  });
+                });
+
+              expect(musicService.refreshToken).toHaveBeenCalledWith(serviceToken);
+              expect(smapiAuthTokens.issue).toHaveBeenCalledWith(refreshedServiceToken);
             });
           });
         }

@@ -36,6 +36,7 @@ import {
   MissingLoginTokenError,
   SmapiAuthTokens,
   SMAPI_FAULT_LOGIN_UNAUTHORIZED,
+  smapiLoginUnauthorized,
   SMAPI_FAULT_SERVICE_UNAVAILABLE,
   ToSmapiFault,
 } from "./smapi_auth";
@@ -242,6 +243,10 @@ class SonosSoap {
         },
       };
     }
+  }
+
+  hasTokenInMemory(token: JwtTokenString): boolean {
+    return token in this.tokens;
   }
 
   async associateCredentialsForToken(token: JwtTokenString, fullSmapiToken: SmapiToken, oldToken?: JwtTokenString): Promise<void> {
@@ -519,6 +524,13 @@ function bindSmapiSoapServiceToExpress(
           return credentials;
       }).catch((e) => {
           logger.warn(`${reqId} credentialsForToken lookup failed, proceeding without cached credentials`, extractErrorDetails(e));
+          // Preserve the token on credentials so decode-and-reissue can be attempted downstream
+          if (credentials && !credentials.loginToken?.token) {
+            return {
+              ...credentials,
+              loginToken: { ...credentials.loginToken, token },
+            };
+          }
           return credentials;
       });
     }
@@ -540,7 +552,17 @@ function bindSmapiSoapServiceToExpress(
       const username = usernameFrom(authOrFail.serviceToken);
       return musicService
         .login(authOrFail.serviceToken)
-        .then((musicLibrary) => ({ ...authOrFail, musicLibrary }))
+        .then((musicLibrary) => {
+          // Persist complete credentials to S3 if not already cached in memory
+          const token = credentials?.loginToken?.token;
+          const key = credentials?.loginToken?.key;
+          if (token && key && !sonosSoap.hasTokenInMemory(token)) {
+            sonosSoap.associateCredentialsForToken(token, { token, key }).catch((e) => {
+              logger.warn(`${reqId} [${username}] failed to persist token to S3`, extractErrorDetails(e));
+            });
+          }
+          return { ...authOrFail, musicLibrary };
+        })
         .catch((e) => {
           const message = e instanceof Error ? e.message : String(e);
           if (message.includes("status code 5") || message.includes("ECONNREFUSED") || message.includes("ETIMEDOUT") || message.includes("ENOTFOUND")) {
@@ -577,6 +599,43 @@ function bindSmapiSoapServiceToExpress(
           return T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED);
         })
       )();
+    } else if (incompleteCredentialsProvided && credentials?.loginToken?.token) {
+      // Token present but no key, and not in cache/S3 — attempt decode-and-reissue
+      const serviceToken = smapiAuthTokens.decodeUnverified(credentials.loginToken.token);
+      if (serviceToken) {
+        const username = usernameFrom(serviceToken);
+        logger.info(`${reqId} [${username}] Token without key not in cache, attempting decode-and-reissue`);
+        throw await pipe(
+          musicService.refreshToken(serviceToken),
+          TE.map((it) => smapiAuthTokens.issue(it.serviceToken as ServiceTokenString)),
+          TE.tap(swapToken(credentials.loginToken.token, reqId)),
+          TE.map((newToken) => ({
+            Fault: {
+              faultcode: "Client.TokenRefreshRequired",
+              faultstring: "Token has expired",
+              detail: {
+                refreshAuthTokenResult: {
+                  authToken: newToken.token,
+                  privateKey: newToken.key,
+                },
+              },
+            },
+          })),
+          TE.getOrElse((e) => {
+            if (e instanceof ServiceUnavailableError) {
+              logger.warn(`${reqId} [${username}] upstream service unavailable during decode-and-reissue`, extractErrorDetails(e));
+              return T.of(SMAPI_FAULT_SERVICE_UNAVAILABLE);
+            }
+            const subsonicMessage = e instanceof Error && e.message.startsWith("Subsonic error:")
+              ? e.message.slice("Subsonic error:".length).trim()
+              : undefined;
+            logger.warn(`${reqId} [${username}] decode-and-reissue failed, returning LoginUnauthorized`, extractErrorDetails(e));
+            return T.of(smapiLoginUnauthorized(subsonicMessage));
+          })
+        )();
+      } else {
+        throw authOrFail.toSmapiFault();
+      }
     } else {
       throw authOrFail.toSmapiFault();
     }
