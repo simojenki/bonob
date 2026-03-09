@@ -649,16 +649,16 @@ describe("server", () => {
           expect(res.status).toEqual(200);
           expect(res.text).toMatch(`<title>${lang("login")}</title>`);
           expect(res.text).toMatch(
-            `<h1 class="login one-word-per-line">${lang("logInToBonob")}</h1>`
+            `<h1 class="mb-2">Sign in to Astiga</h1>`
           );
           expect(res.text).toMatch(
-            `<label for="username">${lang("username")}:</label>`
+            `<label for="username" class="form-label">${lang("username")}</label>`
           );
           expect(res.text).toMatch(
-            `<label for="password">${lang("password")}:</label>`
+            `<label for="password" class="form-label">${lang("password")}</label>`
           );
           expect(res.text).toMatch(
-            `<input type="submit" value="${lang("login")}" id="submit">`
+            `<button type="submit" id="submit" class="btn btn-lg btn-primary">Connect Sonos to Astiga</button>`
           );
         });
 

@@ -977,9 +977,20 @@ describe("wsdl api", () => {
                 });
                 expect(result[0]).toEqual(
                   searchResult({
-                    mediaCollection: tracks.map((it) =>
-                      album(bonobUrlWithAccessToken, it.album!)
-                    ),
+                    mediaCollection: tracks.map((it) => {
+                      const t = track(bonobUrlWithAccessToken, it);
+                      return {
+                        ...t,
+                        trackMetadata: {
+                          ...t.trackMetadata,
+                          duration: `${t.trackMetadata.duration}`,
+                          trackNumber: `${t.trackMetadata.trackNumber}`,
+                        },
+                        dynamic: {
+                          property: t.dynamic.property[0],
+                        },
+                      };
+                    }),
                     index: 0,
                     total: 2,
                   })
@@ -1272,21 +1283,15 @@ describe("wsdl api", () => {
                     },
                     {
                       id: "favouriteAlbums",
-                      title: "Favourites",
+                      title: "Starred",
                       albumArtURI: iconArtURI(bonobUrl, "heart").href(),
-                      itemType: "albumList",
-                    },
-                    {
-                      id: "starredAlbums",
-                      title: "Top Rated",
-                      albumArtURI: iconArtURI(bonobUrl, "star").href(),
                       itemType: "albumList",
                     },
                     {
                       id: "playlists",
                       title: "Playlists",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
                       attributes: {
                         readOnly: "false",
                         renameable: "false",
@@ -1325,12 +1330,6 @@ describe("wsdl api", () => {
                       title: "Most played",
                       albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
-                    },
-                    {
-                      id: "internetRadio",
-                      title: "Internet Radio",
-                      albumArtURI: iconArtURI(bonobUrl, "radio").href(),
-                      itemType: "stream",
                     },
                   ];
                   expect(root[0]).toEqual(
@@ -1372,21 +1371,15 @@ describe("wsdl api", () => {
                     },
                     {
                       id: "favouriteAlbums",
-                      title: "Favorieten",
+                      title: "Met ster gemarkeerd",
                       albumArtURI: iconArtURI(bonobUrl, "heart").href(),
-                      itemType: "albumList",
-                    },
-                    {
-                      id: "starredAlbums",
-                      title: "Best beoordeeld",
-                      albumArtURI: iconArtURI(bonobUrl, "star").href(),
                       itemType: "albumList",
                     },
                     {
                       id: "playlists",
                       title: "Afspeellijsten",
                       albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
-                      itemType: "playlist",
+                      itemType: "container",
                       attributes: {
                         readOnly: "false",
                         renameable: "false",
@@ -1425,12 +1418,6 @@ describe("wsdl api", () => {
                       title: "Meest afgespeeld",
                       albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
-                    },
-                    {
-                      id: "internetRadio",
-                      title: "Internet Radio",
-                      albumArtURI: iconArtURI(bonobUrl, "radio").href(),
-                      itemType: "stream",
                     },
                   ];
                   expect(root[0]).toEqual(
@@ -2732,12 +2719,13 @@ describe("wsdl api", () => {
 
                     expect(root[0]).toEqual({
                       getExtendedMetadataResult: {
-                        count: "3",
-                        index: "0",
-                        total: "3",
-                        mediaCollection: artist.albums.map((it) =>
-                          album(bonobUrlWithAccessToken, it)
-                        ),
+                        mediaCollection: {
+                          itemType: "artist",
+                          id: `artist:${artist.id}`,
+                          artistId: artist.id,
+                          title: artist.name,
+                          albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                        },
                       },
                     });
                   });
@@ -2757,12 +2745,13 @@ describe("wsdl api", () => {
 
                     expect(root[0]).toEqual({
                       getExtendedMetadataResult: {
-                        count: "2",
-                        index: "1",
-                        total: "3",
-                        mediaCollection: [album2, album3].map((it) =>
-                          album(bonobUrlWithAccessToken, it)
-                        ),
+                        mediaCollection: {
+                          itemType: "artist",
+                          id: `artist:${artist.id}`,
+                          artistId: artist.id,
+                          title: artist.name,
+                          albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                        },
                       },
                     });
                   });
@@ -2802,10 +2791,13 @@ describe("wsdl api", () => {
 
                   expect(root[0]).toEqual({
                     getExtendedMetadataResult: {
-                      // artist has no albums
-                      count: "0",
-                      index: "0",
-                      total: "0",
+                      mediaCollection: {
+                        itemType: "artist",
+                        id: `artist:${artist.id}`,
+                        artistId: artist.id,
+                        title: artist.name,
+                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                      },
                       relatedBrowse: [
                         {
                           id: `relatedArtists:${artist.id}`,
@@ -2835,10 +2827,13 @@ describe("wsdl api", () => {
                   });
                   expect(root[0]).toEqual({
                     getExtendedMetadataResult: {
-                      // artist has no albums
-                      count: "0",
-                      index: "0",
-                      total: "0",
+                      mediaCollection: {
+                        itemType: "artist",
+                        id: `artist:${artist.id}`,
+                        artistId: artist.id,
+                        title: artist.name,
+                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                      },
                     },
                   });
                 });
@@ -2867,10 +2862,13 @@ describe("wsdl api", () => {
                   });
                   expect(root[0]).toEqual({
                     getExtendedMetadataResult: {
-                      // artist has no albums
-                      count: "0",
-                      index: "0",
-                      total: "0",
+                      mediaCollection: {
+                        itemType: "artist",
+                        id: `artist:${artist.id}`,
+                        artistId: artist.id,
+                        title: artist.name,
+                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                      },
                     },
                   });
                 });
@@ -3628,6 +3626,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            setupAuthenticatedRequest(ws);
 
             // Mock musicLibrary.album to throw an error
             musicLibrary.album.mockRejectedValue(new Error("Backend service unavailable"));
@@ -3651,6 +3650,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            setupAuthenticatedRequest(ws);
 
             // Mock musicLibrary.albums to throw an error
             musicLibrary.albums.mockRejectedValue(new Error("Database connection failed"));
@@ -3676,6 +3676,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            setupAuthenticatedRequest(ws);
 
             // Mock musicLibrary.track to throw an error
             musicLibrary.track.mockRejectedValue(new Error("Track not found"));
@@ -3699,6 +3700,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            setupAuthenticatedRequest(ws);
 
             // Mock musicLibrary.searchAlbums to throw an error
             musicLibrary.searchAlbums.mockRejectedValue(new Error("Search service timeout"));
@@ -3723,6 +3725,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            setupAuthenticatedRequest(ws);
 
             // Mock musicLibrary.rate to throw an error
             musicLibrary.rate.mockRejectedValue(new Error("Rating service unavailable"));
@@ -3747,6 +3750,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            setupAuthenticatedRequest(ws);
 
             // Mock musicLibrary.createPlaylist to throw an error
             musicLibrary.createPlaylist.mockRejectedValue(new Error("Insufficient permissions"));
@@ -3770,6 +3774,7 @@ describe("wsdl api", () => {
               endpoint: service.uri,
               httpClient: supersoap(server),
             });
+            setupAuthenticatedRequest(ws);
 
             // Mock musicLibrary.deletePlaylist to throw an error
             musicLibrary.deletePlaylist.mockRejectedValue(new Error("Playlist is read-only"));
