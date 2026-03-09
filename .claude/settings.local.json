@@ -17,7 +17,8 @@
       "Bash(git diff:*)",
       "Bash(git merge-base:*)",
       "Bash(cat:*)",
-      "WebFetch(domain:docs.sonos.com)"
+      "WebFetch(domain:docs.sonos.com)",
+      "Bash(source:*)"
     ],
     "deny": [],
     "ask": []

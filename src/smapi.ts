@@ -6,7 +6,7 @@ import path from "path";
 import { option as O, either as E, taskEither as TE, task as T } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 
-import logger from "./logger";
+import logger, { extractErrorDetails } from "./logger";
 
 import { LinkCodes } from "./link_codes";
 import {
@@ -21,10 +21,11 @@ import {
   Rating,
   slice2,
   Track,
+  ServiceUnavailableError,
 } from "./music_service";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
-import { SmapiToken, smapiTokenFromString, smapiTokenAsString } from "./smapi_auth";
+import { SmapiToken, smapiTokenFromString, smapiTokenAsString, JwtTokenString, ServiceTokenString, SmapiKeyString } from "./smapi_auth";
 import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
@@ -35,8 +36,10 @@ import {
   MissingLoginTokenError,
   SmapiAuthTokens,
   SMAPI_FAULT_LOGIN_UNAUTHORIZED,
+  SMAPI_FAULT_SERVICE_UNAVAILABLE,
   ToSmapiFault,
 } from "./smapi_auth";
+import { parseToken } from "./subsonic";
 import { IncomingHttpHeaders } from "http";
 import { PersistentTokenStore } from "./api_tokens";
 
@@ -69,8 +72,8 @@ const WSDL_FILE = path.resolve(
 
 export type Credentials = {
   loginToken: {
-    token: string;
-    key: string;
+    token: JwtTokenString;
+    key: SmapiKeyString;
     householdId: string;
   };
   deviceId: string;
@@ -163,7 +166,7 @@ class SonosSoap {
   bonobUrl: URLBuilder;
   smapiAuthTokens: SmapiAuthTokens;
   clock: Clock;
-  tokens: {[tokenKey:string]:SmapiToken};
+  tokens: {[tokenKey: JwtTokenString]:SmapiToken};
   s3Client: PersistentTokenStore;
 
   constructor(
@@ -208,7 +211,7 @@ class SonosSoap {
     const association = this.linkCodes.associationFor(linkCode);
     if (association) {
       const smapiAuthToken = this.smapiAuthTokens.issue(
-        association.serviceToken
+        association.serviceToken as ServiceTokenString
       );
       return {
         getDeviceAuthTokenResult: {
@@ -241,8 +244,8 @@ class SonosSoap {
     }
   }
 
-  async associateCredentialsForToken(token: string, fullSmapiToken: SmapiToken, oldToken?: string): Promise<void> {
-    logger.debug("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
+  async associateCredentialsForToken(token: JwtTokenString, fullSmapiToken: SmapiToken, oldToken?: JwtTokenString): Promise<void> {
+    logger.silly("Adding token: " + token + " " + JSON.stringify(fullSmapiToken));
 
     if(oldToken) {
       delete this.tokens[oldToken];
@@ -259,14 +262,14 @@ class SonosSoap {
     await this.s3Client.put(token, smapiTokenAsString(fullSmapiToken));
   }
 
-  async getCredentialsForToken(token: string): Promise<SmapiToken | undefined> {
+  async getCredentialsForToken(token: JwtTokenString): Promise<SmapiToken | undefined> {
 
     if(token in this.tokens) {
-      logger.debug("Will return from cache");
+      logger.silly("Will return from in-memory cache");
       return Promise.resolve(this.tokens[token]!);
     }
 
-    logger.debug("Will lookup token in persistent cache");
+    logger.silly("Will lookup token in persistent cache");
     return this.s3Client.get(token)
       .then(value => {
         return value ? smapiTokenFromString(value) : undefined;
@@ -406,13 +409,13 @@ type SoapyHeaders = {
 };
 
 type Auth = {
-  serviceToken: string;
+  serviceToken: ServiceTokenString;
   credentials: Credentials;
   apiKey: string;
 };
 
 function isAuth(thing: any): thing is Auth {
-  return thing.serviceToken;
+  return thing.serviceToken && thing.credentials && thing.apiKey;
 }
 
 function bindSmapiSoapServiceToExpress(
@@ -428,6 +431,14 @@ function bindSmapiSoapServiceToExpress(
   s3Client: PersistentTokenStore
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock, s3Client);
+
+  const usernameFrom = (serviceToken: string): string => {
+    try {
+      return parseToken(serviceToken).username;
+    } catch {
+      return "unknown";
+    }
+  };
 
   const urlWithToken = (accessToken: string) =>
     bonobUrl.append({
@@ -460,15 +471,18 @@ function bindSmapiSoapServiceToExpress(
     );
   };
 
-  const swapToken = (expiredToken: string, reqId: string) => (newToken: SmapiToken) =>
+  const swapToken = (expiredJwt: JwtTokenString, reqId: string) => (newToken: SmapiToken) =>
     TE.tryCatch(
       async () => {
-        logger.debug(`${reqId} oldToken: ` + expiredToken);
-        logger.debug(`${reqId} newToken: ` + JSON.stringify(newToken));
-        await sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
+        logger.silly(`${reqId} swapToken oldToken: ${expiredJwt.substring(0, 20)}...`);
+        logger.silly(`${reqId} swapToken newToken: ${newToken.token.substring(0, 20)}...`);
+        await sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredJwt);
         return newToken;
       },
-      (error) => error as Error
+      (error) => {
+        logger.warn(`${reqId} swapToken failed`, extractErrorDetails(error));
+        return error as Error;
+      }
     );
 
   const usePartialCredentialsIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders, reqId: string = '-') => {
@@ -480,16 +494,16 @@ function bindSmapiSoapServiceToExpress(
     const headersProvidedWithToken = headers!==null && headers!== undefined && headers["authorization"];
     if(headersProvidedWithToken) {
       const bearer = headers["authorization"];
-      const token = bearer?.split(" ")[1];
+      const token = bearer?.split(" ")[1] as JwtTokenString | undefined;
       return credentialsForToken(token, credentials, reqId);
     }
     logger.warn(`${reqId} Failed to find additional credentials in header nor ` + JSON.stringify(credentials));
     return Promise.resolve(credentials);
   }
 
-  const credentialsForToken = (token: string | undefined, credentials?: Credentials, reqId: string = '-') => {
+  const credentialsForToken = (token: JwtTokenString | undefined, credentials?: Credentials, reqId: string = '-') => {
     if(token) {
-      logger.debug(`${reqId} Will use token in authorization header: ` + token);
+      logger.silly(`${reqId} Will use token in authorization header: ${token.substring(0, 20)}...`);
       const credsForToken = sonosSoap.getCredentialsForToken(token);
       return credsForToken.then(smapiToken => {
           if(!smapiToken) throw new Error("Couldn't lookup token");
@@ -501,9 +515,11 @@ function bindSmapiSoapServiceToExpress(
               key: smapiToken.key,
             }
           }
-          logger.debug(`${reqId} Updated credentials to ` + JSON.stringify(credentials));
+          logger.info(`${reqId} Updated credentials from token cache`);
           return credentials;
-        // }
+      }).catch((e) => {
+          logger.warn(`${reqId} credentialsForToken lookup failed, proceeding without cached credentials`, extractErrorDetails(e));
+          return credentials;
       });
     }
     return credentials;
@@ -521,17 +537,25 @@ function bindSmapiSoapServiceToExpress(
       E.getOrElseW((fault) => fault)
     );
     if (isAuth(authOrFail)) {
+      const username = usernameFrom(authOrFail.serviceToken);
       return musicService
         .login(authOrFail.serviceToken)
         .then((musicLibrary) => ({ ...authOrFail, musicLibrary }))
-        .catch((_) => {
+        .catch((e) => {
+          const message = e instanceof Error ? e.message : String(e);
+          if (message.includes("status code 5") || message.includes("ECONNREFUSED") || message.includes("ETIMEDOUT") || message.includes("ENOTFOUND")) {
+            logger.warn(`${reqId} [${username}] upstream service unavailable during login`, extractErrorDetails(e));
+            throw SMAPI_FAULT_SERVICE_UNAVAILABLE;
+          }
+          logger.warn(`${reqId} [${username}] musicService.login failed`, extractErrorDetails(e));
           throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
         });
     } else if (isExpiredTokenError(authOrFail)) {
+      const username = usernameFrom(authOrFail.serviceToken);
       throw await pipe(
-        musicService.refreshToken(authOrFail.expiredToken),
-        TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(authOrFail.expiredToken, reqId)), // ignores the return value, like a tee or peek
+        musicService.refreshToken(authOrFail.serviceToken),
+        TE.map((it) => smapiAuthTokens.issue(it.serviceToken as ServiceTokenString)),
+        TE.tap(swapToken(authOrFail.expiredJwt, reqId)), // ignores the return value, like a tee or peek
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -544,7 +568,14 @@ function bindSmapiSoapServiceToExpress(
             },
           },
         })),
-        TE.getOrElse(() => T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED))
+        TE.getOrElse((e) => {
+          if (e instanceof ServiceUnavailableError) {
+            logger.warn(`${reqId} [${username}] upstream service unavailable during token refresh`, extractErrorDetails(e));
+            return T.of(SMAPI_FAULT_SERVICE_UNAVAILABLE);
+          }
+          logger.warn(`${reqId} [${username}] token refresh failed, returning LoginUnauthorized`, extractErrorDetails(e));
+          return T.of(SMAPI_FAULT_LOGIN_UNAUTHORIZED);
+        })
       )();
     } else {
       throw authOrFail.toSmapiFault();
@@ -636,8 +667,8 @@ function bindSmapiSoapServiceToExpress(
     getDeviceAuthToken: async ({ linkCode }: { linkCode: string }) => {
       const deviceAuthTokenResult = sonosSoap.getDeviceAuthToken({ linkCode });
       const smapiToken: SmapiToken = {
-        token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken,
-        key: deviceAuthTokenResult.getDeviceAuthTokenResult.privateKey
+        token: deviceAuthTokenResult.getDeviceAuthTokenResult.authToken as JwtTokenString,
+        key: deviceAuthTokenResult.getDeviceAuthTokenResult.privateKey as SmapiKeyString
       };
 
       await sonosSoap.associateCredentialsForToken(smapiToken.token, smapiToken);
@@ -660,12 +691,13 @@ function bindSmapiSoapServiceToExpress(
       { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) => {
       const creds = await usePartialCredentialsIfPresent(soapyHeaders?.credentials, headers, reqId);
+      const jwtFromCredentials = creds?.loginToken?.token;
       const serviceToken = pipe(
         auth(creds),
         E.fold(
           (fault) =>
             isExpiredTokenError(fault)
-              ? E.right(fault.expiredToken)
+              ? E.right(fault.serviceToken)
               : E.left(fault),
           (creds) => E.right(creds.serviceToken)
         ),
@@ -673,17 +705,23 @@ function bindSmapiSoapServiceToExpress(
           throw fault.toSmapiFault();
         })
       );
+      const username = usernameFrom(serviceToken);
       return pipe(
         musicService.refreshToken(serviceToken),
-        TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(serviceToken, reqId)), // ignores the return value, like a tee or peek
+        TE.map((it) => smapiAuthTokens.issue(it.serviceToken as ServiceTokenString)),
+        TE.tap(swapToken(jwtFromCredentials!, reqId)),
         TE.map((it) => ({
           refreshAuthTokenResult: {
             authToken: it.token,
             privateKey: it.key,
           },
         })),
-        TE.getOrElse((_) => {
+        TE.getOrElse((e) => {
+          if (e instanceof ServiceUnavailableError) {
+            logger.warn(`${reqId} [${username}] upstream service unavailable during refreshAuthToken`, extractErrorDetails(e));
+            throw SMAPI_FAULT_SERVICE_UNAVAILABLE;
+          }
+          logger.warn(`${reqId} [${username}] refreshAuthToken failed`, extractErrorDetails(e));
           throw SMAPI_FAULT_LOGIN_UNAUTHORIZED;
         })
       )();
@@ -824,7 +862,6 @@ function bindSmapiSoapServiceToExpress(
                         : [],
                   },
                 };
-                logger.debug(`${reqId} res: ` + JSON.stringify(res));
                 return res;
               });
             case "track":
@@ -898,9 +935,6 @@ function bindSmapiSoapServiceToExpress(
         .then(({ musicLibrary, apiKey, type, typeId }) => {
           const paging = { _index: index, _count: count };
           const acceptLanguage = headers["accept-language"];
-          logger.debug(
-            `${reqId} Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
-          );
           const lang = i8n(...asLANGs(acceptLanguage));
 
           const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
@@ -1349,16 +1383,16 @@ function bindSmapiSoapServiceToExpress(
     switch (type) {
       // routing all soap info messages to debug so less noisy
       case "info":
-        logger.debug({ level: "info", data });
+        logger.debug(data);
         break;
       case "warn":
-        logger.warn({ level: "warn", data });
+        logger.warn(data);
         break;
       case "error":
-        logger.error({ level: "error", data });
+        logger.error(data);
         break;
       default:
-        logger.debug({ level: "debug", data });
+        logger.debug(data);
     }
   };
 }

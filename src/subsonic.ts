@@ -20,6 +20,7 @@ import {
   AlbumQueryType,
   Artist,
   AuthFailure,
+  ServiceUnavailableError,
   PlaylistSummary,
   Encoding,
 } from "./music_service";
@@ -589,13 +590,25 @@ export class Subsonic implements MusicService {
             _.pick(credentials, "username", "password"),
             "/rest/ping.view"
           ),
-        (e) => new AuthFailure(e as string)
+        (e) => {
+          const message = e instanceof Error ? e.message : String(e);
+          if (message.includes("status code 5") || message.includes("ECONNREFUSED") || message.includes("ETIMEDOUT") || message.includes("ENOTFOUND")) {
+            return new ServiceUnavailableError(message);
+          }
+          return new AuthFailure(message);
+        }
       ),
       TE.chain(({ type }) =>
         pipe(
           TE.tryCatch(
             () => this.libraryFor({ ...credentials, type }),
-            () => new AuthFailure("Failed to get library")
+            (e) => {
+              const message = e instanceof Error ? e.message : String(e);
+              if (message.includes("status code 5") || message.includes("ECONNREFUSED") || message.includes("ETIMEDOUT") || message.includes("ENOTFOUND")) {
+                return new ServiceUnavailableError(message);
+              }
+              return new AuthFailure("Failed to get library");
+            }
           ),
           TE.map((library) => ({ type, library }))
         )

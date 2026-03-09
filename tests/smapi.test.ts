@@ -60,7 +60,7 @@ import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
 import { formatForURL } from "../src/burn";
 import { FixedClock } from "../src/clock";
-import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
+import { ExpiredTokenError, InvalidTokenError, JwtTokenString, SmapiAuthTokens, SmapiKeyString, SmapiToken, ServiceTokenString, ToSmapiFault } from "../src/smapi_auth";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
@@ -622,8 +622,8 @@ describe("wsdl api", () => {
       const serviceToken = `serviceToken-${uuid()}`;
       const apiToken = `apiToken-${uuid()}`;
       const smapiAuthToken: SmapiToken = {
-        token: `smapiAuthToken.token-${uuid()}`,
-        key: `smapiAuthToken.key-${uuid()}`
+        token: `smapiAuthToken.token-${uuid()}` as JwtTokenString,
+        key: `smapiAuthToken.key-${uuid()}` as SmapiKeyString
       };
 
       const bonobUrlWithAccessToken = bonobUrl.append({
@@ -794,9 +794,9 @@ describe("wsdl api", () => {
           describe("when token has expired", () => {
             it("should return a refreshed auth token", async () => {
               const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
-              const newSmapiAuthToken = { token: `newToken-${uuid()}`, key: `newKey-${uuid()}` };
+              const newSmapiAuthToken = { token: `newToken-${uuid()}` as JwtTokenString, key: `newKey-${uuid()}` as SmapiKeyString };
 
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)));
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken as ServiceTokenString, `expired-jwt-${uuid()}` as JwtTokenString)));
               musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }));
               smapiAuthTokens.issue.mockReturnValue(newSmapiAuthToken);
 
@@ -1051,11 +1051,11 @@ describe("wsdl api", () => {
             it("should return a fault of Client.TokenRefreshRequired with a refreshAuthTokenResult", async () => {
               const refreshedServiceToken = `refreshedServiceToken-${uuid()}`
               const newToken = {
-                token: `newToken-${uuid()}`,
-                key: `newKey-${uuid()}`
+                token: `newToken-${uuid()}` as JwtTokenString,
+                key: `newKey-${uuid()}` as SmapiKeyString
               };
-  
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
+
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken as ServiceTokenString, `expired-jwt-${uuid()}` as JwtTokenString)))
               musicService.refreshToken.mockReturnValue(TE.right({ serviceToken: refreshedServiceToken }))
               smapiAuthTokens.issue.mockReturnValue(newToken)
               musicService.login.mockRejectedValue(
