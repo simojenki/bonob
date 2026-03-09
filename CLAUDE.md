@@ -171,12 +171,7 @@ All source files are in a single directory without subdirectories:
 
 ### Run All Tests
 ```bash
-nvm exec 20 npm test
-```
-
-### Run Tests in Watch Mode
-```bash
-nvm exec 20 npm run testw
+docker exec priceless_noyce /bin/bash -c "cd /workspaces/bonob; npm test"
 ```
 
 ### Test Framework
