@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import randomstring from "randomstring";
 
 import { Credentials } from "../src/smapi";
+import { JwtTokenString, SmapiKeyString } from "../src/smapi_auth";
 import { Service, Device } from "../src/sonos";
 import {
   Album,
@@ -94,8 +95,8 @@ export function getAppLinkMessage() {
 export function someCredentials({ token, key } : { token: string, key: string }): Credentials {
   return {
     loginToken: {
-      token,
-      key,
+      token: token as JwtTokenString,
+      key: key as SmapiKeyString,
       householdId: "hh1",
     },
     deviceId: "d1",

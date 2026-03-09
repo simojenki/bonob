@@ -15,6 +15,12 @@ export class AuthFailure extends Error {
   }
 };
 
+export class ServiceUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export type ArtistSummary = {
   id: string;
   name: string;
@@ -166,8 +172,8 @@ export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
   );
 
 export interface MusicService {
-  generateToken(credentials: Credentials): TE.TaskEither<AuthFailure, AuthSuccess>;
-  refreshToken(serviceToken: string): TE.TaskEither<AuthFailure, AuthSuccess>;
+  generateToken(credentials: Credentials): TE.TaskEither<AuthFailure | ServiceUnavailableError, AuthSuccess>;
+  refreshToken(serviceToken: string): TE.TaskEither<AuthFailure | ServiceUnavailableError, AuthSuccess>;
   login(serviceToken: string): Promise<MusicLibrary>;
 }
 

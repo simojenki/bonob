@@ -25,7 +25,7 @@ import i8n, { randomLang } from "../src/i8n";
 import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
 import { Clock, SystemClock } from "../src/clock";
 import { formatForURL } from "../src/burn";
-import { ExpiredTokenError, SmapiAuthTokens, SmapiToken } from "../src/smapi_auth";
+import { ExpiredTokenError, JwtTokenString, SmapiAuthTokens, SmapiKeyString, SmapiToken, ServiceTokenString } from "../src/smapi_auth";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -769,7 +769,7 @@ describe("server", () => {
 
         const serviceToken = `serviceToken-${uuid()}`;
         const trackId = `t-${uuid()}`;
-        const smapiAuthToken: SmapiToken = { token: `token-${uuid()}`, key: `key-${uuid()}` };
+        const smapiAuthToken: SmapiToken = { token: `token-${uuid()}` as JwtTokenString, key: `key-${uuid()}` as SmapiKeyString };
 
         const streamContent = (content: string) => {
           const self = {
@@ -801,7 +801,7 @@ describe("server", () => {
 
           describe("when the authorization has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken as ServiceTokenString, `expired-jwt-${uuid()}` as JwtTokenString)))
 
               const res = await request(server).head(
                 bonobUrl
@@ -899,7 +899,7 @@ describe("server", () => {
 
           describe("when the Bearer token has expired", () => {
             it("should return a 401", async () => {
-              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken)))
+              smapiAuthTokens.verify.mockReturnValue(E.left(new ExpiredTokenError(serviceToken as ServiceTokenString, `expired-jwt-${uuid()}` as JwtTokenString)))
 
               const res = await request(server)
                 .get(

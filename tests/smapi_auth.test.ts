@@ -6,6 +6,9 @@ import {
   InvalidTokenError,
   isSmapiRefreshTokenResultFault,
   JWTSmapiLoginTokens,
+  JwtTokenString,
+  SmapiKeyString,
+  ServiceTokenString,
   smapiTokenAsString,
   smapiTokenFromString,
   SMAPI_TOKEN_VERSION,
@@ -17,7 +20,7 @@ import { b64Encode } from "../src/b64";
 
 describe("smapiTokenAsString", () => {
   it("can round trip token to and from string", () => {
-    const smapiToken = { token: uuid(), key: uuid(), someOtherStuff: 'this needs to be explicitly ignored' };
+    const smapiToken = { token: uuid() as JwtTokenString, key: uuid() as SmapiKeyString, someOtherStuff: 'this needs to be explicitly ignored' };
     const asString = smapiTokenAsString(smapiToken)
 
     expect(asString).toEqual(b64Encode(JSON.stringify({
@@ -70,7 +73,7 @@ describe("auth", () => {
       it("should issue a token that can then be verified", () => {
         const serviceToken = `service-token-${uuid()}`;
 
-        const smapiToken = smapiLoginTokens.issue(serviceToken);
+        const smapiToken = smapiLoginTokens.issue(serviceToken as ServiceTokenString);
 
         const expected = jwt.sign(
           {
@@ -113,7 +116,7 @@ describe("auth", () => {
             SMAPI_TOKEN_VERSION + 1
           );
 
-          const v1Token = vXSmapiTokens.issue(authToken);
+          const v1Token = vXSmapiTokens.issue(authToken as ServiceTokenString);
           expect(vXSmapiTokens.verify(v1Token)).toEqual(E.right(authToken));
 
           const result = vXPlus1SmapiTokens.verify(v1Token);
@@ -131,7 +134,7 @@ describe("auth", () => {
             clock,
             "A different secret",
             expiresIn
-          ).issue(authToken);
+          ).issue(authToken as ServiceTokenString);
 
           const result = smapiLoginTokens.verify(smapiToken);
           expect(result).toEqual(
@@ -144,11 +147,11 @@ describe("auth", () => {
         it("should return an error", () => {
           const authToken = uuid();
 
-          const smapiToken = smapiLoginTokens.issue(authToken);
+          const smapiToken = smapiLoginTokens.issue(authToken as ServiceTokenString);
 
           const result = smapiLoginTokens.verify({
             ...smapiToken,
-            key: "some other key",
+            key: "some other key" as SmapiKeyString,
           });
           expect(result).toEqual(
             E.left(new InvalidTokenError("invalid signature"))
@@ -170,7 +173,7 @@ describe("auth", () => {
         );
 
         clock.time = tokenIssuedAt;
-        const expiredToken = tokensWith30SecondExpiry.issue(authToken);
+        const expiredToken = tokensWith30SecondExpiry.issue(authToken as ServiceTokenString);
 
         clock.time = now;
 
@@ -178,7 +181,8 @@ describe("auth", () => {
         expect(result).toEqual(
           E.left(
             new ExpiredTokenError(
-              authToken
+              authToken as ServiceTokenString,
+              expiredToken.token
             )
           )
         );

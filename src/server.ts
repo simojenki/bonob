@@ -38,6 +38,7 @@ import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
+  SmapiToken,
 } from "./smapi_auth";
 import { PersistentTokenStore } from "./api_tokens";
 
@@ -391,7 +392,7 @@ function server(
       E.fromNullable("Missing bnbt header")(req.headers["bnbt"] as string),
       E.chain(token => pipe(
         E.fromNullable("Missing bnbk header")(req.headers["bnbk"] as string),
-        E.map(key => ({ token, key }))
+        E.map(key => ({ token, key } as SmapiToken))
       )),
       E.chain((auth) =>
         pipe(
