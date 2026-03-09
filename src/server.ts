@@ -131,6 +131,11 @@ function server(
   const app = express();
   const i8n = makeI8N(service.name);
 
+  app.use((req, _, next) => {
+    req.id = uuid();
+    next();
+  });
+
   if (serverOpts.logRequests) {
     app.use(morgan("combined"));
   }
@@ -146,7 +151,7 @@ function server(
 
   const langFor = (req: Request) => {
     logger.debug(
-      `${req.path} (req[accept-language]=${req.headers["accept-language"]})`
+      `${req.id} ${req.path} (req[accept-language]=${req.headers["accept-language"]})`
     );
     return i8n(...asLANGs(req.headers["accept-language"]));
   };
@@ -375,10 +380,9 @@ function server(
 
   app.get("/stream/track/:id", async (req, res) => {
     const id = req.params["id"]!;
-    const trace = uuid();
 
     logger.debug(
-      `${trace} bnb<- ${req.method} ${req.path}?${JSON.stringify(
+      `${req.id} bnb<- ${req.method} ${req.path}?${JSON.stringify(
         req.query
       )}, headers=${JSON.stringify({ ...req.headers, "bnbt": "*****", "bnbk": "*****" })}`
     );
@@ -419,7 +423,7 @@ function server(
         )
         .then(({ musicLibrary, stream }) => {
           logger.debug(
-            `${trace} bnb<- stream response from music service for ${id}, status=${stream.status}, headers=(${JSON.stringify(stream.headers)})`
+            `${req.id} bnb<- stream response from music service for ${id}, status=${stream.status}, headers=(${JSON.stringify(stream.headers)})`
           );
 
           const sonosisfyContentType = (contentType: string) =>
@@ -443,7 +447,7 @@ function server(
             nowPlaying: boolean;
           }) => {
             logger.debug(
-              `${trace} bnb-> ${req.path}, status=${status}, headers=${JSON.stringify(headers)}`
+              `${req.id} bnb-> ${req.path}, status=${status}, headers=${JSON.stringify(headers)}`
             );
             (nowPlaying
               ? musicLibrary.nowPlaying(id)
@@ -500,7 +504,7 @@ function server(
           }
         })
         .catch((error) => {
-          logger.error(`${trace} bnb-> /stream/track/${id} failed`, { error: error instanceof Error ? error.message : String(error) });
+          logger.error(`${req.id} bnb-> /stream/track/${id} failed`, { error: error instanceof Error ? error.message : String(error) });
           res.status(500).send();
         });
     }
@@ -596,7 +600,7 @@ function server(
         }
     })
       .catch((e: Error) => {
-        logger.error(`Failed fetching image ${urn}/size/${size}`, {
+        logger.error(`${req.id} Failed fetching image ${urn}/size/${size}`, {
           cause: e,
         });
         return res.status(500).send();

@@ -460,36 +460,36 @@ function bindSmapiSoapServiceToExpress(
     );
   };
 
-  const swapToken = (expiredToken: string) => (newToken: SmapiToken) =>
+  const swapToken = (expiredToken: string, reqId: string) => (newToken: SmapiToken) =>
     TE.tryCatch(
       async () => {
-        logger.debug("oldToken: " + expiredToken);
-        logger.debug("newToken: " + JSON.stringify(newToken));
+        logger.debug(`${reqId} oldToken: ` + expiredToken);
+        logger.debug(`${reqId} newToken: ` + JSON.stringify(newToken));
         await sonosSoap.associateCredentialsForToken(newToken.token, newToken, expiredToken);
         return newToken;
       },
       (error) => error as Error
     );
 
-  const usePartialCredentialsIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
+  const usePartialCredentialsIfPresent = (credentials?: Credentials, headers?: IncomingHttpHeaders, reqId: string = '-') => {
 
     if(credentials && (credentials.loginToken.token!=null && credentials.loginToken.key==null)) {
-      return credentialsForToken(credentials.loginToken.token, credentials);
+      return credentialsForToken(credentials.loginToken.token, credentials, reqId);
     }
 
     const headersProvidedWithToken = headers!==null && headers!== undefined && headers["authorization"];
     if(headersProvidedWithToken) {
       const bearer = headers["authorization"];
       const token = bearer?.split(" ")[1];
-      return credentialsForToken(token, credentials);
+      return credentialsForToken(token, credentials, reqId);
     }
-    logger.warn("Failed to find additional credentials in header nor " + JSON.stringify(credentials));
+    logger.warn(`${reqId} Failed to find additional credentials in header nor ` + JSON.stringify(credentials));
     return Promise.resolve(credentials);
   }
 
-  const credentialsForToken = (token: string | undefined, credentials?: Credentials) => {
+  const credentialsForToken = (token: string | undefined, credentials?: Credentials, reqId: string = '-') => {
     if(token) {
-      logger.debug("Will use token in authorization header: " + token);
+      logger.debug(`${reqId} Will use token in authorization header: ` + token);
       const credsForToken = sonosSoap.getCredentialsForToken(token);
       return credsForToken.then(smapiToken => {
           if(!smapiToken) throw new Error("Couldn't lookup token");
@@ -501,7 +501,7 @@ function bindSmapiSoapServiceToExpress(
               key: smapiToken.key,
             }
           }
-          logger.debug("Updated credentials to " + JSON.stringify(credentials));
+          logger.debug(`${reqId} Updated credentials to ` + JSON.stringify(credentials));
           return credentials;
         // }
       });
@@ -509,11 +509,11 @@ function bindSmapiSoapServiceToExpress(
     return credentials;
   }
 
-  const login = async (credentials?: Credentials, headers?: IncomingHttpHeaders) => {
+  const login = async (credentials?: Credentials, headers?: IncomingHttpHeaders, reqId: string = '-') => {
 
     const incompleteCredentialsProvided = credentials && (credentials.loginToken.token==null || credentials.loginToken.key==null);
     if(incompleteCredentialsProvided) {
-      credentials = await usePartialCredentialsIfPresent(credentials, headers);
+      credentials = await usePartialCredentialsIfPresent(credentials, headers, reqId);
     }
 
     const authOrFail = pipe(
@@ -531,7 +531,7 @@ function bindSmapiSoapServiceToExpress(
       throw await pipe(
         musicService.refreshToken(authOrFail.expiredToken),
         TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(authOrFail.expiredToken)), // ignores the return value, like a tee or peek
+        TE.tap(swapToken(authOrFail.expiredToken, reqId)), // ignores the return value, like a tee or peek
         TE.map((newToken) => ({
           Fault: {
             faultcode: "Client.TokenRefreshRequired",
@@ -561,16 +561,17 @@ function bindSmapiSoapServiceToExpress(
    */
   const wrapSoapMethod = (methodName: string, handler: Function) => {
     return async (...args: any[]) => {
+      const reqId: string = (args[3] as any)?.id ?? '-';
       const startTime = Date.now();
       try {
         // Await the handler to catch promise rejections
         const result = await handler(...args);
         const durationMs = Date.now() - startTime;
-        logger.info(`[TIMING] SMAPI ${methodName} ${durationMs}ms`, { method: methodName, durationMs });
+        logger.info(`${reqId} [TIMING] SMAPI ${methodName} ${durationMs}ms`, { method: methodName, durationMs });
         return result;
       } catch (error) {
         const durationMs = Date.now() - startTime;
-        logger.info(`[TIMING] SMAPI ${methodName} ${durationMs}ms FAILED`, { method: methodName, durationMs, failed: true });
+        logger.info(`${reqId} [TIMING] SMAPI ${methodName} ${durationMs}ms FAILED`, { method: methodName, durationMs, failed: true });
         // If it's already a SOAP Fault, re-throw it as-is
         if (error && typeof error === 'object' && 'Fault' in error) {
           throw error;
@@ -603,7 +604,7 @@ function bindSmapiSoapServiceToExpress(
           errorDetails = String(error);
         }
 
-        logger.error(`${methodName} failed`, {
+        logger.error(`${reqId} ${methodName} failed`, {
           params,
           error: errorDetails
         });
@@ -656,9 +657,9 @@ function bindSmapiSoapServiceToExpress(
       _: any,
       _2: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) => {
-      const creds = await usePartialCredentialsIfPresent(soapyHeaders?.credentials, headers);
+      const creds = await usePartialCredentialsIfPresent(soapyHeaders?.credentials, headers, reqId);
       const serviceToken = pipe(
         auth(creds),
         E.fold(
@@ -675,7 +676,7 @@ function bindSmapiSoapServiceToExpress(
       return pipe(
         musicService.refreshToken(serviceToken),
         TE.map((it) => smapiAuthTokens.issue(it.serviceToken)),
-        TE.tap(swapToken(serviceToken)), // ignores the return value, like a tee or peek
+        TE.tap(swapToken(serviceToken, reqId)), // ignores the return value, like a tee or peek
         TE.map((it) => ({
           refreshAuthTokenResult: {
             authToken: it.token,
@@ -692,9 +693,9 @@ function bindSmapiSoapServiceToExpress(
       { id }: { id: string },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(({ musicLibrary, credentials, type, typeId }) => {
           switch (type) {
@@ -734,9 +735,9 @@ function bindSmapiSoapServiceToExpress(
       { id }: { id: string },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(async ({ musicLibrary, apiKey, type, typeId }) => {
           switch (type) {
@@ -758,9 +759,9 @@ function bindSmapiSoapServiceToExpress(
       { id, term }: { id: string; term: string },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(async ({ musicLibrary, apiKey }) => {
           switch (id) {
@@ -800,9 +801,9 @@ function bindSmapiSoapServiceToExpress(
       { id }: { id: string; index: number; count: number; recursive: boolean },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(async ({ musicLibrary, apiKey, type, typeId }) => {
           switch (type) {
@@ -823,7 +824,7 @@ function bindSmapiSoapServiceToExpress(
                         : [],
                   },
                 };
-                logger.debug("res: " + JSON.stringify(res));
+                logger.debug(`${reqId} res: ` + JSON.stringify(res));
                 return res;
               });
             case "track":
@@ -890,15 +891,15 @@ function bindSmapiSoapServiceToExpress(
       }: { id: string; index: number; count: number; recursive: boolean },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(({ musicLibrary, apiKey, type, typeId }) => {
           const paging = { _index: index, _count: count };
           const acceptLanguage = headers["accept-language"];
           logger.debug(
-            `Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
+            `${reqId} Fetching metadata type=${type}, typeId=${typeId}, acceptLanguage=${acceptLanguage}`
           );
           const lang = i8n(...asLANGs(acceptLanguage));
 
@@ -1202,9 +1203,9 @@ function bindSmapiSoapServiceToExpress(
       { title, seedId }: { title: string; seedId: string | undefined },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(({ musicLibrary }) =>
           musicLibrary
             .createPlaylist(title)
@@ -1230,9 +1231,9 @@ function bindSmapiSoapServiceToExpress(
       { id }: { id: string },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
         .then((_) => ({ deleteContainerResult: {} })),
 
@@ -1240,9 +1241,9 @@ function bindSmapiSoapServiceToExpress(
       { id, parentId }: { id: string; parentId: string },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(({ musicLibrary, typeId }) =>
           musicLibrary.addToPlaylist(parentId.split(":")[1]!, typeId)
@@ -1253,9 +1254,9 @@ function bindSmapiSoapServiceToExpress(
       { id, indices }: { id: string; indices: string },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then((it) => ({
           ...it,
@@ -1278,9 +1279,9 @@ function bindSmapiSoapServiceToExpress(
       { id, rating }: { id: string; rating: number },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(({ musicLibrary, typeId }) =>
           musicLibrary.rate(typeId, ratingFromInt(Math.abs(rating)))
@@ -1291,9 +1292,9 @@ function bindSmapiSoapServiceToExpress(
       { id, seconds }: { id: string; seconds: string },
       _: any,
       soapyHeaders: SoapyHeaders,
-      { headers }: Pick<Request, "headers">
+      { headers, id: reqId }: Pick<Request, "headers" | "id">
     ) =>
-      login(soapyHeaders?.credentials, headers)
+      login(soapyHeaders?.credentials, headers, reqId)
         .then(splitId(id))
         .then(({ musicLibrary, type, typeId }) => {
           switch (type) {
@@ -1309,7 +1310,7 @@ function bindSmapiSoapServiceToExpress(
                 }
               });
             default:
-              logger.info("Unsupported scrobble", { id, seconds });
+              logger.info(`${reqId} Unsupported scrobble`, { id, seconds });
               return Promise.resolve(true);
           }
         })
