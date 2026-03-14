@@ -633,6 +633,8 @@ function server(
     const urn = parse(req.params["burn"]!);
     const size = Number.parseInt(req.params["size"]!);
 
+    logger.debug(`Getting art '${JSON.stringify(urn)}' in size ${size}`)
+
     if (!serviceToken) {
       return res.status(401).send();
     } else if (!(size > 0)) {
@@ -656,12 +658,12 @@ function server(
           res.setHeader("content-type", coverArt.contentType);
           return res.send(coverArt.data);
         } else {
-          logger.warn(`Invalid content type of ${coverArt.contentType}, detected for ${urn}`);
+          logger.warn(`Invalid content type of ${coverArt.contentType}, detected for ${JSON.stringify(urn)}`);
           return res.status(502).send();
         }
     })
       .catch((e: Error) => {
-        logger.error(`Failed fetching image ${urn}/size/${size}`, {
+        logger.error(`Failed fetching image ${JSON.stringify(urn)} (size=${size})`, {
           cause: e,
         });
         return res.status(500).send();
