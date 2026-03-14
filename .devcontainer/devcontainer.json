@@ -23,6 +23,7 @@
     "customizations": {
         "vscode": {
           "extensions": [
+                "anthropic.claude-code",
                 "davidanson.vscode-markdownlint",
                 "esbenp.prettier-vscode",
                 "redhat.vscode-xml"
