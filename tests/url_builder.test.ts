@@ -4,6 +4,7 @@ describe("URLBuilder", () => {
   describe("construction", () => {
     it("with a string", () => {
       expect(url("http://example.com/").href()).toEqual("http://example.com/");
+      expect(url("https://nonstandardport.example.com:4443/").href()).toEqual("https://nonstandardport.example.com:4443/");
       expect(url("http://example.com/foobar?name=bob").href()).toEqual(
         "http://example.com/foobar?name=bob"
       );
@@ -12,6 +13,9 @@ describe("URLBuilder", () => {
     it("with a URL", () => {
       expect(url(new URL("http://example.com/")).href()).toEqual(
         "http://example.com/"
+      );
+      expect(url(new URL("http://nonstandardport.example.com:8080/")).href()).toEqual(
+        "http://nonstandardport.example.com:8080/"
       );
       expect(url(new URL("http://example.com/foobar?name=bob")).href()).toEqual(
         "http://example.com/foobar?name=bob"
@@ -22,6 +26,7 @@ describe("URLBuilder", () => {
   describe("toString", () => {
     it("should print the href", () => {
       expect(`${url("http://example.com/")}`).toEqual("http://example.com/");
+      expect(`${url("http://something.example.com:8443/")}`).toEqual("http://something.example.com:8443/");
       expect(`${url("http://example.com/foobar?name=bob")}`).toEqual(
         "http://example.com/foobar?name=bob"
       );
@@ -49,6 +54,19 @@ describe("URLBuilder", () => {
           expect(original.pathname()).toEqual("/")
     
           expect(updated.href()).toEqual("https://example.com/the-appended-path?a=b");
+          expect(updated.pathname()).toEqual("/the-appended-path")
+        });
+      });
+
+      describe("when there is no existing pathname on a non standard https port", ()=>{
+        it("should return a new URLBuilder with the new pathname appended to the existing pathname", () => {
+          const original = url("https://example.com:8443?a=b");
+          const updated = original.append({ pathname: "/the-appended-path" });
+    
+          expect(original.href()).toEqual("https://example.com:8443/?a=b");
+          expect(original.pathname()).toEqual("/")
+    
+          expect(updated.href()).toEqual("https://example.com:8443/the-appended-path?a=b");
           expect(updated.pathname()).toEqual("/the-appended-path")
         });
       });
@@ -104,7 +122,7 @@ describe("URLBuilder", () => {
       });
     });
 
-    describe("replacing", () => {
+    describe("replacing on a standard port", () => {
       it("should return a new URLBuilder with the new pathname", () => {
         const original = url("https://example.com/some-path?a=b");
         const updated = original.with({ pathname: "/some-new-path" });
@@ -113,6 +131,19 @@ describe("URLBuilder", () => {
         expect(original.pathname()).toEqual("/some-path")
   
         expect(updated.href()).toEqual("https://example.com/some-new-path?a=b");
+        expect(updated.pathname()).toEqual("/some-new-path")
+      });
+    });
+
+    describe("replacing on a custom port", () => {
+      it("should return a new URLBuilder with the new pathname", () => {
+        const original = url("https://example.com:4443/some-path?a=b");
+        const updated = original.with({ pathname: "/some-new-path" });
+  
+        expect(original.href()).toEqual("https://example.com:4443/some-path?a=b");
+        expect(original.pathname()).toEqual("/some-path")
+  
+        expect(updated.href()).toEqual("https://example.com:4443/some-new-path?a=b");
         expect(updated.pathname()).toEqual("/some-new-path")
       });
     });
@@ -219,6 +250,16 @@ describe("URLBuilder", () => {
           expect(`${updated.searchParams()}`).toEqual("x=y&z=1&z=2")
         });
       });
+    });
+  });
+
+  describe("an example", () => {
+    describe("of a non standard port", () => {
+      expect(
+        url("https://xyz.example.com:4443/path1?param1=value1").append({ pathname: "/path2", searchParams: { param2: "value2" } }).href()
+      ).toEqual(
+        "https://xyz.example.com:4443/path1/path2?param1=value1&param2=value2"
+      );
     });
   });
 });
