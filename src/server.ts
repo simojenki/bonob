@@ -449,10 +449,6 @@ function server(
       )}, headers=${JSON.stringify({ ...req.headers, "authorization": "*****" })}`
     );
 
-    if(process.env["BNB_DEBUG_CF"] == "true") {
-      console.log(`DEBUG_CF /stream auth header == '${req.headers["authorization"]}'`)  
-    }
-
     const serviceToken = pipe(
       E.fromNullable("Missing authorization header")(req.headers["authorization"] as string),
       E.chain((authorization) =>
