@@ -422,6 +422,145 @@ export const asURLSearchParams = (q: any) => {
   return urlSearchParams;
 };
 
+// OpenSubsonic Transcoding Extension types
+export type DirectPlayProfile = {
+  containers: string[];
+  audioCodecs: string[];
+  protocols: string[];
+  maxAudioChannels: number;
+};
+
+export type TranscodingProfile = {
+  container: string;
+  audioCodec: string;
+  protocol: string;
+  maxAudioChannels: number;
+};
+
+export type CodecLimitation = {
+  name: string;
+  comparison: string;
+  values: string[];
+  required: boolean;
+};
+
+export type CodecProfile = {
+  type: string;
+  name: string;
+  limitations: CodecLimitation[];
+};
+
+export type ClientInfo = {
+  name: string;
+  platform: string;
+  maxAudioBitrate: number;
+  maxTranscodingAudioBitrate: number;
+  directPlayProfiles: DirectPlayProfile[];
+  transcodingProfiles: TranscodingProfile[];
+  codecProfiles: CodecProfile[];
+};
+
+export type TranscodeStreamInfo = {
+  protocol: string;
+  container: string;
+  codec: string;
+  audioChannels: number;
+  audioBitrate: number;
+  audioProfile: string;
+  audioSamplerate: number;
+  audioBitdepth: number;
+};
+
+export type TranscodeDecision = {
+  canDirectPlay: boolean;
+  canTranscode: boolean;
+  transcodeReason?: string[];
+  errorReason?: string;
+  transcodeParams?: string;
+  sourceStream?: TranscodeStreamInfo;
+  transcodeStream?: TranscodeStreamInfo;
+};
+
+type GetTranscodeDecisionResponse = {
+  transcodeDecision: TranscodeDecision;
+  status: string;
+};
+
+export const SONOS_CLIENT_INFO: ClientInfo = {
+  name: "bonob-sonos",
+  platform: "Sonos",
+  maxAudioBitrate: 0,
+  maxTranscodingAudioBitrate: 0,
+  directPlayProfiles: [
+    {
+      containers: ["aac", "wma", "wav", "flac", "aiff"],
+      audioCodecs: [],
+      protocols: [],
+      maxAudioChannels: 0,
+    },
+    {
+      containers: ["mp3"],
+      audioCodecs: ["mp3"],
+      protocols: [],
+      maxAudioChannels: 0,
+    },
+    {
+      containers: ["ogg"],
+      audioCodecs: ["vorbis"],
+      protocols: [],
+      maxAudioChannels: 0,
+    },
+    {
+      containers: ["m4a", "mp4"],
+      audioCodecs: ["aac"],
+      protocols: [],
+      maxAudioChannels: 0,
+    },
+  ],
+  transcodingProfiles: [
+    { container: "flac", audioCodec: "flac", protocol: "http", maxAudioChannels: 2 },
+    { container: "mp3", audioCodec: "mp3", protocol: "http", maxAudioChannels: 2 },
+  ],
+  codecProfiles: [
+    {
+      type: "AudioCodec",
+      name: "flac",
+      limitations: [
+        { name: "audioChannels", comparison: "LessThanEqual", values: ["2"], required: true },
+        { name: "audioSamplerate", comparison: "LessThanEqual", values: ["48000"], required: true },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "vorbis",
+      limitations: [
+        { name: "audioSamplerate", comparison: "LessThanEqual", values: ["48000"], required: true },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "aiff",
+      limitations: [
+        { name: "audioBitdepth", comparison: "LessThanEqual", values: ["16"], required: true },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "wav",
+      limitations: [
+        { name: "audioBitdepth", comparison: "LessThanEqual", values: ["16"], required: true },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "opus",
+      limitations: [
+        { name: "audioSamplerate", comparison: "LessThanEqual", values: ["48000"], required: true },
+      ],
+    },
+  ],
+};
+
 export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
 export const cachingImageFetcher = (
@@ -527,6 +666,38 @@ export class Subsonic {
       .then((response) => {
         if (response.status != 200 && response.status != 206) {
           throw `Subsonic failed with a ${response.status || "no!"} status`;
+        } else return response;
+      });
+
+  private post = async (
+    { username, password }: Credentials,
+    path: string,
+    q: {} = {},
+    body: any = {},
+    config: AxiosRequestConfig | undefined = {}
+  ) =>
+    axios
+      .post(this.url.append({ pathname: path }).href(), body, {
+        params: asURLSearchParams({
+          u: username,
+          v: "1.16.1",
+          c: DEFAULT_CLIENT_APPLICATION,
+          f: "json",
+          ...t_and_s(password),
+          ...q,
+        }),
+        headers: {
+          "User-Agent": USER_AGENT,
+          "Content-Type": "application/json",
+        },
+        ...config,
+      })
+      .catch((e) => {
+        throw `Subsonic POST failed with: ${e}`;
+      })
+      .then((response) => {
+        if (response.status != 200) {
+          throw `Subsonic POST failed with a ${response.status || "no!"} status`;
         } else return response;
       });
 
@@ -762,6 +933,65 @@ export class Subsonic {
       {
         id,
         c,
+      },
+      {
+        headers: pipe(
+          range,
+          O.fromNullable,
+          O.map((range) => ({
+            "User-Agent": USER_AGENT,
+            Range: range,
+          })),
+          O.getOrElse(() => ({
+            "User-Agent": USER_AGENT,
+          }))
+        ),
+        responseType: "stream",
+      }
+    )
+    .then((stream) => ({
+      status: stream.status,
+      headers: {
+        "content-type": stream.headers["content-type"],
+        "content-length": stream.headers["content-length"],
+        "content-range": stream.headers["content-range"],
+        "accept-ranges": stream.headers["accept-ranges"],
+      },
+      stream: stream.data,
+    }));
+
+  getTranscodeDecision = async (
+    credentials: Credentials,
+    mediaId: string,
+    clientInfo: ClientInfo
+  ): Promise<TranscodeDecision | undefined> =>
+    this.post(
+      credentials,
+      `/rest/getTranscodeDecision`,
+      { mediaId, mediaType: "song" },
+      clientInfo
+    )
+      .then((response) => response.data as SubsonicEnvelope)
+      .then((json) => json["subsonic-response"] as unknown as GetTranscodeDecisionResponse)
+      .then((json) => {
+        if (isError(json as any)) return undefined;
+        return json.transcodeDecision;
+      })
+      .catch(() => undefined);
+
+  getTranscodeStream = (
+    credentials: Credentials,
+    mediaId: string,
+    transcodeParams: string,
+    range: string | undefined
+  ) =>
+    this.get(
+      credentials,
+      `/rest/getTranscodeStream`,
+      {
+        mediaId,
+        mediaType: "song",
+        transcodeParams,
       },
       {
         headers: pipe(
