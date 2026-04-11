@@ -104,6 +104,16 @@ BNB_SONOS_AUTO_REGISTER | false | Whether or not to try and auto-register with S
 
 ## Transcoding
 
+### Automatic (OpenSubsonic Transcoding extension)
+
+If your Subsonic server supports the [OpenSubsonic Transcoding extension](https://opensubsonic.netlify.app/docs/extensions/transcoding/) (Navidrome 0.61.0+), bonob will automatically negotiate the right transcoding decisions with the server using a Sonos-specific capability profile.
+
+This is the recommended approach for handling unsupported audio formats (e.g. high sample rate FLAC). The Sonos profile bonob sends declares the supported sample rates (≤48kHz), bit depths, and channels — the server then decides whether to direct play or transcode each track based on these capabilities. No manual `BNB_SUBSONIC_CUSTOM_CLIENTS` configuration is required.
+
+**Important:** When using this approach, ensure the `bonob` player in your Subsonic server has **no Transcoding profile assigned and no Max Bit Rate cap**. A server-side player override would replace bonob's capability profile and prevent the extension from working correctly.
+
+If the server does not support the extension (e.g. older Navidrome versions), bonob automatically falls back to the legacy `/rest/stream` flow described below.
+
 ### Transcode everything
 
 The simplest transcoding solution is to simply change the player ('bonob') in your subsonic server to transcode all content to something Sonos supports (ie. mp3 & flac)
