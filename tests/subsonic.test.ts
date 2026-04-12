@@ -1,9 +1,11 @@
 import { option as O, either as E } from "fp-ts";
 import { randomUUID as uuid } from "crypto";
 import { createHash } from "crypto";
-import tmp from "tmp";
-import fse from "fs-extra";
+import { existsSync, readFileSync, writeFileSync, mkdtempSync } from "fs";
+import os from "os";
 import path from "path";
+
+const tmpDir = () => ({ name: mkdtempSync(path.join(os.tmpdir(), "bonob-")) });
 import { pipe } from "fp-ts/lib/function";
 
 import sharp from "sharp";
@@ -157,7 +159,7 @@ describe("cachingImageFetcher", () => {
 
   describe("when there is no image in the cache", () => {
     it("should fetch the image from the source and then cache and return it", async () => {
-      const dir = tmp.dirSync();
+      const dir = tmpDir();
       const cacheFile = path.join(dir.name, `${createHash("md5").update(url).digest("hex")}.png`);
       const jpgImage = Buffer.from("jpg-image", "utf-8");
       const pngImage = Buffer.from("png-image", "utf-8");
@@ -176,18 +178,18 @@ describe("cachingImageFetcher", () => {
       expect(result!.data).toEqual(pngImage);
 
       expect(delegate).toHaveBeenCalledWith(url);
-      expect(fse.existsSync(cacheFile)).toEqual(true);
-      expect(fse.readFileSync(cacheFile)).toEqual(pngImage);
+      expect(existsSync(cacheFile)).toEqual(true);
+      expect(readFileSync(cacheFile)).toEqual(pngImage);
     });
   });
 
   describe("when the image is already in the cache", () => {
     it("should fetch the image from the cache and return it", async () => {
-      const dir = tmp.dirSync();
+      const dir = tmpDir();
       const cacheFile = path.join(dir.name, `${createHash("md5").update(url).digest("hex")}.png`);
       const data = Buffer.from("foobar2", "utf-8");
 
-      fse.writeFileSync(cacheFile, data);
+      writeFileSync(cacheFile, data);
 
       const result = await cachingImageFetcher(dir.name, delegate)(url);
 
@@ -200,7 +202,7 @@ describe("cachingImageFetcher", () => {
 
   describe("when the delegate returns undefined", () => {
     it("should return undefined", async () => {
-      const dir = tmp.dirSync();
+      const dir = tmpDir();
       const cacheFile = path.join(dir.name, `${createHash("md5").update(url).digest("hex")}.png`);
 
       delegate.mockResolvedValue(undefined);
@@ -210,7 +212,7 @@ describe("cachingImageFetcher", () => {
       expect(result).toBeUndefined();
 
       expect(delegate).toHaveBeenCalledWith(url);
-      expect(fse.existsSync(cacheFile)).toEqual(false);
+      expect(existsSync(cacheFile)).toEqual(false);
     });
   });
 });
