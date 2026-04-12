@@ -1,6 +1,6 @@
 import _ from "underscore";
 import { createUrnUtil } from "urn-lib";
-import randomstring from "randomstring";
+import { generateRandomString } from "./random";
 import { pipe } from "fp-ts/lib/function";
 import { either as E } from "fp-ts";
 
@@ -37,7 +37,7 @@ if(SHORTHAND_MAPPINGS.length != REVERSE_SHORTHAND_MAPPINGS.length) {
   throw `Invalid SHORTHAND_MAPPINGS, must be duplicate!`
 }
 
-export const BURN_SALT = randomstring.generate(5);
+export const BURN_SALT = generateRandomString(5);
 const encryptor = jwsEncryption(BURN_SALT);
 
 export const format = (

@@ -1,6 +1,6 @@
 import { option as O, either as E } from "fp-ts";
-import { v4 as uuid } from "uuid";
-import { Md5 } from "ts-md5";
+import { randomUUID as uuid } from "crypto";
+import { createHash } from "crypto";
 import tmp from "tmp";
 import fse from "fs-extra";
 import path from "path";
@@ -12,8 +12,8 @@ jest.mock("sharp");
 import axios from "axios";
 jest.mock("axios");
 
-import randomstring from "randomstring";
-jest.mock("randomstring");
+import * as random from "../src/random";
+jest.mock("../src/random");
 
 import { URLBuilder } from "../src/url_builder";
 import {
@@ -47,7 +47,7 @@ describe("t", () => {
   it("should be an md5 of the password and the salt", () => {
     const p = "password123";
     const s = "saltydog";
-    expect(t(p, s)).toEqual(Md5.hashStr(`${p}${s}`));
+    expect(t(p, s)).toEqual(createHash("md5").update(`${p}${s}`).digest("hex"));
   });
 });
 
@@ -158,7 +158,7 @@ describe("cachingImageFetcher", () => {
   describe("when there is no image in the cache", () => {
     it("should fetch the image from the source and then cache and return it", async () => {
       const dir = tmp.dirSync();
-      const cacheFile = path.join(dir.name, `${Md5.hashStr(url)}.png`);
+      const cacheFile = path.join(dir.name, `${createHash("md5").update(url).digest("hex")}.png`);
       const jpgImage = Buffer.from("jpg-image", "utf-8");
       const pngImage = Buffer.from("png-image", "utf-8");
 
@@ -184,7 +184,7 @@ describe("cachingImageFetcher", () => {
   describe("when the image is already in the cache", () => {
     it("should fetch the image from the cache and return it", async () => {
       const dir = tmp.dirSync();
-      const cacheFile = path.join(dir.name, `${Md5.hashStr(url)}.png`);
+      const cacheFile = path.join(dir.name, `${createHash("md5").update(url).digest("hex")}.png`);
       const data = Buffer.from("foobar2", "utf-8");
 
       fse.writeFileSync(cacheFile, data);
@@ -201,7 +201,7 @@ describe("cachingImageFetcher", () => {
   describe("when the delegate returns undefined", () => {
     it("should return undefined", async () => {
       const dir = tmp.dirSync();
-      const cacheFile = path.join(dir.name, `${Md5.hashStr(url)}.png`);
+      const cacheFile = path.join(dir.name, `${createHash("md5").update(url).digest("hex")}.png`);
 
       delegate.mockResolvedValue(undefined);
 
@@ -704,7 +704,7 @@ describe("Subsonic", () => {
     jest.clearAllMocks();
     jest.resetAllMocks();
 
-    randomstring.generate = mockRandomstring;
+    (random.generateRandomString as jest.Mock) = mockRandomstring;
     axios.get = mockGET;
     axios.post = mockPOST;
 

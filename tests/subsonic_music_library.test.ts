@@ -1,12 +1,12 @@
-import { v4 as uuid } from "uuid";
+import { randomUUID as uuid } from "crypto";
 import { pipe } from "fp-ts/lib/function";
 import { option as O, taskEither as TE, either as E } from "fp-ts";
 
 import axios from "axios";
 jest.mock("axios");
 
-import randomstring from "randomstring";
-jest.mock("randomstring");
+import * as random from "../src/random";
+jest.mock("../src/random");
 
 import {
   Subsonic,
@@ -703,7 +703,7 @@ describe("SubsonicMusicLibrary", () => {
     jest.clearAllMocks();
     jest.resetAllMocks();
 
-    randomstring.generate = mockRandomstring;
+    (random.generateRandomString as jest.Mock) = mockRandomstring;
     axios.get = mockGET;
     axios.post = mockPOST;
 

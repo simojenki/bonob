@@ -9,7 +9,7 @@ jest.mock("@svrooij/sonos");
 import axios from "axios";
 jest.mock("axios");
 
-import { v4 as uuid } from 'uuid';
+import { randomUUID as uuid } from "crypto";
 
 import { AMAZON_MUSIC, APPLE_MUSIC, AUDIBLE } from "./music_services";
 
