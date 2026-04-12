@@ -62,7 +62,8 @@
   },
   "overrides": {
     "axios-ntlm": "npm:dry-uninstall",
-    "axios": "$axios"
+    "axios": "$axios",
+    "whatwg-url": "^14.2.0"
   },
   "scripts": {
     "clean": "rm -Rf build node_modules",
