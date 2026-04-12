@@ -20,7 +20,7 @@ import {
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
-import fse from "fs-extra";
+import { readFile, writeFile } from "fs/promises";
 import path from "path";
 
 import axios, { AxiosRequestConfig } from "axios";
@@ -431,8 +431,7 @@ export const cachingImageFetcher = (
 ) =>
   async (url: string): Promise<CoverArt | undefined> => {
     const filename = path.join(cacheDir, `${createHash("md5").update(url).digest("hex")}.png`);
-    return fse
-      .readFile(filename)
+    return readFile(filename)
       .then((data) => ({ contentType: "image/png", data }))
       .catch(() =>
         delegate(url).then((image) => {
@@ -441,8 +440,7 @@ export const cachingImageFetcher = (
               .png()
               .toBuffer()
               .then((png) => {
-                return fse
-                  .writeFile(filename, png)
+                return writeFile(filename, png)
                   .then(() => ({ contentType: "image/png", data: png }));
               });
           } else {
