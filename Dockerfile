@@ -2,20 +2,6 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /bonob
 
-COPY .git ./.git
-COPY src ./src
-COPY docs ./docs
-COPY typings ./typings
-COPY web ./web
-COPY tests ./tests
-COPY jest.config.js .
-COPY register.js .
-COPY .npmrc .
-COPY tsconfig.json .
-COPY package.json .
-COPY package-lock.json .
-
-ENV JEST_TIMEOUT=60000
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
@@ -27,13 +13,21 @@ RUN apt-get update && \
         git \
         g++ && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    npm install && \
-    npm test && \
-    npm run gitinfo && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install dependencies first so this layer caches when only source changes
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci
+
+# Now copy source and build
+COPY tsconfig.json jest.config.js register.js ./
+COPY src ./src
+COPY typings ./typings
+COPY .git ./.git
+
+RUN npm run gitinfo && \
     npm run build && \
-    rm -Rf node_modules && \
-    NODE_ENV=production npm install --omit=dev
+    npm prune --omit=dev
 
 
 FROM node:22-bookworm-slim
@@ -51,15 +45,6 @@ EXPOSE $BNB_PORT
 
 WORKDIR /bonob
 
-COPY package.json .
-COPY package-lock.json .
-
-COPY --from=build /bonob/build/src ./src
-COPY --from=build /bonob/node_modules ./node_modules
-COPY --from=build /bonob/.gitinfo ./
-COPY web ./web
-COPY src/Sonoswsdl-1.19.6-20231024.wsdl ./src/Sonoswsdl-1.19.6-20231024.wsdl
-
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
@@ -69,9 +54,16 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-USER nobody 
+COPY package.json package-lock.json ./
+COPY --from=build /bonob/build/src ./src
+COPY --from=build /bonob/node_modules ./node_modules
+COPY --from=build /bonob/.gitinfo ./
+COPY web ./web
+COPY src/Sonoswsdl-1.19.6-20231024.wsdl ./src/Sonoswsdl-1.19.6-20231024.wsdl
+
+USER nobody
 WORKDIR /bonob/src
 
-HEALTHCHECK CMD wget -O- http://localhost:${BNB_PORT}/about || exit 1   
+HEALTHCHECK CMD wget -O- http://localhost:${BNB_PORT}/about || exit 1
 
 CMD ["node", "app.js"]
