@@ -50,7 +50,6 @@
     "@types/tmp": "^0.2.6",
     "chai": "^6.2.2",
     "get-port": "^7.2.0",
-    "image-js": "^0.37.0",
     "jest": "^30.3.0",
     "nodemon": "^3.1.14",
     "npm-check-updates": "^19.6.6",

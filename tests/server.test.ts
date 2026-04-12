@@ -1,7 +1,7 @@
 import { v4 as uuid } from "uuid";
 import dayjs from "dayjs";
 import request from "supertest";
-import Image from "image-js";
+import sharp from "sharp";
 import { either as E, taskEither as TE } from "fp-ts";
 
 import { AuthFailure, MusicService } from "../src/music_library";
@@ -1461,9 +1461,9 @@ describe("server", () => {
 
                   expect(response.status).toEqual(200);
                   expect(response.header["content-type"]).toEqual("image/png");
-                  const image = await Image.load(response.body);
-                  expect(image.width).toEqual(80);
-                  expect(image.height).toEqual(80);
+                  const metadata = await sharp(response.body).metadata();
+                  expect(metadata.width).toEqual(80);
+                  expect(metadata.height).toEqual(80);
                 });
               });
 
@@ -1579,9 +1579,9 @@ describe("server", () => {
 
               expect(response.status).toEqual(200);
               expect(response.header["content-type"]).toEqual("image/png");
-              const image = await Image.load(response.body);
-              expect(image.width).toEqual(80);
-              expect(image.height).toEqual(80);
+              const metadata = await sharp(response.body).metadata();
+              expect(metadata.width).toEqual(80);
+              expect(metadata.height).toEqual(80);
             });
           });
 
