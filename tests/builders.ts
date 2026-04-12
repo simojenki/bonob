@@ -1,6 +1,7 @@
 import { SonosDevice } from "@svrooij/sonos/lib";
-import { v4 as uuid } from "uuid";
-import randomstring from "randomstring";
+import { randomUUID as uuid } from "crypto";
+import { generateRandomString } from "../src/random";
+const randomstring = { generate: generateRandomString };
 
 import { SoapyHeaders } from "../src/smapi";
 import { Service, Device } from "../src/sonos";

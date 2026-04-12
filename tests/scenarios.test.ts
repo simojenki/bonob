@@ -2,7 +2,7 @@ import { createClientAsync, Client } from "soap";
 import { Express } from "express";
 
 import request from "supertest";
-import { v4 as uuid } from "uuid";
+import { randomUUID as uuid } from "crypto";
 
 import {
   GetAppLinkResult,

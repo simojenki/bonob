@@ -1,4 +1,4 @@
-import { v4 as uuid } from "uuid";
+import { randomUUID as uuid } from "crypto";
 
 import { anArtist } from "./builders";
 import { artistToArtistSummary } from "../src/music_library";

@@ -1,4 +1,4 @@
-import { v4 as uuid } from "uuid";
+import { randomUUID as uuid } from "crypto";
 import dayjs from "dayjs";
 import request from "supertest";
 import sharp from "sharp";

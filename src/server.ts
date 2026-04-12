@@ -3,7 +3,7 @@ import express, { Express, Request } from "express";
 import * as Eta from "eta";
 import path from "path";
 import sharp from "sharp";
-import { v4 as uuid } from "uuid";
+import { randomUUID as uuid } from "crypto";
 import dayjs from "dayjs";
 
 import { PassThrough, Transform, TransformCallback } from "stream";

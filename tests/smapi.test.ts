@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import request from "supertest";
 import { Client, createClientAsync } from "soap";
-import { v4 as uuid } from "uuid";
+import { randomUUID as uuid } from "crypto";
 import { either as E, taskEither as TE } from "fp-ts";
 import { DOMParserImpl } from "xmldom-ts";
 import * as xpath from "xpath-ts";
