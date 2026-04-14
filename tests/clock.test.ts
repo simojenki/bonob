@@ -29,14 +29,14 @@ function describeFixedDateMonthEvent(
   const month = dateMonth.split("/")[1];
 
   describe(name, () => {
-    it(`should return true for ${randomYear}-${month}-${date}T00:00:00 ragardless of year`, () => {
-      expect(f({ now: () => dayjs(`${randomYear}-${month}-${date}T00:00:00Z`) })).toEqual(true);
+    it(`should return true for ${randomYear}-${month}-${date}T00:00:00 regardless of year`, () => {
+      expect(f({ now: () => dayjs(`${randomYear}-${month}-${date}T00:00:00`) })).toEqual(true);
     });
-  
+
     it(`should return true for ${randomYear}-${month}-${date}T12:00:00 regardless of year`, () => {
-      expect(f({ now: () => dayjs(`${randomYear}-${month}-${date}T12:00:00Z`) })).toEqual(true);
+      expect(f({ now: () => dayjs(`${randomYear}-${month}-${date}T12:00:00`) })).toEqual(true);
     });
-  
+
     it(`should return true for ${randomYear}-${month}-${date}T23:59:00 regardless of year`, () => {
       expect(f({ now: () => dayjs(`${randomYear}-${month}-${date}T23:59:00`) })).toEqual(true);
     });
