@@ -2,7 +2,8 @@ import { option as O, taskEither as TE } from "fp-ts";
 import * as A from "fp-ts/Array";
 import { ordString } from "fp-ts/lib/Ord";
 import { pipe } from "fp-ts/lib/function";
-import { Md5 } from "ts-md5";
+import { createHash } from "crypto";
+import { generateRandomString } from "./random";
 import {
   Credentials,
   Album,
@@ -19,11 +20,10 @@ import {
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
-import fse from "fs-extra";
+import { readFile, writeFile } from "fs/promises";
 import path from "path";
 
 import axios, { AxiosRequestConfig } from "axios";
-import randomstring from "randomstring";
 import { b64Encode, b64Decode } from "./b64";
 import { BUrn } from "./burn";
 import { album, artist } from "./smapi";
@@ -40,10 +40,10 @@ export const BROWSER_HEADERS = {
 };
 
 export const t = (password: string, s: string) =>
-  Md5.hashStr(`${password}${s}`);
+  createHash("md5").update(`${password}${s}`).digest("hex");
 
 export const t_and_s = (password: string) => {
-  const s = randomstring.generate();
+  const s = generateRandomString();
   return {
     t: t(password, s),
     s,
@@ -430,9 +430,8 @@ export const cachingImageFetcher = (
   makeSharp = sharp
 ) =>
   async (url: string): Promise<CoverArt | undefined> => {
-    const filename = path.join(cacheDir, `${Md5.hashStr(url)}.png`);
-    return fse
-      .readFile(filename)
+    const filename = path.join(cacheDir, `${createHash("md5").update(url).digest("hex")}.png`);
+    return readFile(filename)
       .then((data) => ({ contentType: "image/png", data }))
       .catch(() =>
         delegate(url).then((image) => {
@@ -441,8 +440,7 @@ export const cachingImageFetcher = (
               .png()
               .toBuffer()
               .then((png) => {
-                return fse
-                  .writeFile(filename, png)
+                return writeFile(filename, png)
                   .then(() => ({ contentType: "image/png", data: png }));
               });
           } else {

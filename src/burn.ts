@@ -1,20 +1,30 @@
 import _ from "underscore";
-import { createUrnUtil } from "urn-lib";
-import randomstring from "randomstring";
+import { generateRandomString } from "./random";
 import { pipe } from "fp-ts/lib/function";
 import { either as E } from "fp-ts";
 
 import jwsEncryption from "./encryption";
 
-const BURN = createUrnUtil("bnb", {
-  components: ["system", "resource"],
-  separator: ":",
-  allowEmpty: false,
-});
-
 export type BUrn = {
   system: string;
   resource: string;
+};
+
+// Tiny URN serializer/parser for the "bnb:<system>:<resource>" format
+// previously provided by urn-lib. Components are non-empty; resource may
+// contain ":" since we only split on the first two.
+const BURN = {
+  format: ({ system, resource }: BUrn): string =>
+    `bnb:${system}:${resource}`,
+  parse: (s: string): BUrn | undefined => {
+    const m = s.match(/^bnb:([^:]+):(.+)$/);
+    return m ? { system: m[1]!, resource: m[2]! } : undefined;
+  },
+  validate: (b: BUrn | undefined): string[] | undefined => {
+    if (!b) return ["invalid format"];
+    if (!b.system || !b.resource) return ["empty component"];
+    return undefined;
+  },
 };
 
 const DEFAULT_FORMAT_OPTS = {
@@ -37,7 +47,7 @@ if(SHORTHAND_MAPPINGS.length != REVERSE_SHORTHAND_MAPPINGS.length) {
   throw `Invalid SHORTHAND_MAPPINGS, must be duplicate!`
 }
 
-export const BURN_SALT = randomstring.generate(5);
+export const BURN_SALT = generateRandomString(5);
 const encryptor = jwsEncryption(BURN_SALT);
 
 export const format = (
