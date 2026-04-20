@@ -835,6 +835,38 @@ describe("server", () => {
               });
             });
 
+            
+            describe("HEAD request for content length", () => {
+              it("should return a 200 with content-length and no body", async () => {
+                const trackStream = {
+                  status: 200,
+                  headers: {
+                    "content-type": "audio/flac",
+                    "content-length": "456",
+                  },
+                  stream: streamContent(""), // No body needed for HEAD
+                };
+
+                musicService.login.mockResolvedValue(musicLibrary);
+                musicLibrary.stream.mockResolvedValue(trackStream);
+
+                const res = await request(server)
+                  .head(
+                    bonobUrl
+                      .append({ pathname: `/stream/track/${trackId}`})
+                      .path()
+                  )
+                  .set('authorization', apiTokens.mint(serviceToken));
+
+                expect(res.status).toEqual(trackStream.status);
+                expect(res.headers["content-type"]).toEqual("audio/flac");
+                expect(res.headers["content-length"]).toEqual("456");
+                // HEAD requests should have no body
+                expect(res.text).toBeFalsy();
+                expect(Object.keys(res.body).length).toBe(0);
+              });
+            });
+
             describe("and the track doesnt exist", () => {
               it("should return a 404", async () => {
                 const trackStream = {
