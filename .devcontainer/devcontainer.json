@@ -11,7 +11,11 @@
         "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}",
         "BNB_SECRET": "${localEnv:BNB_SECRET}"
     },
+    "postCreateCommand": "bash .devcontainer/setup.sh",
     "remoteUser": "node",
+    "remoteEnv": {
+        "PATH": "/home/node/.local/bin:${containerEnv:PATH}"
+    },
     "runArgs": ["-p", "0.0.0.0:4534:4534"],
     "forwardPorts": [4534],
     "features": {
