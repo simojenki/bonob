@@ -7,7 +7,11 @@ import {
 jest.mock("@svrooij/sonos");
 
 import axios from "axios";
-jest.mock("axios");
+jest.mock("axios", () => ({
+  ...jest.requireActual("axios"),
+  get: jest.fn(),
+  post: jest.fn(),
+}));
 
 import { randomUUID as uuid } from "crypto";
 

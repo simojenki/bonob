@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk '/describe\\\\\\(|it\\\\\\(|mockGET.mockImplementation/ {print NR\": \"$0}' /workspaces/bonob/tests/subsonic.test.ts)",
+      "Bash(npx jest *)",
+      "Bash(node *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('jest', {}\\), indent=2\\)\\)\")"
+    ]
+  }
+}

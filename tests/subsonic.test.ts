@@ -11,8 +11,13 @@ import { pipe } from "fp-ts/lib/function";
 import sharp from "sharp";
 jest.mock("sharp");
 
+
 import axios from "axios";
-jest.mock("axios");
+jest.mock("axios", () => ({
+  ...jest.requireActual("axios"),
+  get: jest.fn(),
+  post: jest.fn(),
+}));
 
 import * as random from "../src/random";
 jest.mock("../src/random");
@@ -32,7 +37,8 @@ import {
   NO_CUSTOM_PLAYERS,
   Subsonic,
   asGenre,
-  PingResponse
+  PingResponse,
+  OpenSubsonicExtension
 } from "../src/subsonic";
 
 import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_music_library.test";
@@ -40,7 +46,7 @@ import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_musi
 import { b64Encode } from "../src/b64";
 
 import { Album, Artist, Track, AlbumSummary, AuthFailure } from "../src/music_library";
-import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP } from "./builders";
+import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP, a404 } from "./builders";
 import { BUrn } from "../src/burn";
 
 
@@ -257,6 +263,12 @@ export type ArtistWithAlbum = {
   album: Album;
 };
 
+const anOpenSubsonicExtension = (fields: Partial<OpenSubsonicExtension> = {}): OpenSubsonicExtension => ({
+  name: `extension-${uuid()}`,
+  versions: [1],
+  ...fields,
+});
+
 const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
   "subsonic-response": {
     status: "ok",
@@ -266,6 +278,7 @@ const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
     ...pingResponse,
   },
 });
+
 
 describe("artistImageURN", () => {
   describe("when artist URL is", () => {
@@ -668,6 +681,9 @@ export const getAlbumJson = (album: Album) =>
       path: "ACDC/High voltage/ACDC - The Jack.mp3"
     })),
   } });
+
+const getOpenSubsonicExtensionsJson = (extensions: OpenSubsonicExtension[]) =>
+  subsonicOK({ openSubsonicExtensions: extensions });
 
 describe("Subsonic", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
@@ -1665,5 +1681,58 @@ describe("Subsonic", () => {
         expect(result).toEqual(false);
       });
     });
-  });  
+  });
+
+  describe("getOpenSubsonicExtensions", () => {
+    describe("when there are no extensions", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+        );
+      });
+
+      it("should return an empty array and call subsonic with correct params", async () => {
+        const result = await subsonic.getOpenSubsonicExtensions(credentials);
+
+        expect(result).toEqual([]);
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getOpenSubsonicExtensions.view" }).href(),
+          { params: asURLSearchParams(authParamsPlusJson), headers }
+        );
+      });
+    });
+
+    describe("when there are extensions", () => {
+      const extension1 = anOpenSubsonicExtension({ name: "transcoding", versions: [1] });
+      const extension2 = anOpenSubsonicExtension({ name: "formPost", versions: [1, 2] });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getOpenSubsonicExtensionsJson([extension1, extension2])))
+        );
+      });
+
+      it("should return the extensions and call subsonic with correct params", async () => {
+        const result = await subsonic.getOpenSubsonicExtensions(credentials);
+
+        expect(result).toEqual([extension1, extension2]);
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getOpenSubsonicExtensions.view" }).href(),
+          { params: asURLSearchParams(authParamsPlusJson), headers }
+        );
+      });
+    });
+
+    describe("when the server returns 404", () => {
+      beforeEach(() => {
+        mockGET.mockRejectedValue(a404())
+      });
+
+      it("should return an empty array", async () => {
+        const result = await subsonic.getOpenSubsonicExtensions(credentials);
+
+        expect(result).toEqual([]);
+      });
+    });
+  });
 });

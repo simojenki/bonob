@@ -1,3 +1,4 @@
+import { AxiosError } from "axios";
 import { SonosDevice } from "@svrooij/sonos/lib";
 import { randomUUID as uuid } from "crypto";
 import { generateRandomString } from "../src/random";
@@ -23,6 +24,21 @@ import { artistImageURN } from "../src/subsonic";
 
 const randomInt = (max: number) => Math.floor(Math.random() * Math.floor(max));
 const randomIpAddress = () => `127.0.${randomInt(255)}.${randomInt(255)}`;
+
+export const a404 = (): AxiosError => new AxiosError(
+    'Not Found',
+    'ERR_BAD_REQUEST',
+    undefined,
+    undefined,
+    {
+      status: 404,
+      statusText: 'Not Found',
+      headers: {},
+      config: {} as any,
+      data: {},
+    }
+  );
+
 
 export const aService = (fields: Partial<Service> = {}): Service => ({
   sid: randomInt(500),

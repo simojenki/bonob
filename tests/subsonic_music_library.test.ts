@@ -3,7 +3,11 @@ import { pipe } from "fp-ts/lib/function";
 import { option as O, taskEither as TE, either as E } from "fp-ts";
 
 import axios from "axios";
-jest.mock("axios");
+jest.mock("axios", () => ({
+  ...jest.requireActual("axios"),
+  get: jest.fn(),
+  post: jest.fn(),
+}));
 
 import * as random from "../src/random";
 jest.mock("../src/random");
@@ -1941,7 +1945,7 @@ describe("SubsonicMusicLibrary", () => {
 
               return expect(
                 subsonic.stream({ trackId, range: undefined })
-              ).rejects.toEqual(`Subsonic failed with: IO error occured`);
+              ).rejects.toEqual(`IO error occured`);
             });
           });
         });

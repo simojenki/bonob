@@ -246,6 +246,15 @@ export type Search3Response = SubsonicResponse & {
   };
 };
 
+export type OpenSubsonicExtension = {
+  name: string;
+  versions: number[];
+};
+
+type GetOpenSubsonicExtensionsResponse = SubsonicResponse & {
+  openSubsonicExtensions: OpenSubsonicExtension[];
+};
+
 export function isError(
   subsonicResponse: SubsonicResponse
 ): subsonicResponse is SubsonicError {
@@ -657,9 +666,6 @@ export class Subsonic {
           "User-Agent": USER_AGENT,
         },
         ...config,
-      })
-      .catch((e) => {
-        throw `Subsonic failed with: ${e}`;
       })
       .then((response) => {
         if (response.status != 200 && response.status != 206) {
@@ -1117,5 +1123,16 @@ export class Subsonic {
         url: it.streamUrl,
         homePage: it.homePageUrl,
       }))
-    ); 
+    );
+
+  getOpenSubsonicExtensions = (credentials: Credentials): Promise<OpenSubsonicExtension[]> =>
+    this.getJSON<GetOpenSubsonicExtensionsResponse>(
+      credentials,
+      "/rest/getOpenSubsonicExtensions.view"
+    )
+    .then((it) => it.openSubsonicExtensions || [])
+    .catch((e: unknown) => {
+      if (axios.isAxiosError(e) && e.response?.status === 404) return [];
+      throw e
+    });
 };
