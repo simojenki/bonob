@@ -11,8 +11,13 @@ import { pipe } from "fp-ts/lib/function";
 import sharp from "sharp";
 jest.mock("sharp");
 
+
 import axios from "axios";
-jest.mock("axios");
+jest.mock("axios", () => ({
+  ...jest.requireActual("axios"),
+  get: jest.fn(),
+  post: jest.fn(),
+}));
 
 import * as random from "../src/random";
 jest.mock("../src/random");
@@ -32,7 +37,10 @@ import {
   NO_CUSTOM_PLAYERS,
   Subsonic,
   asGenre,
-  PingResponse
+  PingResponse,
+  OpenSubsonicExtension,
+  SONOS_CLIENT_INFO,
+  TranscodeDecision,
 } from "../src/subsonic";
 
 import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_music_library.test";
@@ -40,7 +48,7 @@ import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_musi
 import { b64Encode } from "../src/b64";
 
 import { Album, Artist, Track, AlbumSummary, AuthFailure } from "../src/music_library";
-import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP } from "./builders";
+import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP, a404 } from "./builders";
 import { BUrn } from "../src/burn";
 
 
@@ -257,6 +265,12 @@ export type ArtistWithAlbum = {
   album: Album;
 };
 
+const anOpenSubsonicExtension = (fields: Partial<OpenSubsonicExtension> = {}): OpenSubsonicExtension => ({
+  name: `extension-${uuid()}`,
+  versions: [1],
+  ...fields,
+});
+
 const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
   "subsonic-response": {
     status: "ok",
@@ -266,6 +280,7 @@ const pingJson = (pingResponse: Partial<PingResponse> = {}) => ({
     ...pingResponse,
   },
 });
+
 
 describe("artistImageURN", () => {
   describe("when artist URL is", () => {
@@ -668,6 +683,18 @@ export const getAlbumJson = (album: Album) =>
       path: "ACDC/High voltage/ACDC - The Jack.mp3"
     })),
   } });
+
+const getOpenSubsonicExtensionsJson = (extensions: OpenSubsonicExtension[]) =>
+  subsonicOK({ openSubsonicExtensions: extensions });
+
+const aTranscodeDecision = (fields: Partial<TranscodeDecision> = {}): TranscodeDecision => ({
+  canDirectPlay: false,
+  canTranscode: false,
+  ...fields,
+});
+
+const getTranscodeDecisionJson = (decision: TranscodeDecision) =>
+  subsonicOK({ transcodeDecision: decision });
 
 describe("Subsonic", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
@@ -1665,5 +1692,194 @@ describe("Subsonic", () => {
         expect(result).toEqual(false);
       });
     });
-  });  
+  });
+
+  describe("getOpenSubsonicExtensions", () => {
+    describe("when there are no extensions", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+        );
+      });
+
+      it("should return an empty array and call subsonic with correct params", async () => {
+        const result = await subsonic.getOpenSubsonicExtensions(credentials);
+
+        expect(result).toEqual([]);
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getOpenSubsonicExtensions.view" }).href(),
+          { params: asURLSearchParams(authParamsPlusJson), headers }
+        );
+      });
+    });
+
+    describe("when there are extensions", () => {
+      const extension1 = anOpenSubsonicExtension({ name: "transcoding", versions: [1] });
+      const extension2 = anOpenSubsonicExtension({ name: "formPost", versions: [1, 2] });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getOpenSubsonicExtensionsJson([extension1, extension2])))
+        );
+      });
+
+      it("should return the extensions and call subsonic with correct params", async () => {
+        const result = await subsonic.getOpenSubsonicExtensions(credentials);
+
+        expect(result).toEqual([extension1, extension2]);
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getOpenSubsonicExtensions.view" }).href(),
+          { params: asURLSearchParams(authParamsPlusJson), headers }
+        );
+      });
+    });
+
+    describe("when the server returns 404", () => {
+      beforeEach(() => {
+        mockGET.mockRejectedValue(a404())
+      });
+
+      it("should return an empty array", async () => {
+        const result = await subsonic.getOpenSubsonicExtensions(credentials);
+
+        expect(result).toEqual([]);
+      });
+    });
+  });
+
+  describe("getTranscodeDecision", () => {
+    const mediaId = `media-${uuid()}`;
+
+    describe("when the server can transcode", () => {
+      const decision = aTranscodeDecision({
+        canDirectPlay: false,
+        canTranscode: true,
+        transcodeParams: "some-transcode-params",
+        transcodeReason: ["AudioCodecNotSupported"],
+      });
+
+      beforeEach(() => {
+        mockPOST.mockImplementationOnce(() =>
+          Promise.resolve(ok(getTranscodeDecisionJson(decision)))
+        );
+      });
+
+      it("should return the decision and call subsonic with correct params", async () => {
+        const result = await subsonic.getTranscodeDecision(credentials, mediaId, SONOS_CLIENT_INFO);
+
+        expect(result).toEqual(decision);
+        expect(axios.post).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getTranscodeDecision" }).href(),
+          SONOS_CLIENT_INFO,
+          {
+            params: asURLSearchParams({
+              u: authParams.u,
+              v: authParams.v,
+              c: authParams.c,
+              t: authParams.t,
+              s: authParams.s,
+              f: "json",
+              mediaId,
+              mediaType: "song",
+            }),
+            headers: {
+              "User-Agent": "bonob",
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      });
+    });
+
+    describe("when the server requires direct play", () => {
+      const decision = aTranscodeDecision({ canDirectPlay: true, canTranscode: false });
+
+      beforeEach(() => {
+        mockPOST.mockImplementationOnce(() =>
+          Promise.resolve(ok(getTranscodeDecisionJson(decision)))
+        );
+      });
+
+      it("should return the decision", async () => {
+        const result = await subsonic.getTranscodeDecision(credentials, mediaId, SONOS_CLIENT_INFO);
+
+        expect(result).toEqual(decision);
+      });
+    });
+  });
+
+  describe("getTranscodeStream", () => {
+    const mediaId = `media-${uuid()}`;
+    const transcodeParams = "some-transcode-params";
+    const streamData = { pipe: jest.fn() };
+
+    const streamResponse = {
+      status: 200,
+      headers: {
+        "content-type": "audio/mpeg",
+        "content-length": "12345",
+        "content-range": "0-12344",
+        "accept-ranges": "bytes",
+        "some-other-header": "ignored",
+      },
+      data: streamData,
+    };
+
+    describe("without range", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() => Promise.resolve(streamResponse));
+      });
+
+      it("should return the stream response and call subsonic with correct params", async () => {
+        const result = await subsonic.getTranscodeStream(credentials, mediaId, transcodeParams, undefined);
+
+        expect(result.stream).toEqual(streamData);
+        expect(result.headers).toEqual({
+          "content-type": "audio/mpeg",
+          "content-length": "12345",
+          "content-range": "0-12344",
+          "accept-ranges": "bytes",
+        });
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getTranscodeStream" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParams,
+              mediaId,
+              mediaType: "song",
+              transcodeParams,
+            }),
+            headers: { "User-Agent": "bonob" },
+            responseType: "stream",
+          }
+        );
+      });
+    });
+
+    describe("with range", () => {
+      const range = "1000-2000";
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() => Promise.resolve(streamResponse));
+      });
+
+      it("should include the Range header", async () => {
+        await subsonic.getTranscodeStream(credentials, mediaId, transcodeParams, range);
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getTranscodeStream" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParams,
+              mediaId,
+              mediaType: "song",
+              transcodeParams,
+            }),
+            headers: { "User-Agent": "bonob", Range: range },
+            responseType: "stream",
+          }
+        );
+      });
+    });
+  });
 });

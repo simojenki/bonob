@@ -30,13 +30,11 @@ import { album, artist } from "./smapi";
 import { URLBuilder } from "./url_builder";
 
 export const BROWSER_HEADERS = {
-  accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-  "accept-encoding": "gzip, deflate, br",
-  "accept-language": "en-GB,en;q=0.5",
-  "upgrade-insecure-requests": "1",
-  "user-agent":
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br, zstd",
+  "Upgrade-Insecure-Requests": "1",
+  "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0",
 };
 
 export const t = (password: string, s: string) =>
@@ -244,6 +242,15 @@ export type Search3Response = SubsonicResponse & {
     album: album[];
     song: song[];
   };
+};
+
+export type OpenSubsonicExtension = {
+  name: string;
+  versions: number[];
+};
+
+type GetOpenSubsonicExtensionsResponse = SubsonicResponse & {
+  openSubsonicExtensions: OpenSubsonicExtension[];
 };
 
 export function isError(
@@ -493,69 +500,145 @@ export const SONOS_CLIENT_INFO: ClientInfo = {
   maxTranscodingAudioBitrate: 0,
   directPlayProfiles: [
     {
-      containers: ["aac", "wma", "wav", "flac", "aiff"],
-      audioCodecs: [],
-      protocols: [],
-      maxAudioChannels: 0,
-    },
-    {
       containers: ["mp3"],
       audioCodecs: ["mp3"],
-      protocols: [],
-      maxAudioChannels: 0,
+      protocols: ["http"],
+      maxAudioChannels: 2,
     },
     {
       containers: ["ogg"],
       audioCodecs: ["vorbis"],
-      protocols: [],
-      maxAudioChannels: 0,
+      protocols: ["http"],
+      maxAudioChannels: 2,
     },
     {
-      containers: ["m4a", "mp4"],
-      audioCodecs: ["aac"],
-      protocols: [],
-      maxAudioChannels: 0,
+      containers: ["flac"],
+      audioCodecs: ["flac"],
+      protocols: ["http"],
+      maxAudioChannels: 2,
+    },
+    {
+      containers: ["mp4"],
+      audioCodecs: ["aac", "alac"],
+      protocols: ["http"],
+      maxAudioChannels: 2,
     },
   ],
   transcodingProfiles: [
-    { container: "flac", audioCodec: "flac", protocol: "http", maxAudioChannels: 2 },
-    { container: "mp3", audioCodec: "mp3", protocol: "http", maxAudioChannels: 2 },
+    {
+      container: "flac",
+      audioCodec: "flac",
+      protocol: "http",
+      maxAudioChannels: 2,
+    },
+    {
+      container: "mp3",
+      audioCodec: "mp3",
+      protocol: "http",
+      maxAudioChannels: 2,
+    },
   ],
   codecProfiles: [
     {
       type: "AudioCodec",
-      name: "flac",
+      name: "mp3",
       limitations: [
-        { name: "audioChannels", comparison: "LessThanEqual", values: ["2"], required: true },
-        { name: "audioSamplerate", comparison: "LessThanEqual", values: ["48000"], required: true },
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
       ],
     },
     {
       type: "AudioCodec",
       name: "vorbis",
       limitations: [
-        { name: "audioSamplerate", comparison: "LessThanEqual", values: ["48000"], required: true },
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
       ],
     },
     {
       type: "AudioCodec",
-      name: "aiff",
+      name: "aac",
       limitations: [
-        { name: "audioBitdepth", comparison: "LessThanEqual", values: ["16"], required: true },
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
       ],
     },
     {
       type: "AudioCodec",
-      name: "wav",
+      name: "flac",
       limitations: [
-        { name: "audioBitdepth", comparison: "LessThanEqual", values: ["16"], required: true },
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioBitdepth",
+          comparison: "LessThanEqual",
+          values: ["24"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
       ],
     },
     {
       type: "AudioCodec",
-      name: "opus",
+      name: "alac",
       limitations: [
-        { name: "audioSamplerate", comparison: "LessThanEqual", values: ["48000"], required: true },
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioBitdepth",
+          comparison: "LessThanEqual",
+          values: ["24"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
       ],
     },
   ],
@@ -658,9 +741,6 @@ export class Subsonic {
         },
         ...config,
       })
-      .catch((e) => {
-        throw `Subsonic failed with: ${e}`;
-      })
       .then((response) => {
         if (response.status != 200 && response.status != 206) {
           throw `Subsonic failed with a ${response.status || "no!"} status`;
@@ -671,6 +751,7 @@ export class Subsonic {
     { username, password }: Credentials,
     path: string,
     q: {} = {},
+    headers: {} = {},
     body: any = {},
     config: AxiosRequestConfig | undefined = {}
   ) =>
@@ -680,18 +761,14 @@ export class Subsonic {
           u: username,
           v: "1.16.1",
           c: DEFAULT_CLIENT_APPLICATION,
-          f: "json",
           ...t_and_s(password),
           ...q,
         }),
         headers: {
           "User-Agent": USER_AGENT,
-          "Content-Type": "application/json",
+          ...headers
         },
         ...config,
-      })
-      .catch((e) => {
-        throw `Subsonic POST failed with: ${e}`;
       })
       .then((response) => {
         if (response.status != 200) {
@@ -699,14 +776,32 @@ export class Subsonic {
         } else return response;
       });
 
-  // todo: should I put a catch in here and force a subsonic fail status?
-  // or there is a catch above, that then throws, perhaps can go in there?
   private getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
     q: {} = {}
   ): Promise<T> =>
     this.get({ username, password }, path, { f: "json", ...q })
+      .then((response) => response.data as SubsonicEnvelope)
+      .then((json) => json["subsonic-response"])
+      .then((json) => {
+        if (isError(json)) throw `Subsonic error:${json.error.message}`;
+        else return json as unknown as T;
+      });
+
+  private postJSON = async <T>(
+    credentials: Credentials,
+    path: string,
+    q: {} = {},
+    body: any = {}
+  ): Promise<T> =>
+    this.post(
+        credentials, 
+        path, 
+        { f: "json", ...q }, 
+        { "Content-Type": "application/json" }, 
+        body
+      )
       .then((response) => response.data as SubsonicEnvelope)
       .then((json) => json["subsonic-response"])
       .then((json) => {
@@ -962,20 +1057,14 @@ export class Subsonic {
     credentials: Credentials,
     mediaId: string,
     clientInfo: ClientInfo
-  ): Promise<TranscodeDecision | undefined> =>
-    this.post(
+  ): Promise<TranscodeDecision> =>
+    this.postJSON<GetTranscodeDecisionResponse>(
       credentials,
       `/rest/getTranscodeDecision`,
       { mediaId, mediaType: "song" },
       clientInfo
     )
-      .then((response) => response.data as SubsonicEnvelope)
-      .then((json) => json["subsonic-response"] as unknown as GetTranscodeDecisionResponse)
-      .then((json) => {
-        if (isError(json as any)) return undefined;
-        return json.transcodeDecision;
-      })
-      .catch(() => undefined);
+    .then((json) => json.transcodeDecision);
 
   getTranscodeStream = (
     credentials: Credentials,
@@ -1117,5 +1206,16 @@ export class Subsonic {
         url: it.streamUrl,
         homePage: it.homePageUrl,
       }))
-    ); 
+    );
+
+  getOpenSubsonicExtensions = (credentials: Credentials): Promise<OpenSubsonicExtension[]> =>
+    this.getJSON<GetOpenSubsonicExtensionsResponse>(
+      credentials,
+      "/rest/getOpenSubsonicExtensions.view"
+    )
+    .then((it) => it.openSubsonicExtensions || [])
+    .catch((e: unknown) => {
+      if (axios.isAxiosError(e) && e.response?.status === 404) return [];
+      throw e
+    });
 };
