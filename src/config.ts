@@ -50,10 +50,7 @@ export function envVar<T>(
 }
 
 export const bnbEnvVar = <T>(key: string, opts: Partial<EnvVarOpts<T>> = {}) =>
-  envVar(`BNB_${key}`, {
-    ...opts,
-    legacy: [`BONOB_${key}`, ...(opts.legacy || [])],
-  });
+  envVar(`BNB_${key}`, opts);
 
 const asBoolean = (value: string) => value == "true";
 
@@ -76,7 +73,6 @@ const cleanLoginTheme = (value: string) => {
 export default function (die: (code?: number) => never = process.exit) {
   const port = bnbEnvVar<number>("PORT", { default: 4534, parser: asInt })!;
   const bonobUrl = bnbEnvVar("URL", {
-    legacy: ["BONOB_WEB_ADDRESS"],
     default: `http://${hostname()}:${port}`,
   })!;
 
@@ -121,8 +117,8 @@ export default function (die: (code?: number) => never = process.exit) {
       sid: bnbEnvVar<number>("SONOS_SERVICE_ID", { default: 246, parser: asInt }),
     },
     subsonic: {
-      url: url(bnbEnvVar("SUBSONIC_URL", { legacy: ["BONOB_NAVIDROME_URL"], default: `http://${hostname()}:4533` })!),
-      customClientsFor: bnbEnvVar<string>("SUBSONIC_CUSTOM_CLIENTS", { legacy: ["BONOB_NAVIDROME_CUSTOM_CLIENTS"] }),
+      url: url(bnbEnvVar("SUBSONIC_URL", { default: `http://${hostname()}:4533` })!),
+      customClientsFor: bnbEnvVar<string>("SUBSONIC_CUSTOM_CLIENTS"),
       artistImageCache: bnbEnvVar<string>("SUBSONIC_ARTIST_IMAGE_CACHE"),
       transcode: bnbEnvVar<boolean>("SUBSONIC_TRANSCODE", { default: true, parser: asBoolean }),
     },

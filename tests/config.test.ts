@@ -110,22 +110,13 @@ describe("config", () => {
   }
 
   describe("bonobUrl", () => {
-      describe.each([
-        "BNB_URL", 
-        "BONOB_URL", 
-        "BONOB_WEB_ADDRESS"
-      ])("when %s is specified", (k) => {
-        it("should be used", () => {
-          const url = "http://bonob1.example.com:8877/";
+    it("should be used when BNB_URL is specified", () => {
+      const url = "http://bonob1.example.com:8877/";
 
-          process.env["BNB_SECRET"] = "bonob";
-          process.env["BNB_URL"] = "";
-          process.env["BONOB_URL"] = "";
-          process.env["BONOB_WEB_ADDRESS"] = "";
-          process.env[k] = url;
+      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_URL"] = url;
 
-          expect(config().bonobUrl.href()).toEqual(url);
-        });
+      expect(config().bonobUrl.href()).toEqual(url);
     });
 
     describe(`when BNB_URL is 'http://localhost'`, () => {
@@ -137,31 +128,20 @@ describe("config", () => {
       });
     });
 
-    describe("when none of BNB_URL, BONOB_URL, BONOB_WEB_ADDRESS are specified", () => {
+    describe("when BNB_URL is not specified", () => {
       beforeEach(() => {
         process.env["BNB_SECRET"] = "bonob";
       });
 
-      describe("when BONOB_PORT is not specified", () => {
-        it(`should default to http://${hostname()}:4534`, () => {
-          expect(config().bonobUrl.href()).toEqual(
-            `http://${hostname()}:4534/`
-          );
-        });
+      it(`should default to http://${hostname()}:4534`, () => {
+        expect(config().bonobUrl.href()).toEqual(
+          `http://${hostname()}:4534/`
+        );
       });
 
       describe("when BNB_PORT is specified as 3322", () => {
         it(`should default to http://${hostname()}:3322`, () => {
           process.env["BNB_PORT"] = "3322";
-          expect(config().bonobUrl.href()).toEqual(
-            `http://${hostname()}:3322/`
-          );
-        });
-      });
-
-      describe("when BONOB_PORT is specified as 3322", () => {
-        it(`should default to http://${hostname()}:3322`, () => {
-          process.env["BONOB_PORT"] = "3322";
           expect(config().bonobUrl.href()).toEqual(
             `http://${hostname()}:3322/`
           );
@@ -178,7 +158,6 @@ describe("config", () => {
     describe("foregroundColor", () => {
       describe.each([
         "BNB_ICON_FOREGROUND_COLOR",
-        "BONOB_ICON_FOREGROUND_COLOR",
       ])("%s", (k) => {
         describe(`when ${k} is not specified`, () => {
           it(`should default to undefined`, () => {
@@ -221,7 +200,6 @@ describe("config", () => {
     describe("backgroundColor", () => {
       describe.each([
         "BNB_ICON_BACKGROUND_COLOR",
-        "BONOB_ICON_BACKGROUND_COLOR",
       ])("%s", (k) => {
         describe(`when ${k} is not specified`, () => {
           it(`should default to undefined`, () => {
@@ -289,15 +267,10 @@ describe("config", () => {
       expect(mockDeath).toHaveBeenCalledWith(1);
     });
 
-    describe.each([
-      "BNB_SECRET", 
-      "BONOB_SECRET"
-    ])("%s", (k) => {
-      it(`should be overridable using ${k}`, () => {
-        const secret = "new-secret-that-is-really-really-really-long-isnt-it"
-        process.env[k] = secret;
-        expect(config().secret).toEqual(secret);
-      });
+    it(`should be overridable using BNB_SECRET`, () => {
+      const secret = "new-secret-that-is-really-really-really-long-isnt-it"
+      process.env["BNB_SECRET"] = secret;
+      expect(config().secret).toEqual(secret);
     });
   });
 
@@ -339,64 +312,35 @@ describe("config", () => {
         expect(config().sonos.serviceName).toEqual("bonob");
       });
 
-      describe.each([
-        "BNB_SONOS_SERVICE_NAME", 
-        "BONOB_SONOS_SERVICE_NAME"
-      ])(
-        "%s",
-        (k) => {
-          it("should be overridable", () => {
-            process.env[k] = "foobar1000";
-            expect(config().sonos.serviceName).toEqual("foobar1000");
-          });
-        }
-      );
+      it("should be overridable using BNB_SONOS_SERVICE_NAME", () => {
+        process.env["BNB_SONOS_SERVICE_NAME"] = "foobar1000";
+        expect(config().sonos.serviceName).toEqual("foobar1000");
+      });
     });
 
-    describe.each([
+    describeBooleanConfigValue(
+      "deviceDiscovery",
       "BNB_SONOS_DEVICE_DISCOVERY",
-      "BONOB_SONOS_DEVICE_DISCOVERY",
-    ])("%s", (k) => {
-      describeBooleanConfigValue(
-        "deviceDiscovery",
-        k,
-        true,
-        (config) => config.sonos.discovery.enabled
-      );
-    });
+      true,
+      (config) => config.sonos.discovery.enabled
+    );
 
     describe("seedHost", () => {
       it("should default to undefined", () => {
         expect(config().sonos.discovery.seedHost).toBeUndefined();
       });
 
-      describe.each([
-        "BNB_SONOS_SEED_HOST", 
-        "BONOB_SONOS_SEED_HOST"
-      ])(
-        "%s",
-        (k) => {
-          it("should be overridable", () => {
-            process.env[k] = "123.456.789.0";
-            expect(config().sonos.discovery.seedHost).toEqual("123.456.789.0");
-          });
-        }
-      );
+      it("should be overridable using BNB_SONOS_SEED_HOST", () => {
+        process.env["BNB_SONOS_SEED_HOST"] = "123.456.789.0";
+        expect(config().sonos.discovery.seedHost).toEqual("123.456.789.0");
+      });
     });
 
-    describe.each([
-      "BNB_SONOS_AUTO_REGISTER", 
-      "BONOB_SONOS_AUTO_REGISTER"
-    ])(
-      "%s",
-      (k) => {
-        describeBooleanConfigValue(
-          "autoRegister",
-          k,
-          false,
-          (config) => config.sonos.autoRegister
-        );
-      }
+    describeBooleanConfigValue(
+      "autoRegister",
+      "BNB_SONOS_AUTO_REGISTER",
+      false,
+      (config) => config.sonos.autoRegister
     );
 
     describe("sid", () => {
@@ -404,18 +348,10 @@ describe("config", () => {
         expect(config().sonos.sid).toEqual(246);
       });
 
-      describe.each([
-        "BNB_SONOS_SERVICE_ID", 
-        "BONOB_SONOS_SERVICE_ID"
-      ])(
-        "%s",
-        (k) => {
-          it("should be overridable", () => {
-            process.env[k] = "786";
-            expect(config().sonos.sid).toEqual(786);
-          });
-        }
-      );
+      it("should be overridable using BNB_SONOS_SERVICE_ID", () => {
+        process.env["BNB_SONOS_SERVICE_ID"] = "786";
+        expect(config().sonos.sid).toEqual(786);
+      });
     });
   });
 
@@ -425,39 +361,25 @@ describe("config", () => {
     });
 
     describe("url", () => {
-      describe.each([
-        "BNB_SUBSONIC_URL",
-        "BONOB_SUBSONIC_URL",
-        "BONOB_NAVIDROME_URL",
-      ])("%s", (k) => {
-        describe(`when ${k} is not specified`, () => {
-          it(`should default to http://${hostname()}:4533/`, () => {
-            expect(config().subsonic.url.href()).toEqual(`http://${hostname()}:4533/`);
-          });
-        });
+      it(`should default to http://${hostname()}:4533/`, () => {
+        expect(config().subsonic.url.href()).toEqual(`http://${hostname()}:4533/`);
+      });
 
-        describe(`when ${k} is ''`, () => {
-          it(`should default to http://${hostname()}:4533/`, () => {
-            process.env[k] = "";
-            expect(config().subsonic.url.href()).toEqual(`http://${hostname()}:4533/`);
-          });
-        });
+      it(`should default to http://${hostname()}:4533/ when BNB_SUBSONIC_URL is ''`, () => {
+        process.env["BNB_SUBSONIC_URL"] = "";
+        expect(config().subsonic.url.href()).toEqual(`http://${hostname()}:4533/`);
+      });
 
-        describe(`when ${k} is specified`, () => {
-          it(`should use it for ${k}`, () => {
-            const url = "http://navidrome.example.com:1234/some-context-path";
-            process.env[k] = url;
-            expect(config().subsonic.url.href()).toEqual(url);
-          });
-        });
+      it(`should use BNB_SUBSONIC_URL when specified`, () => {
+        const url = "http://navidrome.example.com:1234/some-context-path";
+        process.env["BNB_SUBSONIC_URL"] = url;
+        expect(config().subsonic.url.href()).toEqual(url);
+      });
 
-        describe(`when ${k} is specified with trailing slash`, () => {
-          it(`should maintain the trailing slash as URLBuilder will remove it when required ${k}`, () => {
-            const url = "http://navidrome.example.com:1234/";
-            process.env[k] = url;
-            expect(config().subsonic.url.href()).toEqual(url);
-          });
-        });
+      it(`should maintain trailing slash`, () => {
+        const url = "http://navidrome.example.com:1234/";
+        process.env["BNB_SUBSONIC_URL"] = url;
+        expect(config().subsonic.url.href()).toEqual(url);
       });
     });
 
@@ -466,15 +388,9 @@ describe("config", () => {
         expect(config().subsonic.customClientsFor).toBeUndefined();
       });
 
-      describe.each([
-        "BNB_SUBSONIC_CUSTOM_CLIENTS",
-        "BONOB_SUBSONIC_CUSTOM_CLIENTS",
-        "BONOB_NAVIDROME_CUSTOM_CLIENTS",
-      ])("%s", (k) => {
-        it(`should be overridable for ${k}`, () => {
-          process.env[k] = "whoop/whoop";
-          expect(config().subsonic.customClientsFor).toEqual("whoop/whoop");
-        });
+      it(`should be overridable using BNB_SUBSONIC_CUSTOM_CLIENTS`, () => {
+        process.env["BNB_SUBSONIC_CUSTOM_CLIENTS"] = "whoop/whoop";
+        expect(config().subsonic.customClientsFor).toEqual("whoop/whoop");
       });
     });
 
@@ -502,31 +418,18 @@ describe("config", () => {
       process.env["BNB_SECRET"] = "bonob";
     });
 
-    describe.each([
-      "BNB_SCROBBLE_TRACKS", 
-      "BONOB_SCROBBLE_TRACKS"
-    ])("%s", (k) => {
-      describeBooleanConfigValue(
-        "scrobbleTracks",
-        k,
-        true,
-        (config) => config.scrobbleTracks
-      );
-    });
+    describeBooleanConfigValue(
+      "scrobbleTracks",
+      "BNB_SCROBBLE_TRACKS",
+      true,
+      (config) => config.scrobbleTracks
+    );
 
-    describe.each([
-      "BNB_REPORT_NOW_PLAYING", 
-      "BONOB_REPORT_NOW_PLAYING"
-    ])(
-      "%s",
-      (k) => {
-        describeBooleanConfigValue(
-          "reportNowPlaying",
-          k,
-          true,
-          (config) => config.reportNowPlaying
-        );
-      }
+    describeBooleanConfigValue(
+      "reportNowPlaying",
+      "BNB_REPORT_NOW_PLAYING",
+      true,
+      (config) => config.reportNowPlaying
     );
   });
 });
