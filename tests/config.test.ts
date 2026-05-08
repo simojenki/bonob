@@ -488,6 +488,13 @@ describe("config", () => {
         expect(config().subsonic.artistImageCache).toEqual("/some/path");
       });
     });
+
+    describeBooleanConfigValue(
+      "transcode",
+      "BNB_SUBSONIC_TRANSCODE",
+      true,
+      (config) => config.subsonic.transcode
+    );
   });
 
   describe("scrobbling and reporting", () => {

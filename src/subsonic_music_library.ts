@@ -35,13 +35,16 @@ import { assertSystem, BUrn } from "./burn";
 export class SubsonicMusicService implements MusicService {
   subsonic: Subsonic;
   customPlayers: CustomPlayers;
+  useTranscode: boolean;
 
   constructor(
     subsonic: Subsonic,
-    customPlayers: CustomPlayers = NO_CUSTOM_PLAYERS
+    customPlayers: CustomPlayers = NO_CUSTOM_PLAYERS,
+    useTranscode: boolean = true
   ) {
     this.subsonic = subsonic;
     this.customPlayers = customPlayers;
+    this.useTranscode = useTranscode;
   }
 
   generateToken = (
@@ -67,7 +70,8 @@ export class SubsonicMusicService implements MusicService {
     return Promise.resolve(new SubsonicMusicLibrary(
       this.subsonic,
       credentials,
-      this.customPlayers
+      this.customPlayers,
+      this.useTranscode
     ));
   };
 }
@@ -76,15 +80,18 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   subsonic: Subsonic;
   credentials: Credentials;
   customPlayers: CustomPlayers;
+  useTranscode: boolean;
 
   constructor(
     subsonic: Subsonic,
     credentials: Credentials,
-    customPlayers: CustomPlayers
+    customPlayers: CustomPlayers,
+    useTranscode: boolean = true
   ) {
     this.subsonic = subsonic;
     this.credentials = credentials;
     this.customPlayers = customPlayers;
+    this.useTranscode = useTranscode;
   }
 
   // todo: q needs to support greater than the max page size supported by subsonic
@@ -167,23 +174,25 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     trackId: string;
     range: string | undefined;
   }) => {
-    const extensions = await this.subsonic.getOpenSubsonicExtensions(this.credentials);
-    const hasTranscoding = extensions.some((ext) => ext.name === "transcoding");
+    if (this.useTranscode) {
+      const extensions = await this.subsonic.getOpenSubsonicExtensions(this.credentials);
+      const hasTranscoding = extensions.some((ext) => ext.name === "transcoding");
 
-    if (hasTranscoding) {
-      const decision = await this.subsonic.getTranscodeDecision(
-        this.credentials,
-        trackId,
-        SONOS_CLIENT_INFO
-      );
-      logger.debug(`Transcoding decision is: ${JSON.stringify(decision)}`)
-      if (decision && !decision.canDirectPlay && decision.canTranscode && decision.transcodeParams) {
-        return this.subsonic.getTranscodeStream(
+      if (hasTranscoding) {
+        const decision = await this.subsonic.getTranscodeDecision(
           this.credentials,
           trackId,
-          decision.transcodeParams,
-          range
+          SONOS_CLIENT_INFO
         );
+        logger.debug(`Transcoding decision is: ${JSON.stringify(decision)}`)
+        if (decision && !decision.canDirectPlay && decision.canTranscode && decision.transcodeParams) {
+          return this.subsonic.getTranscodeStream(
+            this.credentials,
+            trackId,
+            decision.transcodeParams,
+            range
+          );
+        }
       }
     }
 

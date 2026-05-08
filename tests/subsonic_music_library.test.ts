@@ -2209,6 +2209,35 @@ describe("SubsonicMusicLibrary", () => {
         });
       });
     });
+
+    describe("when useTranscode is false", () => {
+      const noTranscodeLibrary = new SubsonicMusicLibrary(
+        new Subsonic(url, customPlayers),
+        { username, password },
+        customPlayers as unknown as CustomPlayers,
+        false
+      );
+
+      beforeEach(() => {
+        customPlayers.encodingFor.mockReturnValue(O.none);
+      });
+
+      it("should skip extensions check and use the legacy stream directly", async () => {
+        const streamData = { pipe: jest.fn() };
+
+        mockGET
+          .mockImplementationOnce(() => Promise.resolve(ok(getSongJson(track))))
+          .mockImplementationOnce(() => Promise.resolve(ok(getAlbumJson(album))))
+          .mockImplementationOnce(() =>
+            Promise.resolve({ status: 200, headers: { "content-type": "audio/mpeg" }, data: streamData })
+          );
+
+        const result = await noTranscodeLibrary.stream({ trackId, range: undefined });
+
+        expect(result.stream).toEqual(streamData);
+        expect(mockGET).toHaveBeenCalledTimes(3);
+      });
+    });
   });
 
   describe("fetching cover art", () => {

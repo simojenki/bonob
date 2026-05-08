@@ -47,7 +47,8 @@ const subsonic = new SubsonicMusicService(
     customPlayers,
     artistImageFetcher
   ),
-  customPlayers
+  customPlayers,
+  config.subsonic.transcode
 );
 
 const featureFlagAwareMusicService: MusicService = {

@@ -124,6 +124,7 @@ export default function (die: (code?: number) => never = process.exit) {
       url: url(bnbEnvVar("SUBSONIC_URL", { legacy: ["BONOB_NAVIDROME_URL"], default: `http://${hostname()}:4533` })!),
       customClientsFor: bnbEnvVar<string>("SUBSONIC_CUSTOM_CLIENTS", { legacy: ["BONOB_NAVIDROME_CUSTOM_CLIENTS"] }),
       artistImageCache: bnbEnvVar<string>("SUBSONIC_ARTIST_IMAGE_CACHE"),
+      transcode: bnbEnvVar<boolean>("SUBSONIC_TRANSCODE", { default: true, parser: asBoolean }),
     },
     scrobbleTracks: bnbEnvVar<boolean>("SCROBBLE_TRACKS", { default: true, parser: asBoolean }),
     reportNowPlaying:
