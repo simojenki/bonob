@@ -1,5 +1,9 @@
 import axios from "axios";
-jest.mock("axios");
+jest.mock("axios", () => ({
+  ...jest.requireActual("axios"),
+  get: jest.fn(),
+  post: jest.fn(),
+}));
 
 const fakeSonos = {
   register: jest.fn(),

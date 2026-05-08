@@ -24,7 +24,8 @@ import {
   parseToken,
   artistImageURN,
   asYear,
-  isValidImage
+  isValidImage,
+  SONOS_CLIENT_INFO,
 } from "./subsonic";
 import _ from "underscore";
 
@@ -165,12 +166,35 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   }: {
     trackId: string;
     range: string | undefined;
-  }) =>
-    this.subsonic
-      .getTrack(this.credentials, trackId)
-      .then((track) =>
-        this.subsonic.stream(this.credentials, trackId, track.encoding.player, range)
+  }) => {
+    const extensions = await this.subsonic.getOpenSubsonicExtensions(this.credentials);
+    const hasTranscoding = extensions.some((ext) => ext.name === "transcoding");
+    logger.debug(`extensions are: ${JSON.stringify(extensions)}`)
+
+    if (hasTranscoding) {
+      const decision = await this.subsonic.getTranscodeDecision(
+        this.credentials,
+        trackId,
+        SONOS_CLIENT_INFO
       );
+
+      logger.debug(`decision is: ${JSON.stringify(extensions)}`)
+      if (decision && !decision.canDirectPlay && decision.canTranscode && decision.transcodeParams) {
+        logger.info(
+          `Transcoding track ${trackId} via OpenSubsonic extension: ${JSON.stringify(decision.transcodeReason)}`
+        );
+        return this.subsonic.getTranscodeStream(
+          this.credentials,
+          trackId,
+          decision.transcodeParams,
+          range
+        );
+      }
+    }
+
+    const track = await this.subsonic.getTrack(this.credentials, trackId);
+    return this.subsonic.stream(this.credentials, trackId, track.encoding.player, range);
+  };
 
   coverArt = async (coverArtURN: BUrn, size?: number) =>
     Promise.resolve(coverArtURN)

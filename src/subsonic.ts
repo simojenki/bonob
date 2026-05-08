@@ -30,13 +30,11 @@ import { album, artist } from "./smapi";
 import { URLBuilder } from "./url_builder";
 
 export const BROWSER_HEADERS = {
-  accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-  "accept-encoding": "gzip, deflate, br",
-  "accept-language": "en-GB,en;q=0.5",
-  "upgrade-insecure-requests": "1",
-  "user-agent":
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br, zstd",
+  "Upgrade-Insecure-Requests": "1",
+  "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0",
 };
 
 export const t = (password: string, s: string) =>
@@ -246,6 +244,15 @@ export type Search3Response = SubsonicResponse & {
   };
 };
 
+export type OpenSubsonicExtension = {
+  name: string;
+  versions: number[];
+};
+
+type GetOpenSubsonicExtensionsResponse = SubsonicResponse & {
+  openSubsonicExtensions: OpenSubsonicExtension[];
+};
+
 export function isError(
   subsonicResponse: SubsonicResponse
 ): subsonicResponse is SubsonicError {
@@ -422,6 +429,221 @@ export const asURLSearchParams = (q: any) => {
   return urlSearchParams;
 };
 
+// OpenSubsonic Transcoding Extension types
+export type DirectPlayProfile = {
+  containers: string[];
+  audioCodecs: string[];
+  protocols: string[];
+  maxAudioChannels: number;
+};
+
+export type TranscodingProfile = {
+  container: string;
+  audioCodec: string;
+  protocol: string;
+  maxAudioChannels: number;
+};
+
+export type CodecLimitation = {
+  name: string;
+  comparison: string;
+  values: string[];
+  required: boolean;
+};
+
+export type CodecProfile = {
+  type: string;
+  name: string;
+  limitations: CodecLimitation[];
+};
+
+export type ClientInfo = {
+  name: string;
+  platform: string;
+  maxAudioBitrate: number;
+  maxTranscodingAudioBitrate: number;
+  directPlayProfiles: DirectPlayProfile[];
+  transcodingProfiles: TranscodingProfile[];
+  codecProfiles: CodecProfile[];
+};
+
+export type TranscodeStreamInfo = {
+  protocol: string;
+  container: string;
+  codec: string;
+  audioChannels: number;
+  audioBitrate: number;
+  audioProfile: string;
+  audioSamplerate: number;
+  audioBitdepth: number;
+};
+
+export type TranscodeDecision = {
+  canDirectPlay: boolean;
+  canTranscode: boolean;
+  transcodeReason?: string[];
+  errorReason?: string;
+  transcodeParams?: string;
+  sourceStream?: TranscodeStreamInfo;
+  transcodeStream?: TranscodeStreamInfo;
+};
+
+type GetTranscodeDecisionResponse = {
+  transcodeDecision: TranscodeDecision;
+  status: string;
+};
+
+export const SONOS_CLIENT_INFO: ClientInfo = {
+  name: "bonob-sonos",
+  platform: "Sonos",
+  maxAudioBitrate: 0,
+  maxTranscodingAudioBitrate: 0,
+  directPlayProfiles: [
+    {
+      containers: ["mp3"],
+      audioCodecs: ["mp3"],
+      protocols: ["http"],
+      maxAudioChannels: 2,
+    },
+    {
+      containers: ["ogg"],
+      audioCodecs: ["vorbis"],
+      protocols: ["http"],
+      maxAudioChannels: 2,
+    },
+    {
+      containers: ["flac"],
+      audioCodecs: ["flac"],
+      protocols: ["http"],
+      maxAudioChannels: 2,
+    },
+    {
+      containers: ["mp4"],
+      audioCodecs: ["aac", "alac"],
+      protocols: ["http"],
+      maxAudioChannels: 2,
+    },
+  ],
+  transcodingProfiles: [
+    {
+      container: "flac",
+      audioCodec: "flac",
+      protocol: "http",
+      maxAudioChannels: 2,
+    },
+    {
+      container: "mp3",
+      audioCodec: "mp3",
+      protocol: "http",
+      maxAudioChannels: 2,
+    },
+  ],
+  codecProfiles: [
+    {
+      type: "AudioCodec",
+      name: "mp3",
+      limitations: [
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "vorbis",
+      limitations: [
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "aac",
+      limitations: [
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "flac",
+      limitations: [
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioBitdepth",
+          comparison: "LessThanEqual",
+          values: ["24"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
+      ],
+    },
+    {
+      type: "AudioCodec",
+      name: "alac",
+      limitations: [
+        {
+          name: "audioSamplerate",
+          comparison: "LessThanEqual",
+          values: ["48000"],
+          required: true,
+        },
+        {
+          name: "audioBitdepth",
+          comparison: "LessThanEqual",
+          values: ["24"],
+          required: true,
+        },
+        {
+          name: "audioChannels",
+          comparison: "Equals",
+          values: ["1", "2"],
+          required: true,
+        },
+      ],
+    },
+  ],
+};
+
 export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
 export const cachingImageFetcher = (
@@ -519,23 +741,67 @@ export class Subsonic {
         },
         ...config,
       })
-      .catch((e) => {
-        throw `Subsonic failed with: ${e}`;
-      })
       .then((response) => {
         if (response.status != 200 && response.status != 206) {
           throw `Subsonic failed with a ${response.status || "no!"} status`;
         } else return response;
       });
 
-  // todo: should I put a catch in here and force a subsonic fail status?
-  // or there is a catch above, that then throws, perhaps can go in there?
+  private post = async (
+    { username, password }: Credentials,
+    path: string,
+    q: {} = {},
+    headers: {} = {},
+    body: any = {},
+    config: AxiosRequestConfig | undefined = {}
+  ) =>
+    axios
+      .post(this.url.append({ pathname: path }).href(), body, {
+        params: asURLSearchParams({
+          u: username,
+          v: "1.16.1",
+          c: DEFAULT_CLIENT_APPLICATION,
+          ...t_and_s(password),
+          ...q,
+        }),
+        headers: {
+          "User-Agent": USER_AGENT,
+          ...headers
+        },
+        ...config,
+      })
+      .then((response) => {
+        if (response.status != 200) {
+          throw `Subsonic POST failed with a ${response.status || "no!"} status`;
+        } else return response;
+      });
+
   private getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
     q: {} = {}
   ): Promise<T> =>
     this.get({ username, password }, path, { f: "json", ...q })
+      .then((response) => response.data as SubsonicEnvelope)
+      .then((json) => json["subsonic-response"])
+      .then((json) => {
+        if (isError(json)) throw `Subsonic error:${json.error.message}`;
+        else return json as unknown as T;
+      });
+
+  private postJSON = async <T>(
+    credentials: Credentials,
+    path: string,
+    q: {} = {},
+    body: any = {}
+  ): Promise<T> =>
+    this.post(
+        credentials, 
+        path, 
+        { f: "json", ...q }, 
+        { "Content-Type": "application/json" }, 
+        body
+      )
       .then((response) => response.data as SubsonicEnvelope)
       .then((json) => json["subsonic-response"])
       .then((json) => {
@@ -787,6 +1053,59 @@ export class Subsonic {
       stream: stream.data,
     }));
 
+  getTranscodeDecision = async (
+    credentials: Credentials,
+    mediaId: string,
+    clientInfo: ClientInfo
+  ): Promise<TranscodeDecision> =>
+    this.postJSON<GetTranscodeDecisionResponse>(
+      credentials,
+      `/rest/getTranscodeDecision`,
+      { mediaId, mediaType: "song" },
+      clientInfo
+    )
+    .then((json) => json.transcodeDecision);
+
+  getTranscodeStream = (
+    credentials: Credentials,
+    mediaId: string,
+    transcodeParams: string,
+    range: string | undefined
+  ) =>
+    this.get(
+      credentials,
+      `/rest/getTranscodeStream`,
+      {
+        mediaId,
+        mediaType: "song",
+        transcodeParams,
+      },
+      {
+        headers: pipe(
+          range,
+          O.fromNullable,
+          O.map((range) => ({
+            "User-Agent": USER_AGENT,
+            Range: range,
+          })),
+          O.getOrElse(() => ({
+            "User-Agent": USER_AGENT,
+          }))
+        ),
+        responseType: "stream",
+      }
+    )
+    .then((stream) => ({
+      status: stream.status,
+      headers: {
+        "content-type": stream.headers["content-type"],
+        "content-length": stream.headers["content-length"],
+        "content-range": stream.headers["content-range"],
+        "accept-ranges": stream.headers["accept-ranges"],
+      },
+      stream: stream.data,
+    }));
+
   playlists = (credentials: Credentials) =>
     this.getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
     .then(({ playlists }) => (playlists.playlist || []).map( it => ({
@@ -887,5 +1206,16 @@ export class Subsonic {
         url: it.streamUrl,
         homePage: it.homePageUrl,
       }))
-    ); 
+    );
+
+  getOpenSubsonicExtensions = (credentials: Credentials): Promise<OpenSubsonicExtension[]> =>
+    this.getJSON<GetOpenSubsonicExtensionsResponse>(
+      credentials,
+      "/rest/getOpenSubsonicExtensions.view"
+    )
+    .then((it) => it.openSubsonicExtensions || [])
+    .catch((e: unknown) => {
+      if (axios.isAxiosError(e) && e.response?.status === 404) return [];
+      throw e
+    });
 };
