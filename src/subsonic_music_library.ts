@@ -169,7 +169,6 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   }) => {
     const extensions = await this.subsonic.getOpenSubsonicExtensions(this.credentials);
     const hasTranscoding = extensions.some((ext) => ext.name === "transcoding");
-    logger.debug(`extensions are: ${JSON.stringify(extensions)}`)
 
     if (hasTranscoding) {
       const decision = await this.subsonic.getTranscodeDecision(
@@ -177,12 +176,8 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         trackId,
         SONOS_CLIENT_INFO
       );
-
-      logger.debug(`decision is: ${JSON.stringify(extensions)}`)
+      logger.debug(`Transcoding decision is: ${JSON.stringify(decision)}`)
       if (decision && !decision.canDirectPlay && decision.canTranscode && decision.transcodeParams) {
-        logger.info(
-          `Transcoding track ${trackId} via OpenSubsonic extension: ${JSON.stringify(decision.transcodeReason)}`
-        );
         return this.subsonic.getTranscodeStream(
           this.credentials,
           trackId,
