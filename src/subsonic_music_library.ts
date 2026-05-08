@@ -166,32 +166,32 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   }: {
     trackId: string;
     range: string | undefined;
-  }) =>
-    this.subsonic
-      .getTrack(this.credentials, trackId)
-      .then(async (track) => {
-        // Try OpenSubsonic transcoding extension first
-        const decision = await this.subsonic.getTranscodeDecision(
+  }) => {
+    const extensions = await this.subsonic.getOpenSubsonicExtensions(this.credentials);
+    const hasTranscoding = extensions.some((ext) => ext.name === "transcoding");
+
+    if (hasTranscoding) {
+      const decision = await this.subsonic.getTranscodeDecision(
+        this.credentials,
+        trackId,
+        SONOS_CLIENT_INFO
+      );
+      if (decision && !decision.canDirectPlay && decision.canTranscode && decision.transcodeParams) {
+        logger.info(
+          `Transcoding track ${trackId} via OpenSubsonic extension: ${JSON.stringify(decision.transcodeReason)}`
+        );
+        return this.subsonic.getTranscodeStream(
           this.credentials,
           trackId,
-          SONOS_CLIENT_INFO
+          decision.transcodeParams,
+          range
         );
+      }
+    }
 
-        if (decision && !decision.canDirectPlay && decision.canTranscode && decision.transcodeParams) {
-          logger.info(
-            `Transcoding track ${trackId} via OpenSubsonic extension: ${JSON.stringify(decision.transcodeReason)}`
-          );
-          return this.subsonic.getTranscodeStream(
-            this.credentials,
-            trackId,
-            decision.transcodeParams,
-            range
-          );
-        }
-
-        // Fall back to legacy stream
-        return this.subsonic.stream(this.credentials, trackId, track.encoding.player, range);
-      });
+    const track = await this.subsonic.getTrack(this.credentials, trackId);
+    return this.subsonic.stream(this.credentials, trackId, track.encoding.player, range);
+  };
 
   coverArt = async (coverArtURN: BUrn, size?: number) =>
     Promise.resolve(coverArtURN)

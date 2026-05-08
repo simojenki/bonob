@@ -174,6 +174,16 @@ const getSimilarSongsJson = (tracks: Track[]) =>
 const getTopSongsJson = (tracks: Track[]) =>
   subsonicOK({ topSongs: { song: tracks.map(asSongJson) } });
 
+const getOpenSubsonicExtensionsJson = (extensions: { name: string; versions: number[] }[]) =>
+  subsonicOK({ openSubsonicExtensions: extensions });
+
+const getTranscodeDecisionJson = (decision: {
+  canDirectPlay: boolean;
+  canTranscode: boolean;
+  transcodeParams?: string;
+  transcodeReason?: string[];
+}) => subsonicOK({ transcodeDecision: decision });
+
 const asPlaylistJson = (playlist: PlaylistSummary) => ({
   id: playlist.id,
   name: playlist.name,
@@ -1789,6 +1799,9 @@ describe("SubsonicMusicLibrary", () => {
 
             mockGET
               .mockImplementationOnce(() =>
+                Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+              )
+              .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
@@ -1825,6 +1838,9 @@ describe("SubsonicMusicLibrary", () => {
             };
 
             mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+              )
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
@@ -1864,6 +1880,9 @@ describe("SubsonicMusicLibrary", () => {
               };
 
               mockGET
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+                )
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
@@ -1915,6 +1934,9 @@ describe("SubsonicMusicLibrary", () => {
 
               mockGET
                 .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+                )
+                .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
                 .mockImplementationOnce(() =>
@@ -1933,6 +1955,9 @@ describe("SubsonicMusicLibrary", () => {
               const trackId = "track123";
 
               mockGET
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+                )
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
@@ -1970,6 +1995,9 @@ describe("SubsonicMusicLibrary", () => {
             };
 
             mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+              )
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
@@ -2033,6 +2061,9 @@ describe("SubsonicMusicLibrary", () => {
 
           mockGET
             .mockImplementationOnce(() =>
+              Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+            )
+            .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
             .mockImplementationOnce(() =>
@@ -2075,6 +2106,9 @@ describe("SubsonicMusicLibrary", () => {
 
           mockGET
             .mockImplementationOnce(() =>
+              Promise.resolve(ok(getOpenSubsonicExtensionsJson([])))
+            )
+            .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
             .mockImplementationOnce(() =>
@@ -2101,6 +2135,77 @@ describe("SubsonicMusicLibrary", () => {
               responseType: "stream",
             }
           );
+        });
+      });
+    });
+
+    describe("when the transcoding extension is present", () => {
+      beforeEach(() => {
+        customPlayers.encodingFor.mockReturnValue(O.none);
+      });
+
+      describe("when the server can transcode", () => {
+        it("should use getTranscodeStream", async () => {
+          const transcodeParams = "some-params";
+          const streamData = { pipe: jest.fn() };
+
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getOpenSubsonicExtensionsJson([{ name: "transcoding", versions: [1] }])))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve({
+                status: 200,
+                headers: { "content-type": "audio/mpeg" },
+                data: streamData,
+              })
+            );
+
+          mockPOST.mockImplementationOnce(() =>
+            Promise.resolve({
+              status: 200,
+              data: getTranscodeDecisionJson({
+                canDirectPlay: false,
+                canTranscode: true,
+                transcodeParams,
+              }),
+            })
+          );
+
+          const result = await subsonic.stream({ trackId, range: undefined });
+
+          expect(result.stream).toEqual(streamData);
+        });
+      });
+
+      describe("when the server requires direct play", () => {
+        it("should fall back to the legacy stream", async () => {
+          const streamData = { pipe: jest.fn() };
+
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getOpenSubsonicExtensionsJson([{ name: "transcoding", versions: [1] }])))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getSongJson(track)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumJson(album)))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve({ status: 200, headers: { "content-type": "audio/mpeg" }, data: streamData })
+            );
+
+          mockPOST.mockImplementationOnce(() =>
+            Promise.resolve({
+              status: 200,
+              data: getTranscodeDecisionJson({ canDirectPlay: true, canTranscode: false }),
+            })
+          );
+
+          const result = await subsonic.stream({ trackId, range: undefined });
+
+          expect(result.stream).toEqual(streamData);
         });
       });
     });

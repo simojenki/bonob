@@ -966,7 +966,7 @@ export class Subsonic {
     credentials: Credentials,
     mediaId: string,
     clientInfo: ClientInfo
-  ): Promise<TranscodeDecision | undefined> =>
+  ): Promise<TranscodeDecision> =>
     this.post(
       credentials,
       `/rest/getTranscodeDecision`,
@@ -976,10 +976,9 @@ export class Subsonic {
       .then((response) => response.data as SubsonicEnvelope)
       .then((json) => json["subsonic-response"] as unknown as GetTranscodeDecisionResponse)
       .then((json) => {
-        if (isError(json as any)) return undefined;
+        if (isError(json)) throw `Subsonic error:${json.error.message}`;
         return json.transcodeDecision;
-      })
-      .catch(() => undefined);
+      });
 
   getTranscodeStream = (
     credentials: Credentials,
