@@ -1,5 +1,5 @@
 {
-    "name": "bonob",
+    "name": "bonob-dev",
     "build": { 
         "dockerfile": "Dockerfile" 
     },
@@ -16,20 +16,25 @@
     "remoteEnv": {
         "PATH": "/home/node/.local/bin:${containerEnv:PATH}"
     },
-    "runArgs": ["-p", "0.0.0.0:4534:4534"],
+    "runArgs": [
+        "-p", "0.0.0.0:4534:4534",
+        "--privileged",
+        "--security-opt=label=disable"
+    ],
     "forwardPorts": [4534],
-    "features": {
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {
-            "version": "latest",
-            "moby": true
-        }
-    },
+    // "features": {
+    //     "ghcr.io/devcontainers/features/docker-in-docker:2": {
+    //         "version": "latest",
+    //         "moby": true
+    //     }
+    // },
     "customizations": {
         "vscode": {
           "extensions": [
                 "davidanson.vscode-markdownlint",
                 "esbenp.prettier-vscode",
                 "redhat.vscode-xml"
+                // "ms-azuretools.vscode-docker"
             ]
         }
     }
