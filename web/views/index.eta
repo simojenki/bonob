@@ -2,44 +2,5 @@
 
 <div id="content">
   <div width="100%" style="text-align:right;color:grey"><%= it.version %></div>
-  <h1><%= it.bonobService.name %> (<%= it.bonobService.sid %>)</h1>
-  <h3><%= it.lang("expectedConfig") %></h3>
-  <div><%= JSON.stringify(it.bonobService) %></div>
-  <br/>
-  <% if(it.devices.length > 0) { %>
-  <form action="<%= it.createRegistrationRoute %>" method="POST">
-    <input type="submit" value="<%= it.lang("register") %>">
-  </form>
-  <br/>
-  <% } else { %>
-  <h3><%= it.lang("noSonosDevices") %></h3>
-  <br/>
-  <% } %>
-
-  <% if(it.registeredBonobService) { %>
-    <h3><%= it.lang("existingServiceConfig") %></h3>
-    <div><%= JSON.stringify(it.registeredBonobService) %></div>
-  <% } else { %>
-    <h3><%= it.lang("noExistingServiceRegistration") %></h3>
-  <% } %>
-  <% if(it.registeredBonobService) { %>
-    <br/>
-    <form action="<%= it.removeRegistrationRoute %>" method="POST">
-      <input type="submit" value="<%= it.lang("removeRegistration") %>">
-    </form>
-  <% } %>
-
-  <br/>
-  <h2><%= it.lang("devices") %> (<%= it.devices.length %>)</h2>
-  <ul>
-    <% it.devices.forEach(function(d){ %>
-      <li><%= d.name %> (<%= d.ip %>:<%= d.port %>)</li>
-    <% }) %>
-  </ul>
-  <h2><%= it.lang("services") %> (<%= it.services.length %>)</h2>
-  <ul>
-    <% it.services.forEach(function(s){ %>
-      <li><%= s.name %> (<%= s.sid %>)</li>
-    <% }) %>
-  </ul>
+  <h1><%= it.serviceName %></h1>
 </div>

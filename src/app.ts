@@ -97,7 +97,8 @@ const app = server(
     version,
     smapiAuthTokens: new JWTSmapiLoginTokens(clock, config.secret, config.authTimeout),
     externalImageResolver: artistImageFetcher,
-    loginTheme: config.loginTheme
+    loginTheme: config.loginTheme,
+    enableS1: config.sonos.enableS1,
   }
 );
 

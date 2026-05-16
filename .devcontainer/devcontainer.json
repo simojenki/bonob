@@ -11,7 +11,7 @@
         "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}",
         "BNB_SECRET": "${localEnv:BNB_SECRET}"
     },
-    "postCreateCommand": "bash .devcontainer/setup.sh",
+    // "postCreateCommand": "bash .devcontainer/setup.sh",
     "remoteUser": "node",
     "remoteEnv": {
         "PATH": "/home/node/.local/bin:${containerEnv:PATH}"
@@ -22,12 +22,14 @@
         "--security-opt=label=disable"
     ],
     "forwardPorts": [4534],
-    // "features": {
-    //     "ghcr.io/devcontainers/features/docker-in-docker:2": {
-    //         "version": "latest",
-    //         "moby": true
-    //     }
-    // },
+    "features": {
+        "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+        // ,
+        // "ghcr.io/devcontainers/features/docker-in-docker:2": {
+        //     "version": "latest",
+        //     "moby": true
+        // }
+    },
     "customizations": {
         "vscode": {
           "extensions": [

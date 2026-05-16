@@ -95,7 +95,7 @@ class SonosDriver {
 
   async register() {
     const action = await request(this.server)
-      .get(this.bonobUrl.append({ pathname: "/" }).pathname())
+      .get(this.bonobUrl.append({ pathname: "/s1" }).pathname())
       .expect(200)
       .then((response) => {
         const m = response.text.match(/ action="(.*)" /i);
@@ -278,6 +278,7 @@ describe("scenarios", () => {
       musicService,
       {
         linkCodes: () => linkCodes,
+        enableS1: true,
       }
     );
 
@@ -295,7 +296,8 @@ describe("scenarios", () => {
       bonobUrl,
       musicService,
       {
-        linkCodes: () => linkCodes
+        linkCodes: () => linkCodes,
+        enableS1: true,
       }
     );
 
@@ -313,7 +315,8 @@ describe("scenarios", () => {
       bonobUrl,
       musicService,
       {
-        linkCodes: () => linkCodes
+        linkCodes: () => linkCodes,
+        enableS1: true,
       }
     );
 
