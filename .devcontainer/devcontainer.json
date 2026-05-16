@@ -33,7 +33,8 @@
           "extensions": [
                 "davidanson.vscode-markdownlint",
                 "esbenp.prettier-vscode",
-                "redhat.vscode-xml"
+                "redhat.vscode-xml",
+                "ms-azuretools.vscode-containers"
                 // "ms-azuretools.vscode-docker"
             ]
         }

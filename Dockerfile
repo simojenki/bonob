@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:22-trixie-slim AS build
 
 WORKDIR /bonob
 
@@ -30,7 +30,7 @@ RUN npm run gitinfo && \
     npm prune --omit=dev
 
 
-FROM node:22-bookworm-slim
+FROM node:22-trixie-slim
 
 LABEL   maintainer="simojenki" \
         org.opencontainers.image.source="https://github.com/simojenki/bonob" \
