@@ -1,4 +1,4 @@
-FROM node:22-bookworm
+FROM node:22-trixie
 
 ENV DEBIAN_FRONTEND=noninteractive
 
