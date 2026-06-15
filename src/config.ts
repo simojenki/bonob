@@ -70,6 +70,31 @@ const cleanLoginTheme = (value: string) => {
   }
 }
 
+
+function sonosConfig() {
+  const enableS1 = bnbEnvVar<boolean>("SONOS_ENABLE_S1", { default: false, parser: asBoolean });
+  if (!enableS1) {
+    return {
+      serviceName: "bonob",
+      discovery: { enabled: false, seedHost: undefined as string | undefined },
+      autoRegister: false,
+      sid: -1,
+      enableS1: false,
+    };
+  } else { 
+    return {
+      serviceName: bnbEnvVar<string>("SONOS_SERVICE_NAME", { default: "bonob" })!,
+      discovery: {
+        enabled: bnbEnvVar<boolean>("SONOS_DEVICE_DISCOVERY", { default: true, parser: asBoolean }),
+        seedHost: bnbEnvVar<string>("SONOS_SEED_HOST"),
+      },
+      autoRegister: bnbEnvVar<boolean>("SONOS_AUTO_REGISTER", { default: false, parser: asBoolean }),
+      sid: bnbEnvVar<number>("SONOS_SERVICE_ID", { default: 246, parser: asInt }),
+      enableS1: true,
+    };
+  }
+}
+
 export default function (die: (code?: number) => never = process.exit) {
   const port = bnbEnvVar<number>("PORT", { default: 4534, parser: asInt })!;
   const bonobUrl = bnbEnvVar("URL", {
@@ -105,17 +130,7 @@ export default function (die: (code?: number) => never = process.exit) {
       }),
     },
     logRequests: bnbEnvVar<boolean>("SERVER_LOG_REQUESTS", { default: false, parser: asBoolean }),
-    sonos: {
-      serviceName: bnbEnvVar<string>("SONOS_SERVICE_NAME", { default: "bonob" })!,
-      discovery: {
-        enabled:
-          bnbEnvVar<boolean>("SONOS_DEVICE_DISCOVERY", { default: true, parser: asBoolean }),
-        seedHost: bnbEnvVar<string>("SONOS_SEED_HOST"),
-      },
-      autoRegister:
-        bnbEnvVar<boolean>("SONOS_AUTO_REGISTER", { default: false, parser: asBoolean }),
-      sid: bnbEnvVar<number>("SONOS_SERVICE_ID", { default: 246, parser: asInt }),
-    },
+    sonos: sonosConfig(),
     subsonic: {
       url: url(bnbEnvVar("SUBSONIC_URL", { default: `http://${hostname()}:4533` })!),
       customClientsFor: bnbEnvVar<string>("SUBSONIC_CUSTOM_CLIENTS"),

@@ -1,4 +1,4 @@
-# Sonos S1 setup:
+# Sonos S1 setup
 
 ## Running bonob itself
 
@@ -6,6 +6,8 @@
 
 ```bash
 docker run \
+    -e BNB_SECRET=changeme \
+    -e BNB_SONOS_ENABLE_S1=true \
     -e BNB_SONOS_AUTO_REGISTER=true \
     -e BNB_SONOS_DEVICE_DISCOVERY=true \
     -p 4534:4534 \
@@ -13,13 +15,15 @@ docker run \
     simojenki/bonob
 ```
 
-Now open http://localhost:4534 in your browser, you should see Sonos devices, and service configuration.  Bonob will auto-register itself with your Sonos system on startup.
+Now open `http://localhost:4534` in your browser, you should see Sonos devices, and service configuration.  Bonob will auto-register itself with your Sonos system on startup.
 
 ### Full Sonos device auto-discovery and auto-registration on custom port by using a Sonos seed device, without requiring docker host networking
 
 ```bash
 docker run \
+    -e BNB_SECRET=changeme \
     -e BNB_PORT=3000 \
+    -e BNB_SONOS_ENABLE_S1=true \
     -e BNB_SONOS_SEED_HOST=192.168.1.123 \
     -e BNB_SONOS_AUTO_REGISTER=true \
     -e BNB_SONOS_DEVICE_DISCOVERY=true \
@@ -27,7 +31,7 @@ docker run \
     simojenki/bonob
 ```
 
-Bonob will now auto-register itself with Sonos on startup, updating the registration if the configuration has changed.  Bonob should show up in the "Services" list on http://localhost:3000
+Bonob will now auto-register itself with Sonos on startup, updating the registration if the configuration has changed.  Bonob should show up in the "Services" list on `http://localhost:3000/`
 
 ### Running bonob on a different network to your Sonos devices
 
@@ -39,10 +43,11 @@ Start bonob outside the LAN with Sonos discovery & registration disabled as they
 
 ```bash
 docker run \
-    -e BNB_PORT=4534 \
-    -e BNB_SONOS_SERVICE_NAME=MyAwesomeMusic \
     -e BNB_SECRET=changeme \
+    -e BNB_PORT=4534 \
     -e BNB_URL=https://my-server.example.com/bonob \
+    -e BNB_SONOS_ENABLE_S1=true \
+    -e BNB_SONOS_SERVICE_NAME=MyAwesomeMusic \
     -e BNB_SONOS_AUTO_REGISTER=false \
     -e BNB_SONOS_DEVICE_DISCOVERY=false \
     -e BNB_SUBSONIC_URL=https://my-navidrome-service.com:4533 \
@@ -98,7 +103,7 @@ Generally speaking you will not need to do this very often.  However on occassio
 
 Service should now be registered and everything should work as expected.
 
-## Multiple registrations within a single household.
+## Multiple registrations within a single household
 
 It's possible to register multiple Subsonic clone users for the bonob service in Sonos.
 Basically this consist of repeating the Sonos app ["Add a service"](#initialising-service-within-sonos-app) steps for each additional user.

@@ -185,22 +185,19 @@ describe("server", () => {
           describe("when specified", () => {
             const server = makeServer(
               SONOS_DISABLED,
-              aService(),
+              aService({ name: "myService" }),
               bonobUrl,
               new InMemoryMusicService(),
-              {
-                version: "v123.456",
-              }
+              { version: "v123.456" }
             );
-  
+
             it("should display it", async () => {
               const res = await request(server)
                 .get(bonobUrl.append({ pathname: "/" }).pathname())
-                .set("accept-language", acceptLanguage)
                 .send();
-  
+
               expect(res.status).toEqual(200);
-              expect(res.text).toContain('v123.456');
+              expect(res.text).toContain("v123.456");
             });
           });
 
@@ -211,13 +208,75 @@ describe("server", () => {
               bonobUrl,
               new InMemoryMusicService()
             );
-  
+
             it("should display the default", async () => {
               const res = await request(server)
                 .get(bonobUrl.append({ pathname: "/" }).pathname())
+                .send();
+
+              expect(res.status).toEqual(200);
+              expect(res.text).toContain("v?");
+            });
+          });
+        });
+
+        it("should display the service name", async () => {
+          const server = makeServer(
+            SONOS_DISABLED,
+            aService({ name: "myService" }),
+            bonobUrl,
+            new InMemoryMusicService()
+          );
+
+          const res = await request(server)
+            .get(bonobUrl.append({ pathname: "/" }).pathname())
+            .send();
+
+          expect(res.status).toEqual(200);
+          expect(res.text).toContain("myService");
+        });
+      });
+
+      describe("/s1", () => {
+        describe("version", () => {
+          describe("when specified", () => {
+            const server = makeServer(
+              SONOS_DISABLED,
+              aService(),
+              bonobUrl,
+              new InMemoryMusicService(),
+              {
+                version: "v123.456",
+                enableS1: true,
+              }
+            );
+
+            it("should display it", async () => {
+              const res = await request(server)
+                .get(bonobUrl.append({ pathname: "/s1" }).pathname())
                 .set("accept-language", acceptLanguage)
                 .send();
-  
+
+              expect(res.status).toEqual(200);
+              expect(res.text).toContain('v123.456');
+            });
+          });
+
+          describe("when not specified", () => {
+            const server = makeServer(
+              SONOS_DISABLED,
+              aService(),
+              bonobUrl,
+              new InMemoryMusicService(),
+              { enableS1: true }
+            );
+
+            it("should display the default", async () => {
+              const res = await request(server)
+                .get(bonobUrl.append({ pathname: "/s1" }).pathname())
+                .set("accept-language", acceptLanguage)
+                .send();
+
               expect(res.status).toEqual(200);
               expect(res.text).toContain("v?");
             });
@@ -229,13 +288,14 @@ describe("server", () => {
             SONOS_DISABLED,
             aService(),
             bonobUrl,
-            new InMemoryMusicService()
+            new InMemoryMusicService(),
+            { enableS1: true }
           );
 
           describe("devices list", () => {
             it("should be empty", async () => {
               const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/" }).pathname())
+                .get(bonobUrl.append({ pathname: "/s1" }).pathname())
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -265,13 +325,14 @@ describe("server", () => {
               fakeSonos,
               missingBonobService,
               bonobUrl,
-              new InMemoryMusicService()
+              new InMemoryMusicService(),
+              { enableS1: true }
             );
 
             describe("devices list", () => {
               it("should be empty", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .get(bonobUrl.append({ pathname: "/s1" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -285,7 +346,7 @@ describe("server", () => {
             describe("services", () => {
               it("should be empty", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .get(bonobUrl.append({ pathname: "/s1" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -341,13 +402,14 @@ describe("server", () => {
               fakeSonos,
               missingBonobService,
               bonobUrl,
-              new InMemoryMusicService()
+              new InMemoryMusicService(),
+              { enableS1: true }
             );
 
             describe("devices list", () => {
               it("should contain the devices returned from sonos", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .get(bonobUrl.append({ pathname: "/s1" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -361,7 +423,7 @@ describe("server", () => {
             describe("services", () => {
               it("should contain a list of services returned from sonos", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .get(bonobUrl.append({ pathname: "/s1" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -377,7 +439,7 @@ describe("server", () => {
             describe("registration status", () => {
               it("should be not-registered", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .get(bonobUrl.append({ pathname: "/s1" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
                 expect(res.status).toEqual(200);
@@ -429,13 +491,14 @@ describe("server", () => {
               fakeSonos,
               bonobService,
               bonobUrl,
-              new InMemoryMusicService()
+              new InMemoryMusicService(),
+              { enableS1: true }
             );
 
             describe("registration status", () => {
               it("should be registered", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/" }).path())
+                  .get(bonobUrl.append({ pathname: "/s1" }).path())
                   .set("accept-language", acceptLanguage)
                   .send();
                 expect(res.status).toEqual(200);
@@ -498,7 +561,8 @@ describe("server", () => {
           sonos as unknown as Sonos,
           theService,
           bonobUrl,
-          new InMemoryMusicService()
+          new InMemoryMusicService(),
+          { enableS1: true }
         );
 
         describe("registering", () => {
@@ -507,7 +571,7 @@ describe("server", () => {
               sonos.register.mockResolvedValue(true);
 
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/registration/add" }).path())
+                .post(bonobUrl.append({ pathname: "/s1/registration/add" }).path())
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -525,7 +589,7 @@ describe("server", () => {
               sonos.register.mockResolvedValue(false);
 
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/registration/add" }).path())
+                .post(bonobUrl.append({ pathname: "/s1/registration/add" }).path())
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -546,7 +610,7 @@ describe("server", () => {
 
               const res = await request(server)
                 .post(
-                  bonobUrl.append({ pathname: "/registration/remove" }).path()
+                  bonobUrl.append({ pathname: "/s1/registration/remove" }).path()
                 )
                 .set("accept-language", acceptLanguage)
                 .send();
@@ -566,7 +630,7 @@ describe("server", () => {
 
               const res = await request(server)
                 .post(
-                  bonobUrl.append({ pathname: "/registration/remove" }).path()
+                  bonobUrl.append({ pathname: "/s1/registration/remove" }).path()
                 )
                 .set("accept-language", acceptLanguage)
                 .send();
@@ -578,6 +642,42 @@ describe("server", () => {
               expect(sonos.remove.mock.calls.length).toEqual(1);
               expect(sonos.remove.mock.calls[0][0]).toBe(theService.sid);
             });
+          });
+        });
+
+        describe("when S1 routes are disabled", () => {
+          const disabledServer = makeServer(
+            sonos as unknown as Sonos,
+            theService,
+            bonobUrl,
+            new InMemoryMusicService(),
+            { enableS1: false }
+          );
+
+          it("should return 400 for GET /s1", async () => {
+            const res = await request(disabledServer)
+              .get(bonobUrl.append({ pathname: "/s1" }).path())
+              .send();
+            expect(res.status).toEqual(400);
+            expect(res.text).toContain("S1 routes are disabled");
+          });
+
+          it("should return 400 for POST /s1/registration/add", async () => {
+            const res = await request(disabledServer)
+              .post(bonobUrl.append({ pathname: "/s1/registration/add" }).path())
+              .send();
+            expect(res.status).toEqual(400);
+            expect(res.text).toContain("S1 routes are disabled");
+            expect(sonos.register).not.toHaveBeenCalled();
+          });
+
+          it("should return 400 for POST /s1/registration/remove", async () => {
+            const res = await request(disabledServer)
+              .post(bonobUrl.append({ pathname: "/s1/registration/remove" }).path())
+              .send();
+            expect(res.status).toEqual(400);
+            expect(res.text).toContain("S1 routes are disabled");
+            expect(sonos.remove).not.toHaveBeenCalled();
           });
         });
       });

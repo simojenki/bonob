@@ -305,6 +305,29 @@ describe("config", () => {
   describe("sonos", () => {
     beforeEach(() => {
       process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SONOS_ENABLE_S1"] = "true";
+    });
+
+    describe("when BNB_SONOS_ENABLE_S1 is not set (default)", () => {
+      beforeEach(() => {
+        delete process.env["BNB_SONOS_ENABLE_S1"];
+      });
+
+      it("should have fixed defaults regardless of env vars", () => {
+        process.env["BNB_SONOS_SERVICE_NAME"] = "custom-name";
+        process.env["BNB_SONOS_DEVICE_DISCOVERY"] = "true";
+        process.env["BNB_SONOS_SEED_HOST"] = "192.168.1.1";
+        process.env["BNB_SONOS_AUTO_REGISTER"] = "true";
+        process.env["BNB_SONOS_SERVICE_ID"] = "999";
+
+        const c = config().sonos;
+        expect(c.serviceName).toEqual("bonob");
+        expect(c.discovery.enabled).toEqual(false);
+        expect(c.discovery.seedHost).toBeUndefined();
+        expect(c.autoRegister).toEqual(false);
+        expect(c.sid).toEqual(-1);
+        expect(c.enableS1).toEqual(false);
+      });
     });
 
     describe("serviceName", () => {
@@ -353,6 +376,13 @@ describe("config", () => {
         expect(config().sonos.sid).toEqual(786);
       });
     });
+
+    describeBooleanConfigValue(
+      "enableS1",
+      "BNB_SONOS_ENABLE_S1",
+      false,
+      (config) => config.sonos.enableS1
+    );
   });
 
   describe("subsonic", () => {
@@ -411,6 +441,7 @@ describe("config", () => {
       true,
       (config) => config.subsonic.transcode
     );
+
   });
 
   describe("scrobbling and reporting", () => {

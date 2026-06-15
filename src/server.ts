@@ -15,14 +15,13 @@ import {
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
   LOGIN_ROUTE,
-  CREATE_REGISTRATION_ROUTE,
-  REMOVE_REGISTRATION_ROUTE,
   sonosifyMimeType,
   ratingFromInt,
   ratingAsInt,
   splitId,
   shouldScrobble
 } from "./smapi";
+import { makeS1Router } from "./routes/s1";
 import { LinkCodes, InMemoryLinkCodes } from "./link_codes";
 import { MusicService, AuthFailure, AuthSuccess } from "./music_library";
 import bindSmapiSoapServiceToExpress from "./smapi";
@@ -105,6 +104,7 @@ export type ServerOpts = {
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
   loginTheme: string;
+  enableS1: boolean;
 };
 
 const DEFAULT_TIMEOUT = "1h"
@@ -123,7 +123,8 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
     DEFAULT_TIMEOUT
   ),
   externalImageResolver: axiosImageFetcher,
-  loginTheme: DEFAULT_LOGIN_THEME
+  loginTheme: DEFAULT_LOGIN_THEME,
+  enableS1: false,
 };
 
 function server(
@@ -167,29 +168,11 @@ function server(
     return i8n(...asLANGs(req.headers["accept-language"]));
   };
 
-  app.get("/", (req, res) => {
-    const lang = langFor(req);
-    Promise.all([sonos.devices(), sonos.services()]).then(
-      ([devices, services]) => {
-        const registeredBonobService = services.find(
-          (it) => it.sid == service.sid
-        );
-        res.render("index", {
-          lang,
-          devices,
-          services,
-          bonobService: service,
-          registeredBonobService,
-          createRegistrationRoute: bonobUrl
-            .append({ pathname: CREATE_REGISTRATION_ROUTE })
-            .pathname(),
-          removeRegistrationRoute: bonobUrl
-            .append({ pathname: REMOVE_REGISTRATION_ROUTE })
-            .pathname(),
-          version: serverOpts.version || DEFAULT_SERVER_OPTS.version,
-        });
-      }
-    );
+  app.get("/", (_, res) => {
+    res.render("index", {
+      serviceName: service.name,
+      version: serverOpts.version || DEFAULT_SERVER_OPTS.version,
+    });
   });
 
   app.get("/about", (_, res) => {
@@ -201,39 +184,7 @@ function server(
     });
   });
 
-  app.post(CREATE_REGISTRATION_ROUTE, (req, res) => {
-    const lang = langFor(req);
-    sonos.register(service).then((success) => {
-      if (success) {
-        res.render("success", {
-          lang,
-          message: lang("successfullyRegistered"),
-        });
-      } else {
-        res.status(500).render("failure", {
-          lang,
-          message: lang("registrationFailed"),
-        });
-      }
-    });
-  });
-
-  app.post(REMOVE_REGISTRATION_ROUTE, (req, res) => {
-    const lang = langFor(req);
-    sonos.remove(service.sid).then((success) => {
-      if (success) {
-        res.render("success", {
-          lang,
-          message: lang("successfullyRemovedRegistration"),
-        });
-      } else {
-        res.status(500).render("failure", {
-          lang,
-          message: lang("failedToRemoveRegistration"),
-        });
-      }
-    });
-  });
+  app.use("/s1", makeS1Router(sonos, service, langFor, bonobUrl, serverOpts.version || DEFAULT_SERVER_OPTS.version, serverOpts.enableS1));
 
   app.get(LOGIN_ROUTE, (req, res) => {
     const lang = langFor(req);
