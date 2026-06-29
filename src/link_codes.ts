@@ -20,7 +20,9 @@ export class InMemoryLinkCodes implements LinkCodes {
   linkCodes: Record<string, Association | undefined>  = {}
 
   mint() {
-    const linkCode = uuid();
+    // Sonos S2 browser-auth link codes are capped at 32 characters; a UUID is
+    // 36. Strip the dashes to get a spec-compliant 32-char hex code.
+    const linkCode = uuid().replace(/-/g, "");
     this.linkCodes[linkCode] = undefined
     return linkCode
   }

@@ -799,12 +799,13 @@ describe("wsdl api", () => {
               expect(result[0]).toEqual({
                 getDeviceAuthTokenResult: {
                   authToken: smapiAuthToken.token,
+                  privateKey: "alwaysReauthenticate",
                   userInfo: {
-                    nickname: association.nickname,
                     userIdHashCode: crypto
                       .createHash("sha256")
                       .update(association.userId)
                       .digest("hex"),
+                    nickname: association.nickname,
                   },
                 },
               });

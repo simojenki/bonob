@@ -88,10 +88,13 @@ export type GetAppLinkResult = {
 export type GetDeviceAuthTokenResult = {
   getDeviceAuthTokenResult: {
     authToken: string;
+    // Required by Sonos S2: the WSDL declares privateKey in deviceAuthTokenResult.
+    // Omitting it makes the S2 app reject the token and abort "Add Service".
+    privateKey: string;
     // todo: appears this thing can be optional
     userInfo: {
-      nickname: string;
       userIdHashCode: string;
+      nickname: string;
     };
   };
 };
@@ -210,12 +213,17 @@ class SonosSoap {
       return {
         getDeviceAuthTokenResult: {
           authToken: smapiAuthToken.token,
+          // Sonos sentinel meaning "I don't issue refreshable private keys".
+          // bonob doesn't implement private-key refresh, so this is the correct
+          // value (a random/opaque key here makes S2 abort the add).
+          privateKey: "alwaysReauthenticate",
+          // userIdHashCode must precede nickname to match the WSDL xs:sequence.
           userInfo: {
-            nickname: association.nickname,
             userIdHashCode: crypto
               .createHash("sha256")
               .update(association.userId)
               .digest("hex"),
+            nickname: association.nickname,
           },
         },
       };
