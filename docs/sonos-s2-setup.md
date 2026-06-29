@@ -4,7 +4,7 @@ Credit goes to [@wkulhanek](https://github.com/wkulhanek) for writing up these i
 
 ## Prerequisites
 
-* In order to use bonob with Sonos S2 you are going to need to expose your bonob service to the internet so that Sonos can hit it.  You may wish to restrict your firewall (TCP/443 only) to the Sonos IP addresses outlined [over here in the sonos docs](https://docs.sonos.com/docs/key-requirements).  
+* In order to use bonob with Sonos S2 you are going to need to expose your bonob service to the internet so that Sonos can hit it.  __As of time of writing Sonos support only https on port 443, trying to use another port will silently fail.__ You may wish to restrict your firewall (TCP/443 only) to the Sonos IP addresses outlined [over here in the sonos docs](https://docs.sonos.com/docs/key-requirements).  
 
 * In your Sonos App get your Sonos ID (About my Sonos System)
 
