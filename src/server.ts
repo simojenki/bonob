@@ -388,9 +388,9 @@ function server(
           scrobbled: it.filter(scrobble => scrobble.scrobbled).length 
         }));
     }
-  }),
+  });
 
-  app.get("/stream/track/:id", async (req, res) => {
+  const streamTrackHandler = async (req: Request, res: any) => {
     const id = req.params["id"]!;
     const trace = uuid();
     
@@ -513,7 +513,10 @@ function server(
           }
         });
     }
-  });
+  };
+
+  app.get("/stream/track/:id", streamTrackHandler);
+  app.head("/stream/track/:id", streamTrackHandler);
 
   app.get("/icon/:type_text/size/:size", (req, res) => {
     const apply_festivals = req.query["nofest"] == null
