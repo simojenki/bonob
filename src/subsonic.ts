@@ -16,7 +16,8 @@ import {
   Encoding,
   albumToAlbumSummary,
   TrackSummary,
-  AuthFailure
+  AuthFailure,
+  Sortable
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -78,10 +79,17 @@ type artist = {
   artistImageUrl: string | undefined;
 };
 
+type navidrome_artist = {
+  sortName: string;
+};
+
+const isNavidromeArtist = (a: artist | (artist & navidrome_artist)): a is artist & navidrome_artist =>
+  'sortName' in a;
+
 type GetArtistsResponse = SubsonicResponse & {
   artists: {
     index: {
-      artist: artist[];
+      artist: artist[] | (artist & navidrome_artist)[];
       name: string;
     }[];
   };
@@ -824,20 +832,25 @@ export class Subsonic {
 
   getArtists = (
     credentials: Credentials
-  ): Promise<(IdName & { albumCount: number; image: BUrn | undefined })[]> =>
+  ): Promise<(ArtistSummary & Sortable & { albumCount: number })[]> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
       .then((artists) =>
-        artists.map((artist) => ({
-          id: `${artist.id}`,
-          name: artist.name,
-          albumCount: artist.albumCount,
-          image: artistImageURN({
-            artistId: artist.id,
-            artistImageURL: artist.artistImageUrl,
-          }),
-        }))
-      );
+        artists.map((artist) => {
+          const _sortBy = isNavidromeArtist(artist) ? artist.sortName : artist.name;
+          return {
+            id: `${artist.id}`,
+            name: artist.name,
+            _sortBy,
+            albumCount: artist.albumCount,
+            image: artistImageURN({
+              artistId: artist.id,
+              artistImageURL: artist.artistImageUrl,
+            }),
+          };
+        })
+      )
+      .then(artists => [...artists].sort((a, b) => a._sortBy.localeCompare(b._sortBy)));
 
       // todo: should be getArtistInfo2?
   getArtistInfo = (

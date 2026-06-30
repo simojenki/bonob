@@ -95,16 +95,13 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     this.useTranscode = useTranscode;
   }
 
-  // todo: q needs to support greater than the max page size supported by subsonic
-  // maybe subsonic should error?
   artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
     this.subsonic
       .getArtists(this.credentials)
-      .then(artists => [...artists].sort((a, b) => a.name.localeCompare(b.name)))
       .then(slice2(q))
       .then(([page, total]) => ({
         total,
-        results: page.map(a => ({ ...a, _sortBy: a.name })),
+        results: page,
       }));
 
   artist = async (id: string): Promise<Artist> =>

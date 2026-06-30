@@ -848,6 +848,7 @@ describe("Subsonic", () => {
             id: it.id,
             image: it.image,
             name: it.name,
+            _sortBy: it.name,
             albumCount: it.albums.length
           })
         );
@@ -861,6 +862,84 @@ describe("Subsonic", () => {
             headers,
           }
         );
+      });
+    });
+
+    describe("when an artist has a sortName", () => {
+      const artist1 = anArtist({ name: "The Beatles", albums: [anAlbum()] });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(asArtistsJson([{ ...artist1, sortName: "Beatles" }])))
+        );
+      });
+
+      it("should map sortName to _sortBy in the result", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists[0]).toMatchObject({ name: "The Beatles", _sortBy: "Beatles" });
+      });
+    });
+
+    describe("when an artist has no sortName", () => {
+      const artist1 = anArtist({ name: "Aerosmith", albums: [anAlbum()] });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(asArtistsJson([artist1])))
+        );
+      });
+
+      it("should fall back to name for _sortBy", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists[0]).toMatchObject({ _sortBy: "Aerosmith" });
+      });
+    });
+
+    describe("when artists are returned out of order by the server", () => {
+      const artistA = anArtist({ name: "Aardvark", albums: [anAlbum()] });
+      const artistB = anArtist({ name: "Bumblebee", albums: [anAlbum()] });
+      const artistC = anArtist({ name: "Catfish", albums: [anAlbum()] });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(asArtistsJson([artistC, artistA, artistB])))
+        );
+      });
+
+      it("should return artists sorted by _sortBy", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists.map(a => a.name)).toEqual(["Aardvark", "Bumblebee", "Catfish"]);
+      });
+    });
+
+    describe("when artists have a sortName that differs from name", () => {
+      const artistA = anArtist({ name: "The Aardvark", albums: [anAlbum()] });
+      const artistB = anArtist({ name: "The Bumblebee", albums: [anAlbum()] });
+      const artistC = anArtist({ name: "Catfish", albums: [anAlbum()] });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(asArtistsJson([
+            { ...artistB, sortName: "Bumblebee" },
+            artistC,
+            { ...artistA, sortName: "Aardvark" },
+          ])))
+        );
+      });
+
+      it("should sort by sortName rather than name", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists.map(a => a.name)).toEqual(["The Aardvark", "The Bumblebee", "Catfish"]);
+      });
+
+      it("should set _sortBy to sortName when present", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists.map(a => a._sortBy)).toEqual(["Aardvark", "Bumblebee", "Catfish"]);
       });
     });
   });
