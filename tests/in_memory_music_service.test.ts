@@ -89,17 +89,19 @@ describe("InMemoryMusicService", () => {
         service.hasArtists(artist1, artist2, artist3, artist4, artist5);
       });
 
+      const withSortName = (a: ReturnType<typeof artistToArtistSummary>) => ({ ...a, _sortBy: a.name });
+
       describe("fetching all in one page", () => {
         it("should provide an array of artists", async () => {
           expect(
             await musicLibrary.artists({ _index: 0, _count: 100 })
           ).toEqual({
             results: [
-              artistToArtistSummary(artist1),
-              artistToArtistSummary(artist2),
-              artistToArtistSummary(artist3),
-              artistToArtistSummary(artist4),
-              artistToArtistSummary(artist5),
+              withSortName(artistToArtistSummary(artist1)),
+              withSortName(artistToArtistSummary(artist2)),
+              withSortName(artistToArtistSummary(artist3)),
+              withSortName(artistToArtistSummary(artist4)),
+              withSortName(artistToArtistSummary(artist5)),
             ],
             total: 5,
           });
@@ -110,8 +112,8 @@ describe("InMemoryMusicService", () => {
         it("should provide an array of artists", async () => {
           expect(await musicLibrary.artists({ _index: 2, _count: 2 })).toEqual({
             results: [
-              artistToArtistSummary(artist3),
-              artistToArtistSummary(artist4),
+              withSortName(artistToArtistSummary(artist3)),
+              withSortName(artistToArtistSummary(artist4)),
             ],
             total: 5,
           });
@@ -121,7 +123,7 @@ describe("InMemoryMusicService", () => {
       describe("fetching the last page", () => {
         it("should provide an array of artists", async () => {
           expect(await musicLibrary.artists({ _index: 4, _count: 2 })).toEqual({
-            results: [artistToArtistSummary(artist5)],
+            results: [withSortName(artistToArtistSummary(artist5))],
             total: 5,
           });
         });

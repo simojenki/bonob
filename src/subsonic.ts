@@ -979,7 +979,7 @@ export class Subsonic {
         .then(this.toAlbumSummary),
     ]).then(([total, albums]) => ({
       results: albums.slice(0, q._count),
-      total: albums.length == 500 ? total : q._index + albums.length,
+      total: albums.length == 500 ? total : (q._index ?? 0) + albums.length,
     }));
 
   getGenres = (credentials: Credentials) =>

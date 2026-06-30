@@ -85,8 +85,8 @@ export type RadioStation = {
 }
 
 export type Paging = {
-  _index: number;
-  _count: number;
+  _index: number | undefined;
+  _count: number | undefined;
 };
 
 export type Result<T> = {
@@ -94,12 +94,17 @@ export type Result<T> = {
   total: number;
 };
 
-export function slice2<T>({ _index, _count }: Paging) {
+export function slice2<T>({ _index, _count }: Partial<Paging> = {}) {
+  const i = _index || 0;
   return (things: T[]): [T[], number] => [
-    things.slice(_index, _index + _count),
+    _count ? things.slice(i, i + _count) : things.slice(i),
     things.length,
   ];
 }
+
+export type Sortable = {
+  _sortBy: string;
+};
 
 export const asResult = <T>([results, total]: [T[], number]) => ({
   results,
@@ -188,7 +193,7 @@ export interface MusicService {
 }
 
 export interface MusicLibrary {
-  artists(q: ArtistQuery): Promise<Result<ArtistSummary>>;
+  artists(q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>>;
   artist(id: string): Promise<Artist>;
   albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
   album(id: string): Promise<Album>;

@@ -649,7 +649,7 @@ describe("SubsonicMusicLibrary_new", () => {
           const result = await library.artists({ _index: 0, _count: 100 });
 
           expect(result).toEqual({
-            results: [artist],
+            results: [{ ...artist, _sortBy: artist.name }],
             total: 1,
           });
         });
@@ -672,7 +672,7 @@ describe("SubsonicMusicLibrary_new", () => {
           const result = await library.artists({ _index: 0, _count: 100 });
 
           expect(result).toEqual({
-            results: artists,
+            results: artists.map(a => ({ ...a, _sortBy: a.name })),
             total: 4,
           });
         });
@@ -680,13 +680,35 @@ describe("SubsonicMusicLibrary_new", () => {
 
       describe("when paging specified", () => {
         it("should return only the correct page of artists", async () => {
-          const artists = await library.artists({ _index: 1, _count: 2 });
+          const result = await library.artists({ _index: 1, _count: 2 });
 
-          expect(artists).toEqual({ 
-            results: [artist2, artist3], 
-            total: 4 
+          expect(result).toEqual({
+            results: [artist2, artist3].map(a => ({ ...a, _sortBy: a.name })),
+            total: 4
           });
         });
+      });
+    });
+
+    describe("when artists are returned out of order by the server", () => {
+      const artistA = { id: "1", name: "Aardvark", albumCount: 1, image: undefined };
+      const artistB = { id: "2", name: "Bumblebee", albumCount: 1, image: undefined };
+      const artistC = { id: "3", name: "Catfish", albumCount: 1, image: undefined };
+
+      beforeEach(() => {
+        subsonic.getArtists.mockResolvedValue([artistC, artistA, artistB]);
+      });
+
+      it("should return artists sorted by name", async () => {
+        const result = await library.artists({ _index: 0, _count: 100 });
+
+        expect(result.results.map(a => a.name)).toEqual(["Aardvark", "Bumblebee", "Catfish"]);
+      });
+
+      it("should page the sorted results", async () => {
+        const result = await library.artists({ _index: 1, _count: 1 });
+
+        expect(result.results.map(a => a.name)).toEqual(["Bumblebee"]);
       });
     });
   });

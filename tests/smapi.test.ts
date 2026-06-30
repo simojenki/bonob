@@ -25,7 +25,8 @@ import {
   ratingAsInt,
   ratingFromInt,
   internetRadioStation,
-  findLoginToken
+  findLoginToken,
+  scrollIndicesFrom,
 } from "../src/smapi";
 
 import { keys as i8nKeys } from "../src/i8n";
@@ -628,6 +629,38 @@ describe("iconArtURI", () => {
   });
 });
 
+describe("scrollIndicesFrom", () => {
+  const artistNames = [
+    "10,000 Maniacs",
+    "99 Bacon Sandwiches",
+    "[something with square brackets]",
+    "Aerosmith",
+    "Bob Marley",
+    "beatles",
+    "Cans",
+    "egg heads",
+    "Moon Cakes",
+    "Moon Boots",
+    "Numpty",
+    "Yellow brick road",
+  ];
+  const expected = "A,3,B,4,C,6,D,6,E,7,F,7,G,7,H,7,I,7,J,7,K,7,L,7,M,8,N,10,O,10,P,10,Q,10,R,10,S,10,T,10,U,10,V,10,W,10,X,10,Y,11,Z,11";
+
+  describe("when _sortBy is the same as name", () => {
+    it("should return scroll indices", () => {
+      const result = scrollIndicesFrom(artistNames.map(name => ({ name, _sortBy: name })));
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe("when _sortBy differs from name", () => {
+    it("should use _sortBy to compute indices", () => {
+      const result = scrollIndicesFrom(artistNames.map(name => ({ name: uuid(), _sortBy: name })));
+      expect(result).toEqual(expected);
+    });
+  });
+});
+
 describe("wsdl api", () => {
   const musicService = {
     generateToken: jest.fn(),
@@ -1212,6 +1245,7 @@ describe("wsdl api", () => {
                       title: "Artists",
                       albumArtURI: iconArtURI(bonobUrl, "artists").href(),
                       itemType: "container",
+                      canScroll: true,
                     },
                     {
                       id: "albums",
@@ -1310,6 +1344,7 @@ describe("wsdl api", () => {
                       title: "Artiesten",
                       albumArtURI: iconArtURI(bonobUrl, "artists").href(),
                       itemType: "container",
+                      canScroll: true,
                     },
                     {
                       id: "albums",
@@ -3080,6 +3115,49 @@ describe("wsdl api", () => {
                   getMediaMetadataResult: null,
                 });
               });
+            });
+          });
+        });
+
+        describe("getScrollIndices", () => {
+          itShouldHandleInvalidCredentials((ws) =>
+            ws.getScrollIndicesAsync({ id: "artists" })
+          );
+
+          describe("for artists", () => {
+            let ws: Client;
+
+            const artist1 = anArtist({ name: "Aerosmith" });
+            const artist2 = anArtist({ name: "Bob Marley" });
+            const artist3 = anArtist({ name: "Beatles" });
+            const artist4 = anArtist({ name: "Cat Empire" });
+            const artist5 = anArtist({ name: "Metallica" });
+            const artist6 = anArtist({ name: "Yellow Brick Road" });
+
+            const artists = [artist1, artist2, artist3, artist4, artist5, artist6];
+            const artistsWithSortName = artists
+              .map(it => ({ ...artistToArtistSummary(it), _sortBy: it.name }))
+              .sort((a, b) => a._sortBy.localeCompare(b._sortBy));
+
+            beforeEach(async () => {
+              ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              setupAuthenticatedRequest(ws);
+              musicLibrary.artists.mockResolvedValue({
+                results: artistsWithSortName,
+                total: artists.length,
+              });
+            });
+
+            it("should return scroll indices", async () => {
+              const result = await ws.getScrollIndicesAsync({ id: "artists" });
+
+              expect(result[0]).toEqual({
+                getScrollIndicesResult: scrollIndicesFrom(artistsWithSortName),
+              });
+              expect(musicLibrary.artists).toHaveBeenCalledWith({ _index: 0, _count: undefined });
             });
           });
         });
