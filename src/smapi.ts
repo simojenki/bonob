@@ -97,9 +97,11 @@ export type GetDeviceAuthTokenResult = {
   };
 };
 
+// todo: whats going on in here?
 export const ratingAsInt = (rating: Rating): number =>
   rating.stars * 10 + (rating.love ? 1 : 0) + 100;
 
+// todo: whats going on in here?
 export const ratingFromInt = (value: number): Rating => {
   const x = value - 100;
   return { love: x % 10 == 1, stars: Math.floor(x / 10) };
