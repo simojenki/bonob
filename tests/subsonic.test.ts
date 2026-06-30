@@ -848,7 +848,7 @@ describe("Subsonic", () => {
             id: it.id,
             image: it.image,
             name: it.name,
-            _sortBy: it.name,
+            _sortBy: it.name.toLowerCase(),
             albumCount: it.albums.length
           })
         );
@@ -893,7 +893,7 @@ describe("Subsonic", () => {
       it("should fall back to name for _sortBy", async () => {
         const artists = await subsonic.getArtists(credentials);
 
-        expect(artists[0]).toMatchObject({ _sortBy: "Aerosmith" });
+        expect(artists[0]).toMatchObject({ _sortBy: "aerosmith" });
       });
     });
 
@@ -939,7 +939,42 @@ describe("Subsonic", () => {
       it("should set _sortBy to sortName when present", async () => {
         const artists = await subsonic.getArtists(credentials);
 
-        expect(artists.map(a => a._sortBy)).toEqual(["Aardvark", "Bumblebee", "Catfish"]);
+        expect(artists.map(a => a._sortBy)).toEqual(["Aardvark", "Bumblebee", "catfish"]);
+      });
+    });
+
+    describe("when ignoredArticles are present", () => {
+      const artistA = anArtist({ name: "The Aardvark", albums: [anAlbum()] });
+      const artistB = anArtist({ name: "A Bumblebee", albums: [anAlbum()] });
+      const artistC = anArtist({ name: "Catfish", albums: [anAlbum()] });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(asArtistsJson([artistA, artistB, artistC], "The A")))
+        );
+      });
+
+      it("should strip ignored articles from _sortBy", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists.map(a => a._sortBy)).toEqual(["aardvark", "bumblebee", "catfish"]);
+      });
+
+      it("should sort by _sortBy after stripping articles", async () => {
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists.map(a => a.name)).toEqual(["The Aardvark", "A Bumblebee", "Catfish"]);
+      });
+
+      it("should not strip article tokens that are substrings within a word", async () => {
+        const artistD = anArtist({ name: "There", albums: [anAlbum()] });
+        mockGET.mockReset();
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(asArtistsJson([artistD], "The")))
+        );
+        const artists = await subsonic.getArtists(credentials);
+
+        expect(artists[0]!._sortBy).toEqual("there");
       });
     });
   });

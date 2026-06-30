@@ -88,6 +88,7 @@ const isNavidromeArtist = (a: artist | (artist & navidrome_artist)): a is artist
 
 type GetArtistsResponse = SubsonicResponse & {
   artists: {
+    ignoredArticles: string;
     index: {
       artist: artist[] | (artist & navidrome_artist)[];
       name: string;
@@ -834,10 +835,15 @@ export class Subsonic {
     credentials: Credentials
   ): Promise<(ArtistSummary & Sortable & { albumCount: number })[]> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
-      .then((artists) =>
+      .then((it) => ({
+        ignoredArticles: new Set((it.artists.ignoredArticles || "").toLowerCase().split(" ").filter(Boolean)),
+        artists: (it.artists.index || []).flatMap((it) => it.artist || []),
+      }))
+      .then(({ ignoredArticles, artists }) =>
         artists.map((artist) => {
-          const _sortBy = isNavidromeArtist(artist) ? artist.sortName : artist.name;
+          const _sortBy = isNavidromeArtist(artist)
+            ? artist.sortName
+            : artist.name.split(" ").filter(t => !ignoredArticles.has(t.toLowerCase())).join(" ").toLowerCase();
           return {
             id: `${artist.id}`,
             name: artist.name,

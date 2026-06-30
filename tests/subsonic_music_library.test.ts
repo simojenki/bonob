@@ -397,7 +397,7 @@ const getSearchResult3Json = ({
     },
   });
 
-export const asArtistsJson = (artists: (Artist & { sortName?: string })[]) => {
+export const asArtistsJson = (artists: (Artist & { sortName?: string })[], ignoredArticles: string = "") => {
   const as: Artist[] = [];
   const bs: Artist[] = [];
   const cs: Artist[] = [];
@@ -429,6 +429,7 @@ export const asArtistsJson = (artists: (Artist & { sortName?: string })[]) => {
 
   return subsonicOK({
     artists: {
+      ignoredArticles,
       index: [
         {
           name: "A",
