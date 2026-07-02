@@ -12,6 +12,12 @@ describe("InMemoryLinkCodes", () => {
       expect(code1).not.toEqual(code2);
       expect(code1).not.toEqual(code3);
     });
+
+    it('should mint codes within the Sonos 32-character limit', () => {
+      // Sonos S2 browser-auth rejects link codes longer than 32 chars.
+      const code = linkCodes.mint()
+      expect(code).toMatch(/^[0-9a-f]{32}$/);
+    });
   });
 
   describe("associating a code with a user", () => {
