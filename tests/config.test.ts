@@ -289,16 +289,16 @@ describe("config", () => {
     });
   });
   
-  describe("logRequests", () => {
+  describe("logHttpRequests", () => {
     beforeEach(() => {
       process.env["BNB_SECRET"] = "bonob";
     });
 
     describeBooleanConfigValue(
-      "logRequests",
-      "BNB_SERVER_LOG_REQUESTS",
+      "logHttpRequests",
+      "BNB_LOG_HTTP_REQUESTS",
       false,
-      (config) => config.logRequests
+      (config) => config.logHttpRequests
     );
   });
 

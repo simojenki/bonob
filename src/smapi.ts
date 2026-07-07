@@ -7,6 +7,7 @@ import { option as O, either as E, taskEither as TE, task as T } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 
 import logger from "./logger";
+import { SonosWSDL } from "./sonos_wsdl";
 
 import { LinkCodes } from "./link_codes";
 import {
@@ -60,10 +61,11 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "1500",
 ];
 
-const WSDL_FILE = path.resolve(
+export const WSDL_FILE = path.resolve(
   __dirname,
   "Sonoswsdl-1.19.6-20231024.wsdl"
 );
+export const sonosWSDL = new SonosWSDL(readFileSync(WSDL_FILE, 'utf8'));
 
 
 export type LoginToken = {
@@ -1217,7 +1219,7 @@ function bindSmapiSoapServiceToExpress(
         },
       },
     },
-    readFileSync(WSDL_FILE, "utf8"),
+    sonosWSDL.wsdl,
     (err: any, res: any) => {
       if (err) {
         logger.error("BOOOOM", { err, res });

@@ -11,6 +11,7 @@ import { PassThrough, Transform, TransformCallback } from "stream";
 import { Sonos, Service, SONOS_LANG } from "./sonos";
 import {
   SOAP_PATH,
+  sonosWSDL,
   STRINGS_ROUTE,
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
@@ -32,7 +33,8 @@ import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
-import { DEFAULT_LOGIN_THEME } from './config'
+import { DEFAULT_LOGIN_THEME } from './config';
+import { Peeker, peekRequestResponse, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
 import _ from "underscore";
 import morgan from "morgan";
 import { parse } from "./burn";
@@ -99,7 +101,9 @@ export type ServerOpts = {
     backgroundColor: string | undefined;
   };
   applyContextPath: boolean;
-  logRequests: boolean;
+  logHttpRequests: boolean;
+  logSmapiRequests: boolean;
+  validateSmapiRequests: boolean;
   version: string;
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
@@ -115,7 +119,9 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   clock: SystemClock,
   iconColors: { foregroundColor: undefined, backgroundColor: undefined },
   applyContextPath: true,
-  logRequests: false,
+  logHttpRequests: false,
+  logSmapiRequests: false,
+  validateSmapiRequests: false,
   version: "v?",
   smapiAuthTokens: new JWTSmapiLoginTokens(
     SystemClock,
@@ -147,7 +153,7 @@ function server(
   const app = express();
   const i8n = makeI8N(service.name);
 
-  if (serverOpts.logRequests) {
+  if (serverOpts.logHttpRequests) {
     app.use(morgan("combined"));
   }
   app.use(express.urlencoded({ extended: false }));
@@ -620,6 +626,13 @@ function server(
         return res.status(500).send();
       });
   });
+
+  const peekers: Peeker[] = [];
+  if (serverOpts.logSmapiRequests) peekers.push(loggingPeeker());
+  if (serverOpts.validateSmapiRequests) peekers.push(validateSmapiMessagePeeker(sonosWSDL));
+  if (peekers.length > 0) {
+    app.use(SOAP_PATH, peekRequestResponse(...peekers));
+  }
 
   bindSmapiSoapServiceToExpress(
     app,
