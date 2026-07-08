@@ -60,6 +60,7 @@ COPY --from=build /bonob/node_modules ./node_modules
 COPY --from=build /bonob/.gitinfo ./
 COPY web ./web
 COPY src/Sonoswsdl-1.19.6-20231024.wsdl ./src/Sonoswsdl-1.19.6-20231024.wsdl
+COPY src/soap-envelope-1.1.xsd ./src/soap-envelope-1.1.xsd
 
 USER nobody
 WORKDIR /bonob/src

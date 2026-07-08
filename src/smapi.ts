@@ -7,7 +7,7 @@ import { option as O, either as E, taskEither as TE, task as T } from "fp-ts";
 import { pipe } from "fp-ts/lib/function";
 
 import logger from "./logger";
-import { SonosWSDL } from "./sonos_wsdl";
+import { SonosWSDL, SONOS_SERVICES_NAMESPACE } from "./sonos_wsdl";
 
 import { LinkCodes } from "./link_codes";
 import {
@@ -39,6 +39,15 @@ import {
   ToSmapiFault,
 } from "./smapi_auth";
 import { IncomingHttpHeaders } from "http";
+
+// https://docs.sonos.com/docs/error-handling
+export const SMAPI_FAULT_ITEM_NOT_FOUND = {
+  Fault: {
+    faultcode: "Client.ItemNotFound",
+    faultstring:
+      "The requested item does not exist.",
+  },
+};
 
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
@@ -138,8 +147,8 @@ export function getMetadataResult(
     (result?.mediaMetadata?.length || 0);
   return {
     getMetadataResult: {
-      count,
       index: 0,
+      count,
       total: count,
       ...result,
     },
@@ -158,8 +167,8 @@ export function searchResult(
     (result?.mediaMetadata?.length || 0);
   return {
     searchResult: {
-      count,
       index: 0,
+      count,
       total: count,
       ...result,
     },
@@ -241,9 +250,10 @@ class SonosSoap {
           faultcode: "Client.NOT_LINKED_RETRY",
           faultstring:
             "Link Code not found yet, sonos app will keep polling until you log in to bonob",
+          attributes: { "xmlns:ns": SONOS_SERVICES_NAMESPACE },
           detail: {
-            ExceptionInfo: "NOT_LINKED_RETRY",
-            SonosError: "5",
+            "ns:SonosError": "5",
+            "ns:ExceptionInfo": "NOT_LINKED_RETRY",
           },
         },
       };
@@ -271,15 +281,15 @@ export type Container = {
 // })
 
 const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
-  itemType: "albumList",
   id: `genre:${genre.id}`,
+  itemType: "albumList",
   title: genre.name,
   albumArtURI: albumArtURI(iconArtURI(bonobUrl, iconForGenre(genre.name)).href()),
 });
 
 const yyyy = (bonobUrl: URLBuilder, year: Year) => ({
-  itemType: "albumList",
   id: `year:${year.year}`,
+  itemType: "albumList",
   title: year.year,
   // todo: maybe year.year should be nullable?
   albumArtURI: albumArtURI(year.year !== "?" ? iconArtURI(bonobUrl, "yyyy", year.year).href() : iconArtURI(bonobUrl, "music").href()),
@@ -300,14 +310,14 @@ export const shouldScrobble = (track: Track, playbackTime: number) => (
 
 
 const playlist = (bonobUrl: URLBuilder, playlist: PlaylistSummary) => ({
-  itemType: "playlist",
   id: `playlist:${playlist.id}`,
+  itemType: "playlist",
   title: playlist.name,
-  albumArtURI: albumArtURI(coverArtURI(bonobUrl, playlist).href()),
   canPlay: true,
+  albumArtURI: albumArtURI(coverArtURI(bonobUrl, playlist).href()),
   attributes: {
     userContent: true,
-  },  
+  },
 });
 
 export const coverArtURI = (
@@ -346,13 +356,13 @@ even though there is no mention of that in the docs that i can find.
 const albumArtURI = (value: string) => value
 
 export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
-  itemType: "album",
   id: `album:${album.id}`,
+  itemType: "album",
+  title: album.name,
   artist: album.artistName,
   artistId: `artist:${album.artistId}`,
-  title: album.name,
-  albumArtURI: albumArtURI(coverArtURI(bonobUrl, album).href()),
   canPlay: true,
+  albumArtURI: albumArtURI(coverArtURI(bonobUrl, album).href()),
   // defaults
   // canScroll: false,
   // canEnumerate: true,
@@ -360,29 +370,32 @@ export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
 });
 
 export const internetRadioStation = (station: RadioStation) => ({
-  itemType: "stream",
   id: `internetRadioStation:${station.id}`,
+  itemType: "stream",
   title: station.name,
   mimeType: "audio/mpeg",
+  // streamMetadata is required by the mediaMetadata schema (a choice with trackMetadata),
+  // but all of its own fields are optional, so an empty object satisfies it.
+  streamMetadata: {},
 });
 
 export const track = (bonobUrl: URLBuilder, track: Track) => ({
-  itemType: "track",
   id: `track:${track.id}`,
-  mimeType: sonosifyMimeType(track.encoding.mimeType),
+  itemType: "track",
   title: track.name,
+  mimeType: sonosifyMimeType(track.encoding.mimeType),
 
   trackMetadata: {
-    album: track.album.name,
-    albumId: `album:${track.album.id}`,
-    albumArtist: track.artist.name,
-    albumArtistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
-    albumArtURI: albumArtURI(coverArtURI(bonobUrl, track).href()),
-    artist: track.artist.name,
     artistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
-    duration: track.duration,
-    genre: track.album.genre?.name,
+    artist: track.artist.name,
+    albumArtistId: track.artist.id ? `artist:${track.artist.id}` : undefined,
+    albumArtist: track.artist.name,
+    albumId: `album:${track.album.id}`,
+    album: track.album.name,
     genreId: track.album.genre?.id,
+    genre: track.album.genre?.name,
+    duration: track.duration,
+    albumArtURI: albumArtURI(coverArtURI(bonobUrl, track).href()),
     trackNumber: track.number,
   },
   dynamic: {
@@ -391,10 +404,10 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
 });
 
 export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
-  itemType: "artist",
   id: `artist:${artist.id}`,
-  artistId: artist.id,
+  itemType: "artist",
   title: artist.name,
+  artistId: artist.id,
   albumArtURI: albumArtURI(coverArtURI(bonobUrl, { coverArt: artist.image }).href()),
 });
 
@@ -535,10 +548,11 @@ function bindSmapiSoapServiceToExpress(
             Fault: {
               faultcode: "Client.TokenRefreshRequired",
               faultstring: "Token has expired",
+              attributes: { "xmlns:ns": SONOS_SERVICES_NAMESPACE },
               detail: {
-                refreshAuthTokenResult: {
-                  authToken: newToken.token,
-                  privateKey: "nonsense",
+                "ns:refreshAuthTokenResult": {
+                  "ns:authToken": newToken.token,
+                  "ns:privateKey": "nonsense",
                 },
               },
             },
@@ -563,10 +577,10 @@ function bindSmapiSoapServiceToExpress(
             sonosSoap.getDeviceAuthToken({ linkCode }),
           getLastUpdate: () => ({
             getLastUpdateResult: {
-              autoRefreshEnabled: true,
-              favorites: clock.now().unix(),
               catalog: clock.now().unix(),
+              favorites: clock.now().unix(),
               pollInterval: 60,
+              autoRefreshEnabled: true,
             },
           }),
           refreshAuthToken: async (
@@ -659,11 +673,10 @@ function bindSmapiSoapServiceToExpress(
                     }));
                   default:
                     logger.info(`Sonos asked for an unsupported getMediaMetadata: ${type}:${typeId}`);
-                    return {
-                      getMediaMetadataResult: {}
-                    }
+                    throw SMAPI_FAULT_ITEM_NOT_FOUND;
                 }
               }),
+              // todo: need to support index and count on here.
           search: async (
             { id, term }: { id: string; term: string },
             _,
@@ -765,9 +778,7 @@ function bindSmapiSoapServiceToExpress(
                       }));                    
                   default:
                     logger.info(`Sonos requested extended meta data for currently unsupported type=${type}, typeId=${typeId}`)
-                    return {
-                      getExtendedMetadataResult: {}                      
-                    };
+                    throw SMAPI_FAULT_ITEM_NOT_FOUND;
                 }
               }),
           getMetadata: async (
@@ -808,88 +819,88 @@ function bindSmapiSoapServiceToExpress(
                       mediaCollection: [
                         {
                           id: "artists",
+                          itemType: "container",
                           title: lang("artists"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "artists").href()),
-                          itemType: "container",
                           canScroll: true,
                         },
                         {
                           id: "albums",
+                          itemType: "albumList",
                           title: lang("albums"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "albums").href()),
-                          itemType: "albumList",
                         },
                         {
                           id: "randomAlbums",
+                          itemType: "albumList",
                           title: lang("random"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "random").href()),
-                          itemType: "albumList",
                         },
                         {
                           id: "favouriteAlbums",
+                          itemType: "albumList",
                           title: lang("favourites"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "heart").href()),
-                          itemType: "albumList",
                         },
                         {
                           id: "starredAlbums",
+                          itemType: "albumList",
                           title: lang("topRated"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "star").href()),
-                          itemType: "albumList",
                         },
                         {
                           id: "playlists",
+                          itemType: "collection",
                           title: lang("playlists"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "playlists").href()),
-                          itemType: "collection",
                           attributes: {
                             userContent: true,
                           },
                         },
                         {
                           id: "genres",
+                          itemType: "container",
                           title: lang("genres"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "genres").href()),
-                          itemType: "container",
                         },
                         {
                           id: "years",
+                          itemType: "container",
                           title: lang("years"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "music").href()),
-                          itemType: "container",
                         },
                         {
                           id: "recentlyAdded",
+                          itemType: "albumList",
                           title: lang("recentlyAdded"),
                           albumArtURI: albumArtURI(iconArtURI(
                             bonobUrl,
                             "recentlyAdded"
                           ).href()),
-                          itemType: "albumList",
                         },
                         {
                           id: "recentlyPlayed",
+                          itemType: "albumList",
                           title: lang("recentlyPlayed"),
                           albumArtURI: albumArtURI(iconArtURI(
                             bonobUrl,
                             "recentlyPlayed"
                           ).href()),
-                          itemType: "albumList",
                         },
                         {
                           id: "mostPlayed",
+                          itemType: "albumList",
                           title: lang("mostPlayed"),
                           albumArtURI: albumArtURI(iconArtURI(
                             bonobUrl,
                             "mostPlayed"
                           ).href()),
-                          itemType: "albumList",
                         },
                         {
                           id: "internetRadio",
+                          itemType: "stream",
                           title: lang("internetRadio"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "radio").href()),
-                          itemType: "stream",
                         },
                       ],
                     });
@@ -897,18 +908,18 @@ function bindSmapiSoapServiceToExpress(
                     return getMetadataResult({
                       mediaCollection: [
                         {
-                          itemType: "search",
                           id: "artists",
+                          itemType: "search",
                           title: lang("artists"),
                         },
                         {
-                          itemType: "search",
                           id: "albums",
+                          itemType: "search",
                           title: lang("albums"),
                         },
                         {
-                          itemType: "search",
                           id: "tracks",
+                          itemType: "search",
                           title: lang("tracks"),
                         },
                       ],
@@ -1104,6 +1115,8 @@ function bindSmapiSoapServiceToExpress(
                 throw `Unsupported getScrollIndices id=${id}`;
             }
           },
+          // todo: containerType and parentId are ignored - we always create a
+          // top-level playlist regardless of what type/parent was requested.
           createContainer: async (
             { title, seedId }: { title: string; seedId: string | undefined },
             _,
@@ -1140,6 +1153,8 @@ function bindSmapiSoapServiceToExpress(
             login(findLoginToken(soapyHeaders, headers))
               .then(({ musicLibrary }) => musicLibrary.deletePlaylist(id))
               .then((_) => ({ deleteContainerResult: {} })),
+          // todo: index and updateId are ignored - we always append, and never check/return
+          // a real updateId, so we can't detect a stale container the way Sonos expects.
           addToContainer: async (
             { id, parentId }: { id: string; parentId: string },
             _,
@@ -1213,9 +1228,7 @@ function bindSmapiSoapServiceToExpress(
                     return Promise.resolve(true);
                 }
               })
-              .then((_) => ({
-                setPlayedSecondsResult: {},
-              })),
+              .then((_) => ({})),
         },
       },
     },

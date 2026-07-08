@@ -1,12 +1,14 @@
-import { RequestHandler } from 'express';
-import { Logger } from 'winston';
-import logger from './logger';
-import { SonosWSDL } from './sonos_wsdl';
+import { Express, RequestHandler } from 'express';
+import { SonosWSDL, SmapiValidationHandler } from './sonos_wsdl';
 
 export type Peeker = {
   request?: (body: string) => void | Promise<void>;
   response?: (body: string) => void | Promise<void>;
 };
+
+export function onPOST(handler: RequestHandler): RequestHandler {
+  return (req, res, next) => req.method === 'POST' ? handler(req, res, next) : next();
+}
 
 export function peekRequestResponse(...peekers: Peeker[]): RequestHandler {
   return (req, res, next) => {
@@ -41,6 +43,9 @@ export function peekRequestResponse(...peekers: Peeker[]): RequestHandler {
   };
 }
 
+import { Logger } from 'winston';
+import logger from './logger';
+
 export function loggingPeeker(log: Logger = logger): Peeker {
   return {
     request: (body) => { log.info(`request:\n${body}`) },
@@ -48,9 +53,26 @@ export function loggingPeeker(log: Logger = logger): Peeker {
   };
 }
 
-export function validateSmapiMessagePeeker(wsdl: SonosWSDL, log: Logger = logger): Peeker {
+export function validateSmapiMessagePeeker(wsdl: SonosWSDL, handler: SmapiValidationHandler): Peeker {
   return {
-    request:  (body) => wsdl.validateSmapiMessage(body, log),
-    response: (body) => wsdl.validateSmapiMessage(body, log),
+    request:  (body) => wsdl.validateSmapiMessage(body, handler),
+    response: (body) => wsdl.validateSmapiMessage(body, handler),
   };
+}
+
+export class Peekers {
+  private readonly peekers: Peeker[] = [];
+
+  maybeAdd(condition: boolean, peeker: () => Peeker): this {
+    if (condition) this.peekers.push(peeker());
+    return this;
+  }
+
+  applyTo(app: Express, path: string): void {
+    if (this.peekers.length > 0) {
+      // SMAPI calls are always POST (per the WSDL binding); GET is only ever used for
+      // ?wsdl document retrieval, which isn't a SMAPI message and shouldn't be peeked at.
+      app.use(path, onPOST(peekRequestResponse(...this.peekers)));
+    }
+  }
 }

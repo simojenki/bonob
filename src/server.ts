@@ -34,7 +34,8 @@ import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
 import { DEFAULT_LOGIN_THEME } from './config';
-import { Peeker, peekRequestResponse, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
+import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
+import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
 import _ from "underscore";
 import morgan from "morgan";
 import { parse } from "./burn";
@@ -104,6 +105,7 @@ export type ServerOpts = {
   logHttpRequests: boolean;
   logSmapiRequests: boolean;
   validateSmapiRequests: boolean;
+  smapiValidationHandler: SmapiValidationHandler;
   version: string;
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
@@ -112,6 +114,13 @@ export type ServerOpts = {
 };
 
 const DEFAULT_TIMEOUT = "1h"
+
+function logSmapiValidationEvent(event: SmapiValidationEvent): void {
+  if (event.type === 'invalidSmapiMessage')
+    logger.warn(`SMAPI validation failed — ${event.messages}:\n${event.body}`);
+  else
+    logger.error(`SMAPI validation error — ${event.error.message}:\n${event.body}`);
+}
 
 const DEFAULT_SERVER_OPTS: ServerOpts = {
   linkCodes: () => new InMemoryLinkCodes(),
@@ -122,6 +131,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   logHttpRequests: false,
   logSmapiRequests: false,
   validateSmapiRequests: false,
+  smapiValidationHandler: logSmapiValidationEvent,
   version: "v?",
   smapiAuthTokens: new JWTSmapiLoginTokens(
     SystemClock,
@@ -627,12 +637,10 @@ function server(
       });
   });
 
-  const peekers: Peeker[] = [];
-  if (serverOpts.logSmapiRequests) peekers.push(loggingPeeker());
-  if (serverOpts.validateSmapiRequests) peekers.push(validateSmapiMessagePeeker(sonosWSDL));
-  if (peekers.length > 0) {
-    app.use(SOAP_PATH, peekRequestResponse(...peekers));
-  }
+  new Peekers()
+    .maybeAdd(serverOpts.logSmapiRequests, () => loggingPeeker())
+    .maybeAdd(serverOpts.validateSmapiRequests, () => validateSmapiMessagePeeker(sonosWSDL, serverOpts.smapiValidationHandler))
+    .applyTo(app, SOAP_PATH);
 
   bindSmapiSoapServiceToExpress(
     app,

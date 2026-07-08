@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
-import { peekRequestResponse, loggingPeeker, validateSmapiMessagePeeker } from '../src/http_utils';
-import { SonosWSDL } from '../src/sonos_wsdl';
+import { onPOST, peekRequestResponse, loggingPeeker, validateSmapiMessagePeeker } from '../src/http_utils';
+import { SonosWSDL, SmapiValidationHandler } from '../src/sonos_wsdl';
 
 function makeReq() {
   return new EventEmitter() as any;
@@ -12,6 +12,32 @@ function makeRes() {
     end: jest.fn((..._args: any[]) => ({} as any)),
   };
 }
+
+describe('onPOST', () => {
+  it('calls the wrapped handler for POST requests', () => {
+    const handler = jest.fn();
+    const req = { method: 'POST' } as any;
+    const res = makeRes() as any;
+    const next = jest.fn();
+
+    onPOST(handler)(req, res, next);
+
+    expect(handler).toHaveBeenCalledWith(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it.each(['GET', 'HEAD', 'PUT', 'DELETE'])('calls next instead of the wrapped handler for %s requests', (method) => {
+    const handler = jest.fn();
+    const req = { method } as any;
+    const res = makeRes() as any;
+    const next = jest.fn();
+
+    onPOST(handler)(req, res, next);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('peekRequestResponse', () => {
   describe('next()', () => {
@@ -202,17 +228,19 @@ describe('loggingPeeker', () => {
 });
 
 describe('validateSmapiMessagePeeker', () => {
+  const handler: SmapiValidationHandler = jest.fn();
+
   it('delegates request bodies to validateSmapiMessage', async () => {
     const wsdl = { validateSmapiMessage: jest.fn() } as unknown as SonosWSDL;
-    const peeker = validateSmapiMessagePeeker(wsdl);
+    const peeker = validateSmapiMessagePeeker(wsdl, handler);
     await peeker.request!('<soap/>');
-    expect(wsdl.validateSmapiMessage).toHaveBeenCalledWith('<soap/>', expect.anything());
+    expect(wsdl.validateSmapiMessage).toHaveBeenCalledWith('<soap/>', handler);
   });
 
   it('delegates response bodies to validateSmapiMessage', async () => {
     const wsdl = { validateSmapiMessage: jest.fn() } as unknown as SonosWSDL;
-    const peeker = validateSmapiMessagePeeker(wsdl);
+    const peeker = validateSmapiMessagePeeker(wsdl, handler);
     await peeker.response!('<soap/>');
-    expect(wsdl.validateSmapiMessage).toHaveBeenCalledWith('<soap/>', expect.anything());
+    expect(wsdl.validateSmapiMessage).toHaveBeenCalledWith('<soap/>', handler);
   });
 });

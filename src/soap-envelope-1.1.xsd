@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!--
+  The standard, unmodified SOAP 1.1 envelope schema (https://schemas.xmlsoap.org/soap/envelope/).
+  Sonos doesn't define Envelope/Body/Fault - this is the actual external spec that does, used
+  to validate the parts of a fault response that are governed by the SOAP protocol itself
+  rather than by the Sonos WSDL.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://schemas.xmlsoap.org/soap/envelope/"
+           targetNamespace="http://schemas.xmlsoap.org/soap/envelope/" >
+  <xs:element name="Envelope" type="tns:Envelope" />
+  <xs:complexType name="Envelope" >
+    <xs:sequence>
+      <xs:element ref="tns:Header" minOccurs="0" />
+      <xs:element ref="tns:Body" minOccurs="1" />
+      <xs:any namespace="##other" minOccurs="0" maxOccurs="unbounded" processContents="lax" />
+    </xs:sequence>
+    <xs:anyAttribute namespace="##other" processContents="lax" />
+  </xs:complexType>
+  <xs:element name="Header" type="tns:Header" />
+  <xs:complexType name="Header" >
+    <xs:sequence>
+      <xs:any namespace="##other" minOccurs="0" maxOccurs="unbounded" processContents="lax" />
+    </xs:sequence>
+    <xs:anyAttribute namespace="##other" processContents="lax" />
+  </xs:complexType>
+  <xs:element name="Body" type="tns:Body" />
+  <xs:complexType name="Body" >
+    <xs:sequence>
+      <xs:any namespace="##any" minOccurs="0" maxOccurs="unbounded" processContents="lax" />
+    </xs:sequence>
+    <xs:anyAttribute namespace="##any" processContents="lax" />
+  </xs:complexType>
+  <xs:attribute name="mustUnderstand" >
+     <xs:simpleType>
+     <xs:restriction base='xs:boolean'>
+       <xs:pattern value='0|1' />
+     </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+  <xs:attribute name="actor" type="xs:anyURI" />
+  <xs:simpleType name="encodingStyle" >
+    <xs:list itemType="xs:anyURI" />
+  </xs:simpleType>
+  <xs:attribute name="encodingStyle" type="tns:encodingStyle" />
+  <xs:element name="Fault" type="tns:Fault" />
+  <xs:complexType name="Fault" final="extension" >
+    <xs:sequence>
+      <xs:element name="faultcode" type="xs:QName" />
+      <xs:element name="faultstring" type="xs:string" />
+      <xs:element name="faultactor" type="xs:anyURI" minOccurs="0" />
+      <xs:element name="detail" type="tns:detail" minOccurs="0" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="detail">
+    <xs:sequence>
+      <xs:any namespace="##any" minOccurs="0" maxOccurs="unbounded" processContents="lax" />
+    </xs:sequence>
+    <xs:anyAttribute namespace="##any" processContents="lax" />
+  </xs:complexType>
+</xs:schema>
