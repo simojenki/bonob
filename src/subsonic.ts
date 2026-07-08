@@ -679,7 +679,7 @@ export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
       responseType: "arraybuffer",
     })
     .then((res) => ({
-      contentType: res.headers["content-type"],
+      contentType: String(res.headers["content-type"] ?? ""),
       data: Buffer.from(res.data, "binary"),
     }))
     .catch(() => undefined);
@@ -1044,11 +1044,13 @@ export class Subsonic {
     )
     .then((stream) => ({
       status: stream.status,
+      // Response headers are always strings (or absent) on the wire - axios's broader
+      // AxiosHeaderValue union only matters for headers set programmatically pre-request.
       headers: {
-        "content-type": stream.headers["content-type"],
-        "content-length": stream.headers["content-length"],
-        "content-range": stream.headers["content-range"],
-        "accept-ranges": stream.headers["accept-ranges"],
+        "content-type": stream.headers["content-type"] as string | undefined,
+        "content-length": stream.headers["content-length"] as string | undefined,
+        "content-range": stream.headers["content-range"] as string | undefined,
+        "accept-ranges": stream.headers["accept-ranges"] as string | undefined,
       },
       stream: stream.data,
     }));
@@ -1097,11 +1099,13 @@ export class Subsonic {
     )
     .then((stream) => ({
       status: stream.status,
+      // Response headers are always strings (or absent) on the wire - axios's broader
+      // AxiosHeaderValue union only matters for headers set programmatically pre-request.
       headers: {
-        "content-type": stream.headers["content-type"],
-        "content-length": stream.headers["content-length"],
-        "content-range": stream.headers["content-range"],
-        "accept-ranges": stream.headers["accept-ranges"],
+        "content-type": stream.headers["content-type"] as string | undefined,
+        "content-length": stream.headers["content-length"] as string | undefined,
+        "content-range": stream.headers["content-range"] as string | undefined,
+        "accept-ranges": stream.headers["accept-ranges"] as string | undefined,
       },
       stream: stream.data,
     }));

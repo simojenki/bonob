@@ -14,7 +14,7 @@
     "@types/underscore": "^1.13.0",
     "@types/xmldom": "^0.1.34",
     "@xmldom/xmldom": "^0.9.10",
-    "axios": "^1.15.0",
+    "axios": "^1.18.1",
     "dayjs": "^1.11.20",
     "eta": "^2.2.0",
     "express": "^5.2.1",
@@ -48,7 +48,14 @@
   "overrides": {
     "axios-ntlm": "npm:dry-uninstall",
     "axios": "$axios",
-    "whatwg-url": "^14.2.0"
+    "whatwg-url": "^14.2.0",
+    "@babel/core": "^7.29.7",
+    "nodemon": {
+      "minimatch": {
+        "brace-expansion": "^5.0.7"
+      }
+    },
+    "js-yaml": "^3.15.0"
   },
   "scripts": {
     "clean": "rm -Rf build node_modules",

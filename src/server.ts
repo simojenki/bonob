@@ -451,7 +451,7 @@ function server(
           }: {
             status: number;
             filter: Transform;
-            headers: Record<string, string>;
+            headers: Record<string, string | undefined>;
             sendStream: boolean;
             nowPlaying: boolean;
           }) => {
@@ -478,9 +478,9 @@ function server(
               status: 200,
               filter: new PassThrough(),
               headers: {
-                "content-type": sonosisfyContentType(
-                  stream.headers["content-type"]
-                ),
+                "content-type": stream.headers["content-type"]
+                  ? sonosisfyContentType(stream.headers["content-type"])
+                  : undefined,
                 "content-length": stream.headers["content-length"],
                 "accept-ranges": stream.headers["accept-ranges"],
               },
@@ -492,9 +492,9 @@ function server(
               status: 206,
               filter: new PassThrough(),
               headers: {
-                "content-type": sonosisfyContentType(
-                  stream.headers["content-type"]
-                ),
+                "content-type": stream.headers["content-type"]
+                  ? sonosisfyContentType(stream.headers["content-type"])
+                  : undefined,
                 "content-length": stream.headers["content-length"],
                 "content-range": stream.headers["content-range"],
                 "accept-ranges": stream.headers["accept-ranges"],
