@@ -155,7 +155,7 @@ export type StreamingHeader = "content-type" | "content-length" | "content-range
 
 export type TrackStream = {
   status: number;
-  headers: Record<StreamingHeader, string>;
+  headers: Record<StreamingHeader, string | undefined>;
   stream: any;
 };
 

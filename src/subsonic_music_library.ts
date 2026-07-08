@@ -211,7 +211,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         )
       )
       .then((res) => ({
-        contentType: res.headers["content-type"],
+        contentType: String(res.headers["content-type"] ?? ""),
         data: Buffer.from(res.data, "binary"),
       }))
       .catch((e) => {
