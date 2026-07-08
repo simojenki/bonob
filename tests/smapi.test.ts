@@ -772,6 +772,29 @@ describe("wsdl api", () => {
       }
 
       describe("soap api", () => {
+        describe("unhandled errors", () => {
+          it("should return a fault of ServiceUnknownError rather than a raw exception", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+            setupAuthenticatedRequest(ws);
+            musicLibrary.artists.mockRejectedValue(
+              new TypeError("Cannot read properties of undefined (reading 'boom')")
+            );
+
+            await ws
+              .getMetadataAsync({ id: "artists", index: 0, count: 100 })
+              .then(() => fail("shouldnt get here"))
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toEqual({
+                  faultcode: "Server.ServiceUnknownError",
+                  faultstring: "An unknown error occurred.",
+                });
+              });
+          });
+        });
+
         describe("getAppLink", () => {
           it("should do something", async () => {
             const ws = await createClientAsync(`${service.uri}?wsdl`, {

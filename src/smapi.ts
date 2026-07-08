@@ -49,6 +49,18 @@ export const SMAPI_FAULT_ITEM_NOT_FOUND = {
   },
 };
 
+// https://docs.sonos.com/docs/error-handling - "the default error for most services,
+// thrown for any error without a specific alternate exception defined". Used as a
+// catch-all for handler errors that aren't already a deliberate SMAPI fault, so Sonos
+// gets a well-formed fault instead of whatever the soap library does with a raw
+// exception (a malformed hybrid SOAP 1.1/1.2 fault that leaks the error message).
+export const SMAPI_FAULT_SERVICE_UNKNOWN_ERROR = {
+  Fault: {
+    faultcode: "Server.ServiceUnknownError",
+    faultstring: "An unknown error occurred.",
+  },
+};
+
 export const LOGIN_ROUTE = "/login";
 export const SOAP_PATH = "/ws/sonos";
 export const STRINGS_ROUTE = "/sonos/strings.xml";
@@ -564,12 +576,36 @@ function bindSmapiSoapServiceToExpress(
     }
   };
 
+  // Wraps every SMAPI handler so an error that isn't already a deliberate SMAPI fault (ie.
+  // doesn't have a .Fault property) becomes SMAPI_FAULT_SERVICE_UNKNOWN_ERROR instead of
+  // propagating as a raw exception - the soap library turns those into a malformed hybrid
+  // SOAP 1.1/1.2 fault that leaks the error message. Centralized here so individual
+  // handlers don't need their own try/catch for unexpected failures.
+  function withUnhandledErrorFault<T extends Record<string, (...args: any[]) => any>>(
+    handlers: T
+  ): T {
+    return Object.fromEntries(
+      Object.entries(handlers).map(([name, handler]) => [
+        name,
+        async (...args: any[]) => {
+          try {
+            return await handler(...args);
+          } catch (e: any) {
+            if (e && typeof e === "object" && "Fault" in e) throw e;
+            logger.error(`Unhandled error in SMAPI ${name}`, { error: e });
+            throw SMAPI_FAULT_SERVICE_UNKNOWN_ERROR;
+          }
+        },
+      ])
+    ) as T;
+  }
+
   const soapyService = listen(
     app,
     soapPath,
     {
       Sonos: {
-        SonosSoap: {
+        SonosSoap: withUnhandledErrorFault({
           getAppLink: () => sonosSoap.getAppLink(),
           reportAccountAction: ({ type } : { type: string }) =>
             sonosSoap.reportAccountAction({ type }),
@@ -1229,7 +1265,7 @@ function bindSmapiSoapServiceToExpress(
                 }
               })
               .then((_) => ({})),
-        },
+        }),
       },
     },
     sonosWSDL.wsdl,
