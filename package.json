@@ -49,7 +49,13 @@
     "axios-ntlm": "npm:dry-uninstall",
     "axios": "$axios",
     "whatwg-url": "^14.2.0",
-    "@babel/core": "^7.29.7"
+    "@babel/core": "^7.29.7",
+    "nodemon": {
+      "minimatch": {
+        "brace-expansion": "^5.0.7"
+      }
+    },
+    "js-yaml": "^3.15.0"
   },
   "scripts": {
     "clean": "rm -Rf build node_modules",
