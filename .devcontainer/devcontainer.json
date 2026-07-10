@@ -9,7 +9,11 @@
         "BNB_DEV_URL": "${localEnv:BNB_DEV_URL}",
         "BNB_DEV_LOCAL_URL": "${localEnv:BNB_DEV_LOCAL_URL}",
         "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}",
-        "BNB_SECRET": "${localEnv:BNB_SECRET}"
+        "BNB_SECRET": "${localEnv:BNB_SECRET}",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "~anthropic/claude-opus-latest",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "~anthropic/claude-sonnet-latest",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "~anthropic/claude-haiku-latest",
+        "CLAUDE_CODE_SUBAGENT_MODEL": "~anthropic/claude-opus-latest"
     },
     // "postCreateCommand": "bash .devcontainer/setup.sh",
     "remoteUser": "node",
@@ -23,12 +27,7 @@
     ],
     "forwardPorts": [4534],
     "features": {
-        "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
-        // ,
-        // "ghcr.io/devcontainers/features/docker-in-docker:2": {
-        //     "version": "latest",
-        //     "moby": true
-        // }
+        "ghcr.io/anthropics/devcontainer-features/claude-code:1.0.5": {}
     },
     "customizations": {
         "vscode": {
@@ -36,7 +35,6 @@
                 "davidanson.vscode-markdownlint",
                 "esbenp.prettier-vscode",
                 "redhat.vscode-xml"
-                // "ms-azuretools.vscode-docker"
             ]
         }
     }
