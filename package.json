@@ -20,7 +20,7 @@
     "express": "^5.2.1",
     "fp-ts": "^2.16.11",
     "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.10.1",
+    "morgan": "^1.11.0",
     "node-html-parser": "^7.1.0",
     "sharp": "^0.34.5",
     "soap": "^1.9.0",
