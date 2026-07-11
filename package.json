@@ -10,7 +10,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
-    "@types/node": "^24.12.2",
+    "@types/node": "^26.1.1",
     "@types/underscore": "^1.13.0",
     "@types/xmldom": "^0.1.34",
     "@xmldom/xmldom": "^0.9.10",
