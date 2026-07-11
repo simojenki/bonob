@@ -31,7 +31,7 @@
     "xpath": "^0.0.34"
   },
   "devDependencies": {
-    "@swc/core": "^1.15.24",
+    "@swc/core": "^1.15.43",
     "@swc/jest": "^0.2.39",
     "@types/jest": "^30.0.0",
     "@types/jws": "^3.2.11",
