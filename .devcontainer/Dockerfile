@@ -34,7 +34,11 @@ RUN cat > /home/node/.config/containers/storage.conf <<EOF
 driver = "vfs"
 EOF
 
+RUN chown -R node:node /home/node/.config
+
 ENV BUILDAH_ISOLATION=chroot
 ENV _CONTAINERS_USERNS_CONFIGURED=""
+
+RUN npm i -g opencode-ai
 
 USER node
