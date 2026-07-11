@@ -834,6 +834,11 @@ export class Subsonic {
   getArtists = (
     credentials: Credentials
   ): Promise<(ArtistSummary & Sortable & { albumCount: number })[]> =>
+    // TODO: This fetches every artist then slices client-side.  Consider using
+    // /rest/getArtistList instead, which supports server-side pagination
+    // (size/offset/totalCount) and is much faster for large libraries.  Not all
+    // Subsonic servers expose /rest/getArtistList, so a fallback to
+    // /rest/getArtists is required.
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => ({
         ignoredArticles: new Set((it.artists.ignoredArticles || "").toLowerCase().split(" ").filter(Boolean)),
@@ -982,6 +987,11 @@ export class Subsonic {
     }));
 
   getAlbumList2 = (credentials: Credentials, q: AlbumQuery) =>
+    // TODO: Use server-side pagination with the totalCount returned by
+    // getAlbumList2 instead of always fetching 500 albums and estimating the
+    // total via getArtists.  This should request only size: q._count and use
+    // response.albumList2.totalCount, but older Subsonic servers may omit
+    // totalCount, so a fallback is required.
     Promise.all([
       this.getArtists(credentials).then((it) =>
         _.inject(it, (total, artist) => total + artist.albumCount, 0)
