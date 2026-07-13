@@ -23,6 +23,8 @@ import {
   ServiceUnavailableError,
   PlaylistSummary,
   Encoding,
+  MusicFolder,
+  FolderContents,
 } from "./music_service";
 import sharp from "sharp";
 import _ from "underscore";
@@ -209,6 +211,21 @@ type GetInternetRadioStationsResponse = {
     homePageUrl?: string }[] 
   }
 } 
+
+type musicFolder = { id: string | number; name: string };
+
+type GetMusicFoldersResponse = SubsonicResponse & {
+  musicFolders: { musicFolder: musicFolder[] };
+};
+
+// A getMusicDirectory Child. Folder children carry only id/parent/title/isDir/
+// coverArt plus (ticket 1348) an optional albumId when the folder is a playable
+// album.
+type directoryChild = song & { isDir?: boolean | string; albumId?: string };
+
+type GetMusicDirectoryResponse = SubsonicResponse & {
+  directory: { id: string; name: string; coverArt?: string; child: directoryChild[] };
+};
 
 type GetSongResponse = {
   song: song;
@@ -808,6 +825,34 @@ export class Subsonic implements MusicService {
         results: this.toAlbumSummary(response.albumList2.album)
       }));
 
+  getMusicFolders = (credentials: Credentials): Promise<MusicFolder[]> =>
+    this.getJSON<GetMusicFoldersResponse>(credentials, "/rest/getMusicFolders")
+      .then((it) => it.musicFolders?.musicFolder || [])
+      .then((folders) => folders.map((f) => ({ id: `${f.id}`, name: f.name })));
+
+  getMusicDirectory = (credentials: Credentials, id: string): Promise<FolderContents> =>
+    this.getJSON<GetMusicDirectoryResponse>(credentials, "/rest/getMusicDirectory", { id })
+      .then((it) => it.directory)
+      .then((directory) => {
+        const children = directory?.child || [];
+        const isDir = (c: directoryChild) => c.isDir === true || c.isDir === "true";
+        return {
+          id: `${directory?.id || id}`,
+          name: directory?.name || "",
+          coverArt: coverArtURN(directory?.coverArt),
+          folders: children.filter(isDir).map((c) => ({
+            id: `${c.id}`,
+            name: c.title,
+            coverArt: coverArtURN(c.coverArt),
+            // albumId is stamped by the backend only on album-level folders
+            albumId: c.albumId,
+          })),
+          files: children
+            .filter((c) => !isDir(c))
+            .map((c) => asTrackFromSearchResult(c, this.customPlayers)),
+        };
+      });
+
   login = async (token: string) => this.libraryFor(parseToken(token));
 
   private libraryFor = (
@@ -1135,7 +1180,9 @@ export class Subsonic implements MusicService {
                 .reverse()
             );
         return years;
-      }
+      },
+      musicFolders: () => subsonic.getMusicFolders(credentials),
+      folder: (id: string) => subsonic.getMusicDirectory(credentials, id),
     };
 
     if (credentials.type == "navidrome") {

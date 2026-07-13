@@ -23,6 +23,8 @@ import {
   Track,
   Genre,
   Rating,
+  MusicFolder,
+  FolderContents,
 } from "../src/music_service";
 import { BUrn } from "../src/burn";
 
@@ -30,6 +32,8 @@ export class InMemoryMusicService implements MusicService {
   users: Record<string, string> = {};
   artists: Artist[] = [];
   tracks: Track[] = [];
+  musicFolders: MusicFolder[] = [];
+  folders: Record<string, FolderContents> = {};
 
   generateToken({
     username,
@@ -163,6 +167,14 @@ export class InMemoryMusicService implements MusicService {
       topSongs: async (_: string) => Promise.resolve([]),
       radioStations: async () => Promise.resolve([]),
       radioStation: async (_: string) => Promise.reject("Unsupported operation"),
+      musicFolders: async () => Promise.resolve(this.musicFolders),
+      folder: async (id: string) =>
+        pipe(
+          this.folders[id],
+          O.fromNullable,
+          O.map((it) => Promise.resolve(it)),
+          O.getOrElse(() => Promise.reject(`No folder with id '${id}'`))
+        ),
       years: async () => Promise.resolve([]),
     });
   }
@@ -187,10 +199,22 @@ export class InMemoryMusicService implements MusicService {
     return this;
   }
 
+  hasMusicFolders(...newMusicFolders: MusicFolder[]) {
+    this.musicFolders = [...this.musicFolders, ...newMusicFolders];
+    return this;
+  }
+
+  hasFolder(id: string, contents: FolderContents) {
+    this.folders[id] = contents;
+    return this;
+  }
+
   clear() {
     this.users = {};
     this.artists = [];
     this.tracks = [];
+    this.musicFolders = [];
+    this.folders = {};
     return this;
   }
 }
