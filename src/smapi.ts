@@ -22,6 +22,8 @@ import {
   slice2,
   Track,
   ServiceUnavailableError,
+  MusicFolder,
+  Folder,
 } from "./music_service";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
@@ -50,6 +52,7 @@ export const REMOVE_REGISTRATION_ROUTE = "/registration/remove";
 export const SOAP_PATH = "/ws/sonos";
 export const STRINGS_ROUTE = "/sonos/strings.xml";
 export const PRESENTATION_MAP_ROUTE = "/sonos/presentationMap.xml";
+export const NO_STORAGE_ACCOUNT_SONOS_ERROR = "900";
 export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "60",
   "80",
@@ -321,7 +324,8 @@ const playlist = (bonobUrl: URLBuilder, playlist: Playlist) => ({
 
 export const coverArtURI = (
   bonobUrl: URLBuilder,
-  { coverArt }: { coverArt?: BUrn | undefined }
+  { coverArt }: { coverArt?: BUrn | undefined },
+  fallbackIcon: ICON = "vinyl"
 ) =>
   pipe(
     coverArt,
@@ -331,7 +335,7 @@ export const coverArtURI = (
         pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180`,
       })
     ),
-    O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
+    O.getOrElseW(() => iconArtURI(bonobUrl, fallbackIcon))
   );
 
 export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON) =>
@@ -363,7 +367,11 @@ export const internetRadioStation = (station: RadioStation, idType: string = "in
   mimeType: "audio/mpeg",
 });
 
-export const track = (bonobUrl: URLBuilder, track: Track) => ({
+export const track = (
+  bonobUrl: URLBuilder,
+  track: Track,
+  fallbackIcon: ICON = "vinyl"
+) => ({
   itemType: "track",
   id: `track:${track.id}`,
   mimeType: sonosifyMimeType(track.encoding.mimeType),
@@ -378,7 +386,7 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
       albumArtistId: track.artist?.id ? `artist:${track.artist.id}` : undefined,
     }),
     // Always include albumArtURI if available
-    albumArtURI: coverArtURI(bonobUrl, track).href(),
+    albumArtURI: coverArtURI(bonobUrl, track, fallbackIcon).href(),
     // Artist fields (independent of album)
     artist: track.artist?.name,
     artistId: track.artist?.id ? `artist:${track.artist.id}` : undefined,
@@ -390,6 +398,39 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
   dynamic: {
     property: [{ name: "rating", value: `${ratingAsInt(track.rating)}` }],
   },
+});
+
+export const folder = (
+  bonobUrl: URLBuilder,
+  folder: Folder,
+  icon: ICON = "folder"
+) => ({
+  id: `folder:${folder.id}`,
+  itemType: "container",
+  title: folder.name,
+  canPlay: true,
+  canEnumerate: true,
+  albumArtURI: coverArtURI(bonobUrl, folder, icon).href(),
+  attributes: {
+    readOnly: false,
+    userContent: false,
+    renameable: false,
+  }
+});
+
+// SMAPI limitation (ticket 1348): a "container" is browsable but shows no play
+// affordance, while a playable collection item type
+// hides its sub-folder children. A storage folder the backend tags with an
+// albumId is therefore emitted as a playable "trackList" — the item type SMAPI
+// actually renders a play button for — carrying the album:<id> id so drill-in
+// and playback reuse the existing album path. Any sub-folders/stray files under
+// such a folder are not shown (accepted trade-off).
+export const folderAlbum = (bonobUrl: URLBuilder, folder: Folder) => ({
+  itemType: "trackList",
+  id: `album:${folder.albumId}`,
+  title: folder.name,
+  albumArtURI: coverArtURI(bonobUrl, folder, "folder").href(),
+  canPlay: true,
 });
 
 export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
@@ -942,6 +983,25 @@ function bindSmapiSoapServiceToExpress(
                   },
                 },
               }));
+            case "folder":
+              return musicLibrary.folder(typeId!).then((it) => {
+                return {
+                  getExtendedMetadataResult: {
+                    mediaCollection: {
+                      ...folder(urlWithToken(apiKey), {
+                        id: it.id,
+                        name: it.name,
+                        coverArt: it.coverArt,
+                      }),
+                      attributes: {
+                        readOnly: true,
+                        userContent: false,
+                        renameable: false,
+                      },
+                    },
+                  },
+                };
+              });
             case "playlist":
               return musicLibrary
                 .playlist(typeId!)
@@ -995,6 +1055,52 @@ function bindSmapiSoapServiceToExpress(
           const paging = { _index: index, _count: count };
           const acceptLanguage = headers["accept-language"];
           const lang = i8n(...asLANGs(acceptLanguage));
+
+          const ci = (a: string, b: string) =>
+            a.toLowerCase().localeCompare(b.toLowerCase());
+
+          type FolderOrFile =
+            | { kind: "folder"; f: Folder }
+            | { kind: "file"; t: Track };
+
+          const folderContents = (folderId: string) =>
+            musicLibrary.folder(folderId).then((contents) => {
+              const folders = [...contents.folders].sort((a, b) =>
+                ci(a.name, b.name)
+              );
+              const files = [...contents.files].sort((a, b) =>
+                ci(a.name, b.name)
+              );
+              const combined: FolderOrFile[] = [
+                ...folders.map((f) => ({ kind: "folder" as const, f })),
+                ...files.map((t) => ({ kind: "file" as const, t })),
+              ];
+              const [page, total] = slice2<FolderOrFile>(paging)(combined);
+              return getMetadataResult({
+                // Album-tagged child folders become playable trackLists; the rest
+                // are plain browsable containers
+                mediaCollection: page
+                  .filter(
+                    (x): x is { kind: "folder"; f: Folder } =>
+                      x.kind === "folder"
+                  )
+                  .map((x) =>
+                    x.f.albumId
+                      ? folderAlbum(urlWithToken(apiKey), x.f)
+                      : folder(urlWithToken(apiKey), x.f)
+                  ),
+                mediaMetadata: page
+                  .filter(
+                    (x): x is { kind: "file"; t: Track } =>
+                      x.kind === "file"
+                  )
+                  .map((x) =>
+                    track(urlWithToken(apiKey), x.t, "file")
+                  ),
+                index: paging._index,
+                total,
+              });
+            });
 
           const albums = (q: AlbumQuery): Promise<GetMetadataResponse> =>
             musicLibrary.albums(q).then((result) => {
@@ -1084,6 +1190,12 @@ function bindSmapiSoapServiceToExpress(
                       "mostPlayed"
                     ).href(),
                     itemType: "albumList",
+                  },
+                  {
+                    id: "musicFolders",
+                    title: lang("browseStorage"),
+                    albumArtURI: iconArtURI(bonobUrl, "folder").href(),
+                    itemType: "container",
                   },
                 ],
               });
@@ -1287,6 +1399,45 @@ function bindSmapiSoapServiceToExpress(
                     mediaMetadata: trackRet
                   });
                 });
+            case "musicFolders":
+              return musicLibrary.musicFolders().then((accounts) => {
+                if (accounts.length === 0) {
+                  throw {
+                    Fault: {
+                      faultcode: "Client.ItemNotFound",
+                      faultstring: "No storage account connected",
+                      detail: {
+                        ExceptionInfo: "NO_STORAGE_ACCOUNT",
+                        SonosError: NO_STORAGE_ACCOUNT_SONOS_ERROR,
+                      },
+                    },
+                  };
+                }
+                if (accounts.length === 1) {
+                  return folderContents(accounts[0]!.id);
+                }
+                const sorted: MusicFolder[] = [...accounts].sort((a, b) =>
+                  ci(a.name, b.name)
+                );
+                const [page, total] = slice2<MusicFolder>(paging)(sorted);
+                return getMetadataResult({
+                  mediaCollection: page.map((a) =>
+                    folder(
+                      urlWithToken(apiKey),
+                      {
+                        id: a.id,
+                        name: a.name,
+                        coverArt: undefined,
+                      },
+                      "cloud"
+                    )
+                  ),
+                  index: paging._index,
+                  total,
+                });
+              });
+            case "folder":
+              return folderContents(typeId!);
             default:
               throw `Unsupported getMetadata id=${id}`;
           }

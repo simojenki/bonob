@@ -834,3 +834,25 @@ describe("iconForGenre", () => {
     });
   });
 });
+
+describe("storage browsing icons", () => {
+  ["folder", "file", "cloud"].forEach((iconName) => {
+    describe(iconName, () => {
+      it("should be registered", () => {
+        expect((ICONS as any)[iconName]).toBeDefined();
+      });
+
+      it("should render valid SVG with a viewBox", () => {
+        const rendered = (ICONS as any)[iconName].toString();
+        const xml = libxmljs.parseXmlString(rendered, { net: false });
+        expect(
+          (
+            xml.get("//svg:svg/@viewBox", {
+              svg: "http://www.w3.org/2000/svg",
+            }) as any
+          ).value()
+        ).toBeTruthy();
+      });
+    });
+  });
+});

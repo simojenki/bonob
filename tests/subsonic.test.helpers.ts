@@ -153,6 +153,75 @@ export const getAlbumJson = (artist: Artist, album: Album, tracks: Track[]) =>
 
 export const getSongJson = (track: Track) => subsonicOK({ song: asSongJson(track) });
 
+export const asMusicFolderJson = (folder: { id: string | number; name: string }) => ({
+  id: folder.id,
+  name: folder.name,
+});
+
+export const getMusicFoldersJson = (
+  folders: { id: string | number; name: string }[]
+) =>
+  subsonicOK({
+    musicFolders: {
+      musicFolder: folders.map(asMusicFolderJson),
+    },
+  });
+
+// A sub-folder child in a getMusicDirectory response.
+export const asDirectoryFolderJson = (folder: {
+  id: string | number;
+  parent?: string;
+  title: string;
+  coverArt?: BUrn | undefined;
+  albumId?: string;
+}) => ({
+  id: folder.id,
+  parent: folder.parent ?? "someParent",
+  title: folder.title,
+  isDir: "true",
+  ...(folder.coverArt
+    ? { coverArt: maybeIdFromCoverArtUrn(folder.coverArt) }
+    : {}),
+  ...(folder.albumId ? { albumId: folder.albumId } : {}),
+});
+
+// A synced audio file child - full song metadata.
+export const asDirectoryFileJson = (track: Track) => ({
+  ...asSongJson(track),
+  isDir: "false",
+});
+
+// An unsynced audio file child - minimal metadata (no duration/artist/album).
+export const asUnsyncedDirectoryFileJson = (file: {
+  id: string;
+  title: string;
+  suffix?: string;
+  contentType?: string;
+}) => ({
+  id: file.id,
+  title: file.title,
+  isDir: "false",
+  suffix: file.suffix ?? "mp3",
+  type: "music",
+  created: "2004-11-08T23:36:11",
+  contentType: file.contentType ?? "audio/mpeg",
+});
+
+export const getMusicDirectoryJson = (
+  directory: {
+    id: string;
+    name: string;
+    child: any[];
+  }
+) =>
+  subsonicOK({
+    directory: {
+      id: directory.id,
+      name: directory.name,
+      child: directory.child,
+    },
+  });
+
 export const subsonicOK = (body: any = {}) => ({
   "subsonic-response": {
     status: "ok",

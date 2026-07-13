@@ -86,6 +86,27 @@ export type RadioStation = {
   homePage?: string
 }
 
+export type MusicFolder = {
+  id: string;
+  name: string;
+};
+
+export type Folder = {
+  id: string;
+  name: string;
+  coverArt: BUrn | undefined;
+  // Present when the backend classifies this folder as a playable album
+  albumId?: string | undefined;
+};
+
+export type FolderContents = {
+  id: string;
+  name: string;
+  coverArt: BUrn | undefined;
+  folders: Folder[];
+  files: Track[];
+};
+
 export type Paging = {
   _index: number;
   _count: number;
@@ -210,4 +231,6 @@ export interface MusicLibrary {
   topSongs(artistId: string): Promise<Track[]>;
   radioStation(id: string): Promise<RadioStation>
   radioStations(): Promise<RadioStation[]>
+  musicFolders(): Promise<MusicFolder[]>;
+  folder(id: string): Promise<FolderContents>;
 }

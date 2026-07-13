@@ -46,7 +46,9 @@ export type KEY =
   | "STAR" 
   | "UNSTAR"
   | "STAR_SUCCESS"
-  | "UNSTAR_SUCCESS";
+  | "UNSTAR_SUCCESS"
+  | "browseStorage"
+  | "Error900Message";
 
 const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
   "en-US": {
@@ -90,7 +92,9 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     STAR_SUCCESS: "Track starred",
     UNSTAR_SUCCESS: "Track un-starred",
     LOVE: "Love",
-    LOVE_SUCCESS: "Track loved"
+    LOVE_SUCCESS: "Track loved",
+    browseStorage: "Browse storage",
+    Error900Message: "No storage account is connected. Set one up at https://play.asti.ga/setup"
   },
   "da-DK": {
     AppLinkMessage: "Forbinder Sonos med $BNB_SONOS_SERVICE_NAME",
@@ -133,7 +137,9 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     STAR_SUCCESS: "Stjerne tilføjet",
     UNSTAR_SUCCESS: "Stjerne fjernet",
     LOVE: "Synes godt om",
-    LOVE_SUCCESS: "Syntes godt om"
+    LOVE_SUCCESS: "Syntes godt om",
+    browseStorage: "Gennemse lager",
+    Error900Message: "Ingen lagerkonto er tilsluttet. Konfigurer en på https://play.asti.ga/setup"
   },
   "fr-FR": {
     AppLinkMessage: "Associer Sonos à $BNB_SONOS_SERVICE_NAME",
@@ -176,7 +182,9 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     STAR_SUCCESS: "Piste suivie",
     UNSTAR_SUCCESS: "Piste non suivie",
     LOVE: "Aimer",
-    LOVE_SUCCESS: "Pistes aimée"
+    LOVE_SUCCESS: "Pistes aimée",
+    browseStorage: "Parcourir le stockage",
+    Error900Message: "Aucun compte de stockage n'est connecté. Configurez-en un sur https://play.asti.ga/setup"
   },
   "nl-NL": {
     AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
@@ -219,7 +227,9 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     STAR_SUCCESS: "Nummer met ster",
     UNSTAR_SUCCESS: "Track zonder ster",
     LOVE: "Liefde",
-    LOVE_SUCCESS: "Volg geliefd"
+    LOVE_SUCCESS: "Volg geliefd",
+    browseStorage: "Bladeren door opslag",
+    Error900Message: "Er is geen opslagaccount verbonden. Stel er een in via https://play.asti.ga/setup"
   },
 };
 

@@ -229,7 +229,10 @@ export type ICON =
   | "yoda" 
   | "heart"
   | "star" 
-  | "solidStar";
+  | "solidStar"
+  | "folder"
+  | "file"
+  | "cloud";
 
 const iconFrom = (name: string) =>
   new SvgIcon(
@@ -307,7 +310,10 @@ export const ICONS: Record<ICON, SvgIcon> = {
   yoda: iconFrom("Yoda-68107.svg"),
   heart: iconFrom("Heart-85038.svg"),
   star: iconFrom("Star-16101.svg"),
-  solidStar: iconFrom("Star-43879.svg")
+  solidStar: iconFrom("Star-43879.svg"),
+  folder: iconFrom("folder-music-icon.svg"),
+  file: iconFrom("file-music-icon.svg"),
+  cloud: iconFrom("cloud-solid-full.svg")
 };
 
 export const STAR_WARS = [ICONS.c3po, ICONS.chewy, ICONS.darth, ICONS.skywalker, ICONS.leia, ICONS.r2d2, ICONS.yoda];

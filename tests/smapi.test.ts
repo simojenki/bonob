@@ -18,6 +18,8 @@ import {
   track,
   artist,
   album,
+  folder,
+  folderAlbum,
   coverArtURI,
   searchResult,
   iconArtURI,
@@ -59,7 +61,7 @@ import {
 import { APITokens } from "../src/api_tokens";
 import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
-import { iconForGenre } from "../src/icon";
+import { iconForGenre, ICON } from "../src/icon";
 import { formatForURL } from "../src/burn";
 import { FixedClock } from "../src/clock";
 import { ExpiredTokenError, InvalidTokenError, JwtTokenString, SmapiAuthTokens, SmapiKeyString, SmapiToken, ServiceTokenString, ToSmapiFault } from "../src/smapi_auth";
@@ -145,6 +147,26 @@ describe("service config", () => {
           expect(sonosString("AppLinkMessage", "pt-BR")).toEqual(
             "Linking sonos with music land"
           );
+        });
+
+        it("should expose the no-storage-account localized error (Error900Message) for the SonosError lookup", async () => {
+          const xml: Document = await fetchStringsXml();
+
+          const sonosString = (id: string, lang: string) =>
+            xpath.select(
+              `string(/stringtables/stringtable[@xml:lang="${lang}"]/string[@stringId="${id}"])`,
+              xml
+            ) as unknown as string;
+
+          // Present in every Sonos-supported language (en-US fallback for unsupported langs)
+          SONOS_LANG.forEach((lang) => {
+            expect((sonosString("Error900Message", lang) as string).length).toBeGreaterThan(0);
+          });
+
+          const enMessage = sonosString("Error900Message", "en-US") as string;
+          expect(enMessage).toContain("https://play.asti.ga/setup");
+          // Sonos limits localized error messages to 125 characters
+          expect(enMessage.length).toBeLessThanOrEqual(125);
         });
 
         it("should return a section for all sonos supported languages", async () => {
@@ -603,6 +625,8 @@ describe("wsdl api", () => {
     rate: jest.fn(),
     radioStation: jest.fn(),
     radioStations: jest.fn(),
+    musicFolders: jest.fn(),
+    folder: jest.fn(),
   };
   const apiTokens = {
     mint: jest.fn(),
@@ -1331,6 +1355,12 @@ describe("wsdl api", () => {
                       albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
                     },
+                    {
+                      id: "musicFolders",
+                      title: "Browse storage",
+                      albumArtURI: iconArtURI(bonobUrl, "folder" as ICON).href(),
+                      itemType: "container",
+                    },
                   ];
                   expect(root[0]).toEqual(
                     getMetadataResult({
@@ -1419,6 +1449,12 @@ describe("wsdl api", () => {
                       albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
                       itemType: "albumList",
                     },
+                    {
+                      id: "musicFolders",
+                      title: "Bladeren door opslag",
+                      albumArtURI: iconArtURI(bonobUrl, "folder" as ICON).href(),
+                      itemType: "container",
+                    },
                   ];
                   expect(root[0]).toEqual(
                     getMetadataResult({
@@ -1427,6 +1463,309 @@ describe("wsdl api", () => {
                       total: mediaCollection.length,
                     })
                   );
+                });
+              });
+            });
+
+            describe("browsing storage", () => {
+              const folderContainer = (
+                f: {
+                  id: string;
+                  name: string;
+                  coverArt?: any;
+                },
+                icon: ICON = "folder"
+              ) => ({
+                itemType: "container",
+                id: `folder:${f.id}`,
+                title: f.name,
+                albumArtURI: (f.coverArt
+                  ? coverArtURI(bonobUrlWithAccessToken, { coverArt: f.coverArt })
+                  : iconArtURI(bonobUrlWithAccessToken, icon)
+                ).href(),
+                canPlay: true,
+                canEnumerate: true,
+                attributes: {
+                  readOnly: "false",
+                  userContent: "false",
+                  renameable: "false",
+                },
+              });
+
+              describe("when there are no storage accounts", () => {
+                it("should raise an ItemNotFound fault carrying the no-account SonosError", async () => {
+                  musicLibrary.musicFolders.mockResolvedValue([]);
+
+                  await ws
+                    .getMetadataAsync({ id: "musicFolders", index: 0, count: 100 })
+                    .then(() => fail("Shouldnt get here"))
+                    .catch((e: any) => {
+                      expect(e.root.Envelope.Body.Fault).toEqual({
+                        faultcode: "Client.ItemNotFound",
+                        faultstring: "No storage account connected",
+                        detail: {
+                          ExceptionInfo: "NO_STORAGE_ACCOUNT",
+                          SonosError: "900",
+                        },
+                      });
+                    });
+                });
+              });
+
+              describe("when there is exactly one storage account", () => {
+                it("should skip the account level and return its root folder contents", async () => {
+                  const account = { id: "acc-solo", name: "Solo" };
+                  const subFolder = {
+                    id: "sub1",
+                    name: "Rock",
+                    coverArt: { system: "subsonic", resource: "art:cov1" },
+                  };
+                  const file = aTrack({ name: "song.mp3" });
+
+                  musicLibrary.musicFolders.mockResolvedValue([account]);
+                  musicLibrary.folder.mockResolvedValue({
+                    folders: [subFolder],
+                    files: [file],
+                  });
+
+                  const result = await ws.getMetadataAsync({
+                    id: "musicFolders",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(result[0]).toEqual({
+                    getMetadataResult: {
+                      count: 2,
+                      index: 0,
+                      total: 2,
+                      mediaCollection: folderContainer(subFolder),
+                      mediaMetadata: track(
+                        bonobUrlWithAccessToken,
+                        file,
+                        "file" as ICON
+                      ),
+                    },
+                  });
+                  expect(musicLibrary.folder).toHaveBeenCalledWith("acc-solo");
+                });
+              });
+
+              describe("when there is more than one storage account", () => {
+                it("should list the accounts sorted case-insensitively", async () => {
+                  musicLibrary.musicFolders.mockResolvedValue([
+                    { id: "z1", name: "Zebra" },
+                    { id: "a1", name: "apple" },
+                  ]);
+
+                  const result = await ws.getMetadataAsync({
+                    id: "musicFolders",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: [
+                        folderContainer({ id: "a1", name: "apple" }, "cloud" as ICON),
+                        folderContainer({ id: "z1", name: "Zebra" }, "cloud" as ICON),
+                      ],
+                      index: 0,
+                      total: 2,
+                    })
+                  );
+                  expect(musicLibrary.folder).not.toHaveBeenCalled();
+                });
+              });
+
+              describe("drilling into a folder", () => {
+                it("should return sub-folders and files, each sorted case-insensitively", async () => {
+                  const folderB = { id: "fb", name: "Beta", coverArt: undefined };
+                  const folderA = {
+                    id: "fa",
+                    name: "alpha",
+                    coverArt: { system: "subsonic", resource: "art:fa" },
+                  };
+                  const fileB = aTrack({ name: "Bravo.mp3" });
+                  const fileA = aTrack({ name: "alpha.mp3" });
+
+                  musicLibrary.folder.mockResolvedValue({
+                    folders: [folderB, folderA],
+                    files: [fileB, fileA],
+                  });
+
+                  const result = await ws.getMetadataAsync({
+                    id: "folder:parent1",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: [
+                        folderContainer(folderA),
+                        folderContainer(folderB),
+                      ],
+                      mediaMetadata: [
+                        track(bonobUrlWithAccessToken, fileA, "file" as ICON),
+                        track(bonobUrlWithAccessToken, fileB, "file" as ICON),
+                      ],
+                      index: 0,
+                      total: 4,
+                    })
+                  );
+                  expect(musicLibrary.folder).toHaveBeenCalledWith("parent1");
+                });
+
+                it("should list child folders as containers without looking up each child's contents", async () => {
+                  const folderA = { id: "fa", name: "alpha", coverArt: undefined };
+                  const folderB = { id: "fb", name: "Beta", coverArt: undefined };
+
+                  musicLibrary.folder.mockResolvedValue({
+                    folders: [folderB, folderA],
+                    files: [],
+                  });
+
+                  const result = await ws.getMetadataAsync({
+                    id: "folder:parent1",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: [
+                        folderContainer(folderA),
+                        folderContainer(folderB),
+                      ],
+                      index: 0,
+                      total: 2,
+                    })
+                  );
+                  // The listing must not fan out into a lookup per child folder;
+                  // each getMusicDirectory is ~1.5s.
+                  expect(musicLibrary.folder).toHaveBeenCalledTimes(1);
+                  expect(musicLibrary.folder).toHaveBeenCalledWith("parent1");
+                });
+
+                it("should page in memory across the folder/file boundary", async () => {
+                  const folderA = { id: "fa", name: "A", coverArt: undefined };
+                  const folderB = { id: "fb", name: "B", coverArt: undefined };
+                  const fileA = aTrack({ name: "A file.mp3" });
+                  const fileB = aTrack({ name: "B file.mp3" });
+
+                  musicLibrary.folder.mockResolvedValue({
+                    folders: [folderB, folderA],
+                    files: [fileB, fileA],
+                  });
+
+                  // combined sorted order: [folderA, folderB, fileA, fileB]; slice(1,3)
+                  const result = await ws.getMetadataAsync({
+                    id: "folder:parent1",
+                    index: 1,
+                    count: 2,
+                  });
+
+                  expect(result[0]).toEqual({
+                    getMetadataResult: {
+                      count: 2,
+                      index: 1,
+                      total: 4,
+                      mediaCollection: folderContainer(folderB),
+                      mediaMetadata: track(
+                        bonobUrlWithAccessToken,
+                        fileA,
+                        "file" as ICON
+                      ),
+                    },
+                  });
+                });
+
+                it("should emit an album-tagged folder as a playable trackList and untagged folders as containers", async () => {
+                  const branch = { id: "fb", name: "Zeta Branch", coverArt: undefined };
+                  const albumFolder = {
+                    id: "fa",
+                    name: "Alpha Album",
+                    coverArt: { system: "subsonic", resource: "art:fa" },
+                    albumId: "album123",
+                  };
+
+                  musicLibrary.folder.mockResolvedValue({
+                    folders: [branch, albumFolder],
+                    files: [],
+                  });
+
+                  const result = await ws.getMetadataAsync({
+                    id: "folder:parent1",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: [
+                        folderAlbum(bonobUrlWithAccessToken, albumFolder),
+                        folderContainer(branch),
+                      ],
+                      index: 0,
+                      total: 2,
+                    })
+                  );
+                  // Playback/drill-in of the album reuses the existing album:<id>
+                  // path, so no per-child lookup happens during the listing.
+                  expect(musicLibrary.folder).toHaveBeenCalledTimes(1);
+                });
+
+                it("should return empty collections for an empty folder", async () => {
+                  musicLibrary.folder.mockResolvedValue({ folders: [], files: [] });
+
+                  const result = await ws.getMetadataAsync({
+                    id: "folder:empty1",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(result[0]).toEqual({
+                    getMetadataResult: {
+                      count: 0,
+                      index: 0,
+                      total: 0,
+                    },
+                  });
+                });
+
+                it("should fall back to the file icon for a file with no cover art, and the folder icon for a sub-folder with no cover art", async () => {
+                  const folderWithArt = {
+                    id: "fwa",
+                    name: "A folder",
+                    coverArt: { system: "subsonic", resource: "art:fwa" },
+                  };
+                  const folderNoArt = { id: "fna", name: "B folder", coverArt: undefined };
+                  const fileWithArt = aTrack({
+                    name: "A file.mp3",
+                    coverArt: { system: "subsonic", resource: "art:file" },
+                  });
+                  const fileNoArt = aTrack({ name: "B file.mp3", coverArt: undefined });
+
+                  musicLibrary.folder.mockResolvedValue({
+                    folders: [folderWithArt, folderNoArt],
+                    files: [fileWithArt, fileNoArt],
+                  });
+
+                  const result = await ws.getMetadataAsync({
+                    id: "folder:parent1",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  // sorted: folders [A folder(art), B folder(no art)], files [A file(art), B file(no art)]
+                  expect(
+                    result[0].getMetadataResult.mediaCollection[1].albumArtURI
+                  ).toEqual(iconArtURI(bonobUrlWithAccessToken, "folder" as ICON).href());
+                  expect(
+                    result[0].getMetadataResult.mediaMetadata[1].trackMetadata
+                      .albumArtURI
+                  ).toEqual(iconArtURI(bonobUrlWithAccessToken, "file" as ICON).href());
                 });
               });
             });
@@ -3005,6 +3344,45 @@ describe("wsdl api", () => {
                   },
                 });
                 expect(musicLibrary.album).toHaveBeenCalledWith(album.id);
+              });
+            });
+
+            describe("asking for a folder", () => {
+              it("should return the folder", async () => {
+                const folderCoverArt = {
+                  system: "subsonic",
+                  resource: "art:folder-cover",
+                };
+
+                musicLibrary.folder.mockResolvedValue({
+                  id: "folder-id",
+                  name: "My Folder",
+                  coverArt: folderCoverArt,
+                  folders: [],
+                  files: [],
+                });
+
+                const root = await ws.getExtendedMetadataAsync({
+                  id: "folder:folder-id",
+                });
+
+                expect(root[0]).toEqual({
+                  getExtendedMetadataResult: {
+                    mediaCollection: {
+                      ...folder(bonobUrlWithAccessToken, {
+                        id: "folder-id",
+                        name: "My Folder",
+                        coverArt: folderCoverArt,
+                      }),
+                      attributes: {
+                        readOnly: "true",
+                        userContent: "false",
+                        renameable: "false",
+                      },
+                    },
+                  },
+                });
+                expect(musicLibrary.folder).toHaveBeenCalledWith("folder-id");
               });
             });
           });
