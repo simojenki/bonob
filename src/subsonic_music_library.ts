@@ -4,6 +4,7 @@ import {
   Credentials,
   MusicService,
   ArtistSummary,
+  Sortable,
   Result,
   slice2,
   AlbumQuery,
@@ -94,9 +95,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     this.useTranscode = useTranscode;
   }
 
-  // todo: q needs to support greater than the max page size supported by subsonic
-  // maybe subsonic should error?
-  artists = (q: ArtistQuery): Promise<Result<ArtistSummary>> =>
+  artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
     this.subsonic
       .getArtists(this.credentials)
       .then(slice2(q))

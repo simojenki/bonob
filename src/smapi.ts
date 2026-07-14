@@ -19,6 +19,7 @@ import {
   RadioStation,
   Rating,
   slice2,
+  Sortable,
   Track,
   PlaylistSummary
 } from "./music_library";
@@ -99,9 +100,11 @@ export type GetDeviceAuthTokenResult = {
   };
 };
 
+// todo: whats going on in here?
 export const ratingAsInt = (rating: Rating): number =>
   rating.stars * 10 + (rating.love ? 1 : 0) + 100;
 
+// todo: whats going on in here?
 export const ratingFromInt = (value: number): Rating => {
   const x = value - 100;
   return { love: x % 10 == 1, stars: Math.floor(x / 10) };
@@ -392,6 +395,34 @@ export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
   title: artist.name,
   albumArtURI: albumArtURI(coverArtURI(bonobUrl, { coverArt: artist.image }).href()),
 });
+
+// assumes things is already sorted by _sortBy
+export const scrollIndicesFrom = (things: Sortable[]) => {
+  const indicies: Record<string, number | undefined> = {
+    "A": undefined, "B": undefined, "C": undefined, "D": undefined,
+    "E": undefined, "F": undefined, "G": undefined, "H": undefined,
+    "I": undefined, "J": undefined, "K": undefined, "L": undefined,
+    "M": undefined, "N": undefined, "O": undefined, "P": undefined,
+    "Q": undefined, "R": undefined, "S": undefined, "T": undefined,
+    "U": undefined, "V": undefined, "W": undefined, "X": undefined,
+    "Y": undefined, "Z": undefined,
+  };
+  const upperNames = things.map(thing => thing._sortBy.toUpperCase());
+  for (var i = 0; i < upperNames.length; i++) {
+    const char = upperNames[i]![0]!;
+    if (Object.keys(indicies).includes(char) && indicies[char] == undefined) {
+      indicies[char] = i;
+    }
+  }
+  var lastIndex = 0;
+  const result: string[] = [];
+  Object.entries(indicies).forEach(([letter, index]) => {
+    result.push(letter);
+    if (index) { lastIndex = index; }
+    result.push(`${lastIndex}`);
+  });
+  return result.join(",");
+};
 
 export const splitId = (id: string) => {
   const [type, typeId] = id.split(":")
@@ -778,6 +809,7 @@ function bindSmapiSoapServiceToExpress(
                           title: lang("artists"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "artists").href()),
                           itemType: "container",
+                          canScroll: true,
                         },
                         {
                           id: "albums",
@@ -1051,8 +1083,25 @@ function bindSmapiSoapServiceToExpress(
                     });
                 }
               })
-          }
-          ,
+          },
+          getScrollIndices: async (
+            { id }: { id: string },
+            _: unknown,
+            soapyHeaders: SoapyHeaders,
+            { headers }: Pick<Request, "headers">
+          ) => {
+            switch (id) {
+              case "artists": {
+                return login(findLoginToken(soapyHeaders, headers))
+                  .then(({ musicLibrary }) => musicLibrary.artists({ _index: 0, _count: undefined }))
+                  .then((artists) => ({
+                    getScrollIndicesResult: scrollIndicesFrom(artists.results)
+                  }));
+              }
+              default:
+                throw `Unsupported getScrollIndices id=${id}`;
+            }
+          },
           createContainer: async (
             { title, seedId }: { title: string; seedId: string | undefined },
             _,

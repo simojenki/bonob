@@ -397,7 +397,7 @@ const getSearchResult3Json = ({
     },
   });
 
-export const asArtistsJson = (artists: Artist[]) => {
+export const asArtistsJson = (artists: (Artist & { sortName?: string })[], ignoredArticles: string = "") => {
   const as: Artist[] = [];
   const bs: Artist[] = [];
   const cs: Artist[] = [];
@@ -420,14 +420,16 @@ export const asArtistsJson = (artists: Artist[]) => {
     }
   });
 
-  const asArtistSummary = (artist: Artist) => ({
+  const asArtistSummary = (artist: Artist & { sortName?: string }) => ({
     id: artist.id,
     name: artist.name,
+    ...(artist.sortName ? { sortName: artist.sortName } : {}),
     albumCount: artist.albums.length,
   });
 
   return subsonicOK({
     artists: {
+      ignoredArticles,
       index: [
         {
           name: "A",
@@ -638,7 +640,7 @@ describe("SubsonicMusicLibrary_new", () => {
     });
 
     describe("when there is one artist", () => {
-      const artist = { id: "1", name: "bob1", albumCount: 1, image: undefined }
+      const artist = { id: "1", name: "bob1", _sortBy: "bob1", albumCount: 1, image: undefined }
 
       describe("when it all fits on one page", () => {
         beforeEach(() => {
@@ -648,19 +650,16 @@ describe("SubsonicMusicLibrary_new", () => {
         it("should return the single artist", async () => {
           const result = await library.artists({ _index: 0, _count: 100 });
 
-          expect(result).toEqual({
-            results: [artist],
-            total: 1,
-          });
+          expect(result).toEqual({ results: [artist], total: 1 });
         });
       });
     });
 
     describe("when there are artists", () => {
-      const artist1 = { id: "1", name: "bob1", albumCount: 1, image: undefined }
-      const artist2 = { id: "2", name: "bob2", albumCount: 2, image: undefined }
-      const artist3 = { id: "3", name: "bob3", albumCount: 3, image: undefined }
-      const artist4 = { id: "4", name: "bob4", albumCount: 4, image: undefined }
+      const artist1 = { id: "1", name: "bob1", _sortBy: "bob1", albumCount: 1, image: undefined }
+      const artist2 = { id: "2", name: "bob2", _sortBy: "bob2", albumCount: 2, image: undefined }
+      const artist3 = { id: "3", name: "bob3", _sortBy: "bob3", albumCount: 3, image: undefined }
+      const artist4 = { id: "4", name: "bob4", _sortBy: "bob4", albumCount: 4, image: undefined }
       const artists = [artist1, artist2, artist3, artist4];
 
       beforeEach(() => {
@@ -671,24 +670,19 @@ describe("SubsonicMusicLibrary_new", () => {
         it("should return all the artists", async () => {
           const result = await library.artists({ _index: 0, _count: 100 });
 
-          expect(result).toEqual({
-            results: artists,
-            total: 4,
-          });
+          expect(result).toEqual({ results: artists, total: 4 });
         });
       });
 
       describe("when paging specified", () => {
         it("should return only the correct page of artists", async () => {
-          const artists = await library.artists({ _index: 1, _count: 2 });
+          const result = await library.artists({ _index: 1, _count: 2 });
 
-          expect(artists).toEqual({ 
-            results: [artist2, artist3], 
-            total: 4 
-          });
+          expect(result).toEqual({ results: [artist2, artist3], total: 4 });
         });
       });
     });
+
   });
 });
 

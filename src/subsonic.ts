@@ -16,7 +16,8 @@ import {
   Encoding,
   albumToAlbumSummary,
   TrackSummary,
-  AuthFailure
+  AuthFailure,
+  Sortable
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -78,10 +79,18 @@ type artist = {
   artistImageUrl: string | undefined;
 };
 
+type navidrome_artist = {
+  sortName: string;
+};
+
+const isNavidromeArtist = (a: artist | (artist & navidrome_artist)): a is artist & navidrome_artist =>
+  'sortName' in a;
+
 type GetArtistsResponse = SubsonicResponse & {
   artists: {
+    ignoredArticles: string;
     index: {
-      artist: artist[];
+      artist: artist[] | (artist & navidrome_artist)[];
       name: string;
     }[];
   };
@@ -824,20 +833,30 @@ export class Subsonic {
 
   getArtists = (
     credentials: Credentials
-  ): Promise<(IdName & { albumCount: number; image: BUrn | undefined })[]> =>
+  ): Promise<(ArtistSummary & Sortable & { albumCount: number })[]> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => (it.artists.index || []).flatMap((it) => it.artist || []))
-      .then((artists) =>
-        artists.map((artist) => ({
-          id: `${artist.id}`,
-          name: artist.name,
-          albumCount: artist.albumCount,
-          image: artistImageURN({
-            artistId: artist.id,
-            artistImageURL: artist.artistImageUrl,
-          }),
-        }))
-      );
+      .then((it) => ({
+        ignoredArticles: new Set((it.artists.ignoredArticles || "").toLowerCase().split(" ").filter(Boolean)),
+        artists: (it.artists.index || []).flatMap((it) => it.artist || []),
+      }))
+      .then(({ ignoredArticles, artists }) =>
+        artists.map((artist) => {
+          const _sortBy = isNavidromeArtist(artist)
+            ? artist.sortName
+            : artist.name.split(" ").filter(t => !ignoredArticles.has(t.toLowerCase())).join(" ").toLowerCase();
+          return {
+            id: `${artist.id}`,
+            name: artist.name,
+            _sortBy,
+            albumCount: artist.albumCount,
+            image: artistImageURN({
+              artistId: artist.id,
+              artistImageURL: artist.artistImageUrl,
+            }),
+          };
+        })
+      )
+      .then(artists => [...artists].sort((a, b) => a._sortBy.localeCompare(b._sortBy)));
 
       // todo: should be getArtistInfo2?
   getArtistInfo = (
@@ -979,7 +998,7 @@ export class Subsonic {
         .then(this.toAlbumSummary),
     ]).then(([total, albums]) => ({
       results: albums.slice(0, q._count),
-      total: albums.length == 500 ? total : q._index + albums.length,
+      total: albums.length == 500 ? total : (q._index ?? 0) + albums.length,
     }));
 
   getGenres = (credentials: Credentials) =>

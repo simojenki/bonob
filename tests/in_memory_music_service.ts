@@ -61,7 +61,7 @@ export class InMemoryMusicService implements MusicService {
 
     return Promise.resolve({
       artists: (q: ArtistQuery) =>
-        Promise.resolve(this.artists.map(artistToArtistSummary))
+        Promise.resolve(this.artists.map(artistToArtistSummary).map(it => ({ ...it, _sortBy: it.name })))
           .then(slice2(q))
           .then(asResult),
       artist: (id: string) =>
