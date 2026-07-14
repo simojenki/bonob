@@ -11,6 +11,7 @@ import { PassThrough, Transform, TransformCallback } from "stream";
 import { Sonos, Service, SONOS_LANG } from "./sonos";
 import {
   SOAP_PATH,
+  sonosWSDL,
   STRINGS_ROUTE,
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
@@ -32,7 +33,9 @@ import { pipe } from "fp-ts/lib/function";
 import { URLBuilder } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
-import { DEFAULT_LOGIN_THEME } from './config'
+import { DEFAULT_LOGIN_THEME } from './config';
+import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
+import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
 import _ from "underscore";
 import morgan from "morgan";
 import { parse } from "./burn";
@@ -99,7 +102,10 @@ export type ServerOpts = {
     backgroundColor: string | undefined;
   };
   applyContextPath: boolean;
-  logRequests: boolean;
+  logHttpRequests: boolean;
+  logSmapiRequests: boolean;
+  validateSmapiRequests: boolean;
+  smapiValidationHandler: SmapiValidationHandler;
   version: string;
   smapiAuthTokens: SmapiAuthTokens;
   externalImageResolver: ImageFetcher;
@@ -109,13 +115,23 @@ export type ServerOpts = {
 
 const DEFAULT_TIMEOUT = "1h"
 
+function logSmapiValidationEvent(event: SmapiValidationEvent): void {
+  if (event.type === 'invalidSmapiMessage')
+    logger.warn(`SMAPI validation failed — ${event.messages}:\n${event.body}`);
+  else
+    logger.error(`SMAPI validation error — ${event.error.message}:\n${event.body}`);
+}
+
 const DEFAULT_SERVER_OPTS: ServerOpts = {
   linkCodes: () => new InMemoryLinkCodes(),
   apiTokens: () => new InMemoryAPITokens(SystemClock, DEFAULT_TIMEOUT),
   clock: SystemClock,
   iconColors: { foregroundColor: undefined, backgroundColor: undefined },
   applyContextPath: true,
-  logRequests: false,
+  logHttpRequests: false,
+  logSmapiRequests: false,
+  validateSmapiRequests: false,
+  smapiValidationHandler: logSmapiValidationEvent,
   version: "v?",
   smapiAuthTokens: new JWTSmapiLoginTokens(
     SystemClock,
@@ -147,7 +163,7 @@ function server(
   const app = express();
   const i8n = makeI8N(service.name);
 
-  if (serverOpts.logRequests) {
+  if (serverOpts.logHttpRequests) {
     app.use(morgan("combined"));
   }
   app.use(express.urlencoded({ extended: false }));
@@ -620,6 +636,11 @@ function server(
         return res.status(500).send();
       });
   });
+
+  new Peekers()
+    .maybeAdd(serverOpts.logSmapiRequests, () => loggingPeeker())
+    .maybeAdd(serverOpts.validateSmapiRequests, () => validateSmapiMessagePeeker(sonosWSDL, serverOpts.smapiValidationHandler))
+    .applyTo(app, SOAP_PATH);
 
   bindSmapiSoapServiceToExpress(
     app,

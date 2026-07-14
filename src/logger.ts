@@ -1,24 +1,27 @@
 import { createLogger, format, transports } from 'winston';
+const { combine, timestamp, printf, errors, splat } = format;
 
 export function debugIt<T>(thing: T): T {
   logger.debug(thing);
   return thing;
 }
 
-const logger = createLogger({
-    level: process.env["BNB_LOG_LEVEL"] || 'info',
-    format: format.combine(
-      format.timestamp({
-        format: 'YYYY-MM-DD HH:mm:ss'
-      }),
-      format.errors({ stack: true }),
-      format.splat(),
-      format.json()
-    ),
-    defaultMeta: { service: 'bonob' },
-    transports: [
-      new transports.Console()
-    ]
-  });
+const bonobFormat = printf(({ level, message, timestamp, stack }) => {
+  return `${timestamp} [${level.toUpperCase()}]: ${stack || message}`;
+});
 
-  export default logger;
+const logger = createLogger({
+  level: process.env["BNB_LOG_LEVEL"] || 'info',
+  format: combine(
+    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    errors({ stack: true }),
+    splat(),
+    bonobFormat
+  ),
+  defaultMeta: { service: 'bonob' },
+  transports: [
+    new transports.Console()
+  ]
+});
+
+export default logger;

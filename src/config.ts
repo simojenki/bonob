@@ -129,7 +129,9 @@ export default function (die: (code?: number) => never = process.exit) {
         validationPattern: COLOR,
       }),
     },
-    logRequests: bnbEnvVar<boolean>("SERVER_LOG_REQUESTS", { default: false, parser: asBoolean }),
+    logHttpRequests: bnbEnvVar<boolean>("LOG_HTTP_REQUESTS", { default: false, parser: asBoolean, legacy: ["BNB_SERVER_LOG_REQUESTS"] }),
+    logSmapiRequests: bnbEnvVar<boolean>("LOG_SMAPI_REQUESTS", { default: false, parser: asBoolean }),
+    validateSmapiRequests: bnbEnvVar<boolean>("VALIDATE_SMAPI_REQUESTS", { default: false, parser: asBoolean }),
     sonos: sonosConfig(),
     subsonic: {
       url: url(bnbEnvVar("SUBSONIC_URL", { default: `http://${hostname()}:4533` })!),

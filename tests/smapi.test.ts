@@ -61,6 +61,7 @@ import { iconForGenre } from "../src/icon";
 import { formatForURL } from "../src/burn";
 import { FixedClock } from "../src/clock";
 import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
+import { SmapiValidationEvent } from "../src/sonos_wsdl";
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
@@ -542,7 +543,8 @@ describe("internetRadioStation", () => {
       itemType: "stream",
       id: `internetRadioStation:${station.id}`,
       title: station.name,
-      mimeType: "audio/mpeg"
+      mimeType: "audio/mpeg",
+      streamMetadata: {},
     })
   });
 });
@@ -726,6 +728,7 @@ describe("wsdl api", () => {
       });
 
       const service = bonobService("test-api", 133, bonobUrl, "AppLink");
+      const smapiValidationEvents: SmapiValidationEvent[] = [];
       const server = makeServer(
         SONOS_DISABLED,
         service,
@@ -736,12 +739,19 @@ describe("wsdl api", () => {
           apiTokens: () => apiTokens as unknown as APITokens,
           clock,
           smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens,
+          validateSmapiRequests: true,
+          smapiValidationHandler: (event) => smapiValidationEvents.push(event),
         }
       );
 
       beforeEach(() => {
         jest.clearAllMocks();
         jest.resetAllMocks();
+        smapiValidationEvents.splice(0);
+      });
+
+      afterEach(() => {
+        expect(smapiValidationEvents).toHaveLength(0);
       });
 
       function randomlySetAuthenticationMethod(ws: Client, token: string) {
@@ -762,6 +772,29 @@ describe("wsdl api", () => {
       }
 
       describe("soap api", () => {
+        describe("unhandled errors", () => {
+          it("should return a fault of ServiceUnknownError rather than a raw exception", async () => {
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(server),
+            });
+            setupAuthenticatedRequest(ws);
+            musicLibrary.artists.mockRejectedValue(
+              new TypeError("Cannot read properties of undefined (reading 'boom')")
+            );
+
+            await ws
+              .getMetadataAsync({ id: "artists", index: 0, count: 100 })
+              .then(() => fail("shouldnt get here"))
+              .catch((e: any) => {
+                expect(e.root.Envelope.Body.Fault).toEqual({
+                  faultcode: "Server.ServiceUnknownError",
+                  faultstring: "An unknown error occurred.",
+                });
+              });
+          });
+        });
+
         describe("getAppLink", () => {
           it("should do something", async () => {
             const ws = await createClientAsync(`${service.uri}?wsdl`, {
@@ -827,7 +860,7 @@ describe("wsdl api", () => {
                 httpClient: supersoap(server),
               });
 
-              const result = await ws.getDeviceAuthTokenAsync({ linkCode });
+              const result = await ws.getDeviceAuthTokenAsync({ householdId: "householdId123", linkCode });
 
               expect(result[0]).toEqual({
                 getDeviceAuthTokenResult: {
@@ -857,7 +890,7 @@ describe("wsdl api", () => {
               });
 
               await ws
-                .getDeviceAuthTokenAsync({ linkCode })
+                .getDeviceAuthTokenAsync({ householdId: "householdId123", linkCode })
                 .then(() => {
                   fail("Shouldnt get here");
                 })
@@ -1019,6 +1052,8 @@ describe("wsdl api", () => {
                 const result = await ws.searchAsync({
                   id: "albums",
                   term,
+                  index: 0,
+                  count: 100,
                 });
                 expect(result[0]).toEqual(
                   searchResult({
@@ -1051,6 +1086,8 @@ describe("wsdl api", () => {
                 const result = await ws.searchAsync({
                   id: "artists",
                   term,
+                  index: 0,
+                  count: 100,
                 });
                 expect(result[0]).toEqual(
                   searchResult({
@@ -1080,6 +1117,8 @@ describe("wsdl api", () => {
                 const result = await ws.searchAsync({
                   id: "tracks",
                   term,
+                  index: 0,
+                  count: 100,
                 });
                 expect(result[0]).toEqual(
                   searchResult({
@@ -1101,6 +1140,8 @@ describe("wsdl api", () => {
                 const result = await ws.searchAsync({
                   id: "foobar",
                   term,
+                  index: 0,
+                  count: 100,
                 });
                 expect(result[0]).toEqual(
                   searchResult({
@@ -2655,9 +2696,10 @@ describe("wsdl api", () => {
 
                   expect(result[0]).toEqual(
                     getMetadataResult({
-                      mediaMetadata: stations.map((it) =>
-                        internetRadioStation(it)
-                      ),
+                      mediaMetadata: stations.map((it) => ({
+                        ...internetRadioStation(it),
+                        streamMetadata: null,
+                      })),
                       index: 0,
                       total: stations.length,
                     })
@@ -2682,9 +2724,10 @@ describe("wsdl api", () => {
 
                   expect(result[0]).toEqual(
                     getMetadataResult({
-                      mediaMetadata: pageOfStations.map((it) =>
-                        internetRadioStation(it)
-                      ),
+                      mediaMetadata: pageOfStations.map((it) => ({
+                        ...internetRadioStation(it),
+                        streamMetadata: null,
+                      })),
                       index: paging.index,
                       total: stations.length,
                     })
@@ -2951,14 +2994,17 @@ describe("wsdl api", () => {
             });
 
             describe("asking for something that doesnt exist", () => {
-              it("should return an empty result rather than throwing an error", async () => {
-                const root = await ws.getExtendedMetadataAsync({
-                  id: `foobar:1000`,
-                });
-
-                expect(root[0]).toEqual({
-                  getExtendedMetadataResult: null
-                });
+              it("should return a fault of ItemNotFound", async () => {
+                await ws
+                  .getExtendedMetadataAsync({ id: `foobar:1000` })
+                  .then(() => fail("shouldnt get here"))
+                  .catch((e: any) => {
+                    expect(e.root.Envelope.Body.Fault).toEqual({
+                      faultcode: "Client.ItemNotFound",
+                      faultstring:
+                        "The requested item does not exist.",
+                    });
+                  });
               });
             });
           });
@@ -3098,7 +3144,10 @@ describe("wsdl api", () => {
                 });
 
                 expect(root[0]).toEqual({
-                  getMediaMetadataResult: internetRadioStation(someStation),
+                  getMediaMetadataResult: {
+                    ...internetRadioStation(someStation),
+                    streamMetadata: null,
+                  },
                 });
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                 expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
@@ -3107,14 +3156,17 @@ describe("wsdl api", () => {
             });
 
             describe("asking for media metadata for an unsupported type", () => {
-              it("should return it with auth header", async () => {
-                const root = await ws.getMediaMetadataAsync({
-                  id: `foobar:1000`,
-                });
-
-                expect(root[0]).toEqual({
-                  getMediaMetadataResult: null,
-                });
+              it("should return a fault of ItemNotFound", async () => {
+                await ws
+                  .getMediaMetadataAsync({ id: `foobar:1000` })
+                  .then(() => fail("shouldnt get here"))
+                  .catch((e: any) => {
+                    expect(e.root.Envelope.Body.Fault).toEqual({
+                      faultcode: "Client.ItemNotFound",
+                      faultstring:
+                        "The requested item does not exist.",
+                    });
+                  });
               });
             });
           });
@@ -3174,7 +3226,7 @@ describe("wsdl api", () => {
           });
 
           itShouldHandleInvalidCredentials((ws) =>
-            ws.createContainerAsync({ title: "foobar" })
+            ws.createContainerAsync({ containerType: "playlist", title: "foobar", parentId: "", seedId: "" })
           );
 
           describe("when valid credentials are provided", () => {
@@ -3193,7 +3245,10 @@ describe("wsdl api", () => {
                 });
 
                 const result = await ws.createContainerAsync({
+                  containerType: "playlist",
                   title,
+                  parentId: "",
+                  seedId: "",
                 });
 
                 expect(result[0]).toEqual({
@@ -3221,7 +3276,9 @@ describe("wsdl api", () => {
                 musicLibrary.addToPlaylist.mockResolvedValue(true);
 
                 const result = await ws.createContainerAsync({
+                  containerType: "playlist",
                   title,
+                  parentId: "",
                   seedId: `track:${trackId}`,
                 });
 
@@ -3293,7 +3350,7 @@ describe("wsdl api", () => {
           });
 
           itShouldHandleInvalidCredentials((ws) =>
-            ws.addToContainerAsync({ id: "foobar", parentId: "parentId" })
+            ws.addToContainerAsync({ id: "foobar", parentId: "parentId", index: 0, updateId: "" })
           );
 
           describe("when valid credentials are provided", () => {
@@ -3307,6 +3364,8 @@ describe("wsdl api", () => {
               const result = await ws.addToContainerAsync({
                 id: `track:${trackId}`,
                 parentId: `parent:${playlistId}`,
+                index: 0,
+                updateId: "",
               });
 
               expect(result[0]).toEqual({
@@ -3336,6 +3395,7 @@ describe("wsdl api", () => {
             ws.removeFromContainerAsync({
               id: `playlist:123`,
               indices: `1,6,9`,
+              updateId: `updateId123`,
             })
           );
 
@@ -3353,6 +3413,7 @@ describe("wsdl api", () => {
                 const result = await ws.removeFromContainerAsync({
                   id: `playlist:${playlistId}`,
                   indices: `1,6,9`,
+                  updateId: `updateId123`,
                 });
 
                 expect(result[0]).toEqual({
@@ -3387,6 +3448,7 @@ describe("wsdl api", () => {
                 const result = await ws.removeFromContainerAsync({
                   id: `playlists`,
                   indices: `0,2,4`,
+                  updateId: `updateId123`,
                 });
 
                 expect(result[0]).toEqual({
@@ -3524,7 +3586,7 @@ describe("wsdl api", () => {
                     seconds: `${secondsPlayed}`,
                   });
 
-                  expect(result[0]).toEqual({ setPlayedSecondsResult: null });
+                  expect(result[0]).toEqual(null);
                   expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
@@ -3545,7 +3607,7 @@ describe("wsdl api", () => {
                     seconds: `${secondsPlayed}`,
                   });
 
-                  expect(result[0]).toEqual({ setPlayedSecondsResult: null });
+                  expect(result[0]).toEqual(null);
                   expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                   expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                   expect(musicLibrary.track).toHaveBeenCalledWith(trackId);
@@ -3625,7 +3687,7 @@ describe("wsdl api", () => {
                   seconds: "100",
                 });
 
-                expect(result[0]).toEqual({ setPlayedSecondsResult: null });
+                expect(result[0]).toEqual(null);
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                 expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.scrobble).not.toHaveBeenCalled();
