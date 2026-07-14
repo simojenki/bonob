@@ -857,8 +857,8 @@ function bindSmapiSoapServiceToExpress(
                           id: "artists",
                           itemType: "container",
                           title: lang("artists"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "artists").href()),
                           canScroll: true,
+                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "artists").href()),
                         },
                         {
                           id: "albums",
