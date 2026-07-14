@@ -25,7 +25,7 @@
     "node-html-parser": "^7.1.0",
     "sharp": "^0.34.5",
     "soap": "^1.9.0",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "underscore": "^1.13.8",
     "winston": "^3.19.0",
     "xmldom-ts": "^0.3.1",
