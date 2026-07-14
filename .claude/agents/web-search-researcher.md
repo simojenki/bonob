@@ -1,1 +1,0 @@
-../../../Astiga/play/.claude/agents/web-search-researcher.md

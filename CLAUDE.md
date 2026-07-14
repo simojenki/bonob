@@ -167,12 +167,31 @@ All source files are in a single directory without subdirectories:
 
 ## Tests
 
-**Note: Do not run the tests yet, as they currently fail.**
+Run tests inside an ephemeral container that mounts the current worktree container built from the same dev-container image as `priceless_noyce`.
 
-### Run All Tests
 ```bash
-docker exec priceless_noyce /bin/bash -c "cd /workspaces/bonob; npm test"
+# Image name of the dev container:
+IMAGE=$(docker inspect priceless_noyce --format '{{.Config.Image}}')
+
+# First run in a fresh worktree only: install deps so native modules build for
+# the container's Node. node_modules is gitignored, so this stays out of git.
+docker run --rm -v "[pwd]":/workspaces/bonob-worktree -w /workspaces/bonob-worktree "$IMAGE" \
+  /bin/bash -lc "npm ci"
+
+# Run the whole suite:
+docker run --rm -v "[pwd]":/workspaces/bonob-worktree -w /workspaces/bonob-worktree "$IMAGE" \
+  /bin/bash -lc "npm test"
 ```
+
+### Run a Subset
+```bash
+docker run --rm -v "[pwd]":/workspaces/bonob-worktree -w /workspaces/bonob-worktree "$IMAGE" \
+  /bin/bash -lc "npx jest tests/smapi.test.ts tests/subsonic.folders.test.ts"
+```
+
+Notes:
+- `node_modules` lives on the host worktree via the bind mount and is built for the container's Node — don't reuse it with a host-side `node`/`npm` on an incompatible Node version.
+- If you switch the container's Node version, re-run `npm ci` (or `npm rebuild`) so the native modules match.
 
 ### Test Framework
 - **Jest** with ts-jest for TypeScript support
