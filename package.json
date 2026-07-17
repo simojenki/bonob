@@ -24,7 +24,7 @@
     "neverthrow": "^8.2.0",
     "node-html-parser": "^7.1.0",
     "sharp": "^0.34.5",
-    "soap": "^1.9.0",
+    "soap": "^1.10.0",
     "typescript": "^7.0.2",
     "underscore": "^1.13.8",
     "winston": "^3.19.0",
