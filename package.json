@@ -23,7 +23,7 @@
     "morgan": "^1.11.0",
     "neverthrow": "^8.2.0",
     "node-html-parser": "^7.1.0",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "soap": "^1.10.0",
     "typescript": "^7.0.2",
     "underscore": "^1.13.8",
