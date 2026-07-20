@@ -1277,19 +1277,19 @@ function bindSmapiSoapServiceToExpress(
   );
 
   soapyService.log = (type, data) => {
+    const message = JSON.stringify(data);
     switch (type) {
       // routing all soap info messages to debug so less noisy
       case "info":
-        logger.debug({ level: "info", data });
+        logger.info(message);
         break;
       case "warn":
-        logger.warn({ level: "warn", data });
+        logger.warn(message);
         break;
       case "error":
-        logger.error({ level: "error", data });
+        logger.error(message);
         break;
       default:
-        logger.debug({ level: "debug", data });
     }
   };
 }
