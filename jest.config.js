@@ -4,6 +4,7 @@ module.exports = {
   modulePathIgnorePatterns: [
     '<rootDir>/node_modules',
     '<rootDir>/build',
+    '<rootDir>/.ignore',
   ],
   transform: {
     '^.+\\.tsx?$': ['@swc/jest', {
