@@ -22,7 +22,7 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
     "neverthrow": "^8.2.0",
-    "node-html-parser": "^7.1.0",
+    "node-html-parser": "^9.0.0",
     "sharp": "^0.35.3",
     "soap": "^1.10.0",
     "typescript": "^5.9.3",
