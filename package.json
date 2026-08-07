@@ -41,7 +41,7 @@
     "get-port": "^7.2.0",
     "jest": "^30.4.2",
     "nodemon": "^3.1.14",
-    "npm-check-updates": "^22.2.9",
+    "npm-check-updates": "^23.0.1",
     "supertest": "^7.2.2",
     "ts-mockito": "^2.6.1",
     "ts-node": "^10.9.2",
