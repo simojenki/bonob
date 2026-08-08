@@ -123,7 +123,21 @@ json in the Service Configuration should look like this.
     Artists - artists
     Tracks - tracks
 * Content Actions
-  * No changes
+  * Without this step, no rating/heart icon will ever appear anywhere in the
+    Sonos app, for any track. bonob's own rateItem/dynamic rating
+    implementation alone is not sufficient in the current Sonos app; Sonos
+    reads rating icons from this page specifically. This gives you a simple
+    love/heart toggle only, bonob's older 5 star scale doesn't map onto
+    this model (max two icons, two states each).
+  * Add one Content Action:
+    * Resources: `Track`, Placement: `NOW_PLAYING`
+    * State `100` (unrated): Icon `HEART_UNSELECTED`, On Action Set Value `101`
+    * State `101` (loved): Icon `HEART_SELECTED`, On Action Set Value `100`
+    * Each state's "On Action Set Value" must be the other state's number,
+      not its own, or the button becomes a no-op.
+  * Save, then separately go to Service Configuration and click
+    Refresh, then Send to actually deploy the change (about 10 minutes to
+    propagate), then restart the Sonos app.
 * Service Deployment Settings
   * Sonos ID: Your Sonos ID (Sonos S2 app -> System Settings -> Manage -> About your system -> "Sonos ID"). This is how only your controller sees the new service.
   * System Name: Whatever you want
