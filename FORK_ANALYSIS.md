@@ -72,8 +72,10 @@ The bulk of the fork’s work is on the `bonob-astiga` branch and splits into fo
 
 ## Recommendation summary
 
+### Applied
+- `a49d293` — `getAlbumList2` now requests only the page size (`q._count ?? 500`) while keeping the existing `getArtists` total estimate.  The `totalCount` field is not part of the Subsonic API, so no fallback is needed.
+
 ### Apply with adaptation / only if needed
-- `a49d293` — `getAlbumList2` server-side pagination if a fallback for missing `totalCount` is added.
 - `879e224` — `/rest/getArtistList` pagination only if a fallback to standard `/rest/getArtists` is implemented.
 - `047b868` — cherry-pick the root `playlists` `itemType` fix and the `track` `getMetadata` case; review the `artist` extended-metadata change carefully.
 - `7e0b755` — only meaningful if `f703fe9` (optional album) is also applied.
@@ -91,7 +93,7 @@ The bulk of the fork’s work is on the `bonob-astiga` branch and splits into fo
 
 ### Biggest risks if ported blindly
 1. **Token-store divergence.** Roughly a third of the fork commits assume SMAPI tokens are persisted to S3/Wasabi/filesystem. Main keeps tokens in memory and re-authenticates through the Subsonic backend; porting those commits would require introducing a new persistence layer.
-2. **Non-standard Subsonic endpoints.** `879e224` relies on `/rest/getArtistList`; `a49d293` relies on `totalCount` in `getAlbumList2`. Both can break against plain Subsonic servers without fallbacks.
+2. **Non-standard Subsonic endpoints.** `879e224` relies on `/rest/getArtistList`, which is not guaranteed on all Subsonic servers and needs a fallback if ported.
 3. **Test suite expectations.** The fork removed menu items and renamed labels that main’s tests still assert; applying UI/menu commits would require large test updates.
 
 ### Suggested porting order
@@ -113,7 +115,7 @@ This section records which fork items have been acted on and which are deferred.
 | # | Commit | Decision | What was done |
 |---|--------|----------|---------------|
 | 2 | `16b029a` | Applied | Added `.gitinfo` to `.gitignore` |
-| 4 | `a49d293` | Recorded | Added TODO in `src/subsonic.ts` `getAlbumList2` documenting the proposed server-side pagination fix and the `totalCount` fallback consideration |
+| 4 | `a49d293` | Applied | Changed `getAlbumList2` to request `size: q._count ?? 500` instead of always 500, keeping the existing `getArtists` total estimate.  The `totalCount` field is not part of the Subsonic API, so the simpler single-path approach is used. |
 | 6 | `879e224` | Recorded | Added TODO in `src/subsonic.ts` `getArtists` documenting the proposed `/rest/getArtistList` pagination fix and the fallback consideration |
 | 10 | `df42d0d` | Deferred | SMAPI hardening parts identified but not yet applied; see details above. The token-store abstraction remains not applicable. |
 | 12 | `c1f437f` | Not applying | Per-call Subsonic request logging rejected as too noisy; existing logging is adequate. |

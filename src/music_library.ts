@@ -111,6 +111,47 @@ export const asResult = <T>([results, total]: [T[], number]) => ({
   total,
 });
 
+const MAX_SUBSONIC_PAGE_SIZE = 500;
+
+export const paginate =
+  <T, Q extends Paging>(
+    total: () => Promise<number>,
+    page: (q: Q) => Promise<Result<T>>
+  ) =>
+  async (q: Q): Promise<Result<T>> => {
+    const desiredCount = q._count ?? Number.MAX_SAFE_INTEGER;
+
+    if (desiredCount <= MAX_SUBSONIC_PAGE_SIZE) {
+      return page(q);
+    }
+
+    const start = q._index ?? 0;
+    const totalCount = await total();
+    const remainingItems = Math.max(0, totalCount - start);
+    const itemsNeeded = Math.min(desiredCount, remainingItems);
+    const pagesToFetch = Math.ceil(itemsNeeded / MAX_SUBSONIC_PAGE_SIZE);
+
+    const pages = await Promise.all(
+      Array.from({ length: pagesToFetch }, (_, i) => {
+        const pageIndex = start + i * MAX_SUBSONIC_PAGE_SIZE;
+        const pageCount = Math.min(
+          MAX_SUBSONIC_PAGE_SIZE,
+          itemsNeeded - i * MAX_SUBSONIC_PAGE_SIZE
+        );
+        return page({
+          ...q,
+          _index: pageIndex,
+          _count: pageCount,
+        } as Q);
+      })
+    );
+
+    return {
+      results: pages.flatMap((it) => it.results),
+      total: totalCount,
+    };
+  };
+
 export type ArtistQuery = Paging;
 
 export type AlbumQueryType = 'alphabeticalByArtist' | 'alphabeticalByName' | 'byGenre' | 'byYear' | 'random' | 'recentlyPlayed' | 'mostPlayed' | 'recentlyAdded' | 'favourited' | 'starred';

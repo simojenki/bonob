@@ -986,13 +986,9 @@ export class Subsonic {
       songs: it.searchResult3.song || [],
     }));
 
-  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) =>
-    // TODO: Use server-side pagination with the totalCount returned by
-    // getAlbumList2 instead of always fetching 500 albums and estimating the
-    // total via getArtists.  This should request only size: q._count and use
-    // response.albumList2.totalCount, but older Subsonic servers may omit
-    // totalCount, so a fallback is required.
-    Promise.all([
+  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) => {
+    const count = Math.min(q._count ?? 500, 500);
+    return Promise.all([
       this.getArtists(credentials).then((it) =>
         _.inject(it, (total, artist) => total + artist.albumCount, 0)
       ),
@@ -1001,15 +997,20 @@ export class Subsonic {
         ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
         ...(q.fromYear ? { fromYear: q.fromYear } : {}),
         ...(q.toYear ? { toYear: q.toYear } : {}),
-        size: 500,
+        size: count,
         offset: q._index,
       })
         .then((response) => response.albumList2.album || [])
         .then(this.toAlbumSummary),
-    ]).then(([total, albums]) => ({
-      results: albums.slice(0, q._count),
-      total: albums.length == 500 ? total : (q._index ?? 0) + albums.length,
-    }));
+    ]).then(([totalEstimate, albums]) => {
+      const hasMorePages = albums.length == count;
+      const exactTotal = (q._index ?? 0) + albums.length;
+      return {
+        results: albums.slice(0, q._count),
+        total: hasMorePages ? totalEstimate : exactTotal,
+      };
+    });
+  };
 
   getGenres = (credentials: Credentials) =>
     this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>
