@@ -770,7 +770,7 @@ describe("SubsonicMusicLibrary", () => {
         it("should map the 64 encoded genre back into the subsonic genre", async () => {
           const q: AlbumQuery = {
             _index: 0,
-            _count: 100,
+            _count: 67,
             genre: b64Encode("Pop"),
             type: "byGenre",
           };
@@ -796,7 +796,55 @@ describe("SubsonicMusicLibrary", () => {
                 ...authParamsPlusJson,
                 type: "byGenre",
                 genre: "Pop",
-                size: 500,
+                size: 67,
+                offset: 0,
+              }),
+              headers,
+            }
+          );
+        });
+
+        it("should cap the requested page size at 500", async () => {
+          mockGET.mockReset();
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(asArtistsJson([artist])))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(asArtistsJson([artist])))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(
+                ok(
+                  getAlbumListJson([
+                    [artist, album1],
+                    [artist, album3],
+                  ])
+                )
+              )
+            );
+
+          const q: AlbumQuery = {
+            _index: 0,
+            _count: 1000,
+            genre: b64Encode("Pop"),
+            type: "byGenre",
+          };
+          const result = await subsonic.albums(q);
+
+          expect(result).toEqual({
+            results: [album1, album3].map(albumToAlbumSummary),
+            total: 5,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/getAlbumList2" }).href(),
+            {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                type: "byGenre",
+                genre: "Pop",
+                size: 5,
                 offset: 0,
               }),
               headers,
@@ -851,7 +899,7 @@ describe("SubsonicMusicLibrary", () => {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "newest",
-                size: 500,
+                size: 100,
                 offset: 0,
               }),
               headers,
@@ -906,7 +954,7 @@ describe("SubsonicMusicLibrary", () => {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "recent",
-                size: 500,
+                size: 100,
                 offset: 0,
               }),
               headers,
@@ -952,7 +1000,7 @@ describe("SubsonicMusicLibrary", () => {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "frequent",
-                size: 500,
+                size: 100,
                 offset: 0,
               }),
               headers,
@@ -998,7 +1046,7 @@ describe("SubsonicMusicLibrary", () => {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "highest",
-                size: 500,
+                size: 100,
                 offset: 0,
               }),
               headers,
@@ -1053,7 +1101,7 @@ describe("SubsonicMusicLibrary", () => {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "alphabeticalByArtist",
-              size: 500,
+              size: 100,
               offset: 0,
             }),
             headers,
@@ -1107,7 +1155,7 @@ describe("SubsonicMusicLibrary", () => {
             params: asURLSearchParams({
               ...authParamsPlusJson,
               type: "alphabeticalByArtist",
-              size: 500,
+              size: 100,
               offset: 0,
             }),
             headers,
@@ -1176,7 +1224,7 @@ describe("SubsonicMusicLibrary", () => {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "alphabeticalByArtist",
-                size: 500,
+                size: 100,
                 offset: 0,
               }),
               headers,
@@ -1231,13 +1279,176 @@ describe("SubsonicMusicLibrary", () => {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "alphabeticalByArtist",
-                size: 500,
+                size: 2,
                 offset: 2,
               }),
               headers,
             }
           );
         });
+      });
+    });
+
+    describe("when the page size exceeds the subsonic limit", () => {
+      const generatedAlbums = Array.from({ length: 1200 }, (_, i) =>
+        anAlbumSummary({ id: `album${i}`, name: `album${i}` })
+      );
+
+      const artist = anArtist({
+        albums: generatedAlbums,
+      });
+
+      it("should fetch multiple pages to satisfy a large _count", async () => {
+        const page0 = generatedAlbums.slice(0, 500);
+        const page1 = generatedAlbums.slice(500, 1000);
+
+        mockGET
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page0.map((album) => [artist, album])))
+            )
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page1.map((album) => [artist, album])))
+            )
+          );
+
+        const q: AlbumQuery = {
+          _index: 0,
+          _count: 1000,
+          type: "alphabeticalByArtist",
+        };
+        const result = await subsonic.albums(q);
+
+        expect(result.results).toEqual(generatedAlbums.slice(0, 1000));
+        expect(result.total).toEqual(1200);
+      });
+
+      it("should only fetch the pages needed for the requested window", async () => {
+        const page0 = generatedAlbums.slice(0, 500);
+        const page1 = generatedAlbums.slice(500, 1000);
+
+        mockGET
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page0.map((album) => [artist, album])))
+            )
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page1.map((album) => [artist, album])))
+            )
+          );
+
+        const q: AlbumQuery = {
+          _index: 0,
+          _count: 550,
+          type: "alphabeticalByArtist",
+        };
+        const result = await subsonic.albums(q);
+
+        expect(result.results).toEqual(generatedAlbums.slice(0, 550));
+        expect(result.total).toEqual(1200);
+      });
+
+      it("should fetch all pages when asked for everything", async () => {
+        const page0 = generatedAlbums.slice(0, 500);
+        const page1 = generatedAlbums.slice(500, 1000);
+        const page2 = generatedAlbums.slice(1000, 1200);
+
+        mockGET
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page0.map((album) => [artist, album])))
+            )
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page1.map((album) => [artist, album])))
+            )
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page2.map((album) => [artist, album])))
+            )
+          );
+
+        const q: AlbumQuery = {
+          _index: 0,
+          _count: Number.MAX_SAFE_INTEGER,
+          type: "alphabeticalByArtist",
+        };
+        const result = await subsonic.albums(q);
+
+        expect(result.results).toEqual(generatedAlbums);
+        expect(result.total).toEqual(1200);
+      });
+
+      it("should support offsets that start beyond the first page", async () => {
+        const page1 = generatedAlbums.slice(500, 1000);
+        const page2 = generatedAlbums.slice(1000, 1200);
+
+        mockGET
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page1.map((album) => [artist, album])))
+            )
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(asArtistsJson([artist])))
+          )
+          .mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getAlbumListJson(page2.map((album) => [artist, album])))
+            )
+          );
+
+        const q: AlbumQuery = {
+          _index: 500,
+          _count: 1000,
+          type: "alphabeticalByArtist",
+        };
+        const result = await subsonic.albums(q);
+
+        expect(result.results).toEqual(generatedAlbums.slice(500, 1200));
+        expect(result.total).toEqual(1200);
       });
     });
 
@@ -1308,7 +1519,7 @@ describe("SubsonicMusicLibrary", () => {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
-                  size: 500,
+                  size: 100,
                   offset: q._index,
                 }),
                 headers,
@@ -1366,7 +1577,7 @@ describe("SubsonicMusicLibrary", () => {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
-                  size: 500,
+                  size: 2,
                   offset: q._index,
                 }),
                 headers,
@@ -1423,7 +1634,7 @@ describe("SubsonicMusicLibrary", () => {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
-                  size: 500,
+                  size: 100,
                   offset: q._index,
                 }),
                 headers,
@@ -1490,7 +1701,7 @@ describe("SubsonicMusicLibrary", () => {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
-                  size: 500,
+                  size: 100,
                   offset: q._index,
                 }),
                 headers,
@@ -1555,7 +1766,7 @@ describe("SubsonicMusicLibrary", () => {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
-                  size: 500,
+                  size: 2,
                   offset: q._index,
                 }),
                 headers,
@@ -1622,7 +1833,7 @@ describe("SubsonicMusicLibrary", () => {
                 params: asURLSearchParams({
                   ...authParamsPlusJson,
                   type: "alphabeticalByArtist",
-                  size: 500,
+                  size: 100,
                   offset: q._index,
                 }),
                 headers,

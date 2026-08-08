@@ -7,6 +7,7 @@ import {
   Sortable,
   Result,
   slice2,
+  paginate,
   AlbumQuery,
   ArtistQuery,
   MusicLibrary,
@@ -127,8 +128,15 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       similarArtists: artistInfo.similarArtist,
     }));
 
-  albums = async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
-    this.subsonic.getAlbumList2(this.credentials, q);
+  albums = paginate<AlbumSummary, AlbumQuery>(
+    () =>
+      this.subsonic
+        .getArtists(this.credentials)
+        .then((artists) =>
+          _.inject(artists, (total, artist) => total + artist.albumCount, 0)
+        ),
+    (q) => this.subsonic.getAlbumList2(this.credentials, q)
+  );
 
   album = (id: string): Promise<Album> =>
     this.subsonic.getAlbum(this.credentials, id);
@@ -289,21 +297,19 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   years = async () => {
     const q: AlbumQuery = {
       _index: 0,
-      _count: 100000, // FIXME: better than this, probably doesnt work anyway as max _count is 500 or something
+      _count: undefined,
       type: "alphabeticalByArtist",
     };
-    const years = this.subsonic
-      .getAlbumList2(this.credentials, q)
-      .then(({ results }) =>
-        results
-          .map((album) => album.year || "?")
-          .filter((item, i, ar) => ar.indexOf(item) === i)
-          .sort()
-          .map((year) => ({
-            ...asYear(year),
-          }))
-          .reverse()
-      );
+    const years = this.albums(q).then(({ results }) =>
+      results
+        .map((album) => album.year || "?")
+        .filter((item, i, ar) => ar.indexOf(item) === i)
+        .sort()
+        .map((year) => ({
+          ...asYear(year),
+        }))
+        .reverse()
+    );
     return years;
   };
 }
