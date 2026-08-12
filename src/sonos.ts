@@ -24,10 +24,7 @@ export const SONOS_LANG: LANG[] = [
   "zh-CN",
 ];
 
-export const PRESENTATION_AND_STRINGS_VERSION =
-  process.env["BNB_DEBUG"] === "true"
-    ? `${Math.round(new Date().getTime() / 1000)}`
-    : "23";
+export const PRESENTATION_AND_STRINGS_VERSION = "28";
 
 // NOTE: manifest requires https for the URL, otherwise you will get an error trying to register
 export type Capability =
