@@ -294,16 +294,18 @@ function server(
         .append({ pathname: `/star${rating.stars}.svg` })
         .href();
 
+      const loveLabel = nextLove.love ? "LOVE" : "UNLOVE"
+
       return `<Match propname="rating" value="${value}">
         <Ratings>
           <Rating Id="${ratingAsInt(
         nextLove
-      )}" AutoSkip="NEVER" OnSuccessStringId="LOVE_SUCCESS" StringId="LOVE">
+      )}" AutoSkip="NEVER" OnSuccessStringId="${loveLabel}_SUCCESS" StringId="${loveLabel}">
             <Icon Controller="universal" LastModified="${LastModified}" Uri="${loveRatingIcon}" />
           </Rating>
           <Rating Id="${-ratingAsInt(
         nextStar
-      )}" AutoSkip="NEVER" OnSuccessStringId="STAR_SUCCESS" StringId="STAR">
+      )}" AutoSkip="NEVER" OnSuccessStringId="STAR_SUCCESS_${nextStar.stars}" StringId="STAR">
             <Icon Controller="universal" LastModified="${LastModified}" Uri="${starsRatingIcon}" />
           </Rating>
         </Ratings>

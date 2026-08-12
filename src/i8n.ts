@@ -43,10 +43,15 @@ export type KEY =
   | "years"
   | "LOVE"
   | "LOVE_SUCCESS"
+  | "UNLOVE"
+  | "UNLOVE_SUCCESS"
   | "STAR" 
-  | "UNSTAR"
-  | "STAR_SUCCESS"
-  | "UNSTAR_SUCCESS";
+  | "STAR_SUCCESS_0"
+  | "STAR_SUCCESS_1"
+  | "STAR_SUCCESS_2"
+  | "STAR_SUCCESS_3"
+  | "STAR_SUCCESS_4"
+  | "STAR_SUCCESS_5";
 
 const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
   "en-US": {
@@ -86,11 +91,16 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     favourites: "Favourites",
     years: "Years",
     STAR: "Star",
-    UNSTAR: "Un-star",
-    STAR_SUCCESS: "Track starred",
-    UNSTAR_SUCCESS: "Track un-starred",
+    STAR_SUCCESS_0: "No stars",
+    STAR_SUCCESS_1: "1 star",
+    STAR_SUCCESS_2: "2 stars",
+    STAR_SUCCESS_3: "3 stars",
+    STAR_SUCCESS_4: "4 stars",
+    STAR_SUCCESS_5: "5 stars",
     LOVE: "Love",
-    LOVE_SUCCESS: "Track loved"
+    LOVE_SUCCESS: "Loved",
+    UNLOVE: "Unlove",
+    UNLOVE_SUCCESS: "Unloved"
   },
   "da-DK": {
     AppLinkMessage: "Forbinder Sonos med $BNB_SONOS_SERVICE_NAME",
@@ -128,12 +138,17 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "Ingen Sonos enheder",
     favourites: "Favoritter",
     years: "Flere år",
-    STAR: "Tilføj stjerne",
-    UNSTAR: "Fjern stjerne",
-    STAR_SUCCESS: "Stjerne tilføjet",
-    UNSTAR_SUCCESS: "Stjerne fjernet",
-    LOVE: "Synes godt om",
-    LOVE_SUCCESS: "Syntes godt om"
+    STAR: "Stjerne",
+    STAR_SUCCESS_0: "Ingen stjerner",
+    STAR_SUCCESS_1: "1 stjerne",
+    STAR_SUCCESS_2: "2 stjerner",
+    STAR_SUCCESS_3: "3 stjerner",
+    STAR_SUCCESS_4: "4 stjerner",
+    STAR_SUCCESS_5: "5 stjerner",
+    LOVE: "Kærlighed",
+    LOVE_SUCCESS: "Elsket",
+    UNLOVE: "Holde op med at elske",
+    UNLOVE_SUCCESS: "Uelsket"
   },
   "fr-FR": {
     AppLinkMessage: "Associer Sonos à $BNB_SONOS_SERVICE_NAME",
@@ -171,12 +186,17 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "Aucun appareil Sonos",
     favourites: "Favoris",
     years: "Années",
-    STAR: "Suivre",
-    UNSTAR: "Ne plus suivre",
-    STAR_SUCCESS: "Piste suivie",
-    UNSTAR_SUCCESS: "Piste non suivie",
-    LOVE: "Aimer",
-    LOVE_SUCCESS: "Pistes aimée"
+    STAR: "Étoile",
+    STAR_SUCCESS_0: "Aucune étoile",
+    STAR_SUCCESS_1: "1 étoile",
+    STAR_SUCCESS_2: "2 étoiles",
+    STAR_SUCCESS_3: "3 étoiles",
+    STAR_SUCCESS_4: "4 étoiles",
+    STAR_SUCCESS_5: "5 étoiles",
+    LOVE: "Amour",
+    LOVE_SUCCESS: "J'ai adoré",
+    UNLOVE: "Cesser d'aimer",
+    UNLOVE_SUCCESS: "Mal-aimé"
   },
   "nl-NL": {
     AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
@@ -214,12 +234,17 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "Geen Sonos-apparaten",
     favourites: "Favorieten",
     years: "Jaren",
-    STAR: "Ster ",
-    UNSTAR: "Een ster",
-    STAR_SUCCESS: "Nummer met ster",
-    UNSTAR_SUCCESS: "Track zonder ster",
+    STAR: "Ster",
+    STAR_SUCCESS_0: "Geen sterren",
+    STAR_SUCCESS_1: "1 ster",
+    STAR_SUCCESS_2: "2 sterren",
+    STAR_SUCCESS_3: "3 sterren",
+    STAR_SUCCESS_4: "4 sterren",
+    STAR_SUCCESS_5: "5 sterren",
     LOVE: "Liefde",
-    LOVE_SUCCESS: "Volg geliefd"
+    LOVE_SUCCESS: "Geliefd",
+    UNLOVE: "Ontliefde",
+    UNLOVE_SUCCESS: "Onbemind"
   },
 };
 
