@@ -49,7 +49,7 @@ import { b64Encode } from "../src/b64";
 
 import { Album, Artist, Track, AlbumSummary, AuthFailure } from "../src/music_library";
 import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP, a404 } from "./builders";
-import { BUrn } from "../src/burn";
+import { Art } from "../src/art";
 
 
 
@@ -225,11 +225,11 @@ describe("cachingImageFetcher", () => {
   });
 });
 
-const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
+const maybeIdFromCoverArtUrn = (coverArt: Art | undefined) =>
   pipe(
     coverArt,
     O.fromNullable,
-    O.map((it) => it.resource.split(":")[1]),
+    O.map((it) => it.id),
     O.getOrElseW(() => "")
   );
 
@@ -292,8 +292,8 @@ describe("artistImageURN", () => {
             artistImageURL: "http://example.com/image.jpg",
           })
         ).toEqual({
-          system: "external",
-          resource: "http://example.com/image.jpg",
+          source: "external",
+          id: "http://example.com/image.jpg",
         });
       });
     });
@@ -306,7 +306,7 @@ describe("artistImageURN", () => {
               artistId: "someArtistId",
               artistImageURL: `http://example.com/${DODGY_IMAGE_NAME}`,
             })
-          ).toEqual({ system: "subsonic", resource: "art:someArtistId" });
+          ).toEqual({ source: "subsonic", id: "someArtistId" });
         });
       });
 
@@ -341,7 +341,7 @@ describe("artistImageURN", () => {
               artistId: "someArtistId",
               artistImageURL: undefined,
             })
-          ).toEqual({ system: "subsonic", resource: "art:someArtistId" });
+          ).toEqual({ source: "subsonic", id: "someArtistId" });
         });
       });
 

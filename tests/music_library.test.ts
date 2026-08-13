@@ -41,8 +41,8 @@ describe("artistToArtistSummary", () => {
       id: uuid(),
       name: "The Artist",
       image: {
-        system: "external",
-        resource: "http://example.com:1234/image.jpg",
+        source: "external",
+        id: "http://example.com:1234/image.jpg",
       },
     });
     expect(artistToArtistSummary(artist)).toEqual({

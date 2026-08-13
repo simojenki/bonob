@@ -26,7 +26,7 @@ import path from "path";
 
 import axios, { AxiosRequestConfig } from "axios";
 import { b64Encode, b64Decode } from "./b64";
-import { BUrn } from "./burn";
+import { Art } from "./art";
 import { album, artist } from "./smapi";
 import { URLBuilder } from "./url_builder";
 
@@ -135,7 +135,7 @@ type artistInfo = images & {
 };
 
 type ArtistSummary = IdName & {
-  image: BUrn | undefined;
+  image: Art | undefined;
 };
 
 type GetArtistInfoResponse = SubsonicResponse & {
@@ -273,11 +273,11 @@ export type IdName = {
   name: string;
 };
 
-export const coverArtURN = (coverArt: string | undefined): BUrn | undefined =>
+export const coverArtToArt = (coverArt: string | undefined): Art | undefined =>
   pipe(
     coverArt,
     O.fromNullable,
-    O.map((it: string) => ({ system: "subsonic", resource: `art:${it}` })),
+    O.map((it: string) => ({ source: "subsonic", id: it })),
     O.getOrElseW(() => undefined)
   );
 
@@ -286,7 +286,7 @@ export const artistImageURN = (
     artistId: string | undefined;
     artistImageURL: string | undefined;
   }>
-): BUrn | undefined => {
+): Art | undefined => {
   const deets = {
     artistId: undefined,
     artistImageURL: undefined,
@@ -294,13 +294,13 @@ export const artistImageURN = (
   };
   if (deets.artistImageURL && isValidImage(deets.artistImageURL)) {
     return {
-      system: "external",
-      resource: deets.artistImageURL,
+      source: "external",
+      id: deets.artistImageURL,
     };
   } else if (artistIsInLibrary(deets.artistId)) {
     return {
-      system: "subsonic",
-      resource: `art:${deets.artistId!}`,
+      source: "subsonic",
+      id: deets.artistId!,
     };
   } else {
     return undefined;
@@ -325,7 +325,7 @@ export const asTrackSummary = (
   duration: song.duration || 0,
   number: song.track || 0,
   genre: maybeAsGenre(song.genre),
-  coverArt: coverArtURN(song.coverArt),
+  coverArt: coverArtToArt(song.coverArt),
   artist: {
     id: song.artistId,
     name: song.artist ? song.artist : "?",
@@ -358,7 +358,7 @@ export const asAlbumSummary = (album: album): AlbumSummary => ({
   genre: maybeAsGenre(album.genre),
   artistId: album.artistId,
   artistName: album.artist,
-  coverArt: coverArtURN(album.coverArt),
+  coverArt: coverArtToArt(album.coverArt),
 });
 
 export const asGenre = (genreName: string) => ({
@@ -907,7 +907,7 @@ export class Subsonic {
           genre: maybeAsGenre(album.genre),
           artistId: album.artistId,
           artistName: album.artist,
-          coverArt: coverArtURN(album.coverArt)
+          coverArt: coverArtToArt(album.coverArt)
         }
         return { summary: x, songs: album.song }
       }).then(({ summary, songs }) => {
@@ -966,7 +966,7 @@ export class Subsonic {
       genre: maybeAsGenre(album.genre),
       artistId: album.artistId,
       artistName: album.artist,
-      coverArt: coverArtURN(album.coverArt),
+      coverArt: coverArtToArt(album.coverArt),
     }));
 
   search3 = (credentials: Credentials, q: any) =>
@@ -1134,7 +1134,7 @@ export class Subsonic {
     .then(({ playlists }) => (playlists.playlist || []).map( it => ({
         id: it.id,
         name: it.name,
-        coverArt: coverArtURN(it.coverArt),
+        coverArt: coverArtToArt(it.coverArt),
       }))
     );
 
@@ -1147,7 +1147,7 @@ export class Subsonic {
       return {
         id: playlist.id,
         name: playlist.name,
-        coverArt: coverArtURN(playlist.coverArt),
+        coverArt: coverArtToArt(playlist.coverArt),
         entries: (playlist.entry || []).map((entry) => ({
           ...asTrack(
             {
@@ -1157,7 +1157,7 @@ export class Subsonic {
               genre: maybeAsGenre(entry.genre),
               artistName: entry.artist,
               artistId: entry.artistId,
-              coverArt: coverArtURN(entry.coverArt),
+              coverArt: coverArtToArt(entry.coverArt),
             },
             entry,
             this.customPlayers
@@ -1174,7 +1174,7 @@ export class Subsonic {
       .then(({ playlist }) => ({
         id: playlist.id,
         name: playlist.name,
-        coverArt: coverArtURN(playlist.coverArt),
+        coverArt: coverArtToArt(playlist.coverArt),
       }));
 
     deletePlayList = (credentials: Credentials, id: string) => 

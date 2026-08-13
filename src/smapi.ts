@@ -30,7 +30,7 @@ import { URLBuilder } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
 import _ from "underscore";
-import { BUrn, formatForURL } from "./burn";
+import { Art, formatForURL } from "./art";
 import {
   isExpiredTokenError,
   MissingLoginTokenError,
@@ -334,7 +334,7 @@ const playlist = (bonobUrl: URLBuilder, playlist: PlaylistSummary) => ({
 
 export const coverArtURI = (
   bonobUrl: URLBuilder,
-  { coverArt }: { coverArt?: BUrn | undefined }
+  { coverArt }: { coverArt?: Art | undefined }
 ) =>
   pipe(
     coverArt,

@@ -23,7 +23,7 @@ import {
   Genre,
   Rating,
 } from "../src/music_library";
-import { BUrn } from "../src/burn";
+import { Art } from "../src/art";
 
 export class InMemoryMusicService implements MusicService {
   users: Record<string, string> = {};
@@ -129,7 +129,7 @@ export class InMemoryMusicService implements MusicService {
         ),
       stream: (_: { trackId: string; range: string | undefined }) =>
         Promise.reject("unsupported operation"),
-      coverArt: (coverArtURN: BUrn, size?: number) =>
+      coverArt: (coverArtURN: Art, size?: number) =>
         Promise.reject(`Cannot retrieve coverArt for ${coverArtURN}, size ${size}`),
       scrobble: async (_: string) => {
         return Promise.resolve(true);

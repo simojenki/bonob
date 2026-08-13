@@ -38,7 +38,7 @@ import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils
 import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
 import _ from "underscore";
 import morgan from "morgan";
-import { parse } from "./burn";
+import { parse } from "./art";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 import {
   JWTSmapiLoginTokens,
@@ -595,14 +595,14 @@ function server(
     });
   });
 
-  app.get("/art/:burn/size/:size", (req, res) => {
+  app.get("/art/:art/size/:size", (req, res) => {
     const serviceToken = apiTokens.authTokenFor(
       req.query[BONOB_ACCESS_TOKEN_HEADER] as string
     );
-    const urn = parse(req.params["burn"]!);
+    const art = parse(req.params["art"]!);
     const size = Number.parseInt(req.params["size"]!);
 
-    logger.debug(`Getting art '${JSON.stringify(urn)}' in size ${size}`)
+    logger.debug(`Getting art '${JSON.stringify(art)}' in size ${size}`)
 
     if (!serviceToken) {
       return res.status(401).send();
@@ -613,26 +613,26 @@ function server(
     return musicService
       .login(serviceToken)
       .then((musicLibrary) => {
-        if (urn.system == "external") {
-          return serverOpts.externalImageResolver(urn.resource);
+        if (art.source == "external") {
+          return serverOpts.externalImageResolver(art.id);
         } else {
-          return musicLibrary.coverArt(urn, size);
+          return musicLibrary.coverArt(art, size);
         }
       })
-      .then((coverArt) => {
-        if(coverArt == undefined) {
+      .then((image) => {
+        if(image == undefined) {
           return res.status(404).send();
-        } else if(isValidMimeType(coverArt.contentType)) {
+        } else if(isValidMimeType(image.contentType)) {
           res.status(200);
-          res.setHeader("content-type", coverArt.contentType);
-          return res.send(coverArt.data);
+          res.setHeader("content-type", image.contentType);
+          return res.send(image.data);
         } else {
-          logger.warn(`Invalid content type of ${coverArt.contentType}, detected for ${JSON.stringify(urn)}`);
+          logger.warn(`Invalid content type of ${image.contentType}, detected for ${JSON.stringify(art)}`);
           return res.status(502).send();
         }
     })
       .catch((e: Error) => {
-        logger.error(`Failed fetching image ${JSON.stringify(urn)} (size=${size})`, {
+        logger.error(`Failed fetching image ${JSON.stringify(art)} (size=${size})`, {
           cause: e,
         });
         return res.status(500).send();

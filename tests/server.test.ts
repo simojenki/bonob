@@ -23,7 +23,7 @@ import url from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
 import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
 import { Clock, FixedClock, SystemClock } from "../src/clock";
-import { formatForURL } from "../src/burn";
+import { formatForURL } from "../src/art";
 import { SmapiAuthTokens } from "../src/smapi_auth";
 
 describe("rangeFilterFor", () => {
@@ -1331,7 +1331,7 @@ describe("server", () => {
 
         describe("when there is no access-token", () => {
           it("should return a 401", async () => {
-            const res = await request(server).get(`/art/${encodeURIComponent(formatForURL({ system: "subsonic", resource: "art:whatever" }))}/size/180`);
+            const res = await request(server).get(`/art/${encodeURIComponent(formatForURL({ source: "subsonic", id: "whatever" }))}/size/180`);
 
             expect(res.status).toEqual(401);
           });
@@ -1342,7 +1342,7 @@ describe("server", () => {
             ["0", "-1", "foo"].forEach((size) => {
               describe(`invalid size of ${size}`, () => {
                 it(`should return a 400`, async () => {
-                  const coverArtURN = { system: "subsonic", resource: "art:400" };
+                  const coverArtURN = { source: "subsonic", id: "400" };
 
                   musicService.login.mockResolvedValue(musicLibrary);
                   const res = await request(server)
@@ -1364,7 +1364,7 @@ describe("server", () => {
                 ].forEach((spec) => {
                   describe(`when the requested size is ${spec[0]}`, () => {
                     it(`should ask for the image of size ${spec[1]} and return the result`, async () => {
-                      const coverArtURN = { system: "subsonic", resource: "art:200" };
+                      const coverArtURN = { source: "subsonic", id: "200" };
 
                       const coverArt = coverArtResponse({});
 
@@ -1395,7 +1395,7 @@ describe("server", () => {
 
               describe("when the images is available however it has an invalid content type", () => {
                 it("should return a 502", async () => {
-                  const coverArtURN = { system: "subsonic", resource: "art:200" };
+                  const coverArtURN = { source: "subsonic", id: "200" };
 
                   const coverArt = coverArtResponse({
                     contentType: "not-valid"
@@ -1417,7 +1417,7 @@ describe("server", () => {
 
               describe("when the image is not available", () => {
                 it("should return a 404", async () => {
-                  const coverArtURN = { system: "subsonic", resource: "art:404" };
+                  const coverArtURN = { source: "subsonic", id: "404" };
 
                   musicService.login.mockResolvedValue(musicLibrary);
                   musicLibrary.coverArt.mockResolvedValue(undefined);

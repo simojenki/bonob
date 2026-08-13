@@ -31,7 +31,7 @@ import {
 import _ from "underscore";
 
 import logger from "./logger";
-import { assertSystem, BUrn } from "./burn";
+import { assertSource, Art } from "./art";
 
 export class SubsonicMusicService implements MusicService {
   subsonic: Subsonic;
@@ -199,13 +199,13 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     return this.subsonic.stream(this.credentials, trackId, track.encoding.player, range);
   };
 
-  coverArt = async (coverArtURN: BUrn, size?: number) =>
+  coverArt = async (coverArtURN: Art, size?: number) =>
     Promise.resolve(coverArtURN)
-      .then((it) => assertSystem(it, "subsonic"))
+      .then((it) => assertSource(it, "subsonic"))
       .then((it) =>
         this.subsonic.getCoverArt(
           this.credentials,
-          it.resource.split(":")[1]!,
+          it.id,
           size
         )
       )
