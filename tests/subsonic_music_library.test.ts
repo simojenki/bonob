@@ -58,7 +58,7 @@ import {
   anArtistSummary,
 } from "./builders";
 import { b64Encode } from "../src/b64";
-import { BUrn } from "../src/burn";
+import { Art } from "../src/art";
 import { URLBuilder } from "../src/url_builder";
 
 import { getAlbumJson } from "./subsonic.test";
@@ -99,11 +99,11 @@ const error = (code: string, message: string) => ({
 });
 
 
-const maybeIdFromCoverArtUrn = (coverArt: BUrn | undefined) =>
+const maybeIdFromCoverArtUrn = (coverArt: Art | undefined) =>
   pipe(
     coverArt,
     O.fromNullable,
-    O.map((it) => it.resource.split(":")[1]),
+    O.map((it) => it.id),
     O.getOrElseW(() => "")
   );
 
@@ -2247,8 +2247,8 @@ describe("SubsonicMusicLibrary", () => {
           };
           const coverArtId = "someCoverArt";
           const coverArtURN = {
-            system: "subsonic",
-            resource: `art:${coverArtId}`,
+            source: "subsonic",
+            id: coverArtId,
           };
 
           mockGET.mockImplementationOnce(() => Promise.resolve(streamResponse));
@@ -2285,8 +2285,8 @@ describe("SubsonicMusicLibrary", () => {
           };
           const coverArtId = uuid();
           const coverArtURN = {
-            system: "subsonic",
-            resource: `art:${coverArtId}`,
+            source: "subsonic",
+            id: coverArtId,
           };
           const size = 1879;
 
@@ -2321,7 +2321,7 @@ describe("SubsonicMusicLibrary", () => {
           mockGET.mockImplementationOnce(() => Promise.reject("BOOOM"));
 
           const result = await subsonic.coverArt(
-            { system: "external", resource: "http://localhost:404" },
+            { source: "external", id: "http://localhost:404" },
             size
           );
 
@@ -2331,11 +2331,11 @@ describe("SubsonicMusicLibrary", () => {
     });
 
     describe("fetching cover art", () => {
-      describe("when urn.resource is not subsonic", () => {
+      describe("when urn.source is not subsonic", () => {
         it("should be undefined", async () => {
           const covertArtURN = {
-            system: "notSubsonic",
-            resource: `art:${uuid()}`,
+            source: "notSubsonic",
+            id: uuid(),
           };
 
           const result = await subsonic.coverArt(covertArtURN, 190);
@@ -2348,8 +2348,8 @@ describe("SubsonicMusicLibrary", () => {
         it("should fetch the image", async () => {
           const coverArtId = uuid();
           const covertArtURN = {
-            system: "subsonic",
-            resource: `art:${coverArtId}`,
+            source: "subsonic",
+            id: coverArtId,
           };
 
           const streamResponse = {
@@ -2383,8 +2383,8 @@ describe("SubsonicMusicLibrary", () => {
           it("should return undefined", async () => {
             const coverArtId = uuid();
             const covertArtURN = {
-              system: "subsonic",
-              resource: `art:${coverArtId}`,
+              source: "subsonic",
+              id: coverArtId,
             };
 
             mockGET.mockImplementationOnce(() => Promise.reject("BOOOM"));
@@ -2402,8 +2402,8 @@ describe("SubsonicMusicLibrary", () => {
         it("should fetch the image", async () => {
           const coverArtId = uuid();
           const covertArtURN = {
-            system: "subsonic",
-            resource: `art:${coverArtId}`,
+            source: "subsonic",
+            id: coverArtId,
           };
 
           const streamResponse = {
@@ -2441,8 +2441,8 @@ describe("SubsonicMusicLibrary", () => {
           it("should return undefined", async () => {
             const coverArtId = uuid();
             const covertArtURN = {
-              system: "subsonic",
-              resource: `art:${coverArtId}`,
+              source: "subsonic",
+              id: coverArtId,
             };
 
             mockGET.mockImplementationOnce(() => Promise.reject("BOOOM"));

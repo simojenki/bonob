@@ -49,7 +49,7 @@ The request flow through bonob:
 - **[smapi_auth.ts](src/smapi_auth.ts)** — JWT-based SMAPI login token management (`JWTSmapiLoginTokens`). Handles AppLink auth flow.
 - **[api_tokens.ts](src/api_tokens.ts)** — In-memory store for API tokens that map Sonos device sessions to Subsonic credentials.
 - **[link_codes.ts](src/link_codes.ts)** — Short-lived codes used in the AppLink auth flow (user enters a code in the Sonos app to link their account).
-- **[burn.ts](src/burn.ts)** — BUrn (bonob URN) scheme: `bnb:system:resource`. Used to identify resources (images, tracks) across system boundaries. External URLs get encrypted; internal IDs use shorthand mappings.
+- **[art.ts](src/art.ts)** — Art (bonob URN) scheme: `bnb:source:id`. Used to identify resources (images, tracks) across system boundaries. External URLs get encrypted; internal IDs use shorthand mappings.
 - **[config.ts](src/config.ts)** — Reads all `BNB_*` environment variables (with `BONOB_*` as deprecated legacy names).
 - **[i8n.ts](src/i8n.ts)** — Localization strings for Sonos presentation (en-US, da-DK, nl-NL, fr-FR).
 - **[icon.ts](src/icon.ts)** — SVG icon generation for genres and the bonob service icon.
@@ -58,7 +58,7 @@ The request flow through bonob:
 ## Key patterns
 
 - **fp-ts** is used extensively: `TaskEither` for async operations that can fail, `Option` for nullable values, `pipe` for composition. Understand these before modifying data-flow code.
-- **BUrn** IDs are used everywhere to reference resources. External URLs (artist images from Spotify/etc.) are encrypted when embedded in URNs to avoid exposing them in URLs.
+- **Art** IDs are used everywhere to reference resources. External URLs (artist images from Spotify/etc.) are encrypted when embedded in URNs to avoid exposing them in URLs.
 - **Tests** live in `tests/` and mirror the `src/` file names (e.g. `tests/smapi.test.ts` tests `src/smapi.ts`). Tests use Jest with `ts-jest`, `ts-mockito` for mocking, and `supertest` for HTTP endpoint testing.
 - **TypeScript** is compiled to `./build/` with strict mode enabled (`noImplicitAny`, `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`).
 - The SMAPI SOAP service is bound to Express via the `soap` library using the Sonos WSDL file. Changes to SOAP operations must align with the WSDL.

@@ -139,7 +139,7 @@ export function anArtistSummary(fields: Partial<ArtistSummary> = {}): ArtistSumm
   return {
     id,
     name: `Artist ${id}`,
-    image: { system: "subsonic", resource: `art:${id}` },
+    image: { source: "subsonic", id },
   }
 }
 
@@ -213,7 +213,7 @@ export function aTrackSummary(fields: Partial<TrackSummary> = {}): TrackSummary 
     number: randomInt(100),
     genre,
     artist,
-    coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+    coverArt: { source: "subsonic", id: `${uuid()}`},
     rating,
     ...fields,
   };
@@ -236,7 +236,7 @@ export function anAlbumSummary(fields: Partial<AlbumSummary> = {}): AlbumSummary
     name: `Album ${id}`,
     year: `19${randomInt(99)}`,
     genre: randomGenre(),
-    coverArt: { system: "subsonic", resource: `art:${uuid()}` },
+    coverArt: { source: "subsonic", id: `${uuid()}` },
     artistId: `Artist ${uuid()}`,
     artistName: `Artist ${randomstring.generate()}`,
     ...fields
@@ -285,7 +285,7 @@ export const BLONDIE: Artist = {
       genre: NEW_WAVE,
       artistId: BLONDIE_ID,
       artistName: BLONDIE_NAME,
-      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+      coverArt: { source: "subsonic", id: `${uuid()}`},
     },
     {
       id: uuid(),
@@ -294,10 +294,10 @@ export const BLONDIE: Artist = {
       genre: POP_ROCK,
       artistId: BLONDIE_ID,
       artistName: BLONDIE_NAME,
-      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+      coverArt: { source: "subsonic", id: `${uuid()}`},
     },
   ],
-  image: { system: "external", resource: "http://localhost:1234/images/blondie.jpg" },
+  image: { source: "external", id: "http://localhost:1234/images/blondie.jpg" },
   similarArtists: [],
 };
 
@@ -314,7 +314,7 @@ export const BOB_MARLEY: Artist = {
       genre: REGGAE,
       artistId: BOB_MARLEY_ID,
       artistName: BOB_MARLEY_NAME,
-      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+      coverArt: { source: "subsonic", id: `${uuid()}`},
     },
     {
       id: uuid(),
@@ -323,7 +323,7 @@ export const BOB_MARLEY: Artist = {
       genre: REGGAE,
       artistId: BOB_MARLEY_ID,
       artistName: BOB_MARLEY_NAME,
-      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+      coverArt: { source: "subsonic", id: `${uuid()}`},
     },
     {
       id: uuid(),
@@ -332,10 +332,10 @@ export const BOB_MARLEY: Artist = {
       genre: SKA,
       artistId: BOB_MARLEY_ID,
       artistName: BOB_MARLEY_NAME,
-      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+      coverArt: { source: "subsonic", id: `${uuid()}`},
     },
   ],
-  image: { system: "subsonic", resource: BOB_MARLEY_ID },
+  image: { source: "subsonic", id: BOB_MARLEY_ID },
   similarArtists: [],
 };
 
@@ -346,8 +346,8 @@ export const MADONNA: Artist = {
   name: MADONNA_NAME,
   albums: [],
   image: {
-    system: "external",
-    resource: "http://localhost:1234/images/madonna.jpg",
+    source: "external",
+    id: "http://localhost:1234/images/madonna.jpg",
   },
   similarArtists: [],
 };
@@ -365,7 +365,7 @@ export const METALLICA: Artist = {
       genre: METAL,
       artistId: METALLICA_ID,
       artistName: METALLICA_NAME,
-      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+      coverArt: { source: "subsonic", id: `${uuid()}`},
     },
     {
       id: uuid(),
@@ -374,10 +374,10 @@ export const METALLICA: Artist = {
       genre: METAL,
       artistId: METALLICA_ID,
       artistName: METALLICA_NAME,
-      coverArt: { system: "subsonic", resource: `art:${uuid()}`},
+      coverArt: { source: "subsonic", id: `${uuid()}`},
     },
   ],
-  image: { system: "subsonic", resource: METALLICA_ID },
+  image: { source: "subsonic", id: METALLICA_ID },
   similarArtists: [],
 };
 

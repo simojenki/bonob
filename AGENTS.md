@@ -38,7 +38,7 @@ npx jest --testNamePattern="some test description"
 ## Code conventions
 
 - Heavy use of `fp-ts` (`TaskEither`, `Option`, `pipe`). Do not introduce ad-hoc async error handling in the middle of `fp-ts` pipelines.
-- Resource IDs are BUrn URNs (`bnb:system:resource`). External URLs embedded in URNs are encrypted; internal IDs use shorthand mappings. See `src/burn.ts`.
+- Resource IDs are Art URNs (`bnb:source:id`). External URLs embedded in URNs are encrypted; internal IDs use shorthand mappings. See `src/art.ts`.
 - Code style is not enforced by a formatter/linter; follow the existing TypeScript style.
 
 ## Build / deploy notes

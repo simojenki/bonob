@@ -58,7 +58,7 @@ import { APITokens } from "../src/api_tokens";
 import dayjs from "dayjs";
 import url, { URLBuilder } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
-import { formatForURL } from "../src/burn";
+import { formatForURL } from "../src/art";
 import { FixedClock } from "../src/clock";
 import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
 import { SmapiValidationEvent } from "../src/sonos_wsdl";
@@ -420,7 +420,7 @@ describe("track", () => {
         genre: { id: "genre101", name: "some genre" },
       }),
       artist: anArtist({ name: "great artist", id: uuid() }),
-      coverArt: { system: "subsonic", resource: "887766" },
+      coverArt: { source: "subsonic", id: "887766" },
       rating: {
         love: true,
         stars: 5,
@@ -478,7 +478,7 @@ describe("track", () => {
           genre: { id: "genre101", name: "some genre" },
         }),
         artist: anArtist({ name: "great artist", id: undefined }),
-        coverArt: { system: "subsonic", resource: "887766" },
+        coverArt: { source: "subsonic", id: "887766" },
         rating: {
           love: true,
           stars: 5,
@@ -574,7 +574,7 @@ describe("coverArtURI", () => {
   describe("when there is an album coverArt", () => {
     describe("from subsonic", () => {
       it("should use it", () => {
-        const coverArt = { system: "subsonic", resource: "12345" };
+        const coverArt = { source: "subsonic", id: "12345" };
         expect(
           coverArtURI(bonobUrl, anAlbum({ coverArt })).href()
         ).toEqual(
@@ -588,8 +588,8 @@ describe("coverArtURI", () => {
     describe("that is external", () => {
       it("should use encrypt it", () => {
         const coverArt = {
-          system: "external",
-          resource: "http://example.com/someimage.jpg",
+          source: "external",
+          id: "http://example.com/someimage.jpg",
         };
         expect(
           coverArtURI(bonobUrl, anAlbum({ coverArt })).href()

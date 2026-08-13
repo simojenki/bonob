@@ -1,4 +1,4 @@
-import { BUrn } from "./burn";
+import { Art } from "./art";
 import { taskEither as TE } from "fp-ts";
 
 export type Credentials = { username: string; password: string };
@@ -19,7 +19,7 @@ export class AuthFailure extends Error {
 export type ArtistSummary = {
   id: string | undefined;
   name: string;
-  image: BUrn | undefined;
+  image: Art | undefined;
 };
 
 export type SimilarArtist = ArtistSummary & { inLibrary: boolean };
@@ -35,7 +35,7 @@ export type AlbumSummary = {
   name: string;
   year: string | undefined;
   genre: Genre | undefined;
-  coverArt: BUrn | undefined;
+  coverArt: Art | undefined;
   artistName: string | undefined;
   artistId: string | undefined;
 };
@@ -68,7 +68,7 @@ export type TrackSummary = {
   duration: number;
   number: number | undefined;
   genre: Genre | undefined;
-  coverArt: BUrn | undefined;
+  coverArt: Art | undefined;
   artist: ArtistSummary;
   rating: Rating;
 }
@@ -172,7 +172,7 @@ export type CoverArt = {
 export type PlaylistSummary = {
   id: string,
   name: string,
-  coverArt?: BUrn | undefined
+  coverArt?: Art | undefined
 }
 
 export type Playlist = PlaylistSummary & {
@@ -208,7 +208,7 @@ export interface MusicLibrary {
     range: string | undefined;
   }): Promise<TrackStream>;
   rate(trackId: string, rating: Rating): Promise<boolean>;
-  coverArt(coverArtURN: BUrn, size?: number): Promise<CoverArt | undefined>;
+  coverArt(coverArtURN: Art, size?: number): Promise<CoverArt | undefined>;
   nowPlaying(id: string): Promise<boolean>
   scrobble(id: string): Promise<boolean>
   searchArtists(query: string): Promise<ArtistSummary[]>;
