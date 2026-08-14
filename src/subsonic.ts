@@ -986,31 +986,17 @@ export class Subsonic {
       songs: it.searchResult3.song || [],
     }));
 
-  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) => {
-    const count = Math.min(q._count ?? 500, 500);
-    return Promise.all([
-      this.getArtists(credentials).then((it) =>
-        _.inject(it, (total, artist) => total + artist.albumCount, 0)
-      ),
-      this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
-        type: AlbumQueryTypeToSubsonicType[q.type],
-        ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-        ...(q.fromYear ? { fromYear: q.fromYear } : {}),
-        ...(q.toYear ? { toYear: q.toYear } : {}),
-        size: count,
-        offset: q._index,
-      })
-        .then((response) => response.albumList2.album || [])
-        .then(this.toAlbumSummary),
-    ]).then(([totalEstimate, albums]) => {
-      const hasMorePages = albums.length == count;
-      const exactTotal = (q._index ?? 0) + albums.length;
-      return {
-        results: albums.slice(0, q._count),
-        total: hasMorePages ? totalEstimate : exactTotal,
-      };
-    });
-  };
+  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) =>
+    this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
+      type: AlbumQueryTypeToSubsonicType[q.type],
+      ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+      ...(q.fromYear ? { fromYear: q.fromYear } : {}),
+      ...(q.toYear ? { toYear: q.toYear } : {}),
+      size: Math.min(q._count ?? 500, 500),
+      offset: q._index,
+    })
+      .then((response) => response.albumList2.album || [])
+      .then(this.toAlbumSummary);
 
   getGenres = (credentials: Credentials) =>
     this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>

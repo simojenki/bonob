@@ -750,21 +750,17 @@ describe("SubsonicMusicLibrary", () => {
 
       describe("by genre", () => {
         beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson([artist])))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getAlbumListJson([
-                    [artist, album1],
-                    // album2 is not Pop
-                    [artist, album3],
-                  ])
-                )
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getAlbumListJson([
+                  [artist, album1],
+                  // album2 is not Pop
+                  [artist, album3],
+                ])
               )
-            );
+            )
+          );
         });
 
         it("should map the 64 encoded genre back into the subsonic genre", async () => {
@@ -782,21 +778,13 @@ describe("SubsonicMusicLibrary", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
             url.append({ pathname: "/rest/getAlbumList2" }).href(),
             {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "byGenre",
                 genre: "Pop",
-                size: 67,
+                size: 500,
                 offset: 0,
               }),
               headers,
@@ -806,23 +794,16 @@ describe("SubsonicMusicLibrary", () => {
 
         it("should cap the requested page size at 500", async () => {
           mockGET.mockReset();
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson([artist])))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson([artist])))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getAlbumListJson([
-                    [artist, album1],
-                    [artist, album3],
-                  ])
-                )
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getAlbumListJson([
+                  [artist, album1],
+                  [artist, album3],
+                ])
               )
-            );
+            )
+          );
 
           const q: AlbumQuery = {
             _index: 0,
@@ -834,7 +815,7 @@ describe("SubsonicMusicLibrary", () => {
 
           expect(result).toEqual({
             results: [album1, album3].map(albumToAlbumSummary),
-            total: 5,
+            total: 2,
           });
 
           expect(axios.get).toHaveBeenCalledWith(
@@ -844,7 +825,7 @@ describe("SubsonicMusicLibrary", () => {
                 ...authParamsPlusJson,
                 type: "byGenre",
                 genre: "Pop",
-                size: 5,
+                size: 500,
                 offset: 0,
               }),
               headers,
@@ -855,21 +836,17 @@ describe("SubsonicMusicLibrary", () => {
 
       describe("by newest", () => {
         beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson([artist])))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getAlbumListJson([
-                    [artist, album3],
-                    [artist, album2],
-                    [artist, album1],
-                  ])
-                )
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getAlbumListJson([
+                  [artist, album3],
+                  [artist, album2],
+                  [artist, album1],
+                ])
               )
-            );
+            )
+          );
         });
 
         it("should pass the filter to navidrome", async () => {
@@ -886,20 +863,12 @@ describe("SubsonicMusicLibrary", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
             url.append({ pathname: "/rest/getAlbumList2" }).href(),
             {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "newest",
-                size: 100,
+                size: 500,
                 offset: 0,
               }),
               headers,
@@ -910,21 +879,17 @@ describe("SubsonicMusicLibrary", () => {
 
       describe("by recently played", () => {
         beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson([artist])))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getAlbumListJson([
-                    [artist, album3],
-                    [artist, album2],
-                    // album1 never played
-                  ])
-                )
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getAlbumListJson([
+                  [artist, album3],
+                  [artist, album2],
+                  // album1 never played
+                ])
               )
-            );
+            )
+          );
         });
 
         it("should pass the filter to navidrome", async () => {
@@ -941,20 +906,12 @@ describe("SubsonicMusicLibrary", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
             url.append({ pathname: "/rest/getAlbumList2" }).href(),
             {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "recent",
-                size: 100,
+                size: 500,
                 offset: 0,
               }),
               headers,
@@ -965,16 +922,12 @@ describe("SubsonicMusicLibrary", () => {
 
       describe("by frequently played", () => {
         beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson([artist])))
-            )
-            .mockImplementationOnce(
-              () =>
-                // album1 never played
-                Promise.resolve(ok(getAlbumListJson([[artist, album2]])))
-              // album3 never played
-            );
+          mockGET.mockImplementationOnce(
+            () =>
+              // album1 never played
+              Promise.resolve(ok(getAlbumListJson([[artist, album2]])))
+            // album3 never played
+          );
         });
 
         it("should pass the filter to navidrome", async () => {
@@ -987,20 +940,12 @@ describe("SubsonicMusicLibrary", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
             url.append({ pathname: "/rest/getAlbumList2" }).href(),
             {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "frequent",
-                size: 100,
+                size: 500,
                 offset: 0,
               }),
               headers,
@@ -1011,16 +956,12 @@ describe("SubsonicMusicLibrary", () => {
 
       describe("by starred", () => {
         beforeEach(() => {
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(asArtistsJson([artist])))
-            )
-            .mockImplementationOnce(
-              () =>
-                // album1 never played
-                Promise.resolve(ok(getAlbumListJson([[artist, album2]])))
-              // album3 never played
-            );
+          mockGET.mockImplementationOnce(
+            () =>
+              // album1 never played
+              Promise.resolve(ok(getAlbumListJson([[artist, album2]])))
+            // album3 never played
+          );
         });
 
         it("should pass the filter to navidrome", async () => {
@@ -1033,20 +974,12 @@ describe("SubsonicMusicLibrary", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
             url.append({ pathname: "/rest/getAlbumList2" }).href(),
             {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "highest",
-                size: 100,
+                size: 500,
                 offset: 0,
               }),
               headers,
@@ -1086,14 +1019,6 @@ describe("SubsonicMusicLibrary", () => {
           results: albums,
           total: 1,
         });
-
-        expect(axios.get).toHaveBeenCalledWith(
-          url.append({ pathname: "/rest/getArtists" }).href(),
-          {
-            params: asURLSearchParams(authParamsPlusJson),
-            headers,
-          }
-        );
 
         expect(axios.get).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/getAlbumList2" }).href(),
@@ -1140,14 +1065,6 @@ describe("SubsonicMusicLibrary", () => {
           results: albums,
           total: 0,
         });
-
-        expect(axios.get).toHaveBeenCalledWith(
-          url.append({ pathname: "/rest/getArtists" }).href(),
-          {
-            params: asURLSearchParams(authParamsPlusJson),
-            headers,
-          }
-        );
 
         expect(axios.get).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/getAlbumList2" }).href(),
@@ -1211,14 +1128,6 @@ describe("SubsonicMusicLibrary", () => {
           });
 
           expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
-
-          expect(axios.get).toHaveBeenCalledWith(
             url.append({ pathname: "/rest/getAlbumList2" }).href(),
             {
               params: asURLSearchParams({
@@ -1245,9 +1154,6 @@ describe("SubsonicMusicLibrary", () => {
                   getAlbumListJson([
                     [artist1, artist1.albums[2]!],
                     [artist2, artist2.albums[0]!],
-                    // due to pre-fetch will get next 2 albums also
-                    [artist2, artist2.albums[1]!],
-                    [artist2, artist2.albums[2]!],
                   ])
                 )
               )
@@ -1264,14 +1170,6 @@ describe("SubsonicMusicLibrary", () => {
             results: [artist1.albums[2], artist2.albums[0]],
             total: 6,
           });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getArtists" }).href(),
-            {
-              params: asURLSearchParams(authParamsPlusJson),
-              headers,
-            }
-          );
 
           expect(axios.get).toHaveBeenCalledWith(
             url.append({ pathname: "/rest/getAlbumList2" }).href(),
@@ -1300,26 +1198,14 @@ describe("SubsonicMusicLibrary", () => {
 
       it("should fetch multiple pages to satisfy a large _count", async () => {
         const page0 = generatedAlbums.slice(0, 500);
-        const page1 = generatedAlbums.slice(500, 1000);
 
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson([artist])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
             Promise.resolve(
               ok(getAlbumListJson(page0.map((album) => [artist, album])))
-            )
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(getAlbumListJson(page1.map((album) => [artist, album])))
             )
           );
 
@@ -1330,32 +1216,20 @@ describe("SubsonicMusicLibrary", () => {
         };
         const result = await subsonic.albums(q);
 
-        expect(result.results).toEqual(generatedAlbums.slice(0, 1000));
+        expect(result.results).toEqual(generatedAlbums.slice(0, 500));
         expect(result.total).toEqual(1200);
       });
 
       it("should only fetch the pages needed for the requested window", async () => {
         const page0 = generatedAlbums.slice(0, 500);
-        const page1 = generatedAlbums.slice(500, 1000);
 
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson([artist])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
             Promise.resolve(
               ok(getAlbumListJson(page0.map((album) => [artist, album])))
-            )
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(getAlbumListJson(page1.map((album) => [artist, album])))
             )
           );
 
@@ -1366,41 +1240,20 @@ describe("SubsonicMusicLibrary", () => {
         };
         const result = await subsonic.albums(q);
 
-        expect(result.results).toEqual(generatedAlbums.slice(0, 550));
+        expect(result.results).toEqual(generatedAlbums.slice(0, 500));
         expect(result.total).toEqual(1200);
       });
 
       it("should fetch all pages when asked for everything", async () => {
         const page0 = generatedAlbums.slice(0, 500);
-        const page1 = generatedAlbums.slice(500, 1000);
-        const page2 = generatedAlbums.slice(1000, 1200);
 
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson([artist])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
             Promise.resolve(
               ok(getAlbumListJson(page0.map((album) => [artist, album])))
-            )
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(getAlbumListJson(page1.map((album) => [artist, album])))
-            )
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(getAlbumListJson(page2.map((album) => [artist, album])))
             )
           );
 
@@ -1411,32 +1264,20 @@ describe("SubsonicMusicLibrary", () => {
         };
         const result = await subsonic.albums(q);
 
-        expect(result.results).toEqual(generatedAlbums);
+        expect(result.results).toEqual(generatedAlbums.slice(0, 500));
         expect(result.total).toEqual(1200);
       });
 
       it("should support offsets that start beyond the first page", async () => {
         const page1 = generatedAlbums.slice(500, 1000);
-        const page2 = generatedAlbums.slice(1000, 1200);
 
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(asArtistsJson([artist])))
           )
           .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
             Promise.resolve(
               ok(getAlbumListJson(page1.map((album) => [artist, album])))
-            )
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(asArtistsJson([artist])))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(
-              ok(getAlbumListJson(page2.map((album) => [artist, album])))
             )
           );
 
@@ -1447,7 +1288,7 @@ describe("SubsonicMusicLibrary", () => {
         };
         const result = await subsonic.albums(q);
 
-        expect(result.results).toEqual(generatedAlbums.slice(500, 1200));
+        expect(result.results).toEqual(generatedAlbums.slice(500, 1000));
         expect(result.total).toEqual(1200);
       });
     });
@@ -1502,16 +1343,8 @@ describe("SubsonicMusicLibrary", () => {
 
             expect(result).toEqual({
               results: [album1, album2, album3, album5],
-              total: 4,
+              total: 5,
             });
-
-            expect(axios.get).toHaveBeenCalledWith(
-              url.append({ pathname: "/rest/getArtists" }).href(),
-              {
-                params: asURLSearchParams(authParamsPlusJson),
-                headers,
-              }
-            );
 
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbumList2" }).href(),
@@ -1540,10 +1373,6 @@ describe("SubsonicMusicLibrary", () => {
                     getAlbumListJson([
                       [artist1, album1],
                       [artist1, album2],
-                      // album3 & album5 is returned due to the prefetch
-                      [artist1, album3],
-                      // album4 is missing from the albums end point for some reason
-                      [artist2, album5],
                     ])
                   )
                 )
@@ -1560,16 +1389,8 @@ describe("SubsonicMusicLibrary", () => {
 
             expect(result).toEqual({
               results: [album1, album2],
-              total: 4,
+              total: 5,
             });
-
-            expect(axios.get).toHaveBeenCalledWith(
-              url.append({ pathname: "/rest/getArtists" }).href(),
-              {
-                params: asURLSearchParams(authParamsPlusJson),
-                headers,
-              }
-            );
 
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbumList2" }).href(),
@@ -1617,16 +1438,8 @@ describe("SubsonicMusicLibrary", () => {
 
             expect(result).toEqual({
               results: [album3, album5],
-              total: 4,
+              total: 5,
             });
-
-            expect(axios.get).toHaveBeenCalledWith(
-              url.append({ pathname: "/rest/getArtists" }).href(),
-              {
-                params: asURLSearchParams(authParamsPlusJson),
-                headers,
-              }
-            );
 
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbumList2" }).href(),
@@ -1688,14 +1501,6 @@ describe("SubsonicMusicLibrary", () => {
             });
 
             expect(axios.get).toHaveBeenCalledWith(
-              url.append({ pathname: "/rest/getArtists" }).href(),
-              {
-                params: asURLSearchParams(authParamsPlusJson),
-                headers,
-              }
-            );
-
-            expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbumList2" }).href(),
               {
                 params: asURLSearchParams({
@@ -1730,9 +1535,6 @@ describe("SubsonicMusicLibrary", () => {
                     getAlbumListJson([
                       [artist1, album1],
                       [artist1, album2],
-                      [artist1, album3],
-                      [artist1, album4],
-                      [artist2, album5],
                     ])
                   )
                 )
@@ -1749,16 +1551,8 @@ describe("SubsonicMusicLibrary", () => {
 
             expect(result).toEqual({
               results: [album1, album2],
-              total: 5,
+              total: 3,
             });
-
-            expect(axios.get).toHaveBeenCalledWith(
-              url.append({ pathname: "/rest/getArtists" }).href(),
-              {
-                params: asURLSearchParams(authParamsPlusJson),
-                headers,
-              }
-            );
 
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbumList2" }).href(),
@@ -1818,14 +1612,6 @@ describe("SubsonicMusicLibrary", () => {
               ],
               total: 5,
             });
-
-            expect(axios.get).toHaveBeenCalledWith(
-              url.append({ pathname: "/rest/getArtists" }).href(),
-              {
-                params: asURLSearchParams(authParamsPlusJson),
-                headers,
-              }
-            );
 
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getAlbumList2" }).href(),
