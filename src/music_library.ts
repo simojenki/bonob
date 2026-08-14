@@ -85,8 +85,8 @@ export type RadioStation = {
 }
 
 export type Paging = {
-  _index: number | undefined;
-  _count: number | undefined;
+  _index?: number;
+  _count?: number;
 };
 
 export type Result<T> = {
@@ -111,57 +111,44 @@ export const asResult = <T>([results, total]: [T[], number]) => ({
   total,
 });
 
-const MAX_SUBSONIC_PAGE_SIZE = 500;
+export const asResultx = <T>(results: T[]) => ({
+  results,
+  total: results.length,
+});
 
-export const paginate =
-  <T, Q extends Paging>(
-    total: () => Promise<number>,
-    page: (q: Q) => Promise<Result<T>>
-  ) =>
-  async (q: Q): Promise<Result<T>> => {
-    const desiredCount = q._count ?? Number.MAX_SAFE_INTEGER;
-
-    if (desiredCount <= MAX_SUBSONIC_PAGE_SIZE) {
-      return page(q);
-    }
-
-    const start = q._index ?? 0;
-    const totalCount = await total();
-    const remainingItems = Math.max(0, totalCount - start);
-    const itemsNeeded = Math.min(desiredCount, remainingItems);
-    const pagesToFetch = Math.ceil(itemsNeeded / MAX_SUBSONIC_PAGE_SIZE);
-
-    const pages = await Promise.all(
-      Array.from({ length: pagesToFetch }, (_, i) => {
-        const pageIndex = start + i * MAX_SUBSONIC_PAGE_SIZE;
-        const pageCount = Math.min(
-          MAX_SUBSONIC_PAGE_SIZE,
-          itemsNeeded - i * MAX_SUBSONIC_PAGE_SIZE
-        );
-        return page({
-          ...q,
-          _index: pageIndex,
-          _count: pageCount,
-        } as Q);
-      })
-    );
-
-    return {
-      results: pages.flatMap((it) => it.results),
-      total: totalCount,
-    };
-  };
+export const slice2Result = <T>(paging: Partial<Paging> = {}) => (
+  things: T[]
+): Result<T> => asResult(slice2<T>(paging)(things));
 
 export type ArtistQuery = Paging;
 
-export type AlbumQueryType = 'alphabeticalByArtist' | 'alphabeticalByName' | 'byGenre' | 'byYear' | 'random' | 'recentlyPlayed' | 'mostPlayed' | 'recentlyAdded' | 'favourited' | 'starred';
+const ALBUM_SORT_VALUES = [
+  'alphabeticalByArtist',
+  'alphabeticalByName',
+  'byGenre',
+  'byYear',
+] as const;
+export const ALBUM_SORT_OPTION = new Set<string>(ALBUM_SORT_VALUES);
 
-export type AlbumQuery = Paging & {
-  type: AlbumQueryType;
+const ALBUM_COLLECTION_VALUES = [
+  'recentlyPlayed',
+  'mostPlayed',
+  'recentlyAdded',
+  'favourited',
+  'starred',
+] as const;
+export const ALBUM_COLLECTION_OPTION = new Set<string>(ALBUM_COLLECTION_VALUES);
+
+export type AlbumSort = typeof ALBUM_SORT_VALUES[number];
+export type AlbumCollection = typeof ALBUM_COLLECTION_VALUES[number];
+export type AlbumQueryType = AlbumSort | 'random' | AlbumCollection;
+export type AlbumFilter = {
   genre?: string;
   fromYear?: string;
   toYear?: string;
-};
+}
+
+export type AlbumQuery = Paging & { type: AlbumQueryType; } & AlbumFilter;
 
 export const artistToArtistSummary = (it: Artist): ArtistSummary => ({
   id: it.id,

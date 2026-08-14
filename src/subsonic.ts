@@ -7,7 +7,6 @@ import { generateRandomString } from "./random";
 import {
   Credentials,
   Album,
-  AlbumQuery,
   AlbumSummary,
   Genre,
   Track,
@@ -82,6 +81,13 @@ type artist = {
 type navidrome_artist = {
   sortName: string;
 };
+
+export type AlbumList2Query = { 
+    offset?: number, size?: number,
+    type: string,
+    genre?: string,
+    fromYear?: string, toYear?: string 
+  }
 
 const isNavidromeArtist = (a: artist | (artist & navidrome_artist)): a is artist & navidrome_artist =>
   'sortName' in a;
@@ -693,7 +699,7 @@ export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
     }))
     .catch(() => undefined);
 
-const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
+export const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   alphabeticalByArtist: "alphabeticalByArtist",
   alphabeticalByName: "alphabeticalByName",
   byGenre: "byGenre",
@@ -986,31 +992,17 @@ export class Subsonic {
       songs: it.searchResult3.song || [],
     }));
 
-  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) => {
-    const count = Math.min(q._count ?? 500, 500);
-    return Promise.all([
-      this.getArtists(credentials).then((it) =>
-        _.inject(it, (total, artist) => total + artist.albumCount, 0)
-      ),
-      this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
-        type: AlbumQueryTypeToSubsonicType[q.type],
-        ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-        ...(q.fromYear ? { fromYear: q.fromYear } : {}),
-        ...(q.toYear ? { toYear: q.toYear } : {}),
-        size: count,
-        offset: q._index,
-      })
-        .then((response) => response.albumList2.album || [])
-        .then(this.toAlbumSummary),
-    ]).then(([totalEstimate, albums]) => {
-      const hasMorePages = albums.length == count;
-      const exactTotal = (q._index ?? 0) + albums.length;
-      return {
-        results: albums.slice(0, q._count),
-        total: hasMorePages ? totalEstimate : exactTotal,
-      };
-    });
-  };
+  getAlbumList2 = (credentials: Credentials, q: AlbumList2Query) =>
+    this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
+      type: q.type,
+      ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+      ...(q.fromYear ? { fromYear: q.fromYear } : {}),
+      ...(q.toYear ? { toYear: q.toYear } : {}),
+      size: Math.min(q.size ?? 50, 500),
+      offset: q.offset,
+    })
+      .then((response) => response.albumList2.album || [])
+      .then(this.toAlbumSummary);
 
   getGenres = (credentials: Credentials) =>
     this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>
