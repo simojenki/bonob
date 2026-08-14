@@ -39,6 +39,7 @@ RUN chown -R node:node /home/node/.config
 ENV BUILDAH_ISOLATION=chroot
 ENV _CONTAINERS_USERNS_CONFIGURED=""
 
-RUN npm i -g opencode-ai
+RUN npm i -g opencode-ai && \
+    npm i -g --ignore-scripts @earendil-works/pi-coding-agent
 
 USER node

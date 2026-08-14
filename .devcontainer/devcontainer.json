@@ -10,12 +10,7 @@
         "BNB_DEV_LOCAL_URL": "${localEnv:BNB_DEV_LOCAL_URL}",
         "BNB_DEV_SUBSONIC_URL": "${localEnv:BNB_DEV_SUBSONIC_URL}",
         "BNB_SECRET": "${localEnv:BNB_SECRET}",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "~anthropic/claude-opus-latest",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "~anthropic/claude-sonnet-latest",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "~anthropic/claude-haiku-latest",
-        "CLAUDE_CODE_SUBAGENT_MODEL": "~anthropic/claude-opus-latest"
     },
-    // "postCreateCommand": "bash .devcontainer/setup.sh",
     "remoteUser": "node",
     "remoteEnv": {
         "PATH": "/home/node/.local/bin:${containerEnv:PATH}"
@@ -27,7 +22,6 @@
     ],
     "forwardPorts": [4534],
     "features": {
-        "ghcr.io/anthropics/devcontainer-features/claude-code:1.0.5": {}
     },
     "customizations": {
         "vscode": {
