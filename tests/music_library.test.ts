@@ -4,6 +4,7 @@ import { anArtist } from "./builders";
 import {
   artistToArtistSummary,
   slice2,
+  slice2Result,
 } from "../src/music_library";
 
 describe("slice2", () => {
@@ -35,6 +36,28 @@ describe("slice2", () => {
 
   it("should always report the total as the full length regardless of paging", () => {
     expect(slice2({ _index: 2, _count: 1 })(items)[1]).toEqual(5);
+  });
+});
+
+describe("slice2Result", () => {
+  const items = [10, 20, 30, 40, 50];
+
+  it("should return all items when neither _index nor _count are provided", () => {
+    expect(slice2Result()(items)).toEqual({
+      results: items,
+      total: 5,
+    });
+  });
+
+  it("should return a page of items when _index and _count are defined", () => {
+    expect(slice2Result({ _index: 1, _count: 2 })(items)).toEqual({
+      results: [20, 30],
+      total: 5,
+    });
+  });
+
+  it("should report the total as the full length regardless of paging", () => {
+    expect(slice2Result({ _index: 2, _count: 1 })(items).total).toEqual(5);
   });
 });
 

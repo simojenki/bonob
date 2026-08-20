@@ -26,6 +26,8 @@ import {
 import {
   SubsonicMusicService,
   SubsonicMusicLibrary,
+  slurpAllPages,
+  withTotalAndPage,
 } from "../src/subsonic_music_library";
 
 import {
@@ -451,6 +453,122 @@ export const asArtistsJson = (artists: (Artist & { sortName?: string })[], ignor
     },
   });
 };
+
+describe("slurpAllPages", () => {
+  it("should return an empty array when the first page is empty", async () => {
+    const page = jest.fn().mockResolvedValue([]);
+
+    const result = await slurpAllPages(page);
+
+    expect(result).toEqual([]);
+    expect(page).toHaveBeenCalledTimes(1);
+    expect(page).toHaveBeenCalledWith({ _index: 0, _count: 500 });
+  });
+
+  it("should stop after one page when fewer than 500 items are returned", async () => {
+    const page = jest.fn().mockResolvedValue([1, 2, 3]);
+
+    const result = await slurpAllPages(page);
+
+    expect(result).toEqual([1, 2, 3]);
+    expect(page).toHaveBeenCalledTimes(1);
+    expect(page).toHaveBeenCalledWith({ _index: 0, _count: 500 });
+  });
+
+  it("should request the next page when exactly 500 items are returned", async () => {
+    const firstPage = Array.from({ length: 500 }, (_, i) => i);
+    const secondPage = [500, 501];
+    const page = jest
+      .fn()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage);
+
+    const result = await slurpAllPages(page);
+
+    expect(result).toEqual([...firstPage, ...secondPage]);
+    expect(page).toHaveBeenCalledTimes(2);
+    expect(page).toHaveBeenNthCalledWith(1, { _index: 0, _count: 500 });
+    expect(page).toHaveBeenNthCalledWith(2, { _index: 500, _count: 500 });
+  });
+
+  it("should keep requesting pages until a partial page is returned", async () => {
+    const page = jest
+      .fn()
+      .mockResolvedValueOnce(Array.from({ length: 500 }, (_, i) => i))
+      .mockResolvedValueOnce(Array.from({ length: 500 }, (_, i) => i + 500))
+      .mockResolvedValueOnce(Array.from({ length: 500 }, (_, i) => i + 1000))
+      .mockResolvedValueOnce([1500, 1501, 1502]);
+
+    const result = await slurpAllPages(page);
+
+    expect(result).toEqual(Array.from({ length: 1503 }, (_, i) => i));
+    expect(page).toHaveBeenCalledTimes(4);
+    expect(page).toHaveBeenNthCalledWith(1, { _index: 0, _count: 500 });
+    expect(page).toHaveBeenNthCalledWith(2, { _index: 500, _count: 500 });
+    expect(page).toHaveBeenNthCalledWith(3, { _index: 1000, _count: 500 });
+    expect(page).toHaveBeenNthCalledWith(4, { _index: 1500, _count: 500 });
+  });
+
+  it("should pass the paging parameters to the page function", async () => {
+    const page = jest.fn().mockResolvedValue([]);
+
+    await slurpAllPages(page);
+
+    expect(page).toHaveBeenCalledWith({ _index: 0, _count: 500 });
+  });
+});
+
+describe("withTotalAndPage", () => {
+  it("should return the page and use the page end index as total when it exceeds the estimated total", async () => {
+    const total = jest.fn().mockResolvedValue(1);
+    const page = jest.fn().mockResolvedValue({ results: [1, 2, 3], index: 0 });
+
+    const result = await withTotalAndPage(total, page);
+
+    expect(result).toEqual({
+      results: [1, 2, 3],
+      total: 3,
+    });
+    expect(total).toHaveBeenCalledTimes(1);
+    expect(page).toHaveBeenCalledTimes(1);
+  });
+
+  it("should account for a non-zero page index when computing the total", async () => {
+    const total = jest.fn().mockResolvedValue(1);
+    const page = jest.fn().mockResolvedValue({ results: [1, 2], index: 10 });
+
+    const result = await withTotalAndPage(total, page);
+
+    expect(result).toEqual({
+      results: [1, 2],
+      total: 12,
+    });
+  });
+
+  it("should return the estimated total when it exceeds the page end index", async () => {
+    const total = jest.fn().mockResolvedValue(10);
+    const page = jest.fn().mockResolvedValue({ results: [1, 2], index: 0 });
+
+    const result = await withTotalAndPage(total, page);
+
+    expect(result).toEqual({
+      results: [1, 2],
+      total: 10,
+    });
+  });
+
+  it("should return the estimated total when the page is empty", async () => {
+    const total = jest.fn().mockResolvedValue(5);
+    const page = jest.fn().mockResolvedValue({ results: [], index: 0 });
+
+    const result = await withTotalAndPage(total, page);
+
+    expect(result).toEqual({
+      results: [],
+      total: 5,
+    });
+  });
+});
 
 describe("SubsonicMusicService", () => {
   beforeEach(() => {
@@ -979,6 +1097,142 @@ describe("SubsonicMusicLibrary", () => {
               params: asURLSearchParams({
                 ...authParamsPlusJson,
                 type: "highest",
+                size: 500,
+                offset: 0,
+              }),
+              headers,
+            }
+          );
+        });
+      });
+
+      describe("filtered collection", () => {
+        it("should derive the total from the unfiltered collection and delegate the filter to subsonic", async () => {
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(
+                ok(
+                  getAlbumListJson([
+                    [artist, album1],
+                    [artist, album2],
+                    [artist, album3],
+                  ])
+                )
+              )
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumListJson([[artist, album1]])))
+            );
+
+          const q: AlbumQuery = {
+            _index: 0,
+            _count: 100,
+            type: "recentlyPlayed",
+            genre: b64Encode("Pop"),
+          };
+          const result = await subsonic.albums(q);
+
+          expect(result).toEqual({
+            results: [album1].map(albumToAlbumSummary),
+            total: 3,
+          });
+
+          expect(axios.get).toHaveBeenCalledTimes(2);
+
+          const calls = (axios.get as jest.Mock).mock.calls.filter(
+            ([callUrl]: [string]) =>
+              callUrl === url.append({ pathname: "/rest/getAlbumList2" }).href()
+          );
+          expect(calls).toHaveLength(2);
+
+          const params = calls.map(([, { params }]: [string, { params: URLSearchParams }]) =>
+            params.toString()
+          );
+
+          expect(params).toEqual(
+            expect.arrayContaining([
+              asURLSearchParams({
+                ...authParamsPlusJson,
+                type: "recent",
+                size: 500,
+                offset: 0,
+              }).toString(),
+              asURLSearchParams({
+                ...authParamsPlusJson,
+                type: "recent",
+                genre: "Pop",
+                size: 100,
+                offset: 0,
+              }).toString(),
+            ])
+          );
+        });
+      });
+
+      describe("random", () => {
+        it("should pass through to subsonic with the estimated total from artists", async () => {
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(asArtistsJson([artist])))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getAlbumListJson([[artist, album1]])))
+            );
+
+          const q: AlbumQuery = { type: "random", _index: undefined, _count: undefined };
+          const result = await subsonic.albums(q);
+
+          expect(result).toEqual({
+            results: [album1].map(albumToAlbumSummary),
+            total: 5,
+          });
+
+          const calls = (axios.get as jest.Mock).mock.calls.filter(
+            ([callUrl]: [string]) =>
+              callUrl === url.append({ pathname: "/rest/getAlbumList2" }).href()
+          );
+          expect(calls).toHaveLength(1);
+
+          const params = (calls[0]![1] as { params: URLSearchParams }).params;
+          expect(params.get("type")).toEqual("random");
+          expect(params.get("size")).toEqual("500");
+        });
+      });
+
+      describe("paged collection", () => {
+        it("should load the whole collection and return only the requested page", async () => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getAlbumListJson([
+                  [artist, album1],
+                  [artist, album2],
+                  [artist, album3],
+                  [artist, album4],
+                  [artist, album5],
+                ])
+              )
+            )
+          );
+
+          const q: AlbumQuery = {
+            _index: 2,
+            _count: 2,
+            type: "recentlyPlayed",
+          };
+          const result = await subsonic.albums(q);
+
+          expect(result).toEqual({
+            results: [album3, album4].map(albumToAlbumSummary),
+            total: 5,
+          });
+
+          expect(axios.get).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/getAlbumList2" }).href(),
+            {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                type: "recent",
                 size: 500,
                 offset: 0,
               }),
