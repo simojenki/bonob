@@ -85,8 +85,8 @@ export type RadioStation = {
 }
 
 export type Paging = {
-  _index: number | undefined;
-  _count: number | undefined;
+  _index?: number;
+  _count?: number;
 };
 
 export type Result<T> = {

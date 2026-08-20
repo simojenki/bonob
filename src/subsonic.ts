@@ -693,7 +693,7 @@ export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
     }))
     .catch(() => undefined);
 
-const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
+export const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   alphabeticalByArtist: "alphabeticalByArtist",
   alphabeticalByName: "alphabeticalByName",
   byGenre: "byGenre",
