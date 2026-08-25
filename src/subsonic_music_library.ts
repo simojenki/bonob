@@ -28,6 +28,8 @@ import {
   asYear,
   isValidImage,
   SONOS_CLIENT_INFO,
+  AlbumList2Query,
+  AlbumQueryTypeToSubsonicType,
 } from "./subsonic";
 import _ from "underscore";
 
@@ -182,8 +184,8 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       Array.from({ length: pagesToFetch }, (_, i) =>
         this.subsonic.getAlbumList2(this.credentials, {
           type: q.type,
-          _index: i * 500,
-          _count: 500,
+          offset: i * 500,
+          size: 500,
         })
       )
     );
@@ -192,6 +194,15 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     return slice2Result<AlbumSummary>(q)(albums);
   };
 
+  private albumQueryToAlbumList2Query = (q: AlbumQuery): AlbumList2Query => ({
+      type: AlbumQueryTypeToSubsonicType[q.type],
+      offset: q._index ?? 0,
+      size: q._count ?? 500,
+      genre: q.genre,
+      fromYear: q.fromYear,
+      toYear: q.toYear
+    })
+
   private querySubsonicUseTotalFromArtists = (
     q: AlbumQuery
   ): Promise<Result<AlbumSummary>> =>
@@ -199,7 +210,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       () => this.albumsTotalFromArtists(),
       () =>
         this.subsonic
-          .getAlbumList2(this.credentials, q)
+          .getAlbumList2(this.credentials, this.albumQueryToAlbumList2Query(q))
           .then((albums) => ({ results: albums, index: q._index ?? 0 }))
     );
 
@@ -207,7 +218,11 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     q: AlbumQuery
   ): Promise<Result<AlbumSummary>> =>
     slurpAllPages((page) =>
-      this.subsonic.getAlbumList2(this.credentials, { ...q, ...page })
+      this.subsonic.getAlbumList2(this.credentials, {
+        ...this.albumQueryToAlbumList2Query(q),
+        offset: page._index,
+        size: page._count,
+      })
     ).then(slice2Result<AlbumSummary>(q));
 
   albums = (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
@@ -215,9 +230,9 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       case "random":
         return this.querySubsonicUseTotalFromArtists(q);
 
-      case "recent":
-      case "mostPlayed":
       case "recentlyAdded":
+      case "mostPlayed":
+      case "recentlyPlayed":
       case "favourited":
       case "starred":
       case "byGenre":

@@ -991,7 +991,7 @@ describe("SubsonicMusicLibrary", () => {
                   {
                     params: asURLSearchParams({
                       ...authParamsPlusJson,
-                      type: AlbumQueryTypeToSubsonicType[type],
+                      type: AlbumQueryTypeToSubsonicType[type as AlbumQueryType],
                       size: 500,
                       offset: 0,
                     }),
