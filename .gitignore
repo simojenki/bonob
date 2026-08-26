@@ -3,6 +3,7 @@
 build
 ignore
 .ignore
+.gitinfo
 node_modules
 .yarn/*
 !.yarn/patches

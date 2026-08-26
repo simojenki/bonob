@@ -7,7 +7,6 @@ import { generateRandomString } from "./random";
 import {
   Credentials,
   Album,
-  AlbumQuery,
   AlbumSummary,
   Genre,
   Track,
@@ -82,6 +81,13 @@ type artist = {
 type navidrome_artist = {
   sortName: string;
 };
+
+export type AlbumList2Query = { 
+    offset?: number, size?: number,
+    type: string,
+    genre?: string,
+    fromYear?: string, toYear?: string 
+  }
 
 const isNavidromeArtist = (a: artist | (artist & navidrome_artist)): a is artist & navidrome_artist =>
   'sortName' in a;
@@ -693,7 +699,7 @@ export const axiosImageFetcher = (url: string): Promise<CoverArt | undefined> =>
     }))
     .catch(() => undefined);
 
-const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
+export const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   alphabeticalByArtist: "alphabeticalByArtist",
   alphabeticalByName: "alphabeticalByName",
   byGenre: "byGenre",
@@ -834,6 +840,11 @@ export class Subsonic {
   getArtists = (
     credentials: Credentials
   ): Promise<(ArtistSummary & Sortable & { albumCount: number })[]> =>
+    // TODO: This fetches every artist then slices client-side.  Consider using
+    // /rest/getArtistList instead, which supports server-side pagination
+    // (size/offset/totalCount) and is much faster for large libraries.  Not all
+    // Subsonic servers expose /rest/getArtistList, so a fallback to
+    // /rest/getArtists is required.
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => ({
         ignoredArticles: new Set((it.artists.ignoredArticles || "").toLowerCase().split(" ").filter(Boolean)),
@@ -981,25 +992,17 @@ export class Subsonic {
       songs: it.searchResult3.song || [],
     }));
 
-  getAlbumList2 = (credentials: Credentials, q: AlbumQuery) =>
-    Promise.all([
-      this.getArtists(credentials).then((it) =>
-        _.inject(it, (total, artist) => total + artist.albumCount, 0)
-      ),
-      this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
-        type: AlbumQueryTypeToSubsonicType[q.type],
-        ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
-        ...(q.fromYear ? { fromYear: q.fromYear } : {}),
-        ...(q.toYear ? { toYear: q.toYear } : {}),
-        size: 500,
-        offset: q._index,
-      })
-        .then((response) => response.albumList2.album || [])
-        .then(this.toAlbumSummary),
-    ]).then(([total, albums]) => ({
-      results: albums.slice(0, q._count),
-      total: albums.length == 500 ? total : (q._index ?? 0) + albums.length,
-    }));
+  getAlbumList2 = (credentials: Credentials, q: AlbumList2Query) =>
+    this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
+      type: q.type,
+      ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
+      ...(q.fromYear ? { fromYear: q.fromYear } : {}),
+      ...(q.toYear ? { toYear: q.toYear } : {}),
+      size: Math.min(q.size ?? 50, 500),
+      offset: q.offset,
+    })
+      .then((response) => response.albumList2.album || [])
+      .then(this.toAlbumSummary);
 
   getGenres = (credentials: Credentials) =>
     this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>

@@ -6,7 +6,6 @@ import {
   ArtistSummary,
   Sortable,
   Result,
-  slice2,
   AlbumQuery,
   ArtistQuery,
   MusicLibrary,
@@ -16,6 +15,8 @@ import {
   Artist,
   AuthFailure,
   AuthSuccess,
+  Paging,
+  slice2Result,
 } from "./music_library";
 import {
   Subsonic,
@@ -27,6 +28,8 @@ import {
   asYear,
   isValidImage,
   SONOS_CLIENT_INFO,
+  AlbumList2Query,
+  AlbumQueryTypeToSubsonicType,
 } from "./subsonic";
 import _ from "underscore";
 
@@ -77,6 +80,41 @@ export class SubsonicMusicService implements MusicService {
   };
 }
 
+export const slurpAllPages = async <R>(
+  readPage: (page: Paging) => Promise<R[]>
+): Promise<R[]> => {
+  const results: R[] = [];
+  let pageIndex = 0;
+  let done = false;
+
+  while (!done) {
+    const items = await readPage({
+      _index: pageIndex,
+      _count: 500,
+    });
+    results.push(...items);
+    done = items.length < 500;
+    pageIndex += 500;
+  }
+
+  return results;
+};
+
+export const withTotalAndPage = async <T>(
+  total: () => Promise<number>,
+  page: () => Promise<{ results: T[]; index: number }>
+): Promise<Result<T>> => {
+  const [estimatedTotal, paged] = await Promise.all([
+    total(), 
+    page()
+  ]);
+
+  return {
+    results: paged.results,
+    total: Math.max(estimatedTotal, paged.index + paged.results.length),
+  };
+};
+
 export class SubsonicMusicLibrary implements MusicLibrary {
   subsonic: Subsonic;
   credentials: Credentials;
@@ -98,11 +136,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
     this.subsonic
       .getArtists(this.credentials)
-      .then(slice2(q))
-      .then(([page, total]) => ({
-        total,
-        results: page,
-      }));
+      .then(slice2Result(q));
 
   artist = async (id: string): Promise<Artist> =>
     Promise.all([
@@ -127,8 +161,90 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       similarArtists: artistInfo.similarArtist,
     }));
 
-  albums = async (q: AlbumQuery): Promise<Result<AlbumSummary>> =>
-    this.subsonic.getAlbumList2(this.credentials, q);
+  private albumsTotalFromArtists = () =>
+    this.subsonic
+      .getArtists(this.credentials)
+      .then((artists) =>
+        _.inject(artists, (total, artist) => total + artist.albumCount, 0)
+      );
+
+  private getAllAlbumsAndSlice = async (
+    q: AlbumQuery
+  ): Promise<Result<AlbumSummary>> => {
+    const estimatedTotal = await this.albumsTotalFromArtists();
+
+    if (estimatedTotal === 0) {
+      return { results: [], total: 0 };
+    }
+
+    const pageCount = Math.ceil(estimatedTotal / 500);
+    const pagesToFetch = estimatedTotal % 500 === 0 ? pageCount + 1 : pageCount;
+
+    const pages = await Promise.all(
+      Array.from({ length: pagesToFetch }, (_, i) =>
+        this.subsonic.getAlbumList2(this.credentials, {
+          type: q.type,
+          offset: i * 500,
+          size: 500,
+        })
+      )
+    );
+
+    const albums = pages.flat() as AlbumSummary[];
+    return slice2Result<AlbumSummary>(q)(albums);
+  };
+
+  private albumQueryToAlbumList2Query = (q: AlbumQuery): AlbumList2Query => ({
+      type: AlbumQueryTypeToSubsonicType[q.type],
+      offset: q._index ?? 0,
+      size: q._count ?? 500,
+      genre: q.genre,
+      fromYear: q.fromYear,
+      toYear: q.toYear
+    })
+
+  private querySubsonicUseTotalFromArtists = (
+    q: AlbumQuery
+  ): Promise<Result<AlbumSummary>> =>
+    withTotalAndPage(
+      () => this.albumsTotalFromArtists(),
+      () =>
+        this.subsonic
+          .getAlbumList2(this.credentials, this.albumQueryToAlbumList2Query(q))
+          .then((albums) => ({ results: albums, index: q._index ?? 0 }))
+    );
+
+  private getAllAlbumsThatMatchQueryAndSlice = (
+    q: AlbumQuery
+  ): Promise<Result<AlbumSummary>> =>
+    slurpAllPages((page) =>
+      this.subsonic.getAlbumList2(this.credentials, {
+        ...this.albumQueryToAlbumList2Query(q),
+        offset: page._index,
+        size: page._count,
+      })
+    ).then(slice2Result<AlbumSummary>(q));
+
+  albums = (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
+    switch (q.type) {
+      case "random":
+        return this.querySubsonicUseTotalFromArtists(q);
+
+      case "recentlyAdded":
+      case "mostPlayed":
+      case "recentlyPlayed":
+      case "favourited":
+      case "starred":
+      case "byGenre":
+      case "byYear":
+        return this.getAllAlbumsThatMatchQueryAndSlice(q);
+
+      default:
+        return q._count !== undefined && q._count <= 500
+          ? this.querySubsonicUseTotalFromArtists(q)
+          : this.getAllAlbumsAndSlice(q);
+    }
+  };
 
   album = (id: string): Promise<Album> =>
     this.subsonic.getAlbum(this.credentials, id);
@@ -286,24 +402,17 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   radioStation = async (id: string) =>
     this.radioStations().then((it) => it.find((station) => station.id === id)!);
 
-  years = async () => {
-    const q: AlbumQuery = {
-      _index: 0,
-      _count: 100000, // FIXME: better than this, probably doesnt work anyway as max _count is 500 or something
-      type: "alphabeticalByArtist",
-    };
-    const years = this.subsonic
-      .getAlbumList2(this.credentials, q)
-      .then(({ results }) =>
-        results
-          .map((album) => album.year || "?")
-          .filter((item, i, ar) => ar.indexOf(item) === i)
-          .sort()
-          .map((year) => ({
-            ...asYear(year),
-          }))
-          .reverse()
-      );
-    return years;
-  };
+  years = async () => this.albums({
+    type: "alphabeticalByArtist",
+  }).then(({ results }) =>
+    results
+    // todo: need to filter out albums without years and cannot get them back from subsonic anyway
+      .map((album) => album.year || "?")
+      .filter((item, i, ar) => ar.indexOf(item) === i)
+      .sort()
+      .map((year) => ({
+        ...asYear(year),
+      }))
+      .reverse()
+  );
 }
