@@ -25,14 +25,36 @@ export const isChristmas = fixedDateMonthEvent("25/12");
 export const isMay4 = fixedDateMonthEvent("04/05");
 export const isHalloween = fixedDateMonthEvent("31/10");
 export const isHoli = anyOf(
-  ["2022/03/18", "2023/03/07", "2024/03/25", "2025/03/14"].map(fixedDateEvent)
+  [
+    "2022/03/18", 
+    "2023/03/07", 
+    "2024/03/25", 
+    "2025/03/14", 
+    "2026/03/03", 
+    "2027/03/22", 
+    "2028/03/11", 
+    "2029/03/01", 
+    "2030/03/20"
+  ].map(fixedDateEvent)
 )
 
 export const isCNY_2022 = fixedDateEvent("2022/02/01");
 export const isCNY_2023 = fixedDateEvent("2023/01/22");
 export const isCNY_2024 = fixedDateEvent("2024/02/10");
 export const isCNY_2025 = fixedDateEvent("2025/02/29");
-export const isCNY = anyOf([isCNY_2022, isCNY_2023, isCNY_2024, isCNY_2025]);
+// no icons for these...
+export const isCNY_2026 = fixedDateEvent("2026/02/17");
+export const isCNY_2027 = fixedDateEvent("2027/02/06");
+export const isCNY_2028 = fixedDateEvent("2028/01/26");
+export const isCNY_2029 = fixedDateEvent("2029/02/13");
+export const isCNY_2030 = fixedDateEvent("2030/02/03");
+
+export const isCNY = anyOf([
+  isCNY_2022, 
+  isCNY_2023, 
+  isCNY_2024, 
+  isCNY_2025,  
+]);
 
 export interface Clock {
   now(): Dayjs;
