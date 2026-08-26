@@ -1466,7 +1466,7 @@ describe("SubsonicMusicLibrary", () => {
       });
 
       describe("querying without paging", () => {
-        it("should return all albums using readAllInParallel", async () => {
+        it("should return all albums without paging", async () => {
           mockGET
             .mockImplementationOnce(() =>
               Promise.resolve(ok(asArtistsJson(artists)))
