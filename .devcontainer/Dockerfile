@@ -11,6 +11,7 @@ RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
         containernetworking-plugins \
+        fd-find \
         jq \
         g++ \
         git \
@@ -18,6 +19,7 @@ RUN apt-get update && \
         make \
         podman \
         python3 \
+        ripgrep \
         sudo \
         tzdata \
         vim && \
