@@ -223,7 +223,7 @@ export interface MusicService {
 export interface MusicLibrary {
   artists(q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>>;
   artist(id: string): Promise<Artist>;
-  albums(q: AlbumQuery): Promise<Result<AlbumSummary>>;
+  albums(q: AlbumQuery): Promise<Result<AlbumSummary & Sortable>>;
   album(id: string): Promise<Album>;
   track(trackId: string): Promise<Track>;
   genres(): Promise<Genre[]>;

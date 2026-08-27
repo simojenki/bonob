@@ -12,6 +12,7 @@ import { SonosWSDL, SONOS_SERVICES_NAMESPACE } from "./sonos_wsdl";
 import { LinkCodes } from "./link_codes";
 import {
   AlbumQuery,
+  AlbumQueryType,
   AlbumSummary,
   ArtistSummary,
   Genre,
@@ -81,6 +82,8 @@ export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "1242",
   "1500",
 ];
+
+export const ALBUMS_SORT_TYPE: AlbumQueryType = "alphabeticalByName";
 
 export const WSDL_FILE = path.resolve(
   __dirname,
@@ -864,6 +867,7 @@ function bindSmapiSoapServiceToExpress(
                           id: "albums",
                           itemType: "albumList",
                           title: lang("albums"),
+                          canScroll: true,
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "albums").href()),
                         },
                         {
@@ -972,7 +976,7 @@ function bindSmapiSoapServiceToExpress(
                     });
                   case "albums": {
                     return albums({
-                      type: "alphabeticalByName",
+                      type: ALBUMS_SORT_TYPE,
                       ...paging,
                     });
                   }
@@ -1145,6 +1149,13 @@ function bindSmapiSoapServiceToExpress(
                   .then(({ musicLibrary }) => musicLibrary.artists({ _index: 0, _count: undefined }))
                   .then((artists) => ({
                     getScrollIndicesResult: scrollIndicesFrom(artists.results)
+                  }));
+              }
+              case "albums": {
+                return login(findLoginToken(soapyHeaders, headers))
+                  .then(({ musicLibrary }) => musicLibrary.albums({ type: ALBUMS_SORT_TYPE, _index: 0, _count: undefined }))
+                  .then((albums) => ({
+                    getScrollIndicesResult: scrollIndicesFrom(albums.results)
                   }));
               }
               default:

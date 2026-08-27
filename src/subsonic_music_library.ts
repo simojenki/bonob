@@ -17,6 +17,7 @@ import {
   AuthSuccess,
   Paging,
   slice2Result,
+  Track,
 } from "./music_library";
 import {
   Subsonic,
@@ -30,11 +31,31 @@ import {
   SONOS_CLIENT_INFO,
   AlbumList2Query,
   AlbumQueryTypeToSubsonicType,
+  album,
+  song,
+  maybeAsGenre,
+  coverArtToArt,
+  NavidromeSortName,
+  isNavidromeAlbum,
+  asTrack,
+  asTrackSummary,
 } from "./subsonic";
 import _ from "underscore";
 
 import logger from "./logger";
 import { assertSource, Art } from "./art";
+
+export const asAlbumSummary = (album: album & Partial<NavidromeSortName>): AlbumSummary & Sortable => ({
+  id: album.id,
+  name: album.name,
+  year: album.year,
+  genre: maybeAsGenre(album.genre),
+  artistId: album.artistId,
+  artistName: album.artist,
+  coverArt: coverArtToArt(album.coverArt),
+  _sortBy: isNavidromeAlbum(album) ? album.sortName : album.name,
+});
+
 
 export class SubsonicMusicService implements MusicService {
   subsonic: Subsonic;
@@ -170,7 +191,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
 
   private getAllAlbumsAndSlice = async (
     q: AlbumQuery
-  ): Promise<Result<AlbumSummary>> => {
+  ): Promise<Result<AlbumSummary & Sortable>> => {
     const estimatedTotal = await this.albumsTotalFromArtists();
 
     if (estimatedTotal === 0) {
@@ -187,11 +208,12 @@ export class SubsonicMusicLibrary implements MusicLibrary {
           offset: i * 500,
           size: 500,
         })
+        .then((albums) => albums.map(asAlbumSummary))
       )
     );
 
-    const albums = pages.flat() as AlbumSummary[];
-    return slice2Result<AlbumSummary>(q)(albums);
+    const albums = pages.flat();
+    return slice2Result<AlbumSummary & Sortable>(q)(albums);
   };
 
   private albumQueryToAlbumList2Query = (q: AlbumQuery): AlbumList2Query => ({
@@ -205,27 +227,29 @@ export class SubsonicMusicLibrary implements MusicLibrary {
 
   private querySubsonicUseTotalFromArtists = (
     q: AlbumQuery
-  ): Promise<Result<AlbumSummary>> =>
+  ): Promise<Result<AlbumSummary & Sortable>> =>
     withTotalAndPage(
       () => this.albumsTotalFromArtists(),
       () =>
         this.subsonic
           .getAlbumList2(this.credentials, this.albumQueryToAlbumList2Query(q))
+          .then((albums) => albums.map(asAlbumSummary))
           .then((albums) => ({ results: albums, index: q._index ?? 0 }))
     );
 
   private getAllAlbumsThatMatchQueryAndSlice = (
     q: AlbumQuery
-  ): Promise<Result<AlbumSummary>> =>
+  ): Promise<Result<AlbumSummary & Sortable>> =>
     slurpAllPages((page) =>
       this.subsonic.getAlbumList2(this.credentials, {
         ...this.albumQueryToAlbumList2Query(q),
         offset: page._index,
         size: page._count,
       })
-    ).then(slice2Result<AlbumSummary>(q));
+      .then((albums) => albums.map(asAlbumSummary))
+    ).then(slice2Result<AlbumSummary & Sortable>(q));
 
-  albums = (q: AlbumQuery): Promise<Result<AlbumSummary>> => {
+  albums = (q: AlbumQuery): Promise<Result<AlbumSummary & Sortable>> => {
     switch (q.type) {
       case "random":
         return this.querySubsonicUseTotalFromArtists(q);
@@ -246,33 +270,69 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     }
   };
 
-  album = (id: string): Promise<Album> =>
-    this.subsonic.getAlbum(this.credentials, id);
+  album = (id: string): Promise<Album & Sortable> =>
+    this.subsonic.getAlbum(this.credentials, id).then((album) => {
+      const albumSummary: AlbumSummary = {
+        id: album.id,
+        name: album.name,
+        year: album.year,
+        genre: maybeAsGenre(album.genre),
+        artistId: album.artistId,
+        artistName: album.artist,
+        coverArt: coverArtToArt(album.coverArt),
+      };
+      const sortable: Sortable = {
+        _sortBy: isNavidromeAlbum(album) ? album.sortName : album.name,
+      };
+      const tracks = album.song.map((it) =>
+        asTrack({ ...albumSummary, ...sortable }, it, this.customPlayers)
+      );
+      return {
+        ...albumSummary,
+        ...sortable,
+        tracks,
+      };
+    });
 
   genres = () => 
     this.subsonic.getGenres(this.credentials);
 
+  private trackFromSong = async (song: song): Promise<Track> => {
+    const album = await this.subsonic.getAlbum(this.credentials, song.albumId!);
+    const albumSummary: AlbumSummary = {
+      id: album.id,
+      name: album.name,
+      year: album.year,
+      genre: maybeAsGenre(album.genre),
+      artistId: album.artistId,
+      artistName: album.artist,
+      coverArt: coverArtToArt(album.coverArt),
+    };
+    return asTrack(albumSummary, song, this.customPlayers);
+  };
+
   track = (trackId: string) =>
-    this.subsonic.getTrack(this.credentials, trackId);
+    this.subsonic.getSong(this.credentials, trackId).then(this.trackFromSong);
 
   rate = (trackId: string, rating: Rating) => 
     // todo: this is a bit odd
     Promise.resolve(true)
       .then(() => {
         if (rating.stars >= 0 && rating.stars <= 5) {
-          return this.subsonic.getTrack(this.credentials, trackId);
+          return this.subsonic.getSong(this.credentials, trackId);
         } else {
           throw `Invalid rating.stars value of ${rating.stars}`;
         }
       })
-      .then((track) => {
+      .then((song) => asTrackSummary(song, this.customPlayers))
+      .then((trackSummary) => {
         const thingsToUpdate = [];
-        if (track.rating.love != rating.love) {
+        if (trackSummary.rating.love != rating.love) {
           thingsToUpdate.push(
             (rating.love ? this.subsonic.star : this.subsonic.unstar)(this.credentials,{ id: trackId })
           );
         }
-        if (track.rating.stars != rating.stars) {
+        if (trackSummary.rating.stars != rating.stars) {
           thingsToUpdate.push(
             this.subsonic.setRating(this.credentials, trackId, rating.stars)
           );
@@ -311,8 +371,9 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       }
     }
 
-    const track = await this.subsonic.getTrack(this.credentials, trackId);
-    return this.subsonic.stream(this.credentials, trackId, track.encoding.player, range);
+    const song = await this.subsonic.getSong(this.credentials, trackId);
+    const encoding = asTrackSummary(song, this.customPlayers).encoding;
+    return this.subsonic.stream(this.credentials, trackId, encoding.player, range);
   };
 
   coverArt = async (coverArtURN: Art, size?: number) =>
@@ -365,7 +426,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       .search3(this.credentials, { query, songCount: 20 })
       .then(({ songs }) =>
         Promise.all(
-          songs.map((it) => this.subsonic.getTrack(this.credentials, it.id))
+          songs.map((it) => this.subsonic.getSong(this.credentials, it.id).then(this.trackFromSong))
         )
       );
 
