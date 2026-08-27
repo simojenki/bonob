@@ -27,6 +27,7 @@ import {
   internetRadioStation,
   findLoginToken,
   scrollIndicesFrom,
+  ALBUMS_SORT_TYPE,
 } from "../src/smapi";
 
 import { keys as i8nKeys } from "../src/i8n";
@@ -1294,6 +1295,7 @@ describe("wsdl api", () => {
                       title: "Albums",
                       albumArtURI: iconArtURI(bonobUrl, "albums").href(),
                       itemType: "albumList",
+                      canScroll: true,
                     },
                     {
                       id: "randomAlbums",
@@ -1393,6 +1395,7 @@ describe("wsdl api", () => {
                       title: "Albums",
                       albumArtURI: iconArtURI(bonobUrl, "albums").href(),
                       itemType: "albumList",
+                      canScroll: true,
                     },
                     {
                       id: "randomAlbums",
@@ -2376,7 +2379,7 @@ describe("wsdl api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
-                    type: "alphabeticalByName",
+                    type: ALBUMS_SORT_TYPE,
                     _index: paging.index,
                     _count: paging.count,
                   });
@@ -2422,7 +2425,7 @@ describe("wsdl api", () => {
                   );
 
                   expect(musicLibrary.albums).toHaveBeenCalledWith({
-                    type: "alphabeticalByName",
+                    type: ALBUMS_SORT_TYPE,
                     _index: paging.index,
                     _count: paging.count,
                   });
@@ -3211,6 +3214,41 @@ describe("wsdl api", () => {
                 getScrollIndicesResult: scrollIndicesFrom(artistsWithSortName),
               });
               expect(musicLibrary.artists).toHaveBeenCalledWith({ _index: 0, _count: undefined });
+            });
+          });
+
+          describe("for albums", () => {
+            let ws: Client;
+
+            const album1 = anAlbum({ name: "Aerosmith album" });
+            const album2 = anAlbum({ name: "Bob Marley album" });
+            const album3 = anAlbum({ name: "Beatles album" });
+            const album4 = anAlbum({ name: "Cat Empire album" });
+            const album5 = anAlbum({ name: "Metallica album" });
+            const album6 = anAlbum({ name: "Yellow Brick Road album" });
+
+            const albums = [album1, album2, album3, album4, album5, album6];
+            const sortedAlbums = [...albums].sort((a, b) => a.name.localeCompare(b.name));
+
+            beforeEach(async () => {
+              ws = await createClientAsync(`${service.uri}?wsdl`, {
+                endpoint: service.uri,
+                httpClient: supersoap(server),
+              });
+              setupAuthenticatedRequest(ws);
+              musicLibrary.albums.mockResolvedValue({
+                results: sortedAlbums.map((it) => ({ ...albumToAlbumSummary(it), _sortBy: it.name })),
+                total: albums.length,
+              });
+            });
+
+            it("should return scroll indices", async () => {
+              const result = await ws.getScrollIndicesAsync({ id: "albums" });
+
+              expect(result[0]).toEqual({
+                getScrollIndicesResult: scrollIndicesFrom(sortedAlbums.map((it) => ({ _sortBy: it.name }))),
+              });
+              expect(musicLibrary.albums).toHaveBeenCalledWith({ type: ALBUMS_SORT_TYPE, _index: 0, _count: undefined });
             });
           });
         });

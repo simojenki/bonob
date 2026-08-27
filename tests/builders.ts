@@ -16,7 +16,8 @@ import {
   AlbumSummary,
   RadioStation,
   ArtistSummary,
-  TrackSummary
+  TrackSummary,
+  Sortable,
 } from "../src/music_library";
 
 import { b64Encode } from "../src/b64";
@@ -229,11 +230,13 @@ export function aTrack(fields: Partial<Track> = {}): Track {
   };
 };
 
-export function anAlbumSummary(fields: Partial<AlbumSummary> = {}): AlbumSummary {
+export function anAlbumSummary(fields: Partial<AlbumSummary & Sortable> = {}): AlbumSummary & Sortable {
   const id = uuid();
+  const name = fields.name || `Album ${id}`;
   return {
     id,
-    name: `Album ${id}`,
+    name,
+    _sortBy: name,
     year: `19${randomInt(99)}`,
     genre: randomGenre(),
     coverArt: { source: "subsonic", id: `${uuid()}` },

@@ -47,6 +47,7 @@ import {
   AlbumSummary,
   trackToTrackSummary,
   AlbumQueryType,
+  Sortable,
 } from "../src/music_library";
 import {
   aGenre,
@@ -282,6 +283,7 @@ const getAlbumListJson = (albums: [Artist, AlbumSummary][]) =>
       album: albums.map(([artist, album]) => ({
         id: album.id,
         name: album.name,
+        sortName: album.name,
         coverArt: maybeIdFromCoverArtUrn(album.coverArt),
         songCount: "19",
         created: "2021-01-07T08:19:55.834207205Z",
@@ -293,6 +295,11 @@ const getAlbumListJson = (albums: [Artist, AlbumSummary][]) =>
       })),
     },
   });
+
+const albumToAlbumSummaryWithSort = (album: AlbumSummary): AlbumSummary & Sortable => ({
+  ...albumToAlbumSummary(album as Album),
+  _sortBy: (album as AlbumSummary & Sortable)._sortBy || album.name,
+});
 
 const getPlayListJson = (playlist: Playlist) =>
   subsonicOK({
@@ -893,7 +900,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album1, album3].map(albumToAlbumSummary),
+            results: [album1, album3].map(albumToAlbumSummaryWithSort),
             total: 2,
           });
 
@@ -934,7 +941,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album1, album3].map(albumToAlbumSummary),
+            results: [album1, album3].map(albumToAlbumSummaryWithSort),
             total: 2,
           });
 
@@ -1029,7 +1036,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album3, album2, album1].map(albumToAlbumSummary),
+            results: [album3, album2, album1].map(albumToAlbumSummaryWithSort),
             total: 3,
           });
 
@@ -1072,7 +1079,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album3, album2].map(albumToAlbumSummary),
+            results: [album3, album2].map(albumToAlbumSummaryWithSort),
             total: 2,
           });
 
@@ -1106,7 +1113,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album2].map(albumToAlbumSummary),
+            results: [album2].map(albumToAlbumSummaryWithSort),
             total: 1,
           });
 
@@ -1140,7 +1147,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album2].map(albumToAlbumSummary),
+            results: [album2].map(albumToAlbumSummaryWithSort),
             total: 1,
           });
 
@@ -1174,7 +1181,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album1].map(albumToAlbumSummary),
+            results: [album1].map(albumToAlbumSummaryWithSort),
             total: 1,
           });
 
@@ -1208,7 +1215,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album1].map(albumToAlbumSummary),
+            results: [album1].map(albumToAlbumSummaryWithSort),
             total: 5,
           });
 
@@ -1248,7 +1255,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.albums(q);
 
           expect(result).toEqual({
-            results: [album3, album4].map(albumToAlbumSummary),
+            results: [album3, album4].map(albumToAlbumSummaryWithSort),
             total: 5,
           });
 
@@ -1987,6 +1994,194 @@ describe("SubsonicMusicLibrary", () => {
     });
   });
 
+  describe("getting an album", () => {
+    describe("when there are no custom players", () => {
+      beforeEach(() => {
+        customPlayers.encodingFor.mockReturnValue(O.none);
+      });
+
+      describe("when the album has tracks", () => {
+        it("should map the raw subsonic album into an Album & Sortable", async () => {
+          const albumSummary = anAlbumSummary({
+            artistId: "artist1",
+            artistName: "Artist 1",
+          });
+          const artistSummary = anArtistSummary({
+            id: albumSummary.artistId,
+            name: albumSummary.artistName,
+          });
+          const tracks = [
+            aTrack({
+              artist: artistSummary,
+              album: albumSummary,
+              rating: { love: false, stars: 0 },
+            }),
+            aTrack({
+              artist: artistSummary,
+              album: albumSummary,
+              rating: { love: false, stars: 0 },
+            }),
+          ];
+          const album = anAlbum({
+            ...albumSummary,
+            tracks,
+            artistId: albumSummary.artistId,
+            artistName: albumSummary.artistName,
+          });
+
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(getAlbumJson(album)))
+          );
+
+          const result = await subsonic.album(album.id);
+
+          expect(result).toEqual(album);
+
+          expect(axios.get).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/getAlbum" }).href(),
+            {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                id: album.id,
+              }),
+              headers,
+            }
+          );
+        });
+      });
+    });
+
+    describe("when a custom player is configured for the mime type", () => {
+      const hipHop = asGenre("Hip-Hop");
+      const tripHop = asGenre("Trip-Hop");
+
+      const albumSummary = anAlbumSummary({
+        id: "album1",
+        name: "Burnin",
+        genre: hipHop,
+      });
+
+      const artistSummary = anArtistSummary({
+        id: "artist1",
+        name: "Bob Marley",
+      });
+
+      const alac = aTrack({
+        artist: artistSummary,
+        album: albumSummary,
+        encoding: {
+          player: "bonob",
+          mimeType: "audio/alac",
+        },
+        genre: hipHop,
+        rating: {
+          love: true,
+          stars: 3,
+        },
+      });
+      const m4a = aTrack({
+        artist: artistSummary,
+        album: albumSummary,
+        encoding: {
+          player: "bonob",
+          mimeType: "audio/m4a",
+        },
+        genre: hipHop,
+        rating: {
+          love: false,
+          stars: 0,
+        },
+      });
+      const mp3 = aTrack({
+        artist: artistSummary,
+        album: albumSummary,
+        encoding: {
+          player: "bonob",
+          mimeType: "audio/mp3",
+        },
+        genre: tripHop,
+        rating: {
+          love: true,
+          stars: 5,
+        },
+      });
+
+      const album = anAlbum({
+        ...albumSummary,
+        tracks: [alac, m4a, mp3],
+      });
+
+      beforeEach(() => {
+        customPlayers.encodingFor
+          .mockReturnValueOnce(
+            O.of({ player: "bonob+audio/alac", mimeType: "audio/flac" })
+          )
+          .mockReturnValueOnce(
+            O.of({ player: "bonob+audio/m4a", mimeType: "audio/opus" })
+          )
+          .mockReturnValueOnce(O.none);
+
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getAlbumJson(album)))
+        );
+      });
+
+      it("should apply custom players to the tracks", async () => {
+        const result = await subsonic.album(album.id);
+
+        expect(result).toEqual({
+          ...album,
+          tracks: [
+            {
+              ...alac,
+              encoding: {
+                player: "bonob+audio/alac",
+                mimeType: "audio/flac",
+              },
+              rating: {
+                love: false,
+                stars: 0,
+              },
+            },
+            {
+              ...m4a,
+              encoding: {
+                player: "bonob+audio/m4a",
+                mimeType: "audio/opus",
+              },
+              rating: {
+                love: false,
+                stars: 0,
+              },
+            },
+            {
+              ...mp3,
+              encoding: {
+                player: "bonob",
+                mimeType: "audio/mp3",
+              },
+              rating: {
+                love: false,
+                stars: 0,
+              },
+            },
+          ],
+        });
+
+        expect(customPlayers.encodingFor).toHaveBeenCalledTimes(3);
+        expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(1, {
+          mimeType: "audio/alac",
+        });
+        expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(2, {
+          mimeType: "audio/m4a",
+        });
+        expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(3, {
+          mimeType: "audio/mp3",
+        });
+      });
+    });
+  });
+
   describe("getting tracks", () => {
     describe("a single track", () => {
       const pop = asGenre("Pop");
@@ -2151,9 +2346,6 @@ describe("SubsonicMusicLibrary", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(album)))
-              )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
             const result = await subsonic.stream({ trackId, range: undefined });
@@ -2190,9 +2382,6 @@ describe("SubsonicMusicLibrary", () => {
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
-              )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(album)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2232,9 +2421,6 @@ describe("SubsonicMusicLibrary", () => {
                 )
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
-                )
-                .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(album)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2286,9 +2472,6 @@ describe("SubsonicMusicLibrary", () => {
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
-                .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(album)))
-                )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
               return expect(
@@ -2307,9 +2490,6 @@ describe("SubsonicMusicLibrary", () => {
                 )
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
-                )
-                .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(album)))
                 )
                 .mockImplementationOnce(() =>
                   Promise.reject("IO error occured")
@@ -2347,9 +2527,6 @@ describe("SubsonicMusicLibrary", () => {
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
-              )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(album)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2413,11 +2590,6 @@ describe("SubsonicMusicLibrary", () => {
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(getAlbumJson(album))
-              )
-            )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
           await subsonic.stream({ trackId, range: undefined });
@@ -2457,11 +2629,6 @@ describe("SubsonicMusicLibrary", () => {
             )
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(getAlbumJson(album))
-              )
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2537,9 +2704,6 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
-            )
-            .mockImplementationOnce(() =>
               Promise.resolve({ status: 200, headers: { "content-type": "audio/mpeg" }, data: streamData })
             );
 
@@ -2574,7 +2738,6 @@ describe("SubsonicMusicLibrary", () => {
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(getSongJson(track))))
-          .mockImplementationOnce(() => Promise.resolve(ok(getAlbumJson(album))))
           .mockImplementationOnce(() =>
             Promise.resolve({ status: 200, headers: { "content-type": "audio/mpeg" }, data: streamData })
           );
@@ -2582,7 +2745,7 @@ describe("SubsonicMusicLibrary", () => {
         const result = await noTranscodeLibrary.stream({ trackId, range: undefined });
 
         expect(result.stream).toEqual(streamData);
-        expect(mockGET).toHaveBeenCalledTimes(3);
+        expect(mockGET).toHaveBeenCalledTimes(2);
       });
     });
   });
@@ -2833,9 +2996,6 @@ describe("SubsonicMusicLibrary", () => {
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
-            )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
           const result = await subsonic.rate(trackId, { love: true, stars: 0 });
@@ -2868,9 +3028,6 @@ describe("SubsonicMusicLibrary", () => {
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
             )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
-            )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
           const result = await subsonic.rate(trackId, {
@@ -2902,19 +3059,15 @@ describe("SubsonicMusicLibrary", () => {
             rating: { love: true, stars: 0 },
           });
 
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
-            );
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(getSongJson(track)))
+          );
 
           const result = await subsonic.rate(trackId, { love: true, stars: 0 });
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledTimes(2);
+          expect(mockGET).toHaveBeenCalledTimes(1);
         });
       });
 
@@ -2930,9 +3083,6 @@ describe("SubsonicMusicLibrary", () => {
           mockGET
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -2966,19 +3116,15 @@ describe("SubsonicMusicLibrary", () => {
             rating: { love: true, stars: 3 },
           });
 
-          mockGET
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
-            );
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(getSongJson(track)))
+          );
 
           const result = await subsonic.rate(trackId, { love: true, stars: 3 });
 
           expect(result).toEqual(true);
 
-          expect(mockGET).toHaveBeenCalledTimes(2);
+          expect(mockGET).toHaveBeenCalledTimes(1);
         });
       });
 
@@ -2994,9 +3140,6 @@ describe("SubsonicMusicLibrary", () => {
           mockGET
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(track)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
@@ -3057,8 +3200,7 @@ describe("SubsonicMusicLibrary", () => {
       describe("when fails", () => {
         it("should return false", async () => {
           mockGET
-            .mockImplementationOnce(() => Promise.resolve(ok(FAILURE)))
-            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+            .mockImplementationOnce(() => Promise.resolve(ok(FAILURE)));
 
           const result = await subsonic.rate(trackId, { love: true, stars: 0 });
 

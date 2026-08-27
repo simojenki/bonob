@@ -95,7 +95,7 @@ export class InMemoryMusicService implements MusicService {
                 return [];
             }
           })
-          .then((matches) => matches.map((it) => it.album))
+          .then((matches) => matches.map((it) => ({ ...it.album, _sortBy: it.album.name })))
           .then(slice2(q))
           .then(asResult),
       album: (id: string) =>
