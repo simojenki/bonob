@@ -1603,8 +1603,8 @@ describe("server", () => {
                   theme: string,
                   date: string,
                   id: string,
-                  color1: string,
-                  color2: string
+                  color1: string | undefined,
+                  color2: string | undefined
                 ) {
                   it(`should return a ${theme} icon on ${date}`, async () => {
                     const response = await request(
@@ -1614,8 +1614,18 @@ describe("server", () => {
                     expect(response.status).toEqual(200);
                     const svg = Buffer.from(response.body).toString();
                     expect(svg).toContain(`id="${id}"`);
-                    expect(svg).toContain(`fill="${color1}"`);
-                    expect(svg).toContain(`fill="${color2}"`);
+                    if (color1) {
+                      expect(
+                        svg.includes(`fill="${color1}"`) ||
+                          svg.includes(`stroke="${color1}"`)
+                      ).toBe(true);
+                    }
+                    if (color2) {
+                      expect(
+                        svg.includes(`fill="${color2}"`) ||
+                          svg.includes(`stroke="${color2}"`)
+                      ).toBe(true);
+                    }
                   });
                 }
 
@@ -1650,18 +1660,34 @@ describe("server", () => {
                 );
 
                 itShouldBeFestive(
-                  "cny '22",
-                  "2022/02/01",
-                  "yoTiger",
-                  "red",
-                  "yellow"
+                  "lunar new year '27",
+                  "2027/02/06",
+                  "goat",
+                  "gold",
+                  "red"
                 );
                 itShouldBeFestive(
-                  "cny '23",
-                  "2023/01/22",
-                  "yoRabbit",
-                  "red",
-                  "yellow"
+                  "lunar new year '28",
+                  "2028/01/26",
+                  "monkey",
+                  "gold",
+                  "red"
+                );
+
+                itShouldBeFestive(
+                  "australia day",
+                  "2023/01/26",
+                  "oz",
+                  "green",
+                  "gold"
+                );
+
+                itShouldBeFestive(
+                  "thanksgiving",
+                  "2024/11/26",
+                  "thanksgiving",
+                  undefined,
+                  undefined
                 );
               });
             });
@@ -1701,6 +1727,72 @@ describe("server", () => {
               );
             });
           });
+        });
+      });
+
+      describe("/icons", () => {
+        const server = (
+          iconColors: {
+            foregroundColor: string | undefined;
+            backgroundColor: string | undefined;
+          } = { foregroundColor: undefined, backgroundColor: undefined }
+        ) =>
+          makeServer(
+            jest.fn() as unknown as Sonos,
+            aService(),
+            url("http://localhost:1234"),
+            jest.fn() as unknown as MusicService,
+            {
+              linkCodes: () => new InMemoryLinkCodes(),
+              apiTokens: () => jest.fn() as unknown as APITokens,
+              clock: SystemClock,
+              iconColors,
+            }
+          );
+
+        it("should use serverOpts icon colors by default", async () => {
+          const response = await request(
+            server({
+              foregroundColor: "serverfg",
+              backgroundColor: "serverbg",
+            })
+          ).get("/icons");
+
+          expect(response.status).toEqual(200);
+          expect(response.text).toContain("serverfg");
+          expect(response.text).toContain("serverbg");
+        });
+
+        it("should allow query string to override serverOpts icon colors", async () => {
+          const response = await request(
+            server({
+              foregroundColor: "serverfg",
+              backgroundColor: "serverbg",
+            })
+          ).get("/icons?foregroundColor=queryfg&backgroundColor=querybg");
+
+          expect(response.status).toEqual(200);
+          expect(response.text).toContain("queryfg");
+          expect(response.text).toContain("querybg");
+          expect(response.text).not.toContain("serverfg");
+          expect(response.text).not.toContain("serverbg");
+        });
+
+        it("should use the first value when query string colors are provided as arrays", async () => {
+          const response = await request(
+            server({
+              foregroundColor: "serverfg",
+              backgroundColor: "serverbg",
+            })
+          ).get(
+            "/icons?foregroundColor=firstfg&foregroundColor=secondfg&backgroundColor=firstbg&backgroundColor=secondbg"
+          );
+
+          expect(response.status).toEqual(200);
+          expect(response.text).toContain("firstfg");
+          expect(response.text).toContain("firstbg");
+          expect(response.text).not.toContain("secondfg");
+          expect(response.text).not.toContain("secondbg");
         });
       });
 

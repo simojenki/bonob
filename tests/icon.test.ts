@@ -21,6 +21,8 @@ import {
   features,
   STAR_WARS,
   NO_FEATURES,
+  LUNAR_NY_ICONS,
+  lunarNewYearIcon,
 } from "../src/icon";
 
 describe("SvgIcon", () => {
@@ -732,13 +734,25 @@ describe("festivals", () => {
     });
   });
 
-  describe("on cny", () => {
-    describe("2022", () => {
+  describe("lunar new year", () => {
+    it("should have 12 icons in the LUNAR_NY_ICONS array", () => {
+      expect(LUNAR_NY_ICONS.length).toEqual(12);
+    });
+
+    it("should map years to lunar new year icons", () => {
+      expect(lunarNewYearIcon(2016).svg).toEqual(ICONS.monkey.svg);
+      expect(lunarNewYearIcon(2019).svg).toEqual(ICONS.pig.svg);
+      expect(lunarNewYearIcon(2027).svg).toEqual(ICONS.goat.svg);
+    });
+  });
+
+  describe("on lunar new year", () => {
+    describe("2027", () => {
       beforeEach(() => {
-        clock.time = dayjs("2022/02/01");
+        clock.time = dayjs("2027/02/06");
       });
 
-      it("should use the cny theme", () => {
+      it("should use the lunar new year theme with the goat icon", () => {
         const result = original
           .apply(
             features({
@@ -749,21 +763,21 @@ describe("festivals", () => {
           )
           .apply(festivals(clock)) as DummyIcon;
 
-        expect(result.svg).toEqual(ICONS.yoTiger.svg);
+        expect(result.svg).toEqual(ICONS.goat.svg);
         expect(result.features).toEqual({
           viewPortIncreasePercent: 12,
           backgroundColor: "red",
-          foregroundColor: "yellow",
+          foregroundColor: "gold",
         });
       });
     });
 
-    describe("2023", () => {
+    describe("2028", () => {
       beforeEach(() => {
-        clock.time = dayjs("2023/01/22");
+        clock.time = dayjs("2028/01/26");
       });
 
-      it("should use the cny theme", () => {
+      it("should use the lunar new year theme with the monkey icon", () => {
         const result = original
           .apply(
             features({
@@ -774,21 +788,21 @@ describe("festivals", () => {
           )
           .apply(festivals(clock)) as DummyIcon;
 
-        expect(result.svg).toEqual(ICONS.yoRabbit.svg);
+        expect(result.svg).toEqual(ICONS.monkey.svg);
         expect(result.features).toEqual({
           viewPortIncreasePercent: 12,
           backgroundColor: "red",
-          foregroundColor: "yellow",
+          foregroundColor: "gold",
         });
       });
     });
 
-    describe("2024", () => {
+    describe("2029", () => {
       beforeEach(() => {
-        clock.time = dayjs("2024/02/10");
+        clock.time = dayjs("2029/02/13");
       });
 
-      it("should use the cny theme", () => {
+      it("should use the lunar new year theme with the rooster icon", () => {
         const result = original
           .apply(
             features({
@@ -799,12 +813,62 @@ describe("festivals", () => {
           )
           .apply(festivals(clock)) as DummyIcon;
 
-        expect(result.svg).toEqual(ICONS.yoDragon.svg);
+        expect(result.svg).toEqual(ICONS.rooster.svg);
         expect(result.features).toEqual({
           viewPortIncreasePercent: 12,
           backgroundColor: "red",
-          foregroundColor: "yellow",
+          foregroundColor: "gold",
         });
+      });
+    });
+
+    describe("2030", () => {
+      beforeEach(() => {
+        clock.time = dayjs("2030/02/03");
+      });
+
+      it("should use the lunar new year theme with the dog icon", () => {
+        const result = original
+          .apply(
+            features({
+              viewPortIncreasePercent: 12,
+              backgroundColor: "shouldNotBeUsed",
+              foregroundColor: "shouldNotBeUsed",
+            })
+          )
+          .apply(festivals(clock)) as DummyIcon;
+
+        expect(result.svg).toEqual(ICONS.dog.svg);
+        expect(result.features).toEqual({
+          viewPortIncreasePercent: 12,
+          backgroundColor: "red",
+          foregroundColor: "gold",
+        });
+      });
+    });
+  });
+
+  describe("on thanksgiving", () => {
+    beforeEach(() => {
+      clock.time = dayjs("2024/11/26");
+    });
+
+    it("should use the thanksgiving icon with no colour override", () => {
+      const result = original
+        .apply(
+          features({
+            viewPortIncreasePercent: 12,
+            backgroundColor: "shouldNotBeUsed",
+            foregroundColor: "shouldNotBeUsed",
+          })
+        )
+        .apply(festivals(clock)) as DummyIcon;
+
+      expect(result.svg).toEqual(ICONS.thanksgiving.svg);
+      expect(result.features).toEqual({
+        viewPortIncreasePercent: 12,
+        backgroundColor: undefined,
+        foregroundColor: undefined,
       });
     });
   });
