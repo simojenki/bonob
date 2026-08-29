@@ -3,7 +3,7 @@ import dayjs, { Dayjs } from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 dayjs.extend(timezone);
 
-import { Clock, isChristmas, isCNY, isCNY_2022, isCNY_2023, isCNY_2024, isCNY_2025, isHalloween, isHoli, isMay4 } from "../src/clock";
+import { Clock, isAustraliaDay, isChristmas, isHalloween, isHoli, isLunarNY, isMay4, isThanksgiving } from "../src/clock";
 
 
 
@@ -76,10 +76,8 @@ function describeFixedDateEvent(
 describeFixedDateMonthEvent("christmas", "25/12", isChristmas);
 describeFixedDateMonthEvent("halloween", "31/10", isHalloween);
 describeFixedDateMonthEvent("may4", "04/05", isMay4);
+describeFixedDateMonthEvent("australiaDay", "26/01", isAustraliaDay);
+describeFixedDateMonthEvent("thanksgiving", "26/11", isThanksgiving);
 
 describeFixedDateEvent("holi", ["2022-03-18", "2023-03-07", "2024-03-25", "2025-03-14"], isHoli);
-describeFixedDateEvent("cny", ["2022-02-01", "2023-01-22", "2024-02-10", "2025-02-29"], isCNY);
-describeFixedDateEvent("cny 2022", ["2022-02-01"], isCNY_2022);
-describeFixedDateEvent("cny 2023", ["2023/01/22"], isCNY_2023);
-describeFixedDateEvent("cny 2024", ["2024/02/10"], isCNY_2024);
-describeFixedDateEvent("cny 2025", ["2025/02/29"], isCNY_2025);
+describeFixedDateEvent("lunar new year", ["2027-02-06", "2028-01-26", "2029-02-13", "2030-02-03"], isLunarNY);

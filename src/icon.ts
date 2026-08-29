@@ -5,13 +5,13 @@ import fs from "fs";
 
 import {
   Clock,
+  isAustraliaDay,
   isChristmas,
-  isCNY_2022,
-  isCNY_2023,
-  isCNY_2024,
   isHalloween,
   isHoli,
+  isLunarNY,
   isMay4,
+  isThanksgiving,
   SystemClock,
 } from "./clock";
 import { xmlTidy } from "./utils";
@@ -142,7 +142,7 @@ export class SvgIcon implements Icon {
       });
     }
     if (this.features.foregroundColor) {
-      elements("//svg:path|//svg:text").forEach((path) => {
+      elements("//svg:path|//svg:text|//svg:circle|//svg:ellipse|//svg:rect").forEach((path) => {
         if (path.getAttribute("fill")) path.setAttribute("stroke", this.features.foregroundColor!);
         else path.setAttribute("fill", this.features.foregroundColor!);
       });
@@ -226,9 +226,6 @@ export type ICON =
   | "progressiveRock"
   | "christmas"
   | "halloween"
-  | "yoDragon"
-  | "yoRabbit"
-  | "yoTiger"
   | "chapel"
   | "audioWave"
   | "c3po"
@@ -242,7 +239,24 @@ export type ICON =
   | "star" 
   | "solidStar"
   | "yy"
-  | "yyyy";
+  | "yyyy"
+  | "pufferFish"
+  | "chimp"
+  | "thanksgiving"
+
+  | "rat"
+  | "ox"
+  | "tiger"
+  | "rabbit"
+  | "dragon"
+  | "snake"
+  | "horse"
+  | "goat"
+  | "monkey"
+  | "rooster"
+  | "dog"
+  | "pig"
+  ;
 
 const svgFrom = (name: string) =>
   new SvgIcon(
@@ -308,9 +322,6 @@ export const ICONS: Record<ICON, SvgIcon> = {
   chillout: iconFrom("Sleeping-in Bed-14385.svg"),
   christmas: iconFrom("Christmas-Tree-63332.svg"),
   halloween: iconFrom("Jack-o' Lantern-66580.svg"),
-  yoDragon: iconFrom("Year-of Dragon-4537.svg"),
-  yoRabbit: iconFrom("Year-of Rabbit-6313.svg"),
-  yoTiger: iconFrom("Year-of Tiger-22776.svg"),
   chapel: iconFrom("Chapel-69791.svg"),
   audioWave: iconFrom("Audio-Wave-1892.svg"),
   c3po: iconFrom("C-3PO-31823.svg"),
@@ -325,9 +336,42 @@ export const ICONS: Record<ICON, SvgIcon> = {
   solidStar: iconFrom("Star-43879.svg"),
   yy: svgFrom("yy.svg"),
   yyyy: svgFrom("yyyy.svg"),
+  pufferFish: svgFrom("puffer-fish.svg"),
+  chimp: svgFrom("chimp.svg"),
+  thanksgiving: svgFrom("thanksgiving.svg"),
+
+  rat: svgFrom("rat.svg"),
+  ox: svgFrom("ox.svg"),
+  tiger: iconFrom("tiger.svg"),
+  rabbit: iconFrom("rabbit.svg"),
+  dragon: iconFrom("dragon.svg"),
+  snake: iconFrom("snake.svg"),
+  horse: iconFrom("horse.svg"),
+  goat: iconFrom("goat.svg"),
+  monkey: iconFrom("monkey.svg"),
+  rooster: iconFrom("rooster.svg"),
+  dog: svgFrom("dog.svg"),
+  pig: svgFrom("pig.svg"),
 };
 
 export const STAR_WARS = [ICONS.c3po, ICONS.chewy, ICONS.darth, ICONS.skywalker, ICONS.leia, ICONS.r2d2, ICONS.yoda];
+
+export const LUNAR_NY_ICONS = [
+  ICONS.rat,
+  ICONS.ox,
+  ICONS.tiger,
+  ICONS.rabbit,
+  ICONS.dragon,
+  ICONS.snake,
+  ICONS.horse,
+  ICONS.goat,
+  ICONS.monkey,
+  ICONS.rooster,
+  ICONS.dog,
+  ICONS.pig,
+];
+
+export const lunarNewYearIcon = (year: number) => LUNAR_NY_ICONS[(year - 4) % 12]!;
 
 export type RULE = (genre: string) => boolean;
 
@@ -442,42 +486,42 @@ export const festivals = (clock: Clock = SystemClock): Transformer => {
       })
     ),
     maybeTransform(
-      () => isCNY_2022(clock),
-      transform({
-        svg: ICONS.yoTiger.svg,
-        features: {
-          backgroundColor: "red",
-          foregroundColor: "yellow",
-        },
-      })
-    ),
-    maybeTransform(
-      () => isCNY_2023(clock),
-      transform({
-        svg: ICONS.yoRabbit.svg,
-        features: {
-          backgroundColor: "red",
-          foregroundColor: "yellow",
-        },
-      })
-    ),
-    maybeTransform(
-      () => isCNY_2024(clock),
-      transform({
-        svg: ICONS.yoDragon.svg,
-        features: {
-          backgroundColor: "red",
-          foregroundColor: "yellow",
-        },
-      })
-    ),
-    maybeTransform(
       () => isHalloween(clock),
       transform({
         svg: ICONS.halloween.svg,
         features: {
           backgroundColor: "black",
           foregroundColor: "orange",
+        },
+      })
+    ),
+    maybeTransform(
+      () => isAustraliaDay(clock),
+      transform({
+        svg: ICONS.oz.svg,
+        features: {
+          backgroundColor: "gold",
+          foregroundColor: "green",
+        },
+      })
+    ),
+    maybeTransform(
+      () => isThanksgiving(clock),
+      transform({
+        svg: ICONS.thanksgiving.svg,
+        features: {
+          backgroundColor: undefined,
+          foregroundColor: undefined,
+        },
+      })
+    ),
+    maybeTransform(
+      () => isLunarNY(clock),
+      transform({
+        svg: lunarNewYearIcon(clock.now().year()).svg,
+        features: {
+          backgroundColor: "red",
+          foregroundColor: "gold",
         },
       })
     ),

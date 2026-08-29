@@ -578,7 +578,19 @@ function server(
     }
   });
 
-  app.get("/icons", (_, res) => {
+  app.get("/icons", (req, res) => {
+    const foregroundColor =
+      (Array.isArray(req.query.foregroundColor)
+        ? req.query.foregroundColor[0]
+        : req.query.foregroundColor) as string | undefined ??
+      serverOpts.iconColors.foregroundColor;
+      
+    const backgroundColor =
+      (Array.isArray(req.query.backgroundColor)
+        ? req.query.backgroundColor[0]
+        : req.query.backgroundColor) as string | undefined ??
+      serverOpts.iconColors.backgroundColor;
+
     res.render("icons", {
       icons: Object.keys(ICONS).map((k) => [
         k,
@@ -586,7 +598,8 @@ function server(
           .apply(
             features({
               viewPortIncreasePercent: 80,
-              ...serverOpts.iconColors,
+              foregroundColor,
+              backgroundColor,
             })
           )
           .toString()
