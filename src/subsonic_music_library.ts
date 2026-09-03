@@ -30,8 +30,9 @@ import {
   SONOS_CLIENT_INFO,
   AlbumList2Query,
   AlbumQueryTypeToSubsonicType,
+  GetArtists,
+  hasSortName,
 } from "./subsonic";
-import _ from "underscore";
 
 import logger from "./logger";
 import { assertSource, Art } from "./art";
@@ -115,6 +116,42 @@ export const withTotalAndPage = async <T>(
   };
 };
 
+const ignoredArticlesSet = (ignoredArticles: string) =>
+  new Set(
+    ignoredArticles.toLowerCase().split(" ").filter(Boolean)
+  );
+
+export const asArtistSummaryWithSort = (
+  artists: GetArtists
+): (ArtistSummary & Sortable & { albumCount: number })[] => {
+  const ignoredArticles = ignoredArticlesSet(artists.ignoredArticles || "");
+  const allArtists = (artists.index || [])
+    .flatMap((index) => index.artist || []);
+
+  return allArtists
+    .map((artist) => {
+      const _sortBy = hasSortName(artist)
+        ? artist.sortName
+        : artist.name
+            .split(" ")
+            .filter((word) => !ignoredArticles.has(word.toLowerCase()))
+            .join(" ")
+            .toLowerCase();
+
+      return {
+        id: `${artist.id}`,
+        name: artist.name,
+        _sortBy,
+        albumCount: artist.albumCount,
+        image: artistImageURN({
+          artistId: artist.id,
+          artistImageURL: artist.artistImageUrl,
+        }),
+      };
+    })
+    .sort((a, b) => a._sortBy.localeCompare(b._sortBy));
+};
+
 export class SubsonicMusicLibrary implements MusicLibrary {
   subsonic: Subsonic;
   credentials: Credentials;
@@ -136,6 +173,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
     this.subsonic
       .getArtists(this.credentials)
+      .then(asArtistSummaryWithSort)
       .then(slice2Result(q));
 
   artist = async (id: string): Promise<Artist> =>
@@ -165,7 +203,9 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     this.subsonic
       .getArtists(this.credentials)
       .then((artists) =>
-        _.inject(artists, (total, artist) => total + artist.albumCount, 0)
+        (artists.index || [])
+          .flatMap((index) => index.artist || [])
+          .reduce((total, artist) => total + artist.albumCount, 0)
       );
 
   private getAllAlbumsAndSlice = async (

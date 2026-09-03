@@ -16,7 +16,6 @@ import {
   albumToAlbumSummary,
   TrackSummary,
   AuthFailure,
-  Sortable
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -26,7 +25,7 @@ import path from "path";
 import axios, { AxiosRequestConfig } from "axios";
 import { b64Encode, b64Decode } from "./b64";
 import { Art } from "./art";
-import { album, artist } from "./smapi";
+
 import { URLBuilder } from "./url_builder";
 
 export const BROWSER_HEADERS = {
@@ -71,16 +70,24 @@ type album = {
   year: string | undefined;
 };
 
-type artist = {
+export type OpenSubsonicArtist = {
   id: string;
   name: string;
   albumCount: number;
   artistImageUrl: string | undefined;
 };
 
-type navidrome_artist = {
+export type NavidromeArtist = {
   sortName: string;
 };
+
+export type ArtistWithSortName = OpenSubsonicArtist & NavidromeArtist;
+
+export function hasSortName(
+  artist: OpenSubsonicArtist
+): artist is ArtistWithSortName {
+  return "sortName" in artist && artist.sortName !== undefined;
+}
 
 export type AlbumList2Query = { 
     offset?: number, size?: number,
@@ -89,18 +96,17 @@ export type AlbumList2Query = {
     fromYear?: string, toYear?: string 
   }
 
-const isNavidromeArtist = (a: artist | (artist & navidrome_artist)): a is artist & navidrome_artist =>
-  'sortName' in a;
-
-type GetArtistsResponse = SubsonicResponse & {
+export type GetArtistsResponse = SubsonicResponse & {
   artists: {
     ignoredArticles: string;
     index: {
-      artist: artist[] | (artist & navidrome_artist)[];
       name: string;
+      artist: Array<OpenSubsonicArtist | ArtistWithSortName>;
     }[];
   };
 };
+
+export type GetArtists = GetArtistsResponse["artists"];
 
 type GetAlbumListResponse = SubsonicResponse & {
   albumList2: {
@@ -137,7 +143,7 @@ type artistInfo = images & {
   biography: string | undefined;
   musicBrainzId: string | undefined;
   lastFmUrl: string | undefined;
-  similarArtist: artist[];
+  similarArtist: OpenSubsonicArtist[];
 };
 
 type ArtistSummary = IdName & {
@@ -149,7 +155,7 @@ type GetArtistInfoResponse = SubsonicResponse & {
 };
 
 type GetArtistResponse = SubsonicResponse & {
-  artist: artist & {
+  artist: OpenSubsonicArtist & {
     album: album[];
   };
 };
@@ -253,7 +259,7 @@ export type PingResponse = {
 
 export type Search3Response = SubsonicResponse & {
   searchResult3: {
-    artist: artist[];
+    artist: OpenSubsonicArtist[];
     album: album[];
     song: song[];
   };
@@ -837,37 +843,14 @@ export class Subsonic {
       )
     );
 
-  getArtists = (
-    credentials: Credentials
-  ): Promise<(ArtistSummary & Sortable & { albumCount: number })[]> =>
+  getArtists = (credentials: Credentials): Promise<GetArtists> =>
     // TODO: This fetches every artist then slices client-side.  Consider using
     // /rest/getArtistList instead, which supports server-side pagination
     // (size/offset/totalCount) and is much faster for large libraries.  Not all
     // Subsonic servers expose /rest/getArtistList, so a fallback to
     // /rest/getArtists is required.
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => ({
-        ignoredArticles: new Set((it.artists.ignoredArticles || "").toLowerCase().split(" ").filter(Boolean)),
-        artists: (it.artists.index || []).flatMap((it) => it.artist || []),
-      }))
-      .then(({ ignoredArticles, artists }) =>
-        artists.map((artist) => {
-          const _sortBy = isNavidromeArtist(artist)
-            ? artist.sortName
-            : artist.name.split(" ").filter(t => !ignoredArticles.has(t.toLowerCase())).join(" ").toLowerCase();
-          return {
-            id: `${artist.id}`,
-            name: artist.name,
-            _sortBy,
-            albumCount: artist.albumCount,
-            image: artistImageURN({
-              artistId: artist.id,
-              artistImageURL: artist.artistImageUrl,
-            }),
-          };
-        })
-      )
-      .then(artists => [...artists].sort((a, b) => a._sortBy.localeCompare(b._sortBy)));
+      .then((it) => it.artists);
 
       // todo: should be getArtistInfo2?
   getArtistInfo = (

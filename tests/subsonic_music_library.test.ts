@@ -456,6 +456,11 @@ export const asArtistsJson = (artists: (Artist & { sortName?: string })[], ignor
   });
 };
 
+export const rawArtists = (
+  artists: (Artist & { sortName?: string })[],
+  ignoredArticles: string = ""
+) => asArtistsJson(artists, ignoredArticles)["subsonic-response"].artists;
+
 describe("slurpAllPages", () => {
   it("should return an empty array when the first page is empty", async () => {
     const page = jest.fn().mockResolvedValue([]);
@@ -742,9 +747,32 @@ describe("SubsonicMusicLibrary_new", () => {
   });
 
   describe("getting artists", () => {
+    const artistPayload = (id: string, name: string, albumCount: number) => ({
+      id,
+      name,
+      albumCount,
+      artistImageUrl: undefined,
+    });
+
+    const expectedArtist = (
+      id: string,
+      name: string,
+      _sortBy: string,
+      albumCount: number
+    ) => ({
+      id,
+      name,
+      _sortBy,
+      albumCount,
+      image: artistImageURN({ artistId: id }),
+    });
+
     describe("when there are no artists", () => {
       beforeEach(() => {
-        subsonic.getArtists.mockResolvedValue([])
+        subsonic.getArtists.mockResolvedValue({
+          ignoredArticles: "",
+          index: [],
+        });
       });
 
       it("should return empty", async () => {
@@ -760,37 +788,62 @@ describe("SubsonicMusicLibrary_new", () => {
     });
 
     describe("when there is one artist", () => {
-      const artist = { id: "1", name: "bob1", _sortBy: "bob1", albumCount: 1, image: undefined }
-
-      describe("when it all fits on one page", () => {
-        beforeEach(() => {
-          subsonic.getArtists.mockResolvedValue([artist])
+      beforeEach(() => {
+        subsonic.getArtists.mockResolvedValue({
+          ignoredArticles: "",
+          index: [
+            {
+              name: "B",
+              artist: [artistPayload("1", "bob1", 1)],
+            },
+          ],
         });
+      });
 
-        it("should return the single artist", async () => {
-          const result = await library.artists({ _index: 0, _count: 100 });
+      it("should return the single artist", async () => {
+        const result = await library.artists({ _index: 0, _count: 100 });
 
-          expect(result).toEqual({ results: [artist], total: 1 });
+        expect(result).toEqual({
+          results: [expectedArtist("1", "bob1", "bob1", 1)],
+          total: 1,
         });
       });
     });
 
     describe("when there are artists", () => {
-      const artist1 = { id: "1", name: "bob1", _sortBy: "bob1", albumCount: 1, image: undefined }
-      const artist2 = { id: "2", name: "bob2", _sortBy: "bob2", albumCount: 2, image: undefined }
-      const artist3 = { id: "3", name: "bob3", _sortBy: "bob3", albumCount: 3, image: undefined }
-      const artist4 = { id: "4", name: "bob4", _sortBy: "bob4", albumCount: 4, image: undefined }
-      const artists = [artist1, artist2, artist3, artist4];
+      const artistPayloads = [
+        artistPayload("1", "bob1", 1),
+        artistPayload("2", "bob2", 2),
+        artistPayload("3", "bob3", 3),
+        artistPayload("4", "bob4", 4),
+      ];
+      const expectedArtists = [
+        expectedArtist("1", "bob1", "bob1", 1),
+        expectedArtist("2", "bob2", "bob2", 2),
+        expectedArtist("3", "bob3", "bob3", 3),
+        expectedArtist("4", "bob4", "bob4", 4),
+      ];
 
       beforeEach(() => {
-        subsonic.getArtists.mockResolvedValue(artists)
+        subsonic.getArtists.mockResolvedValue({
+          ignoredArticles: "",
+          index: [
+            {
+              name: "B",
+              artist: artistPayloads,
+            },
+          ],
+        });
       });
 
       describe("when no paging is in effect", () => {
         it("should return all the artists", async () => {
           const result = await library.artists({ _index: 0, _count: 100 });
 
-          expect(result).toEqual({ results: artists, total: 4 });
+          expect(result).toEqual({
+            results: expectedArtists,
+            total: 4,
+          });
         });
       });
 
@@ -798,8 +851,90 @@ describe("SubsonicMusicLibrary_new", () => {
         it("should return only the correct page of artists", async () => {
           const result = await library.artists({ _index: 1, _count: 2 });
 
-          expect(result).toEqual({ results: [artist2, artist3], total: 4 });
+          expect(result).toEqual({
+            results: [expectedArtists[1], expectedArtists[2]],
+            total: 4,
+          });
         });
+      });
+    });
+
+    describe("when artists have a sortName", () => {
+      beforeEach(() => {
+        subsonic.getArtists.mockResolvedValue({
+          ignoredArticles: "",
+          index: [
+            {
+              name: "A",
+              artist: [
+                {
+                  id: "1",
+                  name: "The Aardvark",
+                  albumCount: 1,
+                  artistImageUrl: undefined,
+                  sortName: "Aardvark",
+                },
+              ],
+            },
+            {
+              name: "C",
+              artist: [
+                {
+                  id: "2",
+                  name: "Catfish",
+                  albumCount: 2,
+                  artistImageUrl: undefined,
+                },
+              ],
+            },
+          ],
+        });
+      });
+
+      it("should map and sort by sortName", async () => {
+        const result = await library.artists({ _index: 0, _count: 10 });
+
+        expect(result.results.map((a) => a._sortBy)).toEqual([
+          "Aardvark",
+          "catfish",
+        ]);
+      });
+    });
+
+    describe("when ignoredArticles are present", () => {
+      beforeEach(() => {
+        subsonic.getArtists.mockResolvedValue({
+          ignoredArticles: "The A",
+          index: [
+            {
+              name: "A",
+              artist: [artistPayload("1", "The Aardvark", 1)],
+            },
+            {
+              name: "B",
+              artist: [artistPayload("2", "A Bumblebee", 2)],
+            },
+            {
+              name: "C",
+              artist: [artistPayload("3", "Catfish", 3)],
+            },
+          ],
+        });
+      });
+
+      it("should strip ignored articles and sort by _sortBy", async () => {
+        const result = await library.artists({ _index: 0, _count: 10 });
+
+        expect(result.results.map((a) => a._sortBy)).toEqual([
+          "aardvark",
+          "bumblebee",
+          "catfish",
+        ]);
+        expect(result.results.map((a) => a.name)).toEqual([
+          "The Aardvark",
+          "A Bumblebee",
+          "Catfish",
+        ]);
       });
     });
 
