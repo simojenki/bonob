@@ -21,7 +21,8 @@ import {
   CustomPlayers,
   images,
   artistImageURN,
-  AlbumQueryTypeToSubsonicType
+  AlbumQueryTypeToSubsonicType,
+  NO_CUSTOM_PLAYERS,
 } from "../src/subsonic";
 
 import {
@@ -653,6 +654,7 @@ describe("SubsonicMusicLibrary_new", () => {
     getArtist: jest.fn(),
     getArtistInfo: jest.fn(),
     getArtists: jest.fn(),
+    getAlbum: jest.fn(),
   };
 
   const library = new SubsonicMusicLibrary(
@@ -935,6 +937,121 @@ describe("SubsonicMusicLibrary_new", () => {
           "A Bumblebee",
           "Catfish",
         ]);
+      });
+    });
+
+    describe("getting an album", () => {
+      const albumLibrary = new SubsonicMusicLibrary(
+        subsonic as unknown as Subsonic,
+        credentials,
+        NO_CUSTOM_PLAYERS
+      );
+
+      const artistId = "artist1";
+      const artistName = "Bob Marley";
+      const pop = asGenre("Pop");
+
+      const albumSummary = anAlbumSummary({
+        id: "album1",
+        name: "Burnin",
+        genre: pop,
+        artistId,
+        artistName,
+      });
+      const artistSummary = anArtistSummary({ id: artistId, name: artistName });
+
+      const tracks = [
+        aTrack({
+          artist: artistSummary,
+          album: albumSummary,
+          genre: pop,
+          rating: { love: false, stars: 0 },
+        }),
+        aTrack({
+          artist: artistSummary,
+          album: albumSummary,
+          genre: pop,
+          rating: { love: true, stars: 3 },
+        }),
+      ];
+
+      const album = anAlbum({
+        ...albumSummary,
+        tracks,
+        artistId,
+        artistName,
+      });
+
+      describe("when the album has tracks", () => {
+        beforeEach(() => {
+          subsonic.getAlbum.mockResolvedValue(
+            getAlbumJson(album)["subsonic-response"].album
+          );
+        });
+
+        it("should map the raw album to Album", async () => {
+          const result = await albumLibrary.album(album.id);
+
+          expect(result).toEqual(album);
+          expect(subsonic.getAlbum).toHaveBeenCalledWith(credentials, album.id);
+        });
+      });
+
+      describe("when the album has no tracks", () => {
+        const emptyAlbum = anAlbum({
+          ...albumSummary,
+          id: "album2",
+          name: "Empty",
+          tracks: [],
+          artistId,
+          artistName,
+        });
+
+        beforeEach(() => {
+          subsonic.getAlbum.mockResolvedValue(
+            getAlbumJson(emptyAlbum)["subsonic-response"].album
+          );
+        });
+
+        it("should map the raw album to Album", async () => {
+          const result = await albumLibrary.album(emptyAlbum.id);
+
+          expect(result).toEqual(emptyAlbum);
+        });
+      });
+
+      describe("when custom players are configured", () => {
+        const encodingFor = jest.fn();
+        const customPlayerLibrary = new SubsonicMusicLibrary(
+          subsonic as unknown as Subsonic,
+          credentials,
+          { encodingFor } as unknown as CustomPlayers
+        );
+
+        beforeEach(() => {
+          encodingFor
+            .mockReset()
+            .mockReturnValueOnce(
+              O.of({ player: "bonob+audio/alac", mimeType: "audio/flac" })
+            )
+            .mockReturnValueOnce(O.none);
+
+          subsonic.getAlbum.mockResolvedValue(
+            getAlbumJson(album)["subsonic-response"].album
+          );
+        });
+
+        it("should apply custom encodings to tracks", async () => {
+          const result = await customPlayerLibrary.album(album.id);
+
+          expect(result.tracks[0]!.encoding).toEqual({
+            player: "bonob+audio/alac",
+            mimeType: "audio/flac",
+          });
+          expect(result.tracks[1]!.encoding).toEqual(
+            expect.objectContaining({ player: "bonob" })
+          );
+        });
       });
     });
 

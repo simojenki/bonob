@@ -6,14 +6,12 @@ import { createHash } from "crypto";
 import { generateRandomString } from "./random";
 import {
   Credentials,
-  Album,
   AlbumSummary,
   Genre,
   Track,
   CoverArt,
   AlbumQueryType,
   Encoding,
-  albumToAlbumSummary,
   TrackSummary,
   AuthFailure,
 } from "./music_library";
@@ -60,7 +58,7 @@ type SubsonicResponse = {
   status: string;
 };
 
-type album = {
+export type OpenSubsonicAlbum = {
   id: string;
   name: string;
   artist: string | undefined;
@@ -110,7 +108,7 @@ export type GetArtists = GetArtistsResponse["artists"];
 
 type GetAlbumListResponse = SubsonicResponse & {
   albumList2: {
-    album: album[];
+    album: OpenSubsonicAlbum[];
   };
 };
 
@@ -156,11 +154,11 @@ type GetArtistInfoResponse = SubsonicResponse & {
 
 type GetArtistResponse = SubsonicResponse & {
   artist: OpenSubsonicArtist & {
-    album: album[];
+    album: OpenSubsonicAlbum[];
   };
 };
 
-export type song = {
+export type OpenSubsonicSong = {
   id: string;
   parent: string | undefined;
   title: string;
@@ -184,18 +182,20 @@ export type song = {
   starred: string | undefined;
 };
 
-export type GetAlbumResponse = {
-  album: album & {
-    song: song[];
+export type GetAlbumResponse = SubsonicResponse & {
+  album: OpenSubsonicAlbum & {
+    song: OpenSubsonicSong[];
   };
 };
 
+export type GetAlbum = GetAlbumResponse["album"];
+
 export type GetPlaylistResponse = {
-  // todo: isnt the type here a composite? playlistSummary && { entry: song[]; }
+  // todo: isnt the type here a composite? playlistSummary && { entry: OpenSubsonicSong[]; }
   playlist: {
     id: string;
     name: string;
-    entry: song[];
+    entry: OpenSubsonicSong[];
 
     // todo: this is an ND specific field?
     coverArt: string | undefined;
@@ -221,11 +221,11 @@ export type GetPlaylistsResponse = {
 };
 
 export type GetSimilarSongsResponse = {
-  similarSongs2: { song: song[] };
+  similarSongs2: { song: OpenSubsonicSong[] };
 };
 
 export type GetTopSongsResponse = {
-  topSongs: { song: song[] };
+  topSongs: { song: OpenSubsonicSong[] };
 };
 
 export type GetInternetRadioStationsResponse = {
@@ -240,13 +240,13 @@ export type GetInternetRadioStationsResponse = {
 };
 
 export type GetSongResponse = {
-  song: song;
+  song: OpenSubsonicSong;
 };
 
 export type GetStarredResponse = {
   starred2: {
-    song: song[];
-    album: album[];
+    song: OpenSubsonicSong[];
+    album: OpenSubsonicAlbum[];
   };
 };
 
@@ -260,8 +260,8 @@ export type PingResponse = {
 export type Search3Response = SubsonicResponse & {
   searchResult3: {
     artist: OpenSubsonicArtist[];
-    album: album[];
-    song: song[];
+    album: OpenSubsonicAlbum[];
+    song: OpenSubsonicSong[];
   };
 };
 
@@ -320,7 +320,7 @@ export const artistImageURN = (
 };
 
 export const asTrackSummary = (
-  song: song,
+  song: OpenSubsonicSong,
   customPlayers: CustomPlayers
 ): TrackSummary => ({
   id: song.id,
@@ -356,14 +356,14 @@ export const asTrackSummary = (
 
 export const asTrack = (
   album: AlbumSummary,
-  song: song,
+  song: OpenSubsonicSong,
   customPlayers: CustomPlayers
 ): Track => ({
   ...asTrackSummary(song, customPlayers),
   album: album,
 });
 
-export const asAlbumSummary = (album: album): AlbumSummary => ({
+export const asAlbumSummary = (album: OpenSubsonicAlbum): AlbumSummary => ({
   id: album.id,
   name: album.name,
   year: album.year,
@@ -844,11 +844,6 @@ export class Subsonic {
     );
 
   getArtists = (credentials: Credentials): Promise<GetArtists> =>
-    // TODO: This fetches every artist then slices client-side.  Consider using
-    // /rest/getArtistList instead, which supports server-side pagination
-    // (size/offset/totalCount) and is much faster for large libraries.  Not all
-    // Subsonic servers expose /rest/getArtistList, so a fallback to
-    // /rest/getArtists is required.
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => it.artists);
 
@@ -890,28 +885,9 @@ export class Subsonic {
         })
       );
 
-  getAlbum = (credentials: Credentials, id: string): Promise<Album>  =>
+  getAlbum = (credentials: Credentials, id: string): Promise<GetAlbum> =>
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
-      .then((it) => it.album)
-      .then((album) => {
-        const x: AlbumSummary = {
-          id: album.id,
-          name: album.name,
-          year: album.year,
-          genre: maybeAsGenre(album.genre),
-          artistId: album.artistId,
-          artistName: album.artist,
-          coverArt: coverArtToArt(album.coverArt)
-        }
-        return { summary: x, songs: album.song }
-      }).then(({ summary, songs }) => {
-        const x: AlbumSummary = summary
-        const y: Track[] = songs.map((it) => asTrack(summary, it, this.customPlayers))
-        return {
-          ...x,
-          tracks: y
-        };
-      });
+      .then((it) => it.album);
    
   getArtist = (
     credentials: Credentials,
@@ -943,7 +919,7 @@ export class Subsonic {
       .then((it) => it.song)
       .then((song) =>
         this.getAlbum(credentials, song.albumId!).then((album) =>
-          asTrack(albumToAlbumSummary(album), song, this.customPlayers)
+          asTrack(asAlbumSummary(album), song, this.customPlayers)
         )
       );
 
@@ -952,7 +928,7 @@ export class Subsonic {
       (it) => new Set(it.starred2.song.map((it) => it.id))
     );
 
-  toAlbumSummary = (albumList: album[]): AlbumSummary[] =>
+  toAlbumSummary = (albumList: OpenSubsonicAlbum[]): AlbumSummary[] =>
     albumList.map((album) => ({
       id: album.id,
       name: album.name,

@@ -32,6 +32,8 @@ import {
   AlbumQueryTypeToSubsonicType,
   GetArtists,
   hasSortName,
+  asAlbumSummary,
+  asTrack,
 } from "./subsonic";
 
 import logger from "./logger";
@@ -287,7 +289,14 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   };
 
   album = (id: string): Promise<Album> =>
-    this.subsonic.getAlbum(this.credentials, id);
+    this.subsonic
+      .getAlbum(this.credentials, id)
+      .then((album) => ({
+        ...asAlbumSummary(album),
+        tracks: (album.song || []).map((song) =>
+          asTrack(asAlbumSummary(album), song, this.customPlayers)
+        ),
+      }));
 
   genres = () => 
     this.subsonic.getGenres(this.credentials);

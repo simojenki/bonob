@@ -31,7 +31,7 @@ import {
   cachingImageFetcher,
   asTrack,
   artistImageURN,
-  song,
+  OpenSubsonicSong,
   TranscodingCustomPlayers,
   CustomPlayers,
   NO_CUSTOM_PLAYERS,
@@ -398,7 +398,7 @@ describe("asTrack", () => {
     it("should provide a ? to sonos", () => {
       const result = asTrack(
         album,
-        { id: "1" } as any as song,
+        { id: "1" } as any as OpenSubsonicSong,
         NO_CUSTOM_PLAYERS
       );
       expect(result.artist.id).toBeUndefined();
@@ -680,7 +680,9 @@ export const getAlbumJson = (album: Album) =>
       discNumer: 1,
       suffix: "mp3",
       contentType: track.encoding.mimeType,
-      path: "ACDC/High voltage/ACDC - The Jack.mp3"
+      path: "ACDC/High voltage/ACDC - The Jack.mp3",
+      starred: track.rating.love ? "sometime" : undefined,
+      userRating: track.rating.stars,
     })),
   } });
 
@@ -1317,234 +1319,88 @@ describe("Subsonic", () => {
   });
 
   describe("getting an album", () => {
-    describe("when there are no custom players", () => {
+    const rawAlbum = (album: Album) => getAlbumJson(album)["subsonic-response"].album;
+
+    describe("when the album has some tracks", () => {
+      const artistId = "artist6677";
+      const artistName = "Fizzy Wizzy";
+
+      const albumSummary = anAlbumSummary({ artistId, artistName });
+      const artistSumamry = anArtistSummary({ id: artistId, name: artistName });
+
+      const tracks = [
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+      ];
+
+      const album = anAlbum({
+        ...albumSummary,
+        tracks,
+        artistId,
+        artistName,
+      });
+
       beforeEach(() => {
-        customPlayers.encodingFor.mockReturnValue(O.none);
-      });
-  
-      describe("when the album has some tracks", () => {
-        const artistId = "artist6677"
-        const artistName = "Fizzy Wizzy"
-  
-        const albumSummary = anAlbumSummary({ artistId, artistName })
-        const artistSumamry = anArtistSummary({ id: artistId, name: artistName })
-  
-        // todo: fix these ratings
-        const tracks = [
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-        ];
-  
-        const album = anAlbum({
-          ...albumSummary,
-          tracks,
-          artistId,
-          artistName,
-         });
-  
-        beforeEach(() => {
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album)))
-          );
-        });
-  
-        it("should return the album", async () => {
-          const result = await subsonic.getAlbum(credentials, album.id);
-  
-          expect(result).toEqual(album);
-  
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getAlbum" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: album.id,
-              }),
-              headers,
-            }
-          );
-        });
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getAlbumJson(album)))
+        );
       });
 
-      describe("when the album has no tracks", () => {
-        const artistId = "artist6677"
-        const artistName = "Fizzy Wizzy"
-  
-        const albumSummary = anAlbumSummary({ artistId, artistName })
-  
-        const album = anAlbum({
-          ...albumSummary,
-          tracks: [],
-          artistId,
-          artistName,
-         });
-  
-        beforeEach(() => {
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album)))
-          );
-        });
-  
-        it("should return the album", async () => {
-          const result = await subsonic.getAlbum(credentials, album.id);
-  
-          expect(result).toEqual(album);
-  
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getAlbum" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: album.id,
-              }),
-              headers,
-            }
-          );
-        });
-      });
+      it("should return the raw OpenSubsonic album", async () => {
+        const result = await subsonic.getAlbum(credentials, album.id);
 
+        expect(result).toEqual(rawAlbum(album));
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getAlbum" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: album.id,
+            }),
+            headers,
+          }
+        );
+      });
     });
 
-    describe("when a custom player is configured for the mime type", () => {
-        const hipHop = asGenre("Hip-Hop");
-        const tripHop = asGenre("Trip-Hop");
+    describe("when the album has no tracks", () => {
+      const artistId = "artist6677";
+      const artistName = "Fizzy Wizzy";
 
-        const albumSummary = anAlbumSummary({ id: "album1", name: "Burnin", genre: hipHop });
+      const albumSummary = anAlbumSummary({ artistId, artistName });
 
-        const artistSummary = anArtistSummary({
-          id: "artist1",
-          name: "Bob Marley"
-        });
+      const album = anAlbum({
+        ...albumSummary,
+        tracks: [],
+        artistId,
+        artistName,
+      });
 
-        const alac = aTrack({
-          artist: artistSummary,
-          album: albumSummary,
-          encoding: {
-            player: "bonob",
-            mimeType: "audio/alac",
-          },
-          genre: hipHop,
-          rating: {
-            love: true,
-            stars: 3,
-          },
-        });
-        const m4a = aTrack({
-          artist: artistSummary,
-          album: albumSummary,
-          encoding: {
-            player: "bonob",
-            mimeType: "audio/m4a",
-          },
-          genre: hipHop,
-          rating: {
-            love: false,
-            stars: 0,
-          },
-        });
-        const mp3 = aTrack({
-          artist: artistSummary,
-          album: albumSummary,
-          encoding: {
-            player: "bonob",
-            mimeType: "audio/mp3",
-          },
-          genre: tripHop,
-          rating: {
-            love: true,
-            stars: 5,
-          },
-        });
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getAlbumJson(album)))
+        );
+      });
 
-        const album = anAlbum({
-          ...albumSummary,
-          tracks: [alac, m4a, mp3]
-        })
-      
-       beforeEach(() => {
-          customPlayers.encodingFor
-            .mockReturnValueOnce(
-              O.of({ player: "bonob+audio/alac", mimeType: "audio/flac" })
-            )
-            .mockReturnValueOnce(
-              O.of({ player: "bonob+audio/m4a", mimeType: "audio/opus" })
-            )
-            .mockReturnValueOnce(O.none);
+      it("should return the raw OpenSubsonic album", async () => {
+        const result = await subsonic.getAlbum(credentials, album.id);
 
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album)))
-          );
-        });
+        expect(result).toEqual(rawAlbum(album));
 
-        it("should return the album with custom players applied", async () => {
-          const result = await subsonic.getAlbum(credentials, album.id);
-
-          expect(result).toEqual({
-            ...album,
-            tracks: [
-              {
-                ...alac,
-                encoding: {
-                  player: "bonob+audio/alac",
-                  mimeType: "audio/flac",
-                },
-                // todo: this doesnt seem right? why dont the ratings come back?
-                rating: {
-                  love: false,
-                  stars: 0
-                }
-              },
-              {
-                ...m4a,
-                encoding: {
-                  player: "bonob+audio/m4a",
-                  mimeType: "audio/opus",
-                },
-                rating: {
-                  love: false,
-                  stars: 0
-                }
-              },
-              {
-                ...mp3,
-                encoding: {
-                  player: "bonob",
-                  mimeType: "audio/mp3",
-                },
-                rating: {
-                  love: false,
-                  stars: 0
-                }
-              },
-            ]
-          });
-
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getAlbum" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: album.id,
-              }),
-              headers,
-            }
-          );
-
-          expect(customPlayers.encodingFor).toHaveBeenCalledTimes(3);
-          expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(1, {
-            mimeType: "audio/alac",
-          });
-          expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(2, {
-            mimeType: "audio/m4a",
-          });
-          expect(customPlayers.encodingFor).toHaveBeenNthCalledWith(3, {
-            mimeType: "audio/mp3",
-          });
-        });        
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getAlbum" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: album.id,
+            }),
+            headers,
+          }
+        );
+      });
     });
-  });  
+  });
 
   describe("stars and unstars", () => {
     const id = uuid();
