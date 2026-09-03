@@ -14,7 +14,7 @@ import {
   Encoding,
   TrackSummary,
   AuthFailure,
-  Sortable
+  Sortable,
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -24,7 +24,7 @@ import path from "path";
 import axios, { AxiosRequestConfig } from "axios";
 import { b64Encode, b64Decode } from "./b64";
 import { Art } from "./art";
-import { album, artist } from "./smapi";
+
 import { URLBuilder } from "./url_builder";
 
 export const BROWSER_HEADERS = {
@@ -59,25 +59,36 @@ type SubsonicResponse = {
   status: string;
 };
 
-export type album = {
+export type OpenSubsonicAlbum = {
   id: string;
   name: string;
   artist: string | undefined;
   artistId: string | undefined;
   coverArt: string | undefined;
   genre: string | undefined;
-  year: string | undefined
+  year: string | undefined;
 };
 
-type artist = {
+export type OpenSubsonicArtist = {
   id: string;
   name: string;
   albumCount: number;
   artistImageUrl: string | undefined;
+  coverArt?: string;
+  userRating?: number;
+  starred?: string;
 };
 
-export type NavidromeSortName = {
+export type NavidromeArtist = {
   sortName: string;
+};
+
+export type ArtistWithSortName = OpenSubsonicArtist & NavidromeArtist;
+
+export function hasSortName(
+  artist: OpenSubsonicArtist
+): artist is ArtistWithSortName {
+  return "sortName" in artist && artist.sortName !== undefined;
 }
 
 export type AlbumList2Query = { 
@@ -87,26 +98,21 @@ export type AlbumList2Query = {
     fromYear?: string, toYear?: string 
   }
 
-export const isNavidromeArtist = (a: artist | (artist & NavidromeSortName)): a is artist & NavidromeSortName =>
-  'sortName' in a;
-
-export const isNavidromeAlbum = (a: album | (album & NavidromeSortName)): a is album & NavidromeSortName =>
-  'sortName' in a;
-
-type GetArtistsResponse = SubsonicResponse & {
+export type GetArtistsResponse = SubsonicResponse & {
   artists: {
     ignoredArticles: string;
     index: {
-      artist: artist[] | (artist & NavidromeSortName)[];
       name: string;
+      artist: Array<OpenSubsonicArtist | ArtistWithSortName>;
     }[];
   };
 };
 
+export type GetArtists = GetArtistsResponse["artists"];
+
 type GetAlbumListResponse = SubsonicResponse & {
   albumList2: {
-    // todo: these should be PArtial?
-    album: album[] | (album & NavidromeSortName)[];
+    album: OpenSubsonicAlbum[];
   };
 };
 
@@ -139,7 +145,7 @@ type artistInfo = images & {
   biography: string | undefined;
   musicBrainzId: string | undefined;
   lastFmUrl: string | undefined;
-  similarArtist: artist[];
+  similarArtist: OpenSubsonicArtist[];
 };
 
 type ArtistSummary = IdName & {
@@ -151,45 +157,48 @@ type GetArtistInfoResponse = SubsonicResponse & {
 };
 
 type GetArtistResponse = SubsonicResponse & {
-  artist: artist & {
-    album: album[];
+  artist: OpenSubsonicArtist & {
+    album: OpenSubsonicAlbum[];
   };
 };
 
-export type song = {
+export type OpenSubsonicSong = {
   id: string;
   parent: string | undefined;
   title: string;
-  album: string | undefined;
+  type: string | undefined;
   albumId: string | undefined;
-  artist: string | undefined;
+  album: string | undefined;
   artistId: string | undefined;
+  artist: string | undefined;
+  coverArt: string | undefined;
+  duration: number | undefined;
+  bitRate: number | undefined;
   track: number | undefined;
   year: string | undefined;
   genre: string | undefined;
-  coverArt: string | undefined;
   created: string | undefined;
-  duration: number | undefined;
-  bitRate: number | undefined;
   suffix: string | undefined;
   contentType: string;
+
   transcodedContentType: string | undefined;
-  type: string | undefined;
   userRating: number | undefined;
-  // todo: this field shouldnt be on song?
-  starred: string | undefined;
 };
 
-export type GetAlbumResponse = {
-  album: album & Partial<NavidromeSortName> & { song: song[] };
+export type GetAlbumResponse = SubsonicResponse & {
+  album: OpenSubsonicAlbum & {
+    song: OpenSubsonicSong[];
+  };
 };
+
+export type GetAlbum = GetAlbumResponse["album"];
 
 export type GetPlaylistResponse = {
-  // todo: isnt the type here a composite? playlistSummary && { entry: song[]; }
+  // todo: isnt the type here a composite? playlistSummary && { entry: OpenSubsonicSong[]; }
   playlist: {
     id: string;
     name: string;
-    entry: song[];
+    entry: OpenSubsonicSong[];
 
     // todo: this is an ND specific field?
     coverArt: string | undefined;
@@ -215,11 +224,11 @@ export type GetPlaylistsResponse = {
 };
 
 export type GetSimilarSongsResponse = {
-  similarSongs2: { song: song[] };
+  similarSongs2: { song: OpenSubsonicSong[] };
 };
 
 export type GetTopSongsResponse = {
-  topSongs: { song: song[] };
+  topSongs: { song: OpenSubsonicSong[] };
 };
 
 export type GetInternetRadioStationsResponse = {
@@ -234,13 +243,14 @@ export type GetInternetRadioStationsResponse = {
 };
 
 export type GetSongResponse = {
-  song: song;
+  song: OpenSubsonicSong;
 };
 
 export type GetStarredResponse = {
   starred2: {
-    song: song[];
-    album: album[];
+    song: OpenSubsonicSong[];
+    album: OpenSubsonicAlbum[];
+    artist: OpenSubsonicArtist[];
   };
 };
 
@@ -253,9 +263,9 @@ export type PingResponse = {
 
 export type Search3Response = SubsonicResponse & {
   searchResult3: {
-    artist: artist[];
-    album: album[];
-    song: song[];
+    artist: OpenSubsonicArtist[];
+    album: OpenSubsonicAlbum[];
+    song: OpenSubsonicSong[];
   };
 };
 
@@ -314,11 +324,13 @@ export const artistImageURN = (
 };
 
 export const asTrackSummary = (
-  song: song,
-  customPlayers: CustomPlayers
+  song: OpenSubsonicSong,
+  customPlayers: CustomPlayers,
+  starredSongIds: Set<string>
 ): TrackSummary => ({
   id: song.id,
   name: song.title,
+  // todo: what is this used for?
   encoding: pipe(
     customPlayers.encodingFor({ mimeType: song.contentType }),
     O.getOrElse(() => ({
@@ -340,7 +352,7 @@ export const asTrackSummary = (
       : undefined,
   },
   rating: {
-    love: song.starred != undefined,
+    love: starredSongIds.has(song.id),
     stars:
       song.userRating && song.userRating <= 5 && song.userRating >= 0
         ? song.userRating
@@ -350,13 +362,24 @@ export const asTrackSummary = (
 
 export const asTrack = (
   album: AlbumSummary,
-  song: song,
-  customPlayers: CustomPlayers
+  song: OpenSubsonicSong,
+  customPlayers: CustomPlayers,
+  starredSongIds: Set<string>
 ): Track => ({
-  ...asTrackSummary(song, customPlayers),
+  ...asTrackSummary(song, customPlayers, starredSongIds),
   album: album,
 });
 
+export const asAlbumSummary = (album: OpenSubsonicAlbum): AlbumSummary & Sortable => ({
+  id: album.id,
+  name: album.name,
+  year: album.year,
+  genre: maybeAsGenre(album.genre),
+  artistId: album.artistId,
+  artistName: album.artist,
+  coverArt: coverArtToArt(album.coverArt),
+  _sortBy: album.name,
+});
 
 export const asGenre = (genreName: string) => ({
   id: b64Encode(genreName),
@@ -828,37 +851,9 @@ export class Subsonic {
       )
     );
 
-  getArtists = (
-    credentials: Credentials
-  ): Promise<(ArtistSummary & Sortable & { albumCount: number })[]> =>
-    // TODO: This fetches every artist then slices client-side.  Consider using
-    // /rest/getArtistList instead, which supports server-side pagination
-    // (size/offset/totalCount) and is much faster for large libraries.  Not all
-    // Subsonic servers expose /rest/getArtistList, so a fallback to
-    // /rest/getArtists is required.
+  getArtists = (credentials: Credentials): Promise<GetArtists> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => ({
-        ignoredArticles: new Set((it.artists.ignoredArticles || "").toLowerCase().split(" ").filter(Boolean)),
-        artists: (it.artists.index || []).flatMap((it) => it.artist || []),
-      }))
-      .then(({ ignoredArticles, artists }) =>
-        artists.map((artist) => {
-          const _sortBy = isNavidromeArtist(artist)
-            ? artist.sortName
-            : artist.name.split(" ").filter(t => !ignoredArticles.has(t.toLowerCase())).join(" ").toLowerCase();
-          return {
-            id: `${artist.id}`,
-            name: artist.name,
-            _sortBy,
-            albumCount: artist.albumCount,
-            image: artistImageURN({
-              artistId: artist.id,
-              artistImageURL: artist.artistImageUrl,
-            }),
-          };
-        })
-      )
-      .then(artists => [...artists].sort((a, b) => a._sortBy.localeCompare(b._sortBy)));
+      .then((it) => it.artists);
 
       // todo: should be getArtistInfo2?
   getArtistInfo = (
@@ -898,7 +893,7 @@ export class Subsonic {
         })
       );
 
-  getAlbum = (credentials: Credentials, id: string): Promise<GetAlbumResponse["album"]> =>
+  getAlbum = (credentials: Credentials, id: string): Promise<GetAlbum> =>
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
       .then((it) => it.album);
    
@@ -925,17 +920,17 @@ export class Subsonic {
       responseType: "arraybuffer",
     });
 
-  getSong = (credentials: Credentials, id: string): Promise<GetSongResponse["song"]> =>
+  getTrack = (credentials: Credentials, id: string): Promise<OpenSubsonicSong> =>
     this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
       id,
     }).then((it) => it.song);
 
-  getStarred = (credentials: Credentials) =>
+  getStarred = (credentials: Credentials): Promise<GetStarredResponse["starred2"]> =>
     this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2").then(
-      (it) => new Set(it.starred2.song.map((it) => it.id))
+      (it) => it.starred2
     );
 
-  toAlbumSummary = (albumList: album[]): AlbumSummary[] =>
+  toAlbumSummary = (albumList: OpenSubsonicAlbum[]): (AlbumSummary & Sortable)[] =>
     albumList.map((album) => ({
       id: album.id,
       name: album.name,
@@ -944,6 +939,7 @@ export class Subsonic {
       artistId: album.artistId,
       artistName: album.artist,
       coverArt: coverArtToArt(album.coverArt),
+      _sortBy: album.name,
     }));
 
   search3 = (credentials: Credentials, q: any) =>
@@ -958,17 +954,17 @@ export class Subsonic {
       songs: it.searchResult3.song || [],
     }));
 
-  getAlbumList2 = (credentials: Credentials, q: AlbumList2Query): Promise<(album & Partial<NavidromeSortName>)[]> =>
+  getAlbumList2 = (credentials: Credentials, q: AlbumList2Query) =>
     this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
       type: q.type,
-      // todo: this b64Decode should happen in the subsonic music library, not in here.
       ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
       ...(q.fromYear ? { fromYear: q.fromYear } : {}),
       ...(q.toYear ? { toYear: q.toYear } : {}),
       size: Math.min(q.size ?? 50, 500),
       offset: q.offset,
     })
-      .then((response) => response.albumList2.album || []);
+      .then((response) => response.albumList2.album || [])
+      .then(this.toAlbumSummary);
 
   getGenres = (credentials: Credentials) =>
     this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>
@@ -1107,34 +1103,10 @@ export class Subsonic {
       }))
     );
 
-  playlist = (credentials: Credentials, id: string) =>
+  playlist = (credentials: Credentials, id: string): Promise<GetPlaylistResponse["playlist"]> =>
     this.getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
       id,
-    })
-    .then(({ playlist }) => {
-      let trackNumber = 1;
-      return {
-        id: playlist.id,
-        name: playlist.name,
-        coverArt: coverArtToArt(playlist.coverArt),
-        entries: (playlist.entry || []).map((entry) => ({
-          ...asTrack(
-            {
-              id: entry.albumId!,
-              name: entry.album!,
-              year: entry.year,
-              genre: maybeAsGenre(entry.genre),
-              artistName: entry.artist,
-              artistId: entry.artistId,
-              coverArt: coverArtToArt(entry.coverArt),
-            },
-            entry,
-            this.customPlayers
-          ),
-          number: trackNumber++,
-        })),
-      };
-    });
+    }).then(({ playlist }) => playlist);
 
     createPlayList = (credentials: Credentials, name: string) =>
       this.getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
@@ -1163,27 +1135,23 @@ export class Subsonic {
       })
       .then(it => it.status == "ok");
 
-    getSimilarSongs2 = (credentials: Credentials, id: string) =>
+    getSimilarSongs2 = (credentials: Credentials, id: string): Promise<OpenSubsonicSong[]> =>
       this.getJSON<GetSimilarSongsResponse>(
         credentials,
         "/rest/getSimilarSongs2",
         //todo: remove this hard coded 50?
         { id, count: 50 }
       )
-      .then((it) => 
-        (it.similarSongs2.song || []).map(it => asTrackSummary(it, this.customPlayers))
-      );
+      .then((it) => it.similarSongs2.song || []);
 
-    getTopSongs = (credentials: Credentials, artist: string) =>
+    getTopSongs = (credentials: Credentials, artist: string): Promise<OpenSubsonicSong[]> =>
       this.getJSON<GetTopSongsResponse>(
         credentials,
         "/rest/getTopSongs",
         //todo: remove this hard coded 50?
         { artist, count: 50 }
       )
-      .then((it) => 
-        (it.topSongs.song || []).map(it => asTrackSummary(it, this.customPlayers))
-      );
+      .then((it) => it.topSongs.song || []);
 
   getInternetRadioStations = (credentials: Credentials) =>
     this.getJSON<GetInternetRadioStationsResponse>(

@@ -31,7 +31,8 @@ import {
   cachingImageFetcher,
   asTrack,
   artistImageURN,
-  song,
+  OpenSubsonicSong,
+  OpenSubsonicArtist,
   TranscodingCustomPlayers,
   CustomPlayers,
   NO_CUSTOM_PLAYERS,
@@ -39,6 +40,7 @@ import {
   asGenre,
   PingResponse,
   OpenSubsonicExtension,
+  GetStarredResponse,
   SONOS_CLIENT_INFO,
   TranscodeDecision,
 } from "../src/subsonic";
@@ -47,7 +49,7 @@ import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_musi
 
 import { b64Encode } from "../src/b64";
 
-import { Album, Artist, Track, AlbumSummary, AuthFailure, Sortable } from "../src/music_library";
+import { Album, Artist, Track, AlbumSummary, AuthFailure } from "../src/music_library";
 import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP, a404 } from "./builders";
 import { Art } from "../src/art";
 
@@ -255,16 +257,9 @@ const asSongJson = (track: Track) => ({
   albumId: track.album.id,
   artistId: track.artist.id,
   type: "music",
-  starred: track.rating.love ? "sometime" : undefined,
   userRating: track.rating.stars,
   year: "",
 });
-
-// todo: this should return a SubsonicAlbum  
-export const asAlbumSummary = (album: AlbumSummary): AlbumSummary => {
-  const { _sortBy, ...rest } = album as AlbumSummary & Sortable;
-  return rest;
-};
 
 export type ArtistWithAlbum = {
   artist: Artist;
@@ -274,6 +269,14 @@ export type ArtistWithAlbum = {
 const anOpenSubsonicExtension = (fields: Partial<OpenSubsonicExtension> = {}): OpenSubsonicExtension => ({
   name: `extension-${uuid()}`,
   versions: [1],
+  ...fields,
+});
+
+const anOpenSubsonicArtist = (fields: Partial<OpenSubsonicArtist> = {}): OpenSubsonicArtist => ({
+  id: `artist-${uuid()}`,
+  name: `Artist ${uuid()}`,
+  albumCount: 1,
+  artistImageUrl: undefined,
   ...fields,
 });
 
@@ -390,7 +393,8 @@ describe("asTrack", () => {
       const result = asTrack(
         album,
         { ...asSongJson(track) },
-        NO_CUSTOM_PLAYERS
+        NO_CUSTOM_PLAYERS,
+        new Set()
       );
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("Not in library so no id");
@@ -404,8 +408,9 @@ describe("asTrack", () => {
     it("should provide a ? to sonos", () => {
       const result = asTrack(
         album,
-        { id: "1" } as any as song,
-        NO_CUSTOM_PLAYERS
+        { id: "1" } as any as OpenSubsonicSong,
+        NO_CUSTOM_PLAYERS,
+        new Set()
       );
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("?");
@@ -422,7 +427,8 @@ describe("asTrack", () => {
         const result = asTrack(
           album,
           { ...asSongJson(track), userRating: 6 },
-          NO_CUSTOM_PLAYERS
+          NO_CUSTOM_PLAYERS,
+          new Set()
         );
         expect(result.rating.stars).toEqual(0);
       });
@@ -433,7 +439,8 @@ describe("asTrack", () => {
         const result = asTrack(
           album,
           { ...asSongJson(track), userRating: -1 },
-          NO_CUSTOM_PLAYERS
+          NO_CUSTOM_PLAYERS,
+          new Set()
         );
         expect(result.rating.stars).toEqual(0);
       });
@@ -454,7 +461,8 @@ describe("asTrack", () => {
               contentType: "nonTranscodedContentType",
               transcodedContentType: undefined,
             },
-            NO_CUSTOM_PLAYERS
+            NO_CUSTOM_PLAYERS,
+            new Set()
           );
 
           expect(result.encoding).toEqual({
@@ -473,7 +481,8 @@ describe("asTrack", () => {
               contentType: "nonTranscodedContentType",
               transcodedContentType: "transcodedContentType",
             },
-            NO_CUSTOM_PLAYERS
+            NO_CUSTOM_PLAYERS,
+            new Set()
           );
 
           expect(result.encoding).toEqual({
@@ -501,7 +510,8 @@ describe("asTrack", () => {
                 contentType: "nonTranscodedContentType",
                 transcodedContentType: undefined,
               },
-              streamClient as unknown as CustomPlayers
+              streamClient as unknown as CustomPlayers,
+              new Set()
             );
 
             expect(result.encoding).toEqual({
@@ -525,7 +535,8 @@ describe("asTrack", () => {
                 contentType: "nonTranscodedContentType",
                 transcodedContentType: "transcodedContentType1",
               },
-              streamClient as unknown as CustomPlayers
+              streamClient as unknown as CustomPlayers,
+              new Set()
             );
 
             expect(result.encoding).toEqual({
@@ -554,7 +565,8 @@ describe("asTrack", () => {
               contentType: "sourced-from/subsonic",
               transcodedContentType: "sourced-from/subsonic2",
             },
-            streamClient as unknown as CustomPlayers
+            streamClient as unknown as CustomPlayers,
+            new Set()
           );
 
           expect(result.encoding).toEqual(customEncoding);
@@ -613,6 +625,7 @@ export const asArtistAlbumJson = (
   album: album.name,
   artist: artist.name,
   genre: album.genre?.name,
+  coverArt: maybeIdFromCoverArtUrn(album.coverArt),
   duration: "123",
   playCount: "4",
   year: album.year,
@@ -686,15 +699,24 @@ export const getAlbumJson = (album: Album) =>
       discNumer: 1,
       suffix: "mp3",
       contentType: track.encoding.mimeType,
-      path: "ACDC/High voltage/ACDC - The Jack.mp3"
+      path: "ACDC/High voltage/ACDC - The Jack.mp3",
+      // todo: these aren't on OpenSubsonicAlbum...
+      userRating: track.rating.stars,
     })),
   } });
 
-export const rawAlbumFrom = (album: Album) =>
-  (getAlbumJson(album) as any)["subsonic-response"].album;
-
 const getOpenSubsonicExtensionsJson = (extensions: OpenSubsonicExtension[]) =>
   subsonicOK({ openSubsonicExtensions: extensions });
+
+const getStarredJson = (starred2: Partial<GetStarredResponse["starred2"]> = {}) =>
+  subsonicOK({
+    starred2: {
+      song: [],
+      album: [],
+      artist: [],
+      ...starred2,
+    },
+  });
 
 const aTranscodeDecision = (fields: Partial<TranscodeDecision> = {}): TranscodeDecision => ({
   canDirectPlay: false,
@@ -784,7 +806,7 @@ describe("Subsonic", () => {
   });  
 
   describe("getting artists", () => {
-    describe("when there are indexes, but no artists", () => {
+    describe("when there are indexes but no artists", () => {
       beforeEach(() => {
         mockGET.mockImplementationOnce(() =>
           Promise.resolve(
@@ -792,15 +814,9 @@ describe("Subsonic", () => {
               subsonicOK({
                 artists: {
                   index: [
-                    {
-                      name: "#",
-                    },
-                    {
-                      name: "A",
-                    },
-                    {
-                      name: "B",
-                    },
+                    { name: "#" },
+                    { name: "A" },
+                    { name: "B" },
                   ],
                 },
               })
@@ -809,30 +825,30 @@ describe("Subsonic", () => {
         );
       });
 
-      it("should return empty", async () => {
+      it("should return the raw response as-is", async () => {
         const artists = await subsonic.getArtists(credentials);
 
-        expect(artists).toEqual([]);
+        expect(artists).toEqual({
+          index: [
+            { name: "#" },
+            { name: "A" },
+            { name: "B" },
+          ],
+        });
       });
     });
 
-    describe("when there no indexes and no artists", () => {
+    describe("when there are no indexes and no artists", () => {
       beforeEach(() => {
         mockGET.mockImplementationOnce(() =>
-          Promise.resolve(
-            ok(
-              subsonicOK({
-                artists: {},
-              })
-            )
-          )
+          Promise.resolve(ok(subsonicOK({ artists: {} })))
         );
-      });
+    });
 
-      it("should return empty", async () => {
+      it("should return the raw artists payload", async () => {
         const artists = await subsonic.getArtists(credentials);
 
-        expect(artists).toEqual([]);
+        expect(artists).toEqual({});
       });
     });
 
@@ -849,20 +865,10 @@ describe("Subsonic", () => {
         );
       });
 
-      it("should return all the artists", async () => {
-        const artists = await subsonic.getArtists(credentials);
+      it("should return the OpenSubsonic artists payload untouched", async () => {
+        const result = await subsonic.getArtists(credentials);
 
-        const expectedResults = [artist1, artist2, artist3, artist4].map(
-          (it) => ({
-            id: it.id,
-            image: it.image,
-            name: it.name,
-            _sortBy: it.name.toLowerCase(),
-            albumCount: it.albums.length
-          })
-        );
-
-        expect(artists).toEqual(expectedResults);
+        expect(result).toEqual(asArtistsJson(artists)["subsonic-response"].artists);
 
         expect(axios.get).toHaveBeenCalledWith(
           url.append({ pathname: "/rest/getArtists" }).href(),
@@ -874,116 +880,31 @@ describe("Subsonic", () => {
       });
     });
 
-    describe("when an artist has a sortName", () => {
+    describe("when the server provides Navidrome sortName and ignoredArticles", () => {
       const artist1 = anArtist({ name: "The Beatles", albums: [anAlbum()] });
 
       beforeEach(() => {
         mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(asArtistsJson([{ ...artist1, sortName: "Beatles" }])))
+          Promise.resolve(
+            ok(
+              asArtistsJson(
+                [{ ...artist1, sortName: "Beatles" }],
+                "The"
+              )
+            )
+          )
         );
       });
 
-      it("should map sortName to _sortBy in the result", async () => {
-        const artists = await subsonic.getArtists(credentials);
+      it("should preserve them in the raw payload", async () => {
+        const result = await subsonic.getArtists(credentials);
 
-        expect(artists[0]).toMatchObject({ name: "The Beatles", _sortBy: "Beatles" });
-      });
-    });
-
-    describe("when an artist has no sortName", () => {
-      const artist1 = anArtist({ name: "Aerosmith", albums: [anAlbum()] });
-
-      beforeEach(() => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(asArtistsJson([artist1])))
+        expect(result).toEqual(
+          asArtistsJson(
+            [{ ...artist1, sortName: "Beatles" }],
+            "The"
+          )["subsonic-response"].artists
         );
-      });
-
-      it("should fall back to name for _sortBy", async () => {
-        const artists = await subsonic.getArtists(credentials);
-
-        expect(artists[0]).toMatchObject({ _sortBy: "aerosmith" });
-      });
-    });
-
-    describe("when artists are returned out of order by the server", () => {
-      const artistA = anArtist({ name: "Aardvark", albums: [anAlbum()] });
-      const artistB = anArtist({ name: "Bumblebee", albums: [anAlbum()] });
-      const artistC = anArtist({ name: "Catfish", albums: [anAlbum()] });
-
-      beforeEach(() => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(asArtistsJson([artistC, artistA, artistB])))
-        );
-      });
-
-      it("should return artists sorted by _sortBy", async () => {
-        const artists = await subsonic.getArtists(credentials);
-
-        expect(artists.map(a => a.name)).toEqual(["Aardvark", "Bumblebee", "Catfish"]);
-      });
-    });
-
-    describe("when artists have a sortName that differs from name", () => {
-      const artistA = anArtist({ name: "The Aardvark", albums: [anAlbum()] });
-      const artistB = anArtist({ name: "The Bumblebee", albums: [anAlbum()] });
-      const artistC = anArtist({ name: "Catfish", albums: [anAlbum()] });
-
-      beforeEach(() => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(asArtistsJson([
-            { ...artistB, sortName: "Bumblebee" },
-            artistC,
-            { ...artistA, sortName: "Aardvark" },
-          ])))
-        );
-      });
-
-      it("should sort by sortName rather than name", async () => {
-        const artists = await subsonic.getArtists(credentials);
-
-        expect(artists.map(a => a.name)).toEqual(["The Aardvark", "The Bumblebee", "Catfish"]);
-      });
-
-      it("should set _sortBy to sortName when present", async () => {
-        const artists = await subsonic.getArtists(credentials);
-
-        expect(artists.map(a => a._sortBy)).toEqual(["Aardvark", "Bumblebee", "catfish"]);
-      });
-    });
-
-    describe("when ignoredArticles are present", () => {
-      const artistA = anArtist({ name: "The Aardvark", albums: [anAlbum()] });
-      const artistB = anArtist({ name: "A Bumblebee", albums: [anAlbum()] });
-      const artistC = anArtist({ name: "Catfish", albums: [anAlbum()] });
-
-      beforeEach(() => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(asArtistsJson([artistA, artistB, artistC], "The A")))
-        );
-      });
-
-      it("should strip ignored articles from _sortBy", async () => {
-        const artists = await subsonic.getArtists(credentials);
-
-        expect(artists.map(a => a._sortBy)).toEqual(["aardvark", "bumblebee", "catfish"]);
-      });
-
-      it("should sort by _sortBy after stripping articles", async () => {
-        const artists = await subsonic.getArtists(credentials);
-
-        expect(artists.map(a => a.name)).toEqual(["The Aardvark", "A Bumblebee", "Catfish"]);
-      });
-
-      it("should not strip article tokens that are substrings within a word", async () => {
-        const artistD = anArtist({ name: "There", albums: [anAlbum()] });
-        mockGET.mockReset();
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(asArtistsJson([artistD], "The")))
-        );
-        const artists = await subsonic.getArtists(credentials);
-
-        expect(artists[0]!._sortBy).toEqual("there");
       });
     });
   });
@@ -1013,7 +934,7 @@ describe("Subsonic", () => {
               id: artist.id,
               name: artist.name,
               artistImageUrl: undefined,
-              albums: artist.albums.map(asAlbumSummary)
+              albums: artist.albums
             });
   
             expect(axios.get).toHaveBeenCalledWith(
@@ -1050,7 +971,7 @@ describe("Subsonic", () => {
               id: artist.id,
               name: artist.name,
               artistImageUrl: undefined,
-              albums: artist.albums.map(asAlbumSummary),
+              albums: artist.albums,
             });
   
             expect(axios.get).toHaveBeenCalledWith(
@@ -1427,121 +1348,81 @@ describe("Subsonic", () => {
   });
 
   describe("getting an album", () => {
-    describe("when there are no custom players", () => {
-      beforeEach(() => {
-        customPlayers.encodingFor.mockReturnValue(O.none);
+    const rawAlbum = (album: Album) => getAlbumJson(album)["subsonic-response"].album;
+
+    describe("when the album has some tracks", () => {
+      const artistId = "artist6677";
+      const artistName = "Fizzy Wizzy";
+
+      const albumSummary = anAlbumSummary({ artistId, artistName });
+      const artistSumamry = anArtistSummary({ id: artistId, name: artistName });
+
+      const tracks = [
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+        aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
+      ];
+
+      const album = anAlbum({
+        ...albumSummary,
+        tracks,
+        artistId,
+        artistName,
       });
-  
-      describe("when the album has some tracks", () => {
-        const artistId = "artist6677"
-        const artistName = "Fizzy Wizzy"
-  
-        const albumSummary = anAlbumSummary({ artistId, artistName })
-        const artistSumamry = anArtistSummary({ id: artistId, name: artistName })
-  
-        // todo: fix these ratings
-        const tracks = [
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-          aTrack({ artist: artistSumamry, album: albumSummary, rating: { love: false, stars: 0 } }),
-        ];
-  
-        const album = anAlbum({
-          ...albumSummary,
-          tracks,
-          artistId,
-          artistName,
-         });
-  
-        beforeEach(() => {
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album)))
-          );
-        });
-  
-        it("should return the raw subsonic album", async () => {
-          const result = await subsonic.getAlbum(credentials, album.id);
-  
-          expect(result).toEqual(rawAlbumFrom(album));
-  
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getAlbum" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: album.id,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-      describe("when the album has no tracks", () => {
-        const artistId = "artist6677"
-        const artistName = "Fizzy Wizzy"
-  
-        const albumSummary = anAlbumSummary({ artistId, artistName })
-  
-        const album = anAlbum({
-          ...albumSummary,
-          tracks: [],
-          artistId,
-          artistName,
-         });
-  
-        beforeEach(() => {
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(getAlbumJson(album)))
-          );
-        });
-  
-        it("should return the raw subsonic album", async () => {
-          const result = await subsonic.getAlbum(credentials, album.id);
-  
-          expect(result).toEqual(rawAlbumFrom(album));
-  
-          expect(axios.get).toHaveBeenCalledWith(
-            url.append({ pathname: "/rest/getAlbum" }).href(),
-            {
-              params: asURLSearchParams({
-                ...authParamsPlusJson,
-                id: album.id,
-              }),
-              headers,
-            }
-          );
-        });
-      });
-
-    });
-
-
-  });  
-
-  describe("getSong", () => {
-    describe("when the song exists", () => {
-      const id = uuid();
-      const track = aTrack();
 
       beforeEach(() => {
         mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(subsonicOK({ song: asSongJson(track) })))
+          Promise.resolve(ok(getAlbumJson(album)))
         );
       });
 
-      it("should return the raw subsonic song", async () => {
-        const result = await subsonic.getSong(credentials, id);
+      it("should return the raw OpenSubsonic album", async () => {
+        const result = await subsonic.getAlbum(credentials, album.id);
 
-        expect(result).toEqual(asSongJson(track));
+        expect(result).toEqual(rawAlbum(album));
 
         expect(axios.get).toHaveBeenCalledWith(
-          url.append({ pathname: "/rest/getSong" }).href(),
+          url.append({ pathname: "/rest/getAlbum" }).href(),
           {
             params: asURLSearchParams({
               ...authParamsPlusJson,
-              id,
+              id: album.id,
+            }),
+            headers,
+          }
+        );
+      });
+    });
+
+    describe("when the album has no tracks", () => {
+      const artistId = "artist6677";
+      const artistName = "Fizzy Wizzy";
+
+      const albumSummary = anAlbumSummary({ artistId, artistName });
+
+      const album = anAlbum({
+        ...albumSummary,
+        tracks: [],
+        artistId,
+        artistName,
+      });
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getAlbumJson(album)))
+        );
+      });
+
+      it("should return the raw OpenSubsonic album", async () => {
+        const result = await subsonic.getAlbum(credentials, album.id);
+
+        expect(result).toEqual(rawAlbum(album));
+
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getAlbum" }).href(),
+          {
+            params: asURLSearchParams({
+              ...authParamsPlusJson,
+              id: album.id,
             }),
             headers,
           }
@@ -1821,6 +1702,47 @@ describe("Subsonic", () => {
         const result = await subsonic.getTranscodeDecision(credentials, mediaId, SONOS_CLIENT_INFO);
 
         expect(result).toEqual(decision);
+      });
+    });
+  });
+
+  describe("getStarred", () => {
+    describe("when there are starred songs, albums, and artists", () => {
+      const album = anAlbumSummary();
+      const track = aTrack();
+      const song = asSongJson(track);
+      const albumJson = asArtistAlbumJson(
+        { id: album.artistId, name: album.artistName },
+        album
+      );
+      const artist = anOpenSubsonicArtist();
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getStarredJson({ song: [song], album: [albumJson], artist: [artist] })))
+        );
+      });
+
+      it("should return the starred2 payload", async () => {
+        const result = await subsonic.getStarred(credentials);
+
+        expect(result).toEqual({ song: [song], album: [albumJson], artist: [artist] });
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getStarred2" }).href(),
+          { params: asURLSearchParams(authParamsPlusJson), headers }
+        );
+      });
+    });
+
+    describe("when there are no starred songs, albums, or artists", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() => Promise.resolve(ok(getStarredJson())));
+      });
+
+      it("should return empty arrays", async () => {
+        const result = await subsonic.getStarred(credentials);
+
+        expect(result).toEqual({ song: [], album: [], artist: [] });
       });
     });
   });

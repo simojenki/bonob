@@ -156,14 +156,15 @@ export const artistToArtistSummary = (it: Artist): ArtistSummary => ({
   image: it.image
 });
 
-export const albumToAlbumSummary = (it: Album): AlbumSummary => ({
+export const albumToAlbumSummary = (it: Album): AlbumSummary & Sortable => ({
   id: it.id,
   name: it.name,
   year: it.year,
   genre: it.genre,
   artistName: it.artistName,
   artistId: it.artistId,
-  coverArt: it.coverArt
+  coverArt: it.coverArt,
+  _sortBy: it.name,
 });
 
 export const trackToTrackSummary = (it: Track): TrackSummary => ({
