@@ -146,7 +146,6 @@ export const getArtistJson = (
         genre: album.genre?.name,
         userRating: 5,
         averageRating: 3,
-        starred: "2021-01-07T08:19:55.834207205Z",
       }))
     },
   });
@@ -178,6 +177,9 @@ const getSimilarSongsJson = (tracks: Track[]) =>
 
 const getTopSongsJson = (tracks: Track[]) =>
   subsonicOK({ topSongs: { song: tracks.map(asSongJson) } });
+
+const getStarred2Json = (tracks: Track[] = []) =>
+  subsonicOK({ starred2: { song: tracks.map(asSongJson), album: [], artist: [] } });
 
 const getOpenSubsonicExtensionsJson = (extensions: { name: string; versions: number[] }[]) =>
   subsonicOK({ openSubsonicExtensions: extensions });
@@ -229,7 +231,6 @@ const asSongJson = (track: Track) => ({
   albumId: track.album.id,
   artistId: track.artist.id,
   type: "music",
-  starred: track.rating.love ? "sometime" : undefined,
   userRating: track.rating.stars,
   year: "",
 });
@@ -329,7 +330,6 @@ const getPlayListJson = (playlist: Playlist) =>
         artistId: it.artist.id,
         type: "music",
         isVideo: false,
-        starred: it.rating.love ? "sometime" : undefined,
         userRating: it.rating.stars,
       })),
     },
@@ -378,11 +378,12 @@ const getSearchResult3Json = ({
         artist: track.artist.name,
         track: track.number,
         year: "",
+        genre: track.genre?.name,
         coverArt: maybeIdFromCoverArtUrn(track.coverArt),
         size: "5624132",
         contentType: track.encoding.mimeType,
         suffix: "mp3",
-        starred: track.rating.love ? "sometime" : undefined,
+        userRating: track.rating.stars,
         duration: track.duration,
         bitRate: 128,
         //bitDepth
@@ -655,6 +656,7 @@ describe("SubsonicMusicLibrary_new", () => {
     getArtistInfo: jest.fn(),
     getArtists: jest.fn(),
     getAlbum: jest.fn(),
+    getStarred: jest.fn(),
   };
 
   const library = new SubsonicMusicLibrary(
@@ -982,6 +984,14 @@ describe("SubsonicMusicLibrary_new", () => {
         artistName,
       });
 
+      beforeEach(() => {
+        subsonic.getStarred.mockResolvedValue({
+          song: tracks.filter((t) => t.rating.love).map(asSongJson),
+          album: [],
+          artist: [],
+        });
+      });
+
       describe("when the album has tracks", () => {
         beforeEach(() => {
           subsonic.getAlbum.mockResolvedValue(
@@ -1088,6 +1098,13 @@ describe("SubsonicMusicLibrary", () => {
     axios.post = mockPOST;
 
     mockRandomstring.mockReturnValue(salt);
+
+    mockGET.mockImplementation((url: string) => {
+      if (url.includes("/rest/getStarred2")) {
+        return Promise.resolve(ok(getStarred2Json([])));
+      }
+      return Promise.reject(new Error(`Unexpected GET ${url}`));
+    });
   });
 
   const authParams = {
@@ -2273,6 +2290,9 @@ describe("SubsonicMusicLibrary", () => {
                 Promise.resolve(ok(getSongJson(track)))
               )
               .mockImplementationOnce(() =>
+                Promise.resolve(ok(getStarred2Json([track])))
+              )
+              .mockImplementationOnce(() =>
                 Promise.resolve(ok(getAlbumJson(album)))
               );
 
@@ -2322,6 +2342,9 @@ describe("SubsonicMusicLibrary", () => {
             mockGET
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
+              )
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getStarred2Json([])))
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getAlbumJson(album)))
@@ -2403,9 +2426,6 @@ describe("SubsonicMusicLibrary", () => {
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
               )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(album)))
-              )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
             const result = await subsonic.stream({ trackId, range: undefined });
@@ -2442,9 +2462,6 @@ describe("SubsonicMusicLibrary", () => {
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
-              )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(album)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2484,9 +2501,6 @@ describe("SubsonicMusicLibrary", () => {
                 )
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
-                )
-                .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(album)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2538,9 +2552,6 @@ describe("SubsonicMusicLibrary", () => {
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
-                .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(album)))
-                )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
               return expect(
@@ -2559,9 +2570,6 @@ describe("SubsonicMusicLibrary", () => {
                 )
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
-                )
-                .mockImplementationOnce(() =>
-                  Promise.resolve(ok(getAlbumJson(album)))
                 )
                 .mockImplementationOnce(() =>
                   Promise.reject("IO error occured")
@@ -2599,9 +2607,6 @@ describe("SubsonicMusicLibrary", () => {
               )
               .mockImplementationOnce(() =>
                 Promise.resolve(ok(getSongJson(track)))
-              )
-              .mockImplementationOnce(() =>
-                Promise.resolve(ok(getAlbumJson(album)))
               )
               .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2665,11 +2670,6 @@ describe("SubsonicMusicLibrary", () => {
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
             )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(getAlbumJson(album))
-              )
-            )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
           await subsonic.stream({ trackId, range: undefined });
@@ -2709,11 +2709,6 @@ describe("SubsonicMusicLibrary", () => {
             )
             .mockImplementationOnce(() =>
               Promise.resolve(ok(getSongJson(trackWithCustomPlayer)))
-            )
-            .mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(getAlbumJson(album))
-              )
             )
             .mockImplementationOnce(() => Promise.resolve(streamResponse));
 
@@ -2789,9 +2784,6 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
-            )
-            .mockImplementationOnce(() =>
               Promise.resolve({ status: 200, headers: { "content-type": "audio/mpeg" }, data: streamData })
             );
 
@@ -2826,7 +2818,6 @@ describe("SubsonicMusicLibrary", () => {
 
         mockGET
           .mockImplementationOnce(() => Promise.resolve(ok(getSongJson(track))))
-          .mockImplementationOnce(() => Promise.resolve(ok(getAlbumJson(album))))
           .mockImplementationOnce(() =>
             Promise.resolve({ status: 200, headers: { "content-type": "audio/mpeg" }, data: streamData })
           );
@@ -2834,7 +2825,7 @@ describe("SubsonicMusicLibrary", () => {
         const result = await noTranscodeLibrary.stream({ trackId, range: undefined });
 
         expect(result.stream).toEqual(streamData);
-        expect(mockGET).toHaveBeenCalledTimes(3);
+        expect(mockGET).toHaveBeenCalledTimes(2);
       });
     });
   });
@@ -3086,7 +3077,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
+              Promise.resolve(ok(getStarred2Json([])))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -3121,7 +3112,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
+              Promise.resolve(ok(getStarred2Json([track])))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -3159,7 +3150,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
+              Promise.resolve(ok(getStarred2Json([track])))
             );
 
           const result = await subsonic.rate(trackId, { love: true, stars: 0 });
@@ -3184,7 +3175,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
+              Promise.resolve(ok(getStarred2Json([])))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
 
@@ -3223,7 +3214,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
+              Promise.resolve(ok(getStarred2Json([track])))
             );
 
           const result = await subsonic.rate(trackId, { love: true, stars: 3 });
@@ -3248,7 +3239,7 @@ describe("SubsonicMusicLibrary", () => {
               Promise.resolve(ok(getSongJson(track)))
             )
             .mockImplementationOnce(() =>
-              Promise.resolve(ok(getAlbumJson(album)))
+              Promise.resolve(ok(getStarred2Json([track])))
             )
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)))
             .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
@@ -3310,7 +3301,7 @@ describe("SubsonicMusicLibrary", () => {
         it("should return false", async () => {
           mockGET
             .mockImplementationOnce(() => Promise.resolve(ok(FAILURE)))
-            .mockImplementationOnce(() => Promise.resolve(ok(EMPTY)));
+            .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
           const result = await subsonic.rate(trackId, { love: true, stars: 0 });
 
@@ -3549,7 +3540,7 @@ describe("SubsonicMusicLibrary", () => {
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSearchResult3Json({ tracks: [track] })))
           )
-          .mockImplementationOnce(() => Promise.resolve(ok(getSongJson(track))))
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumJson(album)))
           );
@@ -3614,12 +3605,7 @@ describe("SubsonicMusicLibrary", () => {
               )
             )
           )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSongJson(track1)))
-          )
-          .mockImplementationOnce(() =>
-            Promise.resolve(ok(getSongJson(track2)))
-          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))))
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getAlbumJson(album1)))
           )
@@ -3649,9 +3635,11 @@ describe("SubsonicMusicLibrary", () => {
 
     describe("when there are no search results", () => {
       it("should return []", async () => {
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(getSearchResult3Json({ tracks: [] })))
-        );
+        mockGET
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getSearchResult3Json({ tracks: [] })))
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         const result = await subsonic.searchTracks("foo");
 
@@ -3753,9 +3741,11 @@ describe("SubsonicMusicLibrary", () => {
         it("should raise error", async () => {
           const id = "id404";
 
-          mockGET.mockImplementationOnce(() =>
-            Promise.resolve(ok(error("70", "data not found")))
-          );
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(error("70", "data not found")))
+            )
+            .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
           return expect(subsonic.playlist(id)).rejects.toEqual(
             "Subsonic error:data not found"
@@ -3796,17 +3786,19 @@ describe("SubsonicMusicLibrary", () => {
               album: albumToAlbumSummary(album2),
             });
 
-            mockGET.mockImplementationOnce(() =>
-              Promise.resolve(
-                ok(
-                  getPlayListJson({
-                    id,
-                    name,
-                    entries: [track1, track2],
-                  })
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    getPlayListJson({
+                      id,
+                      name,
+                      entries: [track1, track2],
+                    })
+                  )
                 )
               )
-            );
+              .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
             const result = await subsonic.playlist(id);
 
@@ -3838,9 +3830,11 @@ describe("SubsonicMusicLibrary", () => {
               entries: [],
             });
 
-            mockGET.mockImplementationOnce(() =>
-              Promise.resolve(ok(getPlayListJson(playlist)))
-            );
+            mockGET
+              .mockImplementationOnce(() =>
+                Promise.resolve(ok(getPlayListJson(playlist)))
+              )
+              .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
             const result = await subsonic.playlist(playlist.id);
 
@@ -3994,7 +3988,8 @@ describe("SubsonicMusicLibrary", () => {
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1])))
-          );
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         const result = await subsonic.similarSongs(id);
 
@@ -4056,7 +4051,8 @@ describe("SubsonicMusicLibrary", () => {
         mockGET
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getSimilarSongsJson([track1, track2, track3])))
-          );
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         const result = await subsonic.similarSongs(id);
 
@@ -4085,9 +4081,11 @@ describe("SubsonicMusicLibrary", () => {
       it("should return []", async () => {
         const id = "idWithNoTracks";
 
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(getSimilarSongsJson([])))
-        );
+        mockGET
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(getSimilarSongsJson([])))
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         const result = await subsonic.similarSongs(id);
 
@@ -4112,9 +4110,11 @@ describe("SubsonicMusicLibrary", () => {
       it("should fail", async () => {
         const id = "idThatHasAnError";
 
-        mockGET.mockImplementationOnce(() =>
-          Promise.resolve(ok(error("70", "data not found")))
-        );
+        mockGET
+          .mockImplementationOnce(() =>
+            Promise.resolve(ok(error("70", "data not found")))
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         return expect(subsonic.similarSongs(id)).rejects.toEqual(
           "Subsonic error:data not found"
@@ -4153,7 +4153,8 @@ describe("SubsonicMusicLibrary", () => {
           )
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getTopSongsJson([track1])))
-          );
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         const result = await subsonic.topSongs(artistId);
 
@@ -4214,7 +4215,8 @@ describe("SubsonicMusicLibrary", () => {
           )
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getTopSongsJson([track1, track2, track3])))
-          );
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         const result = await subsonic.topSongs(artistId);
 
@@ -4258,7 +4260,8 @@ describe("SubsonicMusicLibrary", () => {
           )
           .mockImplementationOnce(() =>
             Promise.resolve(ok(getTopSongsJson([])))
-          );
+          )
+          .mockImplementationOnce(() => Promise.resolve(ok(getStarred2Json([]))));
 
         const result = await subsonic.topSongs(artistId);
 

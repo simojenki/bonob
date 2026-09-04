@@ -32,6 +32,7 @@ import {
   asTrack,
   artistImageURN,
   OpenSubsonicSong,
+  OpenSubsonicArtist,
   TranscodingCustomPlayers,
   CustomPlayers,
   NO_CUSTOM_PLAYERS,
@@ -39,6 +40,7 @@ import {
   asGenre,
   PingResponse,
   OpenSubsonicExtension,
+  GetStarredResponse,
   SONOS_CLIENT_INFO,
   TranscodeDecision,
 } from "../src/subsonic";
@@ -255,7 +257,6 @@ const asSongJson = (track: Track) => ({
   albumId: track.album.id,
   artistId: track.artist.id,
   type: "music",
-  starred: track.rating.love ? "sometime" : undefined,
   userRating: track.rating.stars,
   year: "",
 });
@@ -268,6 +269,14 @@ export type ArtistWithAlbum = {
 const anOpenSubsonicExtension = (fields: Partial<OpenSubsonicExtension> = {}): OpenSubsonicExtension => ({
   name: `extension-${uuid()}`,
   versions: [1],
+  ...fields,
+});
+
+const anOpenSubsonicArtist = (fields: Partial<OpenSubsonicArtist> = {}): OpenSubsonicArtist => ({
+  id: `artist-${uuid()}`,
+  name: `Artist ${uuid()}`,
+  albumCount: 1,
+  artistImageUrl: undefined,
   ...fields,
 });
 
@@ -384,7 +393,8 @@ describe("asTrack", () => {
       const result = asTrack(
         album,
         { ...asSongJson(track) },
-        NO_CUSTOM_PLAYERS
+        NO_CUSTOM_PLAYERS,
+        new Set()
       );
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("Not in library so no id");
@@ -399,7 +409,8 @@ describe("asTrack", () => {
       const result = asTrack(
         album,
         { id: "1" } as any as OpenSubsonicSong,
-        NO_CUSTOM_PLAYERS
+        NO_CUSTOM_PLAYERS,
+        new Set()
       );
       expect(result.artist.id).toBeUndefined();
       expect(result.artist.name).toEqual("?");
@@ -416,7 +427,8 @@ describe("asTrack", () => {
         const result = asTrack(
           album,
           { ...asSongJson(track), userRating: 6 },
-          NO_CUSTOM_PLAYERS
+          NO_CUSTOM_PLAYERS,
+          new Set()
         );
         expect(result.rating.stars).toEqual(0);
       });
@@ -427,7 +439,8 @@ describe("asTrack", () => {
         const result = asTrack(
           album,
           { ...asSongJson(track), userRating: -1 },
-          NO_CUSTOM_PLAYERS
+          NO_CUSTOM_PLAYERS,
+          new Set()
         );
         expect(result.rating.stars).toEqual(0);
       });
@@ -448,7 +461,8 @@ describe("asTrack", () => {
               contentType: "nonTranscodedContentType",
               transcodedContentType: undefined,
             },
-            NO_CUSTOM_PLAYERS
+            NO_CUSTOM_PLAYERS,
+            new Set()
           );
 
           expect(result.encoding).toEqual({
@@ -467,7 +481,8 @@ describe("asTrack", () => {
               contentType: "nonTranscodedContentType",
               transcodedContentType: "transcodedContentType",
             },
-            NO_CUSTOM_PLAYERS
+            NO_CUSTOM_PLAYERS,
+            new Set()
           );
 
           expect(result.encoding).toEqual({
@@ -495,7 +510,8 @@ describe("asTrack", () => {
                 contentType: "nonTranscodedContentType",
                 transcodedContentType: undefined,
               },
-              streamClient as unknown as CustomPlayers
+              streamClient as unknown as CustomPlayers,
+              new Set()
             );
 
             expect(result.encoding).toEqual({
@@ -519,7 +535,8 @@ describe("asTrack", () => {
                 contentType: "nonTranscodedContentType",
                 transcodedContentType: "transcodedContentType1",
               },
-              streamClient as unknown as CustomPlayers
+              streamClient as unknown as CustomPlayers,
+              new Set()
             );
 
             expect(result.encoding).toEqual({
@@ -548,7 +565,8 @@ describe("asTrack", () => {
               contentType: "sourced-from/subsonic",
               transcodedContentType: "sourced-from/subsonic2",
             },
-            streamClient as unknown as CustomPlayers
+            streamClient as unknown as CustomPlayers,
+            new Set()
           );
 
           expect(result.encoding).toEqual(customEncoding);
@@ -607,6 +625,7 @@ export const asArtistAlbumJson = (
   album: album.name,
   artist: artist.name,
   genre: album.genre?.name,
+  coverArt: maybeIdFromCoverArtUrn(album.coverArt),
   duration: "123",
   playCount: "4",
   year: album.year,
@@ -681,13 +700,23 @@ export const getAlbumJson = (album: Album) =>
       suffix: "mp3",
       contentType: track.encoding.mimeType,
       path: "ACDC/High voltage/ACDC - The Jack.mp3",
-      starred: track.rating.love ? "sometime" : undefined,
+      // todo: these aren't on OpenSubsonicAlbum...
       userRating: track.rating.stars,
     })),
   } });
 
 const getOpenSubsonicExtensionsJson = (extensions: OpenSubsonicExtension[]) =>
   subsonicOK({ openSubsonicExtensions: extensions });
+
+const getStarredJson = (starred2: Partial<GetStarredResponse["starred2"]> = {}) =>
+  subsonicOK({
+    starred2: {
+      song: [],
+      album: [],
+      artist: [],
+      ...starred2,
+    },
+  });
 
 const aTranscodeDecision = (fields: Partial<TranscodeDecision> = {}): TranscodeDecision => ({
   canDirectPlay: false,
@@ -1673,6 +1702,47 @@ describe("Subsonic", () => {
         const result = await subsonic.getTranscodeDecision(credentials, mediaId, SONOS_CLIENT_INFO);
 
         expect(result).toEqual(decision);
+      });
+    });
+  });
+
+  describe("getStarred", () => {
+    describe("when there are starred songs, albums, and artists", () => {
+      const album = anAlbumSummary();
+      const track = aTrack();
+      const song = asSongJson(track);
+      const albumJson = asArtistAlbumJson(
+        { id: album.artistId, name: album.artistName },
+        album
+      );
+      const artist = anOpenSubsonicArtist();
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(getStarredJson({ song: [song], album: [albumJson], artist: [artist] })))
+        );
+      });
+
+      it("should return the starred2 payload", async () => {
+        const result = await subsonic.getStarred(credentials);
+
+        expect(result).toEqual({ song: [song], album: [albumJson], artist: [artist] });
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getStarred2" }).href(),
+          { params: asURLSearchParams(authParamsPlusJson), headers }
+        );
+      });
+    });
+
+    describe("when there are no starred songs, albums, or artists", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() => Promise.resolve(ok(getStarredJson())));
+      });
+
+      it("should return empty arrays", async () => {
+        const result = await subsonic.getStarred(credentials);
+
+        expect(result).toEqual({ song: [], album: [], artist: [] });
       });
     });
   });

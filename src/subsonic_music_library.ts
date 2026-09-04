@@ -34,7 +34,24 @@ import {
   hasSortName,
   asAlbumSummary,
   asTrack,
+  asTrackSummary,
+  OpenSubsonicSong,
+  coverArtToArt,
+  maybeAsGenre,
 } from "./subsonic";
+
+const starredSongIds = (starred: { song: { id: string }[] }) =>
+  new Set(starred.song.map((it) => it.id));
+
+const asAlbumSummaryFromSong = (song: OpenSubsonicSong): AlbumSummary => ({
+  id: song.albumId!,
+  name: song.album!,
+  year: song.year,
+  genre: maybeAsGenre(song.genre),
+  artistName: song.artist,
+  artistId: song.artistId,
+  coverArt: coverArtToArt(song.coverArt),
+});
 
 import logger from "./logger";
 import { assertSource, Art } from "./art";
@@ -289,39 +306,70 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   };
 
   album = (id: string): Promise<Album> =>
-    this.subsonic
-      .getAlbum(this.credentials, id)
-      .then((album) => ({
-        ...asAlbumSummary(album),
+    Promise.all([
+      this.subsonic.getAlbum(this.credentials, id),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([album, starred]) => {
+      const ids = starredSongIds(starred);
+      const albumSummary = asAlbumSummary(album);
+      return {
+        ...albumSummary,
         tracks: (album.song || []).map((song) =>
-          asTrack(asAlbumSummary(album), song, this.customPlayers)
+          asTrack(albumSummary, song, this.customPlayers, ids)
         ),
-      }));
+      };
+    });
 
   genres = () => 
     this.subsonic.getGenres(this.credentials);
 
   track = (trackId: string) =>
-    this.subsonic.getTrack(this.credentials, trackId);
+    Promise.all([
+      this.subsonic.getTrack(this.credentials, trackId),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([song, starred]) =>
+      this.subsonic
+        .getAlbum(this.credentials, song.albumId!)
+        .then((album) =>
+          asTrack(
+            asAlbumSummary(album),
+            song,
+            this.customPlayers,
+            starredSongIds(starred)
+          )
+        )
+    );
 
-  rate = (trackId: string, rating: Rating) => 
-    // todo: this is a bit odd
+  rate = (trackId: string, rating: Rating) =>
     Promise.resolve(true)
       .then(() => {
         if (rating.stars >= 0 && rating.stars <= 5) {
-          return this.subsonic.getTrack(this.credentials, trackId);
+          return Promise.all([
+            this.subsonic.getTrack(this.credentials, trackId),
+            this.subsonic.getStarred(this.credentials),
+          ]);
         } else {
           throw `Invalid rating.stars value of ${rating.stars}`;
         }
       })
-      .then((track) => {
+      .then(([song, starred]) => {
+        const ids = starredSongIds(starred);
+        const currentLove = ids.has(trackId);
+        const currentStars =
+          song.userRating && song.userRating <= 5 && song.userRating >= 0
+            ? song.userRating
+            : 0;
+
         const thingsToUpdate = [];
-        if (track.rating.love != rating.love) {
+        if (currentLove != rating.love) {
           thingsToUpdate.push(
-            (rating.love ? this.subsonic.star : this.subsonic.unstar)(this.credentials,{ id: trackId })
+            (rating.love ? this.subsonic.star : this.subsonic.unstar)(
+              this.credentials,
+              { id: trackId }
+            )
           );
         }
-        if (track.rating.stars != rating.stars) {
+        if (currentStars != rating.stars) {
           thingsToUpdate.push(
             this.subsonic.setRating(this.credentials, trackId, rating.stars)
           );
@@ -360,8 +408,9 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       }
     }
 
-    const track = await this.subsonic.getTrack(this.credentials, trackId);
-    return this.subsonic.stream(this.credentials, trackId, track.encoding.player, range);
+    const song = await this.subsonic.getTrack(this.credentials, trackId);
+    const encoding = asTrackSummary(song, this.customPlayers, new Set()).encoding;
+    return this.subsonic.stream(this.credentials, trackId, encoding.player, range);
   };
 
   coverArt = async (coverArtURN: Art, size?: number) =>
@@ -410,19 +459,44 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       .then(({ albums }) => this.subsonic.toAlbumSummary(albums));
 
   searchTracks = async (query: string) =>
-    this.subsonic
-      .search3(this.credentials, { query, songCount: 20 })
-      .then(({ songs }) =>
-        Promise.all(
-          songs.map((it) => this.subsonic.getTrack(this.credentials, it.id))
+    Promise.all([
+      this.subsonic.search3(this.credentials, { query, songCount: 20 }),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([{ songs }, starred]) => {
+      const ids = starredSongIds(starred);
+      return Promise.all(
+        songs.map((song) =>
+          this.subsonic
+            .getAlbum(this.credentials, song.albumId!)
+            .then((album) =>
+              asTrack(asAlbumSummary(album), song, this.customPlayers, ids)
+            )
         )
       );
+    });
 
   playlists = async () =>
     this.subsonic.playlists(this.credentials);
 
+  // todo: I dont think ratings are needed to render this in smapi, so maybe there should be Track and Track & Rating types.
   playlist = async (id: string) =>
-    this.subsonic.playlist(this.credentials, id);
+    Promise.all([
+      this.subsonic.playlist(this.credentials, id),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([playlist, starred]) => {
+      const ids = starredSongIds(starred);
+      let trackNumber = 1;
+      return {
+        id: playlist.id,
+        name: playlist.name,
+        coverArt: coverArtToArt(playlist.coverArt),
+        entries: (playlist.entry || []).map((entry) => ({
+          // todo: extracting an album summary from a song is a bit dubious
+          ...asTrack(asAlbumSummaryFromSong(entry), entry, this.customPlayers, ids),
+          number: trackNumber++,
+        })),
+      };
+    });
 
   createPlaylist = async (name: string) =>
     this.subsonic.createPlayList(this.credentials, name);
@@ -436,13 +510,31 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   removeFromPlaylist = async (playlistId: string, indicies: number[]) =>
     this.subsonic.updatePlaylist(this.credentials, playlistId, { songIndexToRemove: indicies });
 
-  similarSongs = async (id: string) => 
-    this.subsonic.getSimilarSongs2(this.credentials, id)
+  similarSongs = async (id: string) =>
+    Promise.all([
+      //todo: do we really need to know whether a similar song is starred or not?
+      this.subsonic.getSimilarSongs2(this.credentials, id),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([songs, starred]) =>
+      songs.map((song) =>
+        asTrackSummary(song, this.customPlayers, starredSongIds(starred))
+      )
+    );
 
   topSongs = async (artistId: string) =>
-    this.subsonic.getArtist(this.credentials, artistId)
+    this.subsonic
+      .getArtist(this.credentials, artistId)
       .then(({ name }) =>
-        this.subsonic.getTopSongs(this.credentials, name)
+        Promise.all([
+          // todo: do we really need to know whether 'topSongs' are starred?
+          this.subsonic.getTopSongs(this.credentials, name),
+          this.subsonic.getStarred(this.credentials),
+        ])
+      )
+      .then(([songs, starred]) =>
+        songs.map((song) =>
+          asTrackSummary(song, this.customPlayers, starredSongIds(starred))
+        )
       );
 
   radioStations = async () =>

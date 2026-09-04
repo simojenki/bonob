@@ -73,6 +73,9 @@ export type OpenSubsonicArtist = {
   name: string;
   albumCount: number;
   artistImageUrl: string | undefined;
+  coverArt?: string;
+  userRating?: number;
+  starred?: string;
 };
 
 export type NavidromeArtist = {
@@ -162,24 +165,23 @@ export type OpenSubsonicSong = {
   id: string;
   parent: string | undefined;
   title: string;
-  album: string | undefined;
+  type: string | undefined;
   albumId: string | undefined;
-  artist: string | undefined;
+  album: string | undefined;
   artistId: string | undefined;
+  artist: string | undefined;
+  coverArt: string | undefined;
+  duration: number | undefined;
+  bitRate: number | undefined;
   track: number | undefined;
   year: string | undefined;
   genre: string | undefined;
-  coverArt: string | undefined;
   created: string | undefined;
-  duration: number | undefined;
-  bitRate: number | undefined;
   suffix: string | undefined;
   contentType: string;
+
   transcodedContentType: string | undefined;
-  type: string | undefined;
   userRating: number | undefined;
-  // todo: this field shouldnt be on song?
-  starred: string | undefined;
 };
 
 export type GetAlbumResponse = SubsonicResponse & {
@@ -247,6 +249,7 @@ export type GetStarredResponse = {
   starred2: {
     song: OpenSubsonicSong[];
     album: OpenSubsonicAlbum[];
+    artist: OpenSubsonicArtist[];
   };
 };
 
@@ -321,10 +324,12 @@ export const artistImageURN = (
 
 export const asTrackSummary = (
   song: OpenSubsonicSong,
-  customPlayers: CustomPlayers
+  customPlayers: CustomPlayers,
+  starredSongIds: Set<string>
 ): TrackSummary => ({
   id: song.id,
   name: song.title,
+  // todo: what is this used for?
   encoding: pipe(
     customPlayers.encodingFor({ mimeType: song.contentType }),
     O.getOrElse(() => ({
@@ -346,7 +351,7 @@ export const asTrackSummary = (
       : undefined,
   },
   rating: {
-    love: song.starred != undefined,
+    love: starredSongIds.has(song.id),
     stars:
       song.userRating && song.userRating <= 5 && song.userRating >= 0
         ? song.userRating
@@ -357,9 +362,10 @@ export const asTrackSummary = (
 export const asTrack = (
   album: AlbumSummary,
   song: OpenSubsonicSong,
-  customPlayers: CustomPlayers
+  customPlayers: CustomPlayers,
+  starredSongIds: Set<string>
 ): Track => ({
-  ...asTrackSummary(song, customPlayers),
+  ...asTrackSummary(song, customPlayers, starredSongIds),
   album: album,
 });
 
@@ -912,20 +918,14 @@ export class Subsonic {
       responseType: "arraybuffer",
     });
 
-  getTrack = (credentials: Credentials, id: string) =>
+  getTrack = (credentials: Credentials, id: string): Promise<OpenSubsonicSong> =>
     this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
       id,
-    })
-      .then((it) => it.song)
-      .then((song) =>
-        this.getAlbum(credentials, song.albumId!).then((album) =>
-          asTrack(asAlbumSummary(album), song, this.customPlayers)
-        )
-      );
+    }).then((it) => it.song);
 
-  getStarred = (credentials: Credentials) =>
+  getStarred = (credentials: Credentials): Promise<GetStarredResponse["starred2"]> =>
     this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2").then(
-      (it) => new Set(it.starred2.song.map((it) => it.id))
+      (it) => it.starred2
     );
 
   toAlbumSummary = (albumList: OpenSubsonicAlbum[]): AlbumSummary[] =>
@@ -1100,34 +1100,10 @@ export class Subsonic {
       }))
     );
 
-  playlist = (credentials: Credentials, id: string) =>
+  playlist = (credentials: Credentials, id: string): Promise<GetPlaylistResponse["playlist"]> =>
     this.getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
       id,
-    })
-    .then(({ playlist }) => {
-      let trackNumber = 1;
-      return {
-        id: playlist.id,
-        name: playlist.name,
-        coverArt: coverArtToArt(playlist.coverArt),
-        entries: (playlist.entry || []).map((entry) => ({
-          ...asTrack(
-            {
-              id: entry.albumId!,
-              name: entry.album!,
-              year: entry.year,
-              genre: maybeAsGenre(entry.genre),
-              artistName: entry.artist,
-              artistId: entry.artistId,
-              coverArt: coverArtToArt(entry.coverArt),
-            },
-            entry,
-            this.customPlayers
-          ),
-          number: trackNumber++,
-        })),
-      };
-    });
+    }).then(({ playlist }) => playlist);
 
     createPlayList = (credentials: Credentials, name: string) =>
       this.getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
@@ -1156,27 +1132,23 @@ export class Subsonic {
       })
       .then(it => it.status == "ok");
 
-    getSimilarSongs2 = (credentials: Credentials, id: string) =>
+    getSimilarSongs2 = (credentials: Credentials, id: string): Promise<OpenSubsonicSong[]> =>
       this.getJSON<GetSimilarSongsResponse>(
         credentials,
         "/rest/getSimilarSongs2",
         //todo: remove this hard coded 50?
         { id, count: 50 }
       )
-      .then((it) => 
-        (it.similarSongs2.song || []).map(it => asTrackSummary(it, this.customPlayers))
-      );
+      .then((it) => it.similarSongs2.song || []);
 
-    getTopSongs = (credentials: Credentials, artist: string) =>
+    getTopSongs = (credentials: Credentials, artist: string): Promise<OpenSubsonicSong[]> =>
       this.getJSON<GetTopSongsResponse>(
         credentials,
         "/rest/getTopSongs",
         //todo: remove this hard coded 50?
         { artist, count: 50 }
       )
-      .then((it) => 
-        (it.topSongs.song || []).map(it => asTrackSummary(it, this.customPlayers))
-      );
+      .then((it) => it.topSongs.song || []);
 
   getInternetRadioStations = (credentials: Credentials) =>
     this.getJSON<GetInternetRadioStationsResponse>(
