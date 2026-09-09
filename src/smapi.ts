@@ -938,7 +938,7 @@ function bindSmapiSoapServiceToExpress(
                         },
                         {
                           id: "internetRadio",
-                          itemType: "stream",
+                          itemType: "container",
                           title: lang("internetRadio"),
                           albumArtURI: albumArtURI(iconArtURI(bonobUrl, "radio").href()),
                         },
