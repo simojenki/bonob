@@ -1361,7 +1361,7 @@ describe("wsdl api", () => {
                       id: "internetRadio",
                       title: "Internet Radio",
                       albumArtURI: iconArtURI(bonobUrl, "radio").href(),
-                      itemType: "stream",
+                      itemType: "container",
                     },
                   ];
                   expect(root[0]).toEqual(
@@ -1461,7 +1461,7 @@ describe("wsdl api", () => {
                       id: "internetRadio",
                       title: "Internet Radio",
                       albumArtURI: iconArtURI(bonobUrl, "radio").href(),
-                      itemType: "stream",
+                      itemType: "container",
                     },
                   ];
                   expect(root[0]).toEqual(
