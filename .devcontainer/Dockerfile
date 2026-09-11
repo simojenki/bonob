@@ -15,6 +15,7 @@ RUN apt-get update && \
         jq \
         g++ \
         git \
+        less \
         libvips-dev \
         make \
         podman \

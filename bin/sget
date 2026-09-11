@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+if [[ "$1" == *"?"* ]]; then
+    separator="&"
+else
+    separator="?"
+fi
+
+curl -fs \
+    "${BNB_DEV_SUBSONIC_URL}$1${separator}u=${BNB_DEV_SUBSONIC_USER}&p=${BNB_DEV_SUBSONIC_PASSWORD}&c=sget&v=1.8.0&f=json"
