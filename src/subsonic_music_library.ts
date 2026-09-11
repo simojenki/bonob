@@ -462,7 +462,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   searchAlbums = async (query: string) =>
     this.subsonic
       .search3(this.credentials, { query, albumCount: 20 })
-      .then(({ albums }) => this.subsonic.toAlbumSummary(albums));
+      .then(({ albums }) => this.subsonic.toAlbumSummary(albums).map(withSortable));
 
   searchTracks = async (query: string) =>
     Promise.all([

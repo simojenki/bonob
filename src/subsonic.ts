@@ -14,7 +14,6 @@ import {
   Encoding,
   TrackSummary,
   AuthFailure,
-  Sortable,
 } from "./music_library";
 import sharp from "sharp";
 import _ from "underscore";
@@ -370,7 +369,7 @@ export const asTrack = (
   album: album,
 });
 
-export const asAlbumSummary = (album: OpenSubsonicAlbum): AlbumSummary & Sortable => ({
+export const asAlbumSummary = (album: OpenSubsonicAlbum): AlbumSummary => ({
   id: album.id,
   name: album.name,
   year: album.year,
@@ -378,7 +377,6 @@ export const asAlbumSummary = (album: OpenSubsonicAlbum): AlbumSummary & Sortabl
   artistId: album.artistId,
   artistName: album.artist,
   coverArt: coverArtToArt(album.coverArt),
-  _sortBy: album.name,
 });
 
 export const asGenre = (genreName: string) => ({
@@ -930,7 +928,7 @@ export class Subsonic {
       (it) => it.starred2
     );
 
-  toAlbumSummary = (albumList: OpenSubsonicAlbum[]): (AlbumSummary & Sortable)[] =>
+  toAlbumSummary = (albumList: OpenSubsonicAlbum[]): AlbumSummary[] =>
     albumList.map((album) => ({
       id: album.id,
       name: album.name,
@@ -939,7 +937,6 @@ export class Subsonic {
       artistId: album.artistId,
       artistName: album.artist,
       coverArt: coverArtToArt(album.coverArt),
-      _sortBy: album.name,
     }));
 
   search3 = (credentials: Credentials, q: any) =>

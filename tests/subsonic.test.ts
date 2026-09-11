@@ -49,7 +49,7 @@ import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_musi
 
 import { b64Encode } from "../src/b64";
 
-import { Album, Artist, Track, AlbumSummary, AuthFailure } from "../src/music_library";
+import { Album, Artist, Track, AlbumSummary, AuthFailure, Sortable } from "../src/music_library";
 import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP, a404 } from "./builders";
 import { Art } from "../src/art";
 
@@ -934,7 +934,10 @@ describe("Subsonic", () => {
               id: artist.id,
               name: artist.name,
               artistImageUrl: undefined,
-              albums: artist.albums
+              albums: artist.albums.map((album) => {
+                const { _sortBy, ...rest } = album as AlbumSummary & Sortable;
+                return rest;
+              })
             });
   
             expect(axios.get).toHaveBeenCalledWith(
@@ -971,7 +974,10 @@ describe("Subsonic", () => {
               id: artist.id,
               name: artist.name,
               artistImageUrl: undefined,
-              albums: artist.albums,
+              albums: artist.albums.map((album) => {
+                const { _sortBy, ...rest } = album as AlbumSummary & Sortable;
+                return rest;
+              }),
             });
   
             expect(axios.get).toHaveBeenCalledWith(

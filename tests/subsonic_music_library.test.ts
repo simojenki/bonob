@@ -69,6 +69,12 @@ import { URLBuilder } from "../src/url_builder";
 
 import { getAlbumJson } from "./subsonic.test";
 
+const albumSummaryWithoutSort = (album: Album | (AlbumSummary & Sortable)): AlbumSummary => {
+  const summary = "tracks" in album ? albumToAlbumSummary(album) : album;
+  const { _sortBy, ...rest } = summary;
+  return rest;
+};
+
 const EMPTY = {
   "subsonic-response": {
     status: "ok",
@@ -966,13 +972,13 @@ describe("SubsonicMusicLibrary_new", () => {
       const tracks = [
         aTrack({
           artist: artistSummary,
-          album: albumSummary,
+          album: albumSummaryWithoutSort(albumSummary),
           genre: pop,
           rating: { love: false, stars: 0 },
         }),
         aTrack({
           artist: artistSummary,
-          album: albumSummary,
+          album: albumSummaryWithoutSort(albumSummary),
           genre: pop,
           rating: { love: true, stars: 3 },
         }),
@@ -1003,7 +1009,8 @@ describe("SubsonicMusicLibrary_new", () => {
         it("should map the raw album to Album", async () => {
           const result = await albumLibrary.album(album.id);
 
-          expect(result).toEqual(album);
+          const { _sortBy, ...expectedAlbum } = album as Album & Sortable;
+          expect(result).toEqual(expectedAlbum);
           expect(subsonic.getAlbum).toHaveBeenCalledWith(credentials, album.id);
         });
       });
@@ -1013,7 +1020,6 @@ describe("SubsonicMusicLibrary_new", () => {
           ...albumSummary,
           id: "album2",
           name: "Empty",
-          _sortBy: "Empty",
           tracks: [],
           artistId,
           artistName,
@@ -1028,7 +1034,8 @@ describe("SubsonicMusicLibrary_new", () => {
         it("should map the raw album to Album", async () => {
           const result = await albumLibrary.album(emptyAlbum.id);
 
-          expect(result).toEqual(emptyAlbum);
+          const { _sortBy, ...expectedEmptyAlbum } = emptyAlbum as Album & Sortable;
+          expect(result).toEqual(expectedEmptyAlbum);
         });
       });
 
@@ -2279,7 +2286,7 @@ describe("SubsonicMusicLibrary", () => {
           it("should return the track", async () => {
             const track = aTrack({
               artist: artistToArtistSummary(artist),
-              album: albumToAlbumSummary(album),
+              album: albumSummaryWithoutSort(album),
               genre: pop,
               rating: {
                 love: true,
@@ -2333,7 +2340,7 @@ describe("SubsonicMusicLibrary", () => {
           it("should return the track", async () => {
             const track = aTrack({
               artist: artistToArtistSummary(artist),
-              album: albumToAlbumSummary(album),
+              album: albumSummaryWithoutSort(album),
               genre: pop,
               rating: {
                 love: false,
@@ -3534,7 +3541,7 @@ describe("SubsonicMusicLibrary", () => {
         });
         const track = aTrack({
           artist: artistToArtistSummary(artist),
-          album: albumToAlbumSummary(album),
+          album: albumSummaryWithoutSort(album),
           genre: pop,
         });
 
@@ -3580,7 +3587,7 @@ describe("SubsonicMusicLibrary", () => {
         const track1 = aTrack({
           id: "track1",
           artist: artistToArtistSummary(artist1),
-          album: albumToAlbumSummary(album1),
+          album: albumSummaryWithoutSort(album1),
           genre: pop,
         });
 
@@ -3593,7 +3600,7 @@ describe("SubsonicMusicLibrary", () => {
         const track2 = aTrack({
           id: "track2",
           artist: artistToArtistSummary(artist2),
-          album: albumToAlbumSummary(album2),
+          album: albumSummaryWithoutSort(album2),
           genre: pop,
         });
 
