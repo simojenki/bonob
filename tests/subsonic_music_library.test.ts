@@ -1015,6 +1015,21 @@ describe("SubsonicMusicLibrary_new", () => {
         });
       });
 
+      describe("when getStarred2 omits the song array entirely (eg. no starred songs)", () => {
+        beforeEach(() => {
+          subsonic.getAlbum.mockResolvedValue(
+            getAlbumJson(album)["subsonic-response"].album
+          );
+          subsonic.getStarred.mockResolvedValue({ album: [], artist: [] });
+        });
+
+        it("should still resolve the album, treating all tracks as unloved", async () => {
+          const result = await albumLibrary.album(album.id);
+
+          expect(result.tracks.every((t) => t.rating.love === false)).toEqual(true);
+        });
+      });
+
       describe("when the album has no tracks", () => {
         const emptyAlbum = anAlbum({
           ...albumSummary,

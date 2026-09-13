@@ -247,9 +247,11 @@ export type GetSongResponse = {
 
 export type GetStarredResponse = {
   starred2: {
-    song: OpenSubsonicSong[];
-    album: OpenSubsonicAlbum[];
-    artist: OpenSubsonicArtist[];
+    // Subsonic servers can omit these entirely when there are no starred
+    // items of that kind, rather than returning an empty array.
+    song?: OpenSubsonicSong[];
+    album?: OpenSubsonicAlbum[];
+    artist?: OpenSubsonicArtist[];
   };
 };
 

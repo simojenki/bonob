@@ -40,8 +40,8 @@ import {
   maybeAsGenre,
 } from "./subsonic";
 
-const starredSongIds = (starred: { song: { id: string }[] }) =>
-  new Set(starred.song.map((it) => it.id));
+const starredSongIds = (starred: { song?: { id: string }[] }) =>
+  new Set((starred.song || []).map((it) => it.id));
 
 const withSortable = (album: AlbumSummary): AlbumSummary & Sortable => ({
   ...album,
