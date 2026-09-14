@@ -838,7 +838,7 @@ export class Subsonic {
         else return json as unknown as T;
       });
 
-  ping = (credentials: Credentials): TE.TaskEither<AuthFailure, { authenticated: Boolean, type: string}> => 
+  ping = (credentials: Credentials): TE.TaskEither<AuthFailure, { authenticated: boolean, type: string}> => 
     pipe(
       TE.tryCatch(
         () => this.getJSON<PingResponse>(credentials, "/rest/ping.view"),

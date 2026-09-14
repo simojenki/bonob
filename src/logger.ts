@@ -11,7 +11,7 @@ export function debugIt<T>(thing: T): T {
 // ends up here as additional properties on the info object alongside level/message/timestamp/stack.
 // Without printing it, callers that attach the actual error/cause as metadata (rather than as
 // the logged message itself) have that detail silently swallowed - print it so nothing is lost.
-const bonobFormat = printf(({ level, message, timestamp, stack, service, ...meta }) => {
+const bonobFormat = printf(({ level, message, timestamp, stack, service: _service, ...meta }) => {
   // rest destructuring also picks up winston's internal Symbol(level)/Symbol(splat) keys,
   // so drop back to string keys only before deciding whether there's anything worth printing.
   const extraMeta = Object.fromEntries(Object.entries(meta));

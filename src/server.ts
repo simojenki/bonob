@@ -36,7 +36,6 @@ import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
 import { DEFAULT_LOGIN_THEME } from './config';
 import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
 import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
-import _ from "underscore";
 import morgan from "morgan";
 import { parse } from "./art";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
@@ -535,7 +534,7 @@ function server(
 
   app.get("/icon/:type_text/size/:size", (req, res) => {
     const apply_festivals = req.query["nofest"] == null
-    const match = (req.params["type_text"] || "")!.match("^([A-Za-z0-9]+)(?:\:([A-Za-z0-9]+))?$")
+    const match = (req.params["type_text"] || "").match("^([A-Za-z0-9]+)(?::([A-Za-z0-9]+))?$")
     if (!match)
       return res.status(400).send();
     
@@ -548,7 +547,7 @@ function server(
     } else if (size != "legacy" && !SONOS_RECOMMENDED_IMAGE_SIZES.includes(size)) {
       return res.status(400).send();
     } else {
-      let icon = (ICONS as any)[type]! as Icon;
+      const icon = (ICONS as any)[type]! as Icon;
       const spec =
         size == "legacy"
           ? {

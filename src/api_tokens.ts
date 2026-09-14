@@ -2,7 +2,6 @@ import crypto from "crypto";
 import ms, { StringValue } from "ms";
 import { Clock, SystemClock } from "./clock";
 import { Dayjs } from "dayjs";
-import _ from "underscore";
 
 export interface APITokens {
   mint(authToken: string): string;

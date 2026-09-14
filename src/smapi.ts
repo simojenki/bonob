@@ -438,13 +438,13 @@ export const scrollIndicesFrom = (things: Sortable[]) => {
     "Y": undefined, "Z": undefined,
   };
   const upperNames = things.map(thing => thing._sortBy.toUpperCase());
-  for (var i = 0; i < upperNames.length; i++) {
+  for (let i = 0; i < upperNames.length; i++) {
     const char = upperNames[i]![0]!;
     if (Object.keys(indicies).includes(char) && indicies[char] == undefined) {
       indicies[char] = i;
     }
   }
-  var lastIndex = 0;
+  let lastIndex = 0;
   const result: string[] = [];
   Object.entries(indicies).forEach(([letter, index]) => {
     result.push(letter);
@@ -457,8 +457,8 @@ export const scrollIndicesFrom = (things: Sortable[]) => {
 export const splitId = (id: string) => {
   const [type, typeId] = id.split(":")
   return {
-    type: type!!,
-    typeId: typeId!!
+    type: type!,
+    typeId: typeId!
   }
 }
 
@@ -1230,7 +1230,7 @@ function bindSmapiSoapServiceToExpress(
                 if (id == "playlists") {
                   musicLibrary.playlists().then((it) => {
                     indices.forEach((i) => {
-                      musicLibrary.deletePlaylist(it[i]?.id!);
+                      musicLibrary.deletePlaylist(it[i]!.id);
                     });
                   });
                 } else {
