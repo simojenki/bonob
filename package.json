@@ -20,10 +20,10 @@
     "express": "^5.2.1",
     "fp-ts": "^2.16.11",
     "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.11.0",
+    "morgan": "^1.12.0",
     "neverthrow": "^8.2.0",
     "node-html-parser": "^9.0.0",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "soap": "^1.11.0",
     "typescript": "^5.9.3",
     "underscore": "^1.13.8",
@@ -61,7 +61,7 @@
         "brace-expansion": "^5.0.7"
       }
     },
-    "js-yaml": "^3.15.0"
+    "js-yaml": "^3.15.2"
   },
   "scripts": {
     "clean": "rm -Rf build node_modules",
