@@ -40,7 +40,7 @@ describe("rangeFilterFor", () => {
         "seconds=-",
       ];
 
-      for (let range in cases) {
+      for (const range in cases) {
         expect(() => rangeFilterFor(range)).toThrow(
           `Unsupported range: ${range}`
         );
@@ -102,7 +102,7 @@ describe("rangeFilterFor", () => {
         "chickens=100-200, 400-500",
       ];
 
-      for (let range in cases) {
+      for (const range in cases) {
         expect(() => rangeFilterFor(range)).toThrow(
           `Unsupported range: ${range}`
         );
@@ -300,7 +300,7 @@ describe("server", () => {
                 .send();
 
               expect(res.status).toEqual(200);
-              expect(res.text).toMatch(`<h2>${lang("devices")} \(0\)</h2>`);
+              expect(res.text).toContain(`<h2>${lang("devices")} (0)</h2>`);
               expect(res.text).not.toMatch(/class=device/);
               expect(res.text).toContain(lang("noSonosDevices"));
             });
@@ -337,7 +337,7 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("devices")} \(0\)</h2>`);
+                expect(res.text).toContain(`<h2>${lang("devices")} (0)</h2>`);
                 expect(res.text).not.toMatch(/class=device/);
                 expect(res.text).toContain(lang("noSonosDevices"));
               });
@@ -351,7 +351,7 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("services")} \(0\)</h2>`);
+                expect(res.text).toContain(`<h2>${lang("services")} (0)</h2>`);
               });
             });
           });
@@ -414,7 +414,7 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("devices")} \(2\)</h2>`);
+                expect(res.text).toContain(`<h2>${lang("devices")} (2)</h2>`);
                 expect(res.text).toMatch(/device1\s+\(172.0.0.1:4301\)/);
                 expect(res.text).toMatch(/device2\s+\(172.0.0.2:4302\)/);
               });
@@ -428,7 +428,7 @@ describe("server", () => {
                   .send();
 
                 expect(res.status).toEqual(200);
-                expect(res.text).toMatch(`<h2>${lang("services")} \(4\)</h2>`);
+                expect(res.text).toContain(`<h2>${lang("services")} (4)</h2>`);
                 expect(res.text).toMatch(/s1\s+\(1\)/);
                 expect(res.text).toMatch(/s2\s+\(2\)/);
                 expect(res.text).toMatch(/s3\s+\(3\)/);

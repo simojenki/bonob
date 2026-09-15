@@ -85,7 +85,7 @@ export function features(features: Partial<IconFeatures>): Transformer {
   return (icon: Icon) => icon.with({ features });
 }
 
-export function maybeTransform(rule: () => Boolean, transformer: Transformer) {
+export function maybeTransform(rule: () => boolean, transformer: Transformer) {
   return (icon: Icon) => (rule() ? transformer(icon) : icon);
 }
 

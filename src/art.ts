@@ -1,4 +1,3 @@
-import _ from "underscore";
 import { generateRandomString } from "./random";
 import { pipe } from "fp-ts/lib/function";
 import { either as E } from "fp-ts";

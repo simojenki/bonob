@@ -33,11 +33,14 @@
     "xpath": "^0.0.34"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@swc/core": "^1.15.46",
     "@swc/jest": "^0.2.39",
+    "@types/eslint__js": "^8.42.3",
     "@types/jest": "^30.0.0",
     "@types/jws": "^3.2.11",
     "@types/supertest": "^7.2.1",
+    "eslint": "^10.10.0",
     "get-port": "^7.2.0",
     "jest": "^30.4.2",
     "nodemon": "^3.1.14",
@@ -45,6 +48,7 @@
     "supertest": "^7.2.2",
     "ts-mockito": "^2.6.1",
     "ts-node": "^10.9.2",
+    "typescript-eslint": "^8.70.0",
     "xpath-ts": "^1.3.13"
   },
   "overrides": {
@@ -66,6 +70,8 @@
     "dev-s1": "BNB_SONOS_ENABLE_S1=true BNB_LOG_LEVEL=debug BNB_LOG_HTTP_REQUESTS=true BNB_SCROBBLE_TRACKS=false BNB_REPORT_NOW_PLAYING=false BNB_SONOS_SEED_HOST=$BNB_DEV_SONOS_DEVICE_IP BNB_SONOS_SERVICE_NAME=z_bonobDev BNB_SONOS_DEVICE_DISCOVERY=false BNB_SONOS_AUTO_REGISTER=false BNB_URL=\"${BNB_DEV_S1_URL}\" BNB_SUBSONIC_URL=\"${BNB_DEV_SUBSONIC_URL}\" BNB_SECRET=\"${BNB_DEV_SECRET}\" nodemon -V ./src/app.ts",
     "devr-s1": "BNB_SONOS_ENABLE_S1=true BNB_LOG_LEVEL=debug BNB_LOG_HTTP_REQUESTS=true BNB_ICON_FOREGROUND_COLOR=deeppink BNB_ICON_BACKGROUND_COLOR=darkslategray BNB_SCROBBLE_TRACKS=false BNB_REPORT_NOW_PLAYING=false BNB_SONOS_SEED_HOST=$BNB_DEV_SONOS_DEVICE_IP BNB_SONOS_SERVICE_NAME=z_bonobDev BNB_SONOS_DEVICE_DISCOVERY=true BNB_SONOS_AUTO_REGISTER=true BNB_URL=\"${BNB_DEV_S1_URL}\" BNB_SUBSONIC_URL=\"${BNB_DEV_SUBSONIC_URL}\" BNB_SECRET=\"${BNB_DEV_SECRET}\" nodemon -V ./src/app.ts",
     "register-dev-s1": "BNB_SECRET=\"${BNB_DEV_SECRET}\" BNB_SONOS_SEED_HOST=$BNB_DEV_SONOS_DEVICE_IP BNB_SONOS_DEVICE_DISCOVERY=false ts-node ./src/register.ts ${BNB_DEV_S1_URL}",
+    "lint": "eslint src tests",
+    "lint:fix": "eslint src tests --fix",
     "test": "jest",
     "testw": "jest --watch",
     "gitinfo": "git describe --tags > .gitinfo"
