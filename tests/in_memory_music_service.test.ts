@@ -63,6 +63,7 @@ describe("InMemoryMusicService", () => {
   
   describe("Music Library", () => {
     const user = { username: "user100", password: "password100" };
+    // eslint-disable-next-line functional/no-let
     let musicLibrary: MusicLibrary;
 
     beforeEach(async () => {
@@ -89,6 +90,7 @@ describe("InMemoryMusicService", () => {
         service.hasArtists(artist1, artist2, artist3, artist4, artist5);
       });
 
+      // eslint-disable-next-line functional/prefer-immutable-types
       const withSortName = (a: ReturnType<typeof artistToArtistSummary>) => ({ ...a, _sortBy: a.name });
 
       describe("fetching all in one page", () => {

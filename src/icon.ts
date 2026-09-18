@@ -20,10 +20,10 @@ import path from "path";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 class ViewBox {
-  minX: number;
-  minY: number;
-  width: number;
-  height: number;
+  readonly minX: number;
+  readonly minY: number;
+  readonly width: number;
+  readonly height: number;
 
   constructor(viewBox: string) {
     const parts = viewBox.split(" ").map((it) => Number.parseInt(it));
@@ -33,22 +33,22 @@ class ViewBox {
     this.height = parts[3]!;
   }
 
-  public increasePercent = (percent: number) => {
+  public readonly increasePercent = (percent: number) => {
     const i = Math.floor(((percent / 100) * this.height) / 3);
     return new ViewBox(
       `${-i} ${-i} ${this.height + 2 * i} ${this.height + 2 * i}`
     );
   };
 
-  public toString = () =>
+  public readonly toString = () =>
     `${this.minX} ${this.minY} ${this.width} ${this.height}`;
 }
 
 export type IconFeatures = {
-  viewPortIncreasePercent: number | undefined;
-  backgroundColor: string | undefined;
-  foregroundColor: string | undefined;
-  text: string | undefined;
+  readonly viewPortIncreasePercent: number | undefined;
+  readonly backgroundColor: string | undefined;
+  readonly foregroundColor: string | undefined;
+  readonly text: string | undefined;
 };
 
 export const NO_FEATURES: IconFeatures = {
@@ -59,12 +59,12 @@ export const NO_FEATURES: IconFeatures = {
 }
 
 export type IconSpec = {
-  svg: string | undefined;
-  features: Partial<IconFeatures> | undefined;
+  readonly svg: string | undefined;
+  readonly features: Partial<IconFeatures> | undefined;
 };
 
 export interface Icon {
-  with(spec: Partial<IconSpec>): Icon;
+  with(spec: Readonly<Partial<IconSpec>>): Icon;
   apply(transformer: Transformer): Icon;
 }
 
@@ -73,7 +73,7 @@ export type Transformer = (icon: Icon) => Icon;
 
 export const no_festivals: Transformer = (icon: Icon) => icon
 
-export function transform(spec: Partial<IconSpec>): Transformer {
+export function transform(spec: Readonly<Partial<IconSpec>>): Transformer {
   return (icon: Icon) =>
     icon.with({
       ...spec,
@@ -89,7 +89,7 @@ export function maybeTransform(rule: () => boolean, transformer: Transformer) {
   return (icon: Icon) => (rule() ? transformer(icon) : icon);
 }
 
-export function allOf(...transformers: Transformer[]): Transformer {
+export function allOf(...transformers: readonly Transformer[]): Transformer {
   return (icon: Icon): Icon =>
     _.inject(
       transformers,
@@ -99,8 +99,8 @@ export function allOf(...transformers: Transformer[]): Transformer {
 }
 
 export class SvgIcon implements Icon {
-  svg: string;
-  features: IconFeatures;
+  readonly svg: string;
+  readonly features: IconFeatures;
 
   constructor(
     svg: string,
@@ -113,19 +113,19 @@ export class SvgIcon implements Icon {
     };
   }
 
-  public apply = (transformer: Transformer): Icon => transformer(this);
+  public readonly apply = (transformer: Transformer): Icon => transformer(this);
 
-  public with = (spec: Partial<IconSpec>) =>
+  public readonly with = (spec: Readonly<Partial<IconSpec>>) =>
     new SvgIcon(spec.svg || this.svg, {
       ...this.features,
       ...spec.features,
     });
 
-  public toString = () => {
+  public readonly toString = () => {
     const doc = new DOMParser().parseFromString(this.svg, 'text/xml') as unknown as Document;
     const select = xpath.useNamespaces({ svg: SVG_NS });
 
-    const elements = (path: string) => (select(path, doc) as Element[])
+    const elements = (path: string) => (select(path, doc) as unknown as readonly Element[])
     const element = (path: string) => elements(path)[0]!
 
     let viewBox = new ViewBox(select("string(//svg:svg/@viewBox)", doc) as string);
@@ -395,7 +395,7 @@ const containsWithAllTheNonWordCharsRemoved =
   (value: string) =>
     value.replace(/\W+/, " ").toLowerCase().includes(expected.toLowerCase());
 
-const GENRE_RULES: [RULE, ICON][] = [
+const GENRE_RULES: readonly (readonly [RULE, ICON])[] = [
   [eq("Acid House"), "mushroom"],
   [eq("African"), "african"],
   [eq("Americana"), "americana"],

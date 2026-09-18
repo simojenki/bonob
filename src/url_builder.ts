@@ -12,18 +12,19 @@ const stripTrailingSlash = (url: string) =>
   url.endsWith("/") ? url.substring(0, url.length - 1) : url;
 
 export class URLBuilder {
-  private url: URL;
+  private readonly url: URL;
 
-  constructor(url: string | URL) {
+  constructor(url: Readonly<string | URL>) {
     this.url = isURL(url) ? url : new URL(url);
   }
 
-  public append = (
+  public readonly append = (
     bits: Partial<{
-      pathname: string | undefined;
-      searchParams: Record<string, string> | URLSearchParams;
+      readonly pathname: string | undefined;
+      readonly searchParams: Record<string, string> | URLSearchParams;
     }> = { pathname: undefined, searchParams: undefined }
   ) => {
+    // eslint-disable-next-line functional/no-let
     let result = new URLBuilder(this.url);
     if (bits.pathname)
       result = result.with({
@@ -40,15 +41,16 @@ export class URLBuilder {
     return result;
   };
 
-  public with = (
+  public readonly with = (
     bits: Partial<{
-      pathname: string | undefined;
-      searchParams: Record<string, string> | URLSearchParams;
+      readonly pathname: string | undefined;
+      readonly searchParams: Record<string, string> | URLSearchParams;
     }> = { pathname: undefined, searchParams: undefined }
   ) => {
     const result = new URL(this.url.href);
     if (bits.pathname) result.pathname = bits.pathname;
     if (bits.searchParams) {
+      // eslint-disable-next-line functional/prefer-readonly-type
       const keysToDelete: string[] = [];
       result.searchParams.forEach((_, k) => keysToDelete.push(k));
       keysToDelete.forEach((k) => result.searchParams.delete(k));
@@ -60,13 +62,13 @@ export class URLBuilder {
     return new URLBuilder(result);
   };
 
-  public href = () => this.url.href;
-  public pathname = () => this.url.pathname;
-  public searchParams = () => this.url.searchParams;
-  public path = () => this.url.pathname + this.url.search;
-  public toString = () => this.url.href;
+  public readonly href = () => this.url.href;
+  public readonly pathname = () => this.url.pathname;
+  public readonly searchParams = () => this.url.searchParams;
+  public readonly path = () => this.url.pathname + this.url.search;
+  public readonly toString = () => this.url.href;
 }
 
-export default function url(url: string | URL): URLBuilder {
+export default function url(url: Readonly<string | URL>): URLBuilder {
   return new URLBuilder(url);
 }

@@ -23,10 +23,10 @@ function xmlRemoveWhitespaceNodes(node: Node) {
   }
 }
 
-export function xmlTidy(xml: string | Node) {
+export function xmlTidy(xml: Readonly<string | Node>) {
   const xmlToString = new XMLSerializer().serializeToString
 
-  const xmlString = xml instanceof Node ? xmlToString(xml as any) : xml
+  const xmlString = xml instanceof Node ? xmlToString(xml as any) : xml as string
   const doc = new DOMParser().parseFromString(xmlString, 'text/xml') as unknown as Node;
   xmlRemoveWhitespaceNodes(doc);
   return xmlToString(doc as any);

@@ -7,8 +7,8 @@ import { extractXsdFromWsdl, parseXml } from './xml_utils';
 import { err, ok, ResultAsync } from 'neverthrow';
 
 export type SmapiValidationEvent =
-  | { type: 'invalidSmapiMessage'; messages: string; body: string }
-  | { type: 'error'; error: Error; body: string };
+  | { readonly type: 'invalidSmapiMessage'; readonly messages: string; readonly body: string }
+  | { readonly type: 'error'; readonly error: Error; readonly body: string };
 
 export type SmapiValidationHandler = (event: SmapiValidationEvent) => void;
 
@@ -22,7 +22,7 @@ export const SOAP_ENVELOPE_NAMESPACE = 'http://schemas.xmlsoap.org/soap/envelope
 export const SOAP_ENVELOPE_XSD_FILE = path.resolve(__dirname, 'soap-envelope-1.1.xsd');
 const SOAP_ENVELOPE_XSD = readFileSync(SOAP_ENVELOPE_XSD_FILE, 'utf8');
 
-async function xsdValidate(xml: string, xsd: string): Promise<string[]> {
+async function xsdValidate(xml: string, xsd: string): Promise<readonly string[]> {
   const result = await validateXML({
     xml: [{ fileName: 'message.xml', contents: xml }],
     schema: [{ fileName: 'schema.xsd', contents: xsd }],
@@ -39,10 +39,10 @@ export class SonosWSDL {
     this.xsd = extractXsdFromWsdl(wsdl)._unsafeUnwrap();
   }
 
-  private async validateFault(fault: Node): Promise<string[]> {
+  private async validateFault(fault: Readonly<Node>): Promise<readonly string[]> {
     const envelopeErrors = await xsdValidate(new XMLSerializer().serializeToString(fault as any), SOAP_ENVELOPE_XSD);
 
-    const detailChildren = select('*[local-name()="detail"]/*', fault as any) as Node[];
+    const detailChildren = select('*[local-name()="detail"]/*', fault as any) as readonly Node[];
     if (detailChildren.length === 0) return envelopeErrors;
 
     // Sonos's docs show detail's children (SonosError/ExceptionInfo, refreshAuthTokenResult) inline,

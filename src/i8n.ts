@@ -257,7 +257,7 @@ const translationsLookup = Object.keys(translations).reduce((lookups, lang) => {
 
 export const randomLang = () => _.shuffle(["en-US", "nl-NL"])[0]!;
 
-export const asLANGs = (acceptLanguageHeader: string | undefined): LANG[] =>
+export const asLANGs = (acceptLanguageHeader: string | undefined): readonly LANG[] =>
   pipe(
     acceptLanguageHeader,
     O.fromNullable,
@@ -274,7 +274,7 @@ export const asLANGs = (acceptLanguageHeader: string | undefined): LANG[] =>
     O.getOrElseW(() => [])
   );
 
-export type I8N = (...langs: string[]) => Lang;
+export type I8N = (...langs: readonly string[]) => Lang;
 
 export type Lang = (key: KEY) => string;
 
@@ -283,7 +283,7 @@ export const langs = () => Object.keys(translations);
 export const keys = (lang: SUPPORTED_LANG = "en-US") => Object.keys(translations[lang]);
 
 export default (serviceName: string): I8N =>
-  (...langs: string[]): Lang => {
+  (...langs: readonly string[]): Lang => {
     const langToUse =
       langs.map((l) => translationsLookup.get(l as SUPPORTED_LANG)).find((it) => it) ||
       translations["en-US"];

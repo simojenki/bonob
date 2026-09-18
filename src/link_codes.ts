@@ -2,9 +2,9 @@ import { randomUUID as uuid } from 'crypto';
 
 
 export type Association = {
-  serviceToken: string
-  userId: string
-  nickname: string  
+  readonly serviceToken: string
+  readonly userId: string
+  readonly nickname: string  
 }
 
 export interface LinkCodes {
@@ -17,6 +17,7 @@ export interface LinkCodes {
 }
 
 export class InMemoryLinkCodes implements LinkCodes {
+  // eslint-disable-next-line functional/prefer-readonly-type
   linkCodes: Record<string, Association | undefined>  = {}
 
   mint() {
@@ -26,16 +27,16 @@ export class InMemoryLinkCodes implements LinkCodes {
     this.linkCodes[linkCode] = undefined
     return linkCode
   }
-  clear = () => { this.linkCodes = {} }
-  count = () => Object.keys(this.linkCodes).length
-  has = (linkCode: string) => Object.keys(this.linkCodes).includes(linkCode)
-  associate = (linkCode: string, association: Association) => {
+  readonly clear = () => { this.linkCodes = {} }
+  readonly count = () => Object.keys(this.linkCodes).length
+  readonly has = (linkCode: string) => Object.keys(this.linkCodes).includes(linkCode)
+  readonly associate = (linkCode: string, association: Association) => {
     if(this.has(linkCode)) 
       this.linkCodes[linkCode] = association;
     else
       throw `Invalid linkCode ${linkCode}`
   }
-  associationFor = (linkCode: string) => {
+  readonly associationFor = (linkCode: string) => {
     return this.linkCodes[linkCode]!;
   }
 }

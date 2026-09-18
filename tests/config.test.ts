@@ -1,6 +1,8 @@
 import { hostname } from "os";
 import config, { COLOR, envVar } from "../src/config";
 
+const VALID_BNB_SECRET = "1234567890123456789012345678901234567890"
+
 describe("envVar", () => {
   const OLD_ENV = process.env;
 
@@ -113,7 +115,7 @@ describe("config", () => {
     it("should be used when BNB_URL is specified", () => {
       const url = "http://bonob1.example.com:8877/";
 
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
       process.env["BNB_URL"] = url;
 
       expect(config().bonobUrl.href()).toEqual(url);
@@ -130,7 +132,7 @@ describe("config", () => {
 
     describe("when BNB_URL is not specified", () => {
       beforeEach(() => {
-        process.env["BNB_SECRET"] = "bonob";
+        process.env["BNB_SECRET"] = VALID_BNB_SECRET;
       });
 
       it(`should default to http://${hostname()}:4534`, () => {
@@ -152,7 +154,7 @@ describe("config", () => {
 
   describe("icons", () => {
     beforeEach(() => {
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
     });
 
     describe("foregroundColor", () => {
@@ -242,7 +244,7 @@ describe("config", () => {
 
   describe("login theme", () => {
     beforeEach(() => {
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
     });
 
     it("should default to classic", () => {
@@ -276,7 +278,7 @@ describe("config", () => {
 
   describe("authTimeout", () => {
     beforeEach(() => {
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
     });
 
     it("should default to 1h", () => {
@@ -291,7 +293,7 @@ describe("config", () => {
   
   describe("logHttpRequests", () => {
     beforeEach(() => {
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
     });
 
     describeBooleanConfigValue(
@@ -304,7 +306,7 @@ describe("config", () => {
 
   describe("sonos", () => {
     beforeEach(() => {
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
       process.env["BNB_SONOS_ENABLE_S1"] = "true";
     });
 
@@ -387,7 +389,7 @@ describe("config", () => {
 
   describe("subsonic", () => {
     beforeEach(() => {
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
     });
 
     describe("url", () => {
@@ -446,7 +448,7 @@ describe("config", () => {
 
   describe("scrobbling and reporting", () => {
     beforeEach(() => {
-      process.env["BNB_SECRET"] = "bonob";
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
     });
 
     describeBooleanConfigValue(

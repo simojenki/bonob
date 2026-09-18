@@ -40,7 +40,7 @@ import {
   maybeAsGenre,
 } from "./subsonic";
 
-const starredSongIds = (starred: { song?: { id: string }[] }) =>
+const starredSongIds = (starred: { readonly song?: readonly { readonly id: string }[] }) =>
   new Set((starred.song || []).map((it) => it.id));
 
 const withSortable = (album: AlbumSummary): AlbumSummary & Sortable => ({
@@ -63,9 +63,9 @@ import logger from "./logger";
 import { assertSource, Art } from "./art";
 
 export class SubsonicMusicService implements MusicService {
-  subsonic: Subsonic;
-  customPlayers: CustomPlayers;
-  useTranscode: boolean;
+  readonly subsonic: Subsonic;
+  readonly customPlayers: CustomPlayers;
+  readonly useTranscode: boolean;
 
   constructor(
     subsonic: Subsonic,
@@ -77,7 +77,7 @@ export class SubsonicMusicService implements MusicService {
     this.useTranscode = useTranscode;
   }
 
-  generateToken = (
+  readonly generateToken = (
     credentials: Credentials
   ): TE.TaskEither<AuthFailure, AuthSuccess> => 
     pipe(
@@ -89,12 +89,12 @@ export class SubsonicMusicService implements MusicService {
       }))
     );
 
-  refreshToken = (serviceToken: string) =>
+  readonly refreshToken = (serviceToken: string) =>
     this.generateToken(parseToken(serviceToken));
 
-  login = async (token: string) => this.libraryFor(parseToken(token));
+  readonly login = async (token: string) => this.libraryFor(parseToken(token));
 
-  private libraryFor = (
+  private readonly libraryFor = (
     credentials: Credentials
   ): Promise<SubsonicMusicLibrary> => {
     return Promise.resolve(new SubsonicMusicLibrary(
@@ -107,10 +107,13 @@ export class SubsonicMusicService implements MusicService {
 }
 
 export const slurpAllPages = async <R>(
-  readPage: (page: Paging) => Promise<R[]>
-): Promise<R[]> => {
+  readPage: (page: Paging) => Promise<readonly R[]>
+): Promise<readonly R[]> => {
+  // eslint-disable-next-line functional/prefer-readonly-type
   const results: R[] = [];
+  // eslint-disable-next-line functional/no-let
   let pageIndex = 0;
+  // eslint-disable-next-line functional/no-let
   let done = false;
 
   while (!done) {
@@ -128,7 +131,7 @@ export const slurpAllPages = async <R>(
 
 export const withTotalAndPage = async <T>(
   total: () => Promise<number>,
-  page: () => Promise<{ results: T[]; index: number }>
+  page: () => Promise<{ readonly results: readonly T[]; readonly index: number }>
 ): Promise<Result<T>> => {
   const [estimatedTotal, paged] = await Promise.all([
     total(), 
@@ -148,7 +151,7 @@ const ignoredArticlesSet = (ignoredArticles: string) =>
 
 export const asArtistSummaryWithSort = (
   artists: GetArtists
-): (ArtistSummary & Sortable & { albumCount: number })[] => {
+): readonly (ArtistSummary & Sortable & { readonly albumCount: number })[] => {
   const ignoredArticles = ignoredArticlesSet(artists.ignoredArticles || "");
   const allArtists = (artists.index || [])
     .flatMap((index) => index.artist || []);
@@ -178,12 +181,13 @@ export const asArtistSummaryWithSort = (
 };
 
 export class SubsonicMusicLibrary implements MusicLibrary {
-  subsonic: Subsonic;
-  credentials: Credentials;
-  customPlayers: CustomPlayers;
-  useTranscode: boolean;
+  readonly subsonic: Subsonic;
+  readonly credentials: Credentials;
+  readonly customPlayers: CustomPlayers;
+  readonly useTranscode: boolean;
 
   constructor(
+    // eslint-disable-next-line functional/prefer-immutable-types
     subsonic: Subsonic,
     credentials: Credentials,
     customPlayers: CustomPlayers,
@@ -195,13 +199,13 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     this.useTranscode = useTranscode;
   }
 
-  artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
+  readonly artists = (q: ArtistQuery): Promise<Result<ArtistSummary & Sortable>> =>
     this.subsonic
       .getArtists(this.credentials)
       .then(asArtistSummaryWithSort)
       .then(slice2Result(q));
 
-  artist = async (id: string): Promise<Artist> =>
+  readonly artist = async (id: string): Promise<Artist> =>
     Promise.all([
       this.subsonic.getArtist(this.credentials, id),
       this.subsonic.getArtistInfo(this.credentials, id),
@@ -224,7 +228,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       similarArtists: artistInfo.similarArtist,
     }));
 
-  private albumsTotalFromArtists = () =>
+  private readonly albumsTotalFromArtists = () =>
     this.subsonic
       .getArtists(this.credentials)
       .then((artists) =>
@@ -233,7 +237,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
           .reduce((total, artist) => total + artist.albumCount, 0)
       );
 
-  private getAllAlbumsAndSlice = async (
+  private readonly getAllAlbumsAndSlice = async (
     q: AlbumQuery
   ): Promise<Result<AlbumSummary & Sortable>> => {
     const estimatedTotal = await this.albumsTotalFromArtists();
@@ -259,7 +263,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     return slice2Result<AlbumSummary & Sortable>(q)(albums);
   };
 
-  private albumQueryToAlbumList2Query = (q: AlbumQuery): AlbumList2Query => ({
+  private readonly albumQueryToAlbumList2Query = (q: AlbumQuery): AlbumList2Query => ({
       type: AlbumQueryTypeToSubsonicType[q.type],
       offset: q._index ?? 0,
       size: q._count ?? 500,
@@ -268,7 +272,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       toYear: q.toYear
     })
 
-  private querySubsonicUseTotalFromArtists = (
+  private readonly querySubsonicUseTotalFromArtists = (
     q: AlbumQuery
   ): Promise<Result<AlbumSummary & Sortable>> =>
     withTotalAndPage(
@@ -279,7 +283,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
           .then((albums) => ({ results: albums.map(withSortable), index: q._index ?? 0 }))
     );
 
-  private getAllAlbumsThatMatchQueryAndSlice = (
+  private readonly getAllAlbumsThatMatchQueryAndSlice = (
     q: AlbumQuery
   ): Promise<Result<AlbumSummary & Sortable>> =>
     slurpAllPages((page) =>
@@ -290,7 +294,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       }).then((albums) => albums.map(withSortable))
     ).then(slice2Result<AlbumSummary & Sortable>(q));
 
-  albums = (q: AlbumQuery): Promise<Result<AlbumSummary & Sortable>> => {
+  readonly albums = (q: AlbumQuery): Promise<Result<AlbumSummary & Sortable>> => {
     switch (q.type) {
       case "random":
         return this.querySubsonicUseTotalFromArtists(q);
@@ -311,7 +315,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     }
   };
 
-  album = (id: string): Promise<Album> =>
+  readonly album = (id: string): Promise<Album> =>
     Promise.all([
       this.subsonic.getAlbum(this.credentials, id),
       this.subsonic.getStarred(this.credentials),
@@ -326,10 +330,10 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       };
     });
 
-  genres = () => 
+  readonly genres = () => 
     this.subsonic.getGenres(this.credentials);
 
-  track = (trackId: string) =>
+  readonly track = (trackId: string) =>
     Promise.all([
       this.subsonic.getTrack(this.credentials, trackId),
       this.subsonic.getStarred(this.credentials),
@@ -346,7 +350,8 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         )
     );
 
-  rate = (trackId: string, rating: Rating) =>
+  // eslint-disable-next-line functional/prefer-immutable-types
+  readonly rate = (trackId: string, rating: Rating) =>
     Promise.resolve(true)
       .then(() => {
         if (rating.stars >= 0 && rating.stars <= 5) {
@@ -385,12 +390,12 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       .then(() => true)
       .catch(() => false);
 
-  stream = async ({
+  readonly stream = async ({
     trackId,
     range,
   }: {
-    trackId: string;
-    range: string | undefined;
+    readonly trackId: string;
+    readonly range: string | undefined;
   }) => {
     if (this.useTranscode) {
       const extensions = await this.subsonic.getOpenSubsonicExtensions(this.credentials);
@@ -419,7 +424,8 @@ export class SubsonicMusicLibrary implements MusicLibrary {
     return this.subsonic.stream(this.credentials, trackId, encoding.player, range);
   };
 
-  coverArt = async (coverArtURN: Art, size?: number) =>
+  // eslint-disable-next-line functional/prefer-immutable-types
+  readonly coverArt = async (coverArtURN: Art, size?: number) =>
     Promise.resolve(coverArtURN)
       .then((it) => assertSource(it, "subsonic"))
       .then((it) =>
@@ -439,13 +445,13 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       });
 
   // todo: unit test the difference between scrobble and nowPlaying
-  scrobble = async (id: string) =>
+  readonly scrobble = async (id: string) =>
     this.subsonic.scrobble(this.credentials, id, true);
 
-  nowPlaying = async (id: string) =>
+  readonly nowPlaying = async (id: string) =>
     this.subsonic.scrobble(this.credentials, id, false);
 
-  searchArtists = async (query: string) =>
+  readonly searchArtists = async (query: string) =>
     this.subsonic
       .search3(this.credentials, { query, artistCount: 20 })
       .then(({ artists }) =>
@@ -459,12 +465,12 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         }))
       );
 
-  searchAlbums = async (query: string) =>
+  readonly searchAlbums = async (query: string) =>
     this.subsonic
       .search3(this.credentials, { query, albumCount: 20 })
       .then(({ albums }) => this.subsonic.toAlbumSummary(albums).map(withSortable));
 
-  searchTracks = async (query: string) =>
+  readonly searchTracks = async (query: string) =>
     Promise.all([
       this.subsonic.search3(this.credentials, { query, songCount: 20 }),
       this.subsonic.getStarred(this.credentials),
@@ -481,16 +487,17 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       );
     });
 
-  playlists = async () =>
+  readonly playlists = async () =>
     this.subsonic.playlists(this.credentials);
 
   // todo: I dont think ratings are needed to render this in smapi, so maybe there should be Track and Track & Rating types.
-  playlist = async (id: string) =>
+  readonly playlist = async (id: string) =>
     Promise.all([
       this.subsonic.playlist(this.credentials, id),
       this.subsonic.getStarred(this.credentials),
     ]).then(([playlist, starred]) => {
       const ids = starredSongIds(starred);
+      // eslint-disable-next-line functional/no-let
       let trackNumber = 1;
       return {
         id: playlist.id,
@@ -504,19 +511,19 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       };
     });
 
-  createPlaylist = async (name: string) =>
+  readonly createPlaylist = async (name: string) =>
     this.subsonic.createPlayList(this.credentials, name);
 
-  deletePlaylist = async (id: string) =>
+  readonly deletePlaylist = async (id: string) =>
     this.subsonic.deletePlayList(this.credentials, id);
 
-  addToPlaylist = async (playlistId: string, trackId: string) =>
+  readonly addToPlaylist = async (playlistId: string, trackId: string) =>
     this.subsonic.updatePlaylist(this.credentials, playlistId, { songIdToAdd: trackId });
 
-  removeFromPlaylist = async (playlistId: string, indicies: number[]) =>
+  readonly removeFromPlaylist = async (playlistId: string, indicies: readonly number[]) =>
     this.subsonic.updatePlaylist(this.credentials, playlistId, { songIndexToRemove: indicies });
 
-  similarSongs = async (id: string) =>
+  readonly similarSongs = async (id: string) =>
     Promise.all([
       //todo: do we really need to know whether a similar song is starred or not?
       this.subsonic.getSimilarSongs2(this.credentials, id),
@@ -527,7 +534,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       )
     );
 
-  topSongs = async (artistId: string) =>
+  readonly topSongs = async (artistId: string) =>
     this.subsonic
       .getArtist(this.credentials, artistId)
       .then(({ name }) =>
@@ -543,13 +550,13 @@ export class SubsonicMusicLibrary implements MusicLibrary {
         )
       );
 
-  radioStations = async () =>
+  readonly radioStations = async () =>
     this.subsonic.getInternetRadioStations(this.credentials);
 
-  radioStation = async (id: string) =>
+  readonly radioStation = async (id: string) =>
     this.radioStations().then((it) => it.find((station) => station.id === id)!);
 
-  years = async () => this.albums({
+  readonly years = async () => this.albums({
     type: "alphabeticalByArtist",
   }).then(({ results }) =>
     results

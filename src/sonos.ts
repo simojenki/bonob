@@ -9,7 +9,7 @@ import qs from "querystring";
 import { URLBuilder } from "./url_builder";
 import { LANG } from "./i8n";
 
-export const SONOS_LANG: LANG[] = [
+export const SONOS_LANG: readonly LANG[] = [
   "en-US",
   "da-DK",
   "de-DE",
@@ -38,7 +38,7 @@ export type Capability =
   | "logging" // Playback duration logging at track end (deprecated)
   | "manifest";
 
-export const BONOB_CAPABILITIES: Capability[] = [
+export const BONOB_CAPABILITIES: readonly Capability[] = [
   "extendedMD",
   "logging",
   "search",
@@ -46,21 +46,21 @@ export const BONOB_CAPABILITIES: Capability[] = [
 ];
 
 export type Device = {
-  name: string;
-  group: string;
-  ip: string;
-  port: number;
+  readonly name: string;
+  readonly group: string;
+  readonly ip: string;
+  readonly port: number;
 };
 
 export type Service = {
-  name: string;
-  sid: number;
-  uri: string;
-  secureUri: string;
-  strings?: { uri?: string; version?: string };
-  presentation?: { uri?: string; version?: string };
-  pollInterval?: number;
-  authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId";
+  readonly name: string;
+  readonly sid: number;
+  readonly uri: string;
+  readonly secureUri: string;
+  readonly strings?: { readonly uri?: string; readonly version?: string };
+  readonly presentation?: { readonly uri?: string; readonly version?: string };
+  readonly pollInterval?: number;
+  readonly authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId";
 };
 
 export const stripTrailingSlash = (url: string) =>
@@ -89,20 +89,21 @@ export const bonobService = (
 });
 
 export interface Sonos {
-  devices: () => Promise<Device[]>;
-  services: () => Promise<Service[]>;
-  remove: (sid: number) => Promise<boolean>;
-  register: (service: Service) => Promise<boolean>;
+  readonly devices: () => Promise<readonly Device[]>;
+  readonly services: () => Promise<readonly Service[]>;
+  readonly remove: (sid: number) => Promise<boolean>;
+  readonly register: (service: Service) => Promise<boolean>;
 }
 
 export const SONOS_DISABLED: Sonos = {
   devices: () => Promise.resolve([]),
   services: () => Promise.resolve([]),
   remove: (_: number) => Promise.resolve(false),
+  // eslint-disable-next-line functional/prefer-immutable-types
   register: (_: Service) => Promise.resolve(false),
 };
 
-export const asService = (musicService: MusicService): Service => ({
+export const asService = (musicService: Readonly<MusicService>): Service => ({
   name: musicService.Name,
   sid: musicService.Id,
   uri: musicService.Uri,
@@ -161,7 +162,7 @@ const setupDiscovery = (
 };
 
 export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
-  const sonosDevices = async (): Promise<SonosDevice[]> => {
+  const sonosDevices = async (): Promise<readonly SonosDevice[]> => {
     const manager = new SonosManager();
     return setupDiscovery(manager, sonosSeedHost)
       .then((success) => {
@@ -240,8 +241,8 @@ export function autoDiscoverySonos(sonosSeedHost?: string): Sonos {
 }
 
 export type Discovery = {
-  enabled: boolean;
-  seedHost?: string;
+  readonly enabled: boolean;
+  readonly seedHost?: string;
 };
 
 export default (sonosDiscovery: Discovery = { enabled: true }): Sonos =>

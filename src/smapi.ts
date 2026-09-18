@@ -427,7 +427,7 @@ export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
 });
 
 // assumes things is already sorted by _sortBy
-export const scrollIndicesFrom = (things: Sortable[]) => {
+export const scrollIndicesFrom = (things: Readonly<Sortable[]>) => {
   const indicies: Record<string, number | undefined> = {
     "A": undefined, "B": undefined, "C": undefined, "D": undefined,
     "E": undefined, "F": undefined, "G": undefined, "H": undefined,
@@ -444,7 +444,9 @@ export const scrollIndicesFrom = (things: Sortable[]) => {
       indicies[char] = i;
     }
   }
+  // eslint-disable-next-line functional/no-let
   let lastIndex = 0;
+  // eslint-disable-next-line functional/prefer-readonly-type
   const result: string[] = [];
   Object.entries(indicies).forEach(([letter, index]) => {
     result.push(letter);

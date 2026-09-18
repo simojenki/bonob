@@ -1,13 +1,13 @@
 import { Art } from "./art";
 import { taskEither as TE } from "fp-ts";
 
-export type Credentials = { username: string; password: string };
+export type Credentials = { readonly username: string; readonly password: string };
 
 // todo: these are using in subsonic, maybe they should go in there?
 export type AuthSuccess = {
-  serviceToken: string;
-  userId: string;
-  nickname: string;
+  readonly serviceToken: string;
+  readonly userId: string;
+  readonly nickname: string;
 };
 
 export class AuthFailure extends Error {
@@ -17,107 +17,109 @@ export class AuthFailure extends Error {
 };
 
 export type ArtistSummary = {
-  id: string | undefined;
-  name: string;
-  image: Art | undefined;
+  readonly id: string | undefined;
+  readonly name: string;
+  readonly image: Art | undefined;
 };
 
-export type SimilarArtist = ArtistSummary & { inLibrary: boolean };
+export type SimilarArtist = ArtistSummary & { readonly inLibrary: boolean };
 
 // todo: maybe is should be artist.summary rather than an artist also being a summary?
 export type Artist = Pick<ArtistSummary, "id" | "name" | "image">  & {
-  albums: AlbumSummary[];
-  similarArtists: SimilarArtist[]
+  readonly albums: readonly AlbumSummary[];
+  readonly similarArtists: readonly SimilarArtist[]
 };
 
 export type AlbumSummary = {
-  id: string;
-  name: string;
-  year: string | undefined;
-  genre: Genre | undefined;
-  coverArt: Art | undefined;
+  readonly id: string;
+  readonly name: string;
+  readonly year: string | undefined;
+  readonly genre: Genre | undefined;
+  readonly coverArt: Art | undefined;
+  // eslint-disable-next-line functional/prefer-readonly-type
   artistName: string | undefined;
+  // eslint-disable-next-line functional/prefer-readonly-type
   artistId: string | undefined;
 };
 
-export type Album = Pick<AlbumSummary, "id" | "name" | "year" | "genre" | "coverArt" | "artistName" | "artistId"> & { tracks: Track[] };
+export type Album = Pick<AlbumSummary, "id" | "name" | "year" | "genre" | "coverArt" | "artistName" | "artistId"> & { readonly tracks: readonly Track[] };
 
 export type Genre = {
-  name: string;
-  id: string;
+  readonly name: string;
+  readonly id: string;
 }
 
 export type Year = {
-  year: string;
+  readonly year: string;
 }
 
 export type Rating = {
-  love: boolean;
-  stars: number;
+  readonly love: boolean;
+  readonly stars: number;
 }
 
 export type Encoding = {
-  player: string,
-  mimeType: string
+  readonly player: string,
+  readonly mimeType: string
 }
 
 export type TrackSummary = {
-  id: string;
-  name: string;
-  encoding: Encoding,
-  duration: number;
-  number: number | undefined;
-  genre: Genre | undefined;
-  coverArt: Art | undefined;
-  artist: ArtistSummary;
-  rating: Rating;
+  readonly id: string;
+  readonly name: string;
+  readonly encoding: Encoding,
+  readonly duration: number;
+  readonly number: number | undefined;
+  readonly genre: Genre | undefined;
+  readonly coverArt: Art | undefined;
+  readonly artist: ArtistSummary;
+  readonly rating: Rating;
 }
 
 export type Track = TrackSummary & {
-  album: AlbumSummary;
+  readonly album: AlbumSummary;
 };
 
 export type RadioStation = {
-  id: string,
-  name: string,
-  url: string,
-  homePage?: string
+  readonly id: string,
+  readonly name: string,
+  readonly url: string,
+  readonly homePage?: string
 }
 
 export type Paging = {
-  _index?: number;
-  _count?: number;
+  readonly _index?: number;
+  readonly _count?: number;
 };
 
 export type Result<T> = {
-  results: T[];
-  total: number;
+  readonly results: readonly T[];
+  readonly total: number;
 };
 
 export function slice2<T>({ _index, _count }: Partial<Paging> = {}) {
   const i = _index || 0;
-  return (things: T[]): [T[], number] => [
+  return (things: readonly T[]): readonly [readonly T[], number] => [
     _count ? things.slice(i, i + _count) : things.slice(i),
     things.length,
   ];
 }
 
 export type Sortable = {
-  _sortBy: string;
+  readonly _sortBy: string;
 };
 
-export const asResult = <T>([results, total]: [T[], number]) => ({
+export const asResult = <T>([results, total]: readonly [readonly T[], number]) => ({
   results,
   total,
 });
 
-export const asResultx = <T>(results: T[]) => ({
+export const asResultx = <T>(results: readonly T[]) => ({
   results,
   total: results.length,
 });
 
 export const slice2Result = <T>(paging: Partial<Paging> = {}) => (
-  things: T[]
+  things: readonly T[]
 ): Result<T> => asResult(slice2<T>(paging)(things));
 
 export type ArtistQuery = Paging;
@@ -143,12 +145,12 @@ export type AlbumSort = typeof ALBUM_SORT_VALUES[number];
 export type AlbumCollection = typeof ALBUM_COLLECTION_VALUES[number];
 export type AlbumQueryType = AlbumSort | 'random' | AlbumCollection;
 export type AlbumFilter = {
-  genre?: string;
-  fromYear?: string;
-  toYear?: string;
+  readonly genre?: string;
+  readonly fromYear?: string;
+  readonly toYear?: string;
 }
 
-export type AlbumQuery = Paging & { type: AlbumQueryType; } & AlbumFilter;
+export type AlbumQuery = Paging & { readonly type: AlbumQueryType; } & AlbumFilter;
 
 export const artistToArtistSummary = (it: Artist): ArtistSummary => ({
   id: it.id,
@@ -188,30 +190,32 @@ export const playlistToPlaylistSummary = (it: Playlist): PlaylistSummary => ({
 export type StreamingHeader = "content-type" | "content-length" | "content-range" | "accept-ranges";
 
 export type TrackStream = {
-  status: number;
-  headers: Record<StreamingHeader, string | undefined>;
-  stream: any;
+  readonly status: number;
+  readonly headers: Record<StreamingHeader, string | undefined>;
+  readonly stream: any;
 };
 
 export type CoverArt = {
-  contentType: string;
-  data: Buffer;
+  readonly contentType: string;
+  readonly data: Buffer;
 }
 
 export type PlaylistSummary = {
-  id: string,
-  name: string,
-  coverArt?: Art | undefined
+  readonly id: string,
+  readonly name: string,
+  readonly coverArt?: Art | undefined
 }
 
 export type Playlist = PlaylistSummary & {
-  entries: Track[]
+  readonly entries: readonly Track[]
 }
 
 export const range = (size: number) => [...Array(size).keys()];
 
-export const asArtistAlbumPairs = (artists: Artist[]): [Artist, Album][] =>
+// eslint-disable-next-line functional/prefer-readonly-type
+export const asArtistAlbumPairs = (artists: readonly Artist[]): ([Artist, Album])[] =>
   artists.flatMap((artist) =>
+    // eslint-disable-next-line functional/prefer-readonly-type
     artist.albums.map((album) => [artist, album] as [Artist, Album])
   );
 
@@ -227,30 +231,30 @@ export interface MusicLibrary {
   albums(q: AlbumQuery): Promise<Result<AlbumSummary & Sortable>>;
   album(id: string): Promise<Album>;
   track(trackId: string): Promise<Track>;
-  genres(): Promise<Genre[]>;
-  years(): Promise<Year[]>;
+  genres(): Promise<readonly Genre[]>;
+  years(): Promise<readonly Year[]>;
   stream({
     trackId,
     range,
   }: {
-    trackId: string;
-    range: string | undefined;
+    readonly trackId: string;
+    readonly range: string | undefined;
   }): Promise<TrackStream>;
   rate(trackId: string, rating: Rating): Promise<boolean>;
   coverArt(coverArtURN: Art, size?: number): Promise<CoverArt | undefined>;
   nowPlaying(id: string): Promise<boolean>
   scrobble(id: string): Promise<boolean>
-  searchArtists(query: string): Promise<ArtistSummary[]>;
-  searchAlbums(query: string): Promise<AlbumSummary[]>;
-  searchTracks(query: string): Promise<Track[]>;
-  playlists(): Promise<PlaylistSummary[]>;
+  searchArtists(query: string): Promise<readonly ArtistSummary[]>;
+  searchAlbums(query: string): Promise<readonly AlbumSummary[]>;
+  searchTracks(query: string): Promise<readonly Track[]>;
+  playlists(): Promise<readonly PlaylistSummary[]>;
   playlist(id: string): Promise<Playlist>;
   createPlaylist(name: string): Promise<PlaylistSummary>
   deletePlaylist(id: string): Promise<boolean>
   addToPlaylist(playlistId: string, trackId: string): Promise<boolean>
-  removeFromPlaylist(playlistId: string, indicies: number[]): Promise<boolean>
-  similarSongs(id: string): Promise<TrackSummary[]>;
-  topSongs(artistId: string): Promise<TrackSummary[]>;
+  removeFromPlaylist(playlistId: string, indicies: readonly number[]): Promise<boolean>
+  similarSongs(id: string): Promise<readonly TrackSummary[]>;
+  topSongs(artistId: string): Promise<readonly TrackSummary[]>;
   radioStation(id: string): Promise<RadioStation>
-  radioStations(): Promise<RadioStation[]>
+  radioStations(): Promise<readonly RadioStation[]>
 }

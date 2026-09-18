@@ -13,13 +13,13 @@ const ALGORITHM = "aes-256-cbc";
 const IV = randomBytes(16);
 
 export type Hash = {
-  iv: string;
-  encryptedData: string;
+  readonly iv: string;
+  readonly encryptedData: string;
 };
 
 export type Encryption = {
-  encrypt: (value: string) => string;
-  decrypt: (value: string) => Either<string, string>;
+  readonly encrypt: (value: string) => string;
+  readonly decrypt: (value: string) => Either<string, string>;
 };
 
 export const jwsEncryption = (secret: string): Encryption => {

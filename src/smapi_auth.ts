@@ -3,11 +3,11 @@ import jwt from "jsonwebtoken";
 import { Clock } from "./clock";
 import { StringValue } from 'ms'
 
-export type SmapiFault = { Fault: { faultcode: string; faultstring: string } };
+export type SmapiFault = { readonly Fault: { readonly faultcode: string; readonly faultstring: string } };
 export type SmapiRefreshTokenResultFault = SmapiFault & {
-  Fault: {
-    detail: {
-      refreshAuthTokenResult: { authToken: string; privateKey: string };
+  readonly Fault: {
+    readonly detail: {
+      readonly refreshAuthTokenResult: { readonly authToken: string; readonly privateKey: string };
     };
   };
 };
@@ -23,11 +23,12 @@ export function isSmapiRefreshTokenResultFault(
 }
 
 export type SmapiToken = {
-  token: string
+  readonly token: string
 };
 
+// eslint-disable-next-line functional/no-mixed-types
 export interface ToSmapiFault {
-  _tag: string;
+  readonly _tag: string;
   toSmapiFault(): SmapiFault
 }
 
@@ -47,24 +48,24 @@ export const SMAPI_FAULT_LOGIN_UNSUPPORTED = {
 };
 
 export class MissingLoginTokenError extends Error implements ToSmapiFault {
-  _tag = "MissingLoginTokenError";
+  readonly _tag = "MissingLoginTokenError";
 
   constructor() {
     super("Missing Login Token");
   }
 
-  toSmapiFault = () => SMAPI_FAULT_LOGIN_UNSUPPORTED;
+  readonly toSmapiFault = () => SMAPI_FAULT_LOGIN_UNSUPPORTED;
 }
 
 
 export class InvalidTokenError extends Error implements ToSmapiFault {
-  _tag = "InvalidTokenError";
+  readonly _tag = "InvalidTokenError";
 
   constructor(message: string) {
     super(message);
   }
 
-  toSmapiFault = () => SMAPI_FAULT_LOGIN_UNAUTHORIZED;
+  readonly toSmapiFault = () => SMAPI_FAULT_LOGIN_UNAUTHORIZED;
 }
 
 export function isExpiredTokenError(thing: any): thing is ExpiredTokenError {
@@ -72,15 +73,15 @@ export function isExpiredTokenError(thing: any): thing is ExpiredTokenError {
 }
 
 export class ExpiredTokenError extends Error implements ToSmapiFault {
-  _tag = "ExpiredTokenError";
-  expiredToken: string;
+  readonly _tag = "ExpiredTokenError";
+  readonly expiredToken: string;
 
   constructor(expiredToken: string) {
     super("SMAPI token has expired");
     this.expiredToken = expiredToken;
   }
 
-  toSmapiFault = () => ({
+  readonly toSmapiFault = () => ({
     Fault: {
       faultcode: "Client.TokenRefreshRequired",
       faultstring: "Token has expired",
@@ -89,14 +90,14 @@ export class ExpiredTokenError extends Error implements ToSmapiFault {
 }
 
 export type SmapiAuthTokens = {
-  issue: (serviceToken: string) => SmapiToken;
-  verify: (smapiToken: SmapiToken) => E.Either<ToSmapiFault, string>;
+  readonly issue: (serviceToken: string) => SmapiToken;
+  readonly verify: (smapiToken: SmapiToken) => E.Either<ToSmapiFault, string>;
 };
 
 type TokenExpiredError = {
-  name: string;
-  message: string;
-  expiredAt: number;
+  readonly name: string;
+  readonly message: string;
+  readonly expiredAt: number;
 };
 
 function isTokenExpiredError(thing: any): thing is TokenExpiredError {
@@ -121,7 +122,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
     this.secret = secret + "." + version 
   }
 
-  issue = (serviceToken: string) => ({
+  readonly issue = (serviceToken: string) => ({
       token: jwt.sign(
         { serviceToken, iat: this.clock.now().unix() },
         this.secret,
@@ -133,7 +134,7 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
       )
     });
 
-  verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
+  readonly verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
     try {
       return E.right(
         (
