@@ -26,8 +26,11 @@ import {
 import { Art } from "../src/art";
 
 export class InMemoryMusicService implements MusicService {
+  // eslint-disable-next-line functional/prefer-readonly-type
   users: Record<string, string> = {};
+  // eslint-disable-next-line functional/prefer-readonly-type
   artists: Artist[] = [];
+  // eslint-disable-next-line functional/prefer-readonly-type
   tracks: Track[] = [];
 
   generateToken({
@@ -109,14 +112,14 @@ export class InMemoryMusicService implements MusicService {
         Promise.resolve(
           pipe(
             this.artists,
-            A.map((it) => it.albums),
-            A.flatten,
+            (artists) => artists.flatMap((it) => it.albums),
             A.map((it) => O.fromNullable(it.genre)),
             A.compact,
             A.uniq(fromEquals((x, y) => x.id === y.id)),
             A.sort(fromCompare<Genre>((x, y) => ordString.compare(x.id, y.id)))
           )
         ),
+      // eslint-disable-next-line functional/prefer-immutable-types
       rate: (_: string, _2: Rating) => Promise.resolve(false),
       track: (trackId: string) =>
         pipe(
@@ -127,8 +130,9 @@ export class InMemoryMusicService implements MusicService {
             Promise.reject(`Failed to find track with id ${trackId}`)
           )
         ),
-      stream: (_: { trackId: string; range: string | undefined }) =>
+      stream: (_: { readonly trackId: string; readonly range: string | undefined }) =>
         Promise.reject("unsupported operation"),
+      // eslint-disable-next-line functional/prefer-immutable-types
       coverArt: (coverArtURN: Art, size?: number) =>
         Promise.reject(`Cannot retrieve coverArt for ${coverArtURN}, size ${size}`),
       scrobble: async (_: string) => {
@@ -149,7 +153,7 @@ export class InMemoryMusicService implements MusicService {
         Promise.reject("Unsupported operation"),
       addToPlaylist: async (_: string) =>
         Promise.reject("Unsupported operation"),
-      removeFromPlaylist: async (_: string, _2: number[]) =>
+      removeFromPlaylist: async (_: string, _2: readonly number[]) =>
         Promise.reject("Unsupported operation"),
       similarSongs: async (_: string) => Promise.resolve([]),
       topSongs: async (_: string) => Promise.resolve([]),
@@ -169,12 +173,12 @@ export class InMemoryMusicService implements MusicService {
     return this;
   }
 
-  hasArtists(...newArtists: Artist[]) {
+  hasArtists(...newArtists: readonly Artist[]) {
     this.artists = [...this.artists, ...newArtists];
     return this;
   }
 
-  hasTracks(...newTracks: Track[]) {
+  hasTracks(...newTracks: readonly Track[]) {
     this.tracks = [...this.tracks, ...newTracks];
     return this;
   }

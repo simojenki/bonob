@@ -5,8 +5,8 @@ import { either as E } from "fp-ts";
 import jwsEncryption from "./encryption";
 
 export type Art = {
-  source: string;
-  id: string;
+  readonly source: string;
+  readonly id: string;
 };
 
 // Tiny URN serializer/parser for the "bnb:<source>:<id>" format
@@ -19,7 +19,7 @@ const ArtUtils = {
     const m = s.match(/^bnb:([^:]+):(.+)$/);
     return m ? { source: m[1]!, id: m[2]! } : undefined;
   },
-  validate: (b: Art | undefined): string[] | undefined => {
+  validate: (b: Art | undefined): readonly string[] | undefined => {
     if (!b) return ["invalid format"];
     if (!b.source || !b.id) return ["empty component"];
     return undefined;
@@ -35,6 +35,7 @@ const SHORTHAND_MAPPINGS: Record<string, string> = {
   "internal" : "i",
   "external": "e",
   "subsonic": "s",
+  // todo: get rid of this nd specific type
   "navidrome": "n",
   "encrypted": "c"
 }
@@ -51,7 +52,7 @@ const encryptor = jwsEncryption(ART_SALT);
 
 export const format = (
   art: Art,
-  opts: Partial<{ shorthand: boolean; encrypt: boolean }> = {}
+  opts: Partial<{ readonly shorthand: boolean; readonly encrypt: boolean }> = {}
 ): string => {
   const optsToUse = { ...DEFAULT_FORMAT_OPTS, ...opts }
   let toFormat = art;

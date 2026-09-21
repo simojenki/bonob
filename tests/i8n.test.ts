@@ -92,7 +92,7 @@ describe("i8n", () => {
     });
 
     describe("with multiple langs", () => {
-      function itShouldReturn(serviceName: string, langs: string[], key: KEY, expected: string) {
+      function itShouldReturn(serviceName: string, langs: readonly string[], key: KEY, expected: string) {
         it(`should return '${expected}' for the serviceName=${serviceName}, langs=${langs}`, () => {
           expect(i8n(serviceName)(...langs)(key)).toEqual(expected);
         });

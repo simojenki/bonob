@@ -51,35 +51,35 @@ export const isValidImage = (url: string | undefined) =>
   url != undefined && !url.endsWith(DODGY_IMAGE_NAME);
 
 type SubsonicEnvelope = {
-  "subsonic-response": SubsonicResponse;
+  readonly "subsonic-response": SubsonicResponse;
 };
 
 type SubsonicResponse = {
-  status: string;
+  readonly status: string;
 };
 
 export type OpenSubsonicAlbum = {
-  id: string;
-  name: string;
-  artist: string | undefined;
-  artistId: string | undefined;
-  coverArt: string | undefined;
-  genre: string | undefined;
-  year: string | undefined;
+  readonly id: string;
+  readonly name: string;
+  readonly artist: string | undefined;
+  readonly artistId: string | undefined;
+  readonly coverArt: string | undefined;
+  readonly genre: string | undefined;
+  readonly year: string | undefined;
 };
 
 export type OpenSubsonicArtist = {
-  id: string;
-  name: string;
-  albumCount: number;
-  artistImageUrl: string | undefined;
-  coverArt?: string;
-  userRating?: number;
-  starred?: string;
+  readonly id: string;
+  readonly name: string;
+  readonly albumCount: number;
+  readonly artistImageUrl: string | undefined;
+  readonly coverArt?: string;
+  readonly userRating?: number;
+  readonly starred?: string;
 };
 
 export type NavidromeArtist = {
-  sortName: string;
+  readonly sortName: string;
 };
 
 export type ArtistWithSortName = OpenSubsonicArtist & NavidromeArtist;
@@ -91,18 +91,18 @@ export function hasSortName(
 }
 
 export type AlbumList2Query = { 
-    offset?: number, size?: number,
-    type: string,
-    genre?: string,
-    fromYear?: string, toYear?: string 
+    readonly offset?: number, readonly size?: number,
+    readonly type: string,
+    readonly genre?: string,
+    readonly fromYear?: string, readonly toYear?: string 
   }
 
 export type GetArtistsResponse = SubsonicResponse & {
-  artists: {
-    ignoredArticles: string;
-    index: {
-      name: string;
-      artist: Array<OpenSubsonicArtist | ArtistWithSortName>;
+  readonly artists: {
+    readonly ignoredArticles: string;
+    readonly index: readonly {
+      readonly name: string;
+      readonly artist: ReadonlyArray<OpenSubsonicArtist | ArtistWithSortName>;
     }[];
   };
 };
@@ -110,83 +110,84 @@ export type GetArtistsResponse = SubsonicResponse & {
 export type GetArtists = GetArtistsResponse["artists"];
 
 type GetAlbumListResponse = SubsonicResponse & {
-  albumList2: {
-    album: OpenSubsonicAlbum[];
+  readonly albumList2: {
+    readonly album: readonly OpenSubsonicAlbum[];
   };
 };
 
 type genre = {
-  songCount: number;
-  albumCount: number;
-  value: string;
+  readonly songCount: number;
+  readonly albumCount: number;
+  readonly value: string;
 };
 
 export type GetGenresResponse = SubsonicResponse & {
-  genres: {
-    genre: genre[];
+  readonly genres: {
+    // eslint-disable-next-line functional/prefer-readonly-type
+    readonly genre: genre[];
   };
 };
 
 type SubsonicError = SubsonicResponse & {
-  error: {
-    code: string;
-    message: string;
+  readonly error: {
+    readonly code: string;
+    readonly message: string;
   };
 };
 
 export type images = {
-  smallImageUrl: string | undefined;
-  mediumImageUrl: string | undefined;
-  largeImageUrl: string | undefined;
+  readonly smallImageUrl: string | undefined;
+  readonly mediumImageUrl: string | undefined;
+  readonly largeImageUrl: string | undefined;
 };
 
 type artistInfo = images & {
-  biography: string | undefined;
-  musicBrainzId: string | undefined;
-  lastFmUrl: string | undefined;
-  similarArtist: OpenSubsonicArtist[];
+  readonly biography: string | undefined;
+  readonly musicBrainzId: string | undefined;
+  readonly lastFmUrl: string | undefined;
+  readonly similarArtist: readonly OpenSubsonicArtist[];
 };
 
 type ArtistSummary = IdName & {
-  image: Art | undefined;
+  readonly image: Art | undefined;
 };
 
 type GetArtistInfoResponse = SubsonicResponse & {
-  artistInfo2: artistInfo;
+  readonly artistInfo2: artistInfo;
 };
 
 type GetArtistResponse = SubsonicResponse & {
-  artist: OpenSubsonicArtist & {
-    album: OpenSubsonicAlbum[];
+  readonly artist: OpenSubsonicArtist & {
+    readonly album: readonly OpenSubsonicAlbum[];
   };
 };
 
 export type OpenSubsonicSong = {
-  id: string;
-  parent: string | undefined;
-  title: string;
-  type: string | undefined;
-  albumId: string | undefined;
-  album: string | undefined;
-  artistId: string | undefined;
-  artist: string | undefined;
-  coverArt: string | undefined;
-  duration: number | undefined;
-  bitRate: number | undefined;
-  track: number | undefined;
-  year: string | undefined;
-  genre: string | undefined;
-  created: string | undefined;
-  suffix: string | undefined;
-  contentType: string;
+  readonly id: string;
+  readonly parent: string | undefined;
+  readonly title: string;
+  readonly type: string | undefined;
+  readonly albumId: string | undefined;
+  readonly album: string | undefined;
+  readonly artistId: string | undefined;
+  readonly artist: string | undefined;
+  readonly coverArt: string | undefined;
+  readonly duration: number | undefined;
+  readonly bitRate: number | undefined;
+  readonly track: number | undefined;
+  readonly year: string | undefined;
+  readonly genre: string | undefined;
+  readonly created: string | undefined;
+  readonly suffix: string | undefined;
+  readonly contentType: string;
 
-  transcodedContentType: string | undefined;
-  userRating: number | undefined;
+  readonly transcodedContentType: string | undefined;
+  readonly userRating: number | undefined;
 };
 
 export type GetAlbumResponse = SubsonicResponse & {
-  album: OpenSubsonicAlbum & {
-    song: OpenSubsonicSong[];
+  readonly album: OpenSubsonicAlbum & {
+    readonly song: readonly OpenSubsonicSong[];
   };
 };
 
@@ -194,21 +195,21 @@ export type GetAlbum = GetAlbumResponse["album"];
 
 export type GetPlaylistResponse = {
   // todo: isnt the type here a composite? playlistSummary && { entry: OpenSubsonicSong[]; }
-  playlist: {
-    id: string;
-    name: string;
-    entry: OpenSubsonicSong[];
+  readonly playlist: {
+    readonly id: string;
+    readonly name: string;
+    readonly entry: readonly OpenSubsonicSong[];
 
     // todo: this is an ND specific field?
-    coverArt: string | undefined;
+    readonly coverArt: string | undefined;
   };
 };
 
 export type GetPlaylistsResponse = {
-  playlists: { 
-    playlist: {
-      id: string;
-      name: string;
+  readonly playlists: { 
+    readonly playlist: readonly {
+      readonly id: string;
+      readonly name: string;
       //owner: string,
       //public: boolean,
       //created: string,
@@ -217,66 +218,66 @@ export type GetPlaylistsResponse = {
       //duration: int,
 
       // todo: this is an ND specific field.
-      coverArt: string | undefined;
+      readonly coverArt: string | undefined;
     }[] 
   };
 };
 
 export type GetSimilarSongsResponse = {
-  similarSongs2: { song: OpenSubsonicSong[] };
+  readonly similarSongs2: { readonly song: readonly OpenSubsonicSong[] };
 };
 
 export type GetTopSongsResponse = {
-  topSongs: { song: OpenSubsonicSong[] };
+  readonly topSongs: { readonly song: readonly OpenSubsonicSong[] };
 };
 
 export type GetInternetRadioStationsResponse = {
-  internetRadioStations: {
-    internetRadioStation: {
-      id: string;
-      name: string;
-      streamUrl: string;
-      homePageUrl?: string;
+  readonly internetRadioStations: {
+    readonly internetRadioStation: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly streamUrl: string;
+      readonly homePageUrl?: string;
     }[];
   };
 };
 
 export type GetSongResponse = {
-  song: OpenSubsonicSong;
+  readonly song: OpenSubsonicSong;
 };
 
 export type GetStarredResponse = {
-  starred2: {
+  readonly starred2: {
     // Subsonic servers can omit these entirely when there are no starred
     // items of that kind, rather than returning an empty array.
-    song?: OpenSubsonicSong[];
-    album?: OpenSubsonicAlbum[];
-    artist?: OpenSubsonicArtist[];
+    readonly song?: readonly OpenSubsonicSong[];
+    readonly album?: readonly OpenSubsonicAlbum[];
+    readonly artist?: readonly OpenSubsonicArtist[];
   };
 };
 
 export type PingResponse = {
-  status: string;
-  version: string;
-  type: string;
-  serverVersion: string;
+  readonly status: string;
+  readonly version: string;
+  readonly type: string;
+  readonly serverVersion: string;
 };
 
 export type Search3Response = SubsonicResponse & {
-  searchResult3: {
-    artist: OpenSubsonicArtist[];
-    album: OpenSubsonicAlbum[];
-    song: OpenSubsonicSong[];
+  readonly searchResult3: {
+    readonly artist: readonly OpenSubsonicArtist[];
+    readonly album: readonly OpenSubsonicAlbum[];
+    readonly song: readonly OpenSubsonicSong[];
   };
 };
 
 export type OpenSubsonicExtension = {
-  name: string;
-  versions: number[];
+  readonly name: string;
+  readonly versions: readonly number[];
 };
 
 type GetOpenSubsonicExtensionsResponse = SubsonicResponse & {
-  openSubsonicExtensions: OpenSubsonicExtension[];
+  readonly openSubsonicExtensions: readonly OpenSubsonicExtension[];
 };
 
 export function isError(
@@ -286,8 +287,8 @@ export function isError(
 }
 
 export type IdName = {
-  id: string;
-  name: string;
+  readonly id: string;
+  readonly name: string;
 };
 
 export const coverArtToArt = (coverArt: string | undefined): Art | undefined =>
@@ -299,10 +300,7 @@ export const coverArtToArt = (coverArt: string | undefined): Art | undefined =>
   );
 
 export const artistImageURN = (
-  spec: Partial<{
-    artistId: string | undefined;
-    artistImageURL: string | undefined;
-  }>
+  spec: Readonly<Partial<{ readonly artistId: string | undefined; readonly artistImageURL: string | undefined; }>>
 ): Art | undefined => {
   const deets = {
     artistId: undefined,
@@ -327,7 +325,7 @@ export const artistImageURN = (
 export const asTrackSummary = (
   song: OpenSubsonicSong,
   customPlayers: CustomPlayers,
-  starredSongIds: Set<string>
+  starredSongIds: ReadonlySet<string>
 ): TrackSummary => ({
   id: song.id,
   name: song.title,
@@ -362,10 +360,11 @@ export const asTrackSummary = (
 });
 
 export const asTrack = (
+  // eslint-disable-next-line functional/prefer-immutable-types
   album: AlbumSummary,
   song: OpenSubsonicSong,
   customPlayers: CustomPlayers,
-  starredSongIds: Set<string>
+  starredSongIds: ReadonlySet<string>
 ): Track => ({
   ...asTrackSummary(song, customPlayers, starredSongIds),
   album: album,
@@ -401,34 +400,35 @@ export const asYear = (year: string) => ({
 });
 
 export interface CustomPlayers {
-  encodingFor({ mimeType }: { mimeType: string }): O.Option<Encoding>;
+  encodingFor({ mimeType }: { readonly mimeType: string }): O.Option<Encoding>;
 }
 
 export type CustomClient = {
-  mimeType: string;
-  transcodedMimeType: string;
+  readonly mimeType: string;
+  readonly transcodedMimeType: string;
 };
 
 export class TranscodingCustomPlayers implements CustomPlayers {
-  transcodings: Map<string, string>;
+  readonly transcodings: ReadonlyMap<string, string>;
 
-  constructor(transcodings: Map<string, string>) {
+  constructor(transcodings: ReadonlyMap<string, string>) {
     this.transcodings = transcodings;
   }
 
   static from(config: string): TranscodingCustomPlayers {
-    const parts: [string, string][] = config
+    const parts: readonly (readonly [string, string])[] = config
       .split(",")
       .map((it) => it.split(">"))
       .map((pair) => {
         if (pair.length == 1) return [pair[0]!, pair[0]!];
         else if (pair.length == 2) return [pair[0]!, pair[1]!];
+        // eslint-disable-next-line functional/no-throw-statements
         else throw new Error(`Invalid configuration item ${config}`);
       });
     return new TranscodingCustomPlayers(new Map(parts));
   }
 
-  encodingFor = ({ mimeType }: { mimeType: string }): O.Option<Encoding> =>
+  readonly encodingFor = ({ mimeType }: { readonly mimeType: string }): O.Option<Encoding> =>
     pipe(
       this.transcodings.get(mimeType),
       O.fromNullable,
@@ -460,66 +460,66 @@ export const asURLSearchParams = (q: any) => {
 
 // OpenSubsonic Transcoding Extension types
 export type DirectPlayProfile = {
-  containers: string[];
-  audioCodecs: string[];
-  protocols: string[];
-  maxAudioChannels: number;
+  readonly containers: readonly string[];
+  readonly audioCodecs: readonly string[];
+  readonly protocols: readonly string[];
+  readonly maxAudioChannels: number;
 };
 
 export type TranscodingProfile = {
-  container: string;
-  audioCodec: string;
-  protocol: string;
-  maxAudioChannels: number;
+  readonly container: string;
+  readonly audioCodec: string;
+  readonly protocol: string;
+  readonly maxAudioChannels: number;
 };
 
 export type CodecLimitation = {
-  name: string;
-  comparison: string;
-  values: string[];
-  required: boolean;
+  readonly name: string;
+  readonly comparison: string;
+  readonly values: readonly string[];
+  readonly required: boolean;
 };
 
 export type CodecProfile = {
-  type: string;
-  name: string;
-  limitations: CodecLimitation[];
+  readonly type: string;
+  readonly name: string;
+  readonly limitations: readonly CodecLimitation[];
 };
 
 export type ClientInfo = {
-  name: string;
-  platform: string;
-  maxAudioBitrate: number;
-  maxTranscodingAudioBitrate: number;
-  directPlayProfiles: DirectPlayProfile[];
-  transcodingProfiles: TranscodingProfile[];
-  codecProfiles: CodecProfile[];
+  readonly name: string;
+  readonly platform: string;
+  readonly maxAudioBitrate: number;
+  readonly maxTranscodingAudioBitrate: number;
+  readonly directPlayProfiles: readonly DirectPlayProfile[];
+  readonly transcodingProfiles: readonly TranscodingProfile[];
+  readonly codecProfiles: readonly CodecProfile[];
 };
 
 export type TranscodeStreamInfo = {
-  protocol: string;
-  container: string;
-  codec: string;
-  audioChannels: number;
-  audioBitrate: number;
-  audioProfile: string;
-  audioSamplerate: number;
-  audioBitdepth: number;
+  readonly protocol: string;
+  readonly container: string;
+  readonly codec: string;
+  readonly audioChannels: number;
+  readonly audioBitrate: number;
+  readonly audioProfile: string;
+  readonly audioSamplerate: number;
+  readonly audioBitdepth: number;
 };
 
 export type TranscodeDecision = {
-  canDirectPlay: boolean;
-  canTranscode: boolean;
-  transcodeReason?: string[];
-  errorReason?: string;
-  transcodeParams?: string;
-  sourceStream?: TranscodeStreamInfo;
-  transcodeStream?: TranscodeStreamInfo;
+  readonly canDirectPlay: boolean;
+  readonly canTranscode: boolean;
+  readonly transcodeReason?: readonly string[];
+  readonly errorReason?: string;
+  readonly transcodeParams?: string;
+  readonly sourceStream?: TranscodeStreamInfo;
+  readonly transcodeStream?: TranscodeStreamInfo;
 };
 
 type GetTranscodeDecisionResponse = {
-  transcodeDecision: TranscodeDecision;
-  status: string;
+  readonly transcodeDecision: TranscodeDecision;
+  readonly status: string;
 };
 
 export const SONOS_CLIENT_INFO: ClientInfo = {
@@ -736,11 +736,12 @@ export const parseToken = (token: string): Credentials =>
   JSON.parse(b64Decode(token));
 
 export class Subsonic {
-  url: URLBuilder;
-  customPlayers: CustomPlayers;
-  externalImageFetcher: ImageFetcher;
+  readonly url: URLBuilder;
+  readonly customPlayers: CustomPlayers;
+  readonly externalImageFetcher: ImageFetcher;
 
   constructor(
+    // eslint-disable-next-line functional/prefer-immutable-types
     url: URLBuilder,
     customPlayers: CustomPlayers = NO_CUSTOM_PLAYERS,
     externalImageFetcher: ImageFetcher = axiosImageFetcher
@@ -750,7 +751,7 @@ export class Subsonic {
     this.externalImageFetcher = externalImageFetcher;
   }
 
-  private get = async (
+  private readonly get = async (
     { username, password }: Credentials,
     path: string,
     q: {} = {},
@@ -776,7 +777,7 @@ export class Subsonic {
         } else return response;
       });
 
-  private post = async (
+  private readonly post = async (
     { username, password }: Credentials,
     path: string,
     q: {} = {},
@@ -805,7 +806,7 @@ export class Subsonic {
         } else return response;
       });
 
-  private getJSON = async <T>(
+  private readonly getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
     q: {} = {}
@@ -818,7 +819,7 @@ export class Subsonic {
         else return json as unknown as T;
       });
 
-  private postJSON = async <T>(
+  private readonly postJSON = async <T>(
     credentials: Credentials,
     path: string,
     q: {} = {},
@@ -838,7 +839,7 @@ export class Subsonic {
         else return json as unknown as T;
       });
 
-  ping = (credentials: Credentials): TE.TaskEither<AuthFailure, { authenticated: boolean, type: string}> => 
+  readonly ping = (credentials: Credentials): TE.TaskEither<AuthFailure, { readonly authenticated: boolean, readonly type: string}> => 
     pipe(
       TE.tryCatch(
         () => this.getJSON<PingResponse>(credentials, "/rest/ping.view"),
@@ -851,20 +852,20 @@ export class Subsonic {
       )
     );
 
-  getArtists = (credentials: Credentials): Promise<GetArtists> =>
+  readonly getArtists = (credentials: Credentials): Promise<GetArtists> =>
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => it.artists);
 
       // todo: should be getArtistInfo2?
-  getArtistInfo = (
+  readonly getArtistInfo = (
     credentials: Credentials,
     id: string
   ): Promise<{
-    similarArtist: (ArtistSummary & { inLibrary: boolean })[];
-    images: {
-      s: string | undefined;
-      m: string | undefined;
-      l: string | undefined;
+    readonly similarArtist: readonly (ArtistSummary & { readonly inLibrary: boolean })[];
+    readonly images: {
+      readonly s: string | undefined;
+      readonly m: string | undefined;
+      readonly l: string | undefined;
     };
   }> =>
     this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo2", {
@@ -893,15 +894,15 @@ export class Subsonic {
         })
       );
 
-  getAlbum = (credentials: Credentials, id: string): Promise<GetAlbum> =>
+  readonly getAlbum = (credentials: Credentials, id: string): Promise<GetAlbum> =>
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
       .then((it) => it.album);
    
-  getArtist = (
+  readonly getArtist = (
     credentials: Credentials,
     id: string
   ): Promise<
-    IdName & { artistImageUrl: string | undefined; albums: AlbumSummary[] }
+    IdName & { readonly artistImageUrl: string | undefined; readonly albums: readonly AlbumSummary[] }
   > =>
     this.getJSON<GetArtistResponse>(credentials, "/rest/getArtist", {
       id,
@@ -914,23 +915,23 @@ export class Subsonic {
         albums: this.toAlbumSummary(it.album || []),
       }));
 
-  getCoverArt = (credentials: Credentials, id: string, size?: number) =>
+  readonly getCoverArt = (credentials: Credentials, id: string, size?: number) =>
     this.get(credentials, "/rest/getCoverArt", size ? { id, size } : { id }, {
       headers: { "User-Agent": "bonob" },
       responseType: "arraybuffer",
     });
 
-  getTrack = (credentials: Credentials, id: string): Promise<OpenSubsonicSong> =>
+  readonly getTrack = (credentials: Credentials, id: string): Promise<OpenSubsonicSong> =>
     this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
       id,
     }).then((it) => it.song);
 
-  getStarred = (credentials: Credentials): Promise<GetStarredResponse["starred2"]> =>
+  readonly getStarred = (credentials: Credentials): Promise<GetStarredResponse["starred2"]> =>
     this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2").then(
       (it) => it.starred2
     );
 
-  toAlbumSummary = (albumList: OpenSubsonicAlbum[]): AlbumSummary[] =>
+  readonly toAlbumSummary = (albumList: readonly OpenSubsonicAlbum[]): readonly AlbumSummary[] =>
     albumList.map((album) => ({
       id: album.id,
       name: album.name,
@@ -941,7 +942,7 @@ export class Subsonic {
       coverArt: coverArtToArt(album.coverArt),
     }));
 
-  search3 = (credentials: Credentials, q: any) =>
+  readonly search3 = (credentials: Credentials, q: any) =>
     this.getJSON<Search3Response>(credentials, "/rest/search3", {
       artistCount: 0,
       albumCount: 0,
@@ -953,7 +954,7 @@ export class Subsonic {
       songs: it.searchResult3.song || [],
     }));
 
-  getAlbumList2 = (credentials: Credentials, q: AlbumList2Query) =>
+  readonly getAlbumList2 = (credentials: Credentials, q: AlbumList2Query) =>
     this.getJSON<GetAlbumListResponse>(credentials, "/rest/getAlbumList2", {
       type: q.type,
       ...(q.genre ? { genre: b64Decode(q.genre) } : {}),
@@ -965,7 +966,7 @@ export class Subsonic {
       .then((response) => response.albumList2.album || [])
       .then(this.toAlbumSummary);
 
-  getGenres = (credentials: Credentials) =>
+  readonly getGenres = (credentials: Credentials) =>
     this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>
       pipe(
         it.genres.genre || [],
@@ -977,32 +978,32 @@ export class Subsonic {
       )
     );
 
-  private st4r = (credentials: Credentials, action: string,  { id } : { id: string }) => 
+  private readonly st4r = (credentials: Credentials, action: string,  { id } : { readonly id: string }) => 
     this.getJSON<SubsonicResponse>(credentials, `/rest/${action}`, { id }).then(it => 
       it.status == "ok"
     );
 
-  star = (credentials: Credentials, ids : { id: string }) => 
+  readonly star = (credentials: Credentials, ids : { readonly id: string }) => 
     this.st4r(credentials, "star", ids)
 
-  unstar = (credentials: Credentials, ids : { id: string }) => 
+  readonly unstar = (credentials: Credentials, ids : { readonly id: string }) => 
     this.st4r(credentials, "unstar", ids)
 
-  setRating = (credentials: Credentials, id: string, rating: number) => 
+  readonly setRating = (credentials: Credentials, id: string, rating: number) => 
     this.getJSON<SubsonicResponse>(credentials, `/rest/setRating`, {
       id,
       rating,
     })
     .then(it => it.status == "ok");
 
-  scrobble = (credentials: Credentials, id: string, submission: boolean) =>
+  readonly scrobble = (credentials: Credentials, id: string, submission: boolean) =>
     this.getJSON<SubsonicResponse>(credentials, `/rest/scrobble`, {
         id,
         submission,
       })
       .then(it => it.status == "ok")
 
-  stream = (credentials: Credentials, id: string, c: string, range: string | undefined) =>
+  readonly stream = (credentials: Credentials, id: string, c: string, range: string | undefined) =>
     this.get(
       credentials,
       `/rest/stream`,
@@ -1038,9 +1039,10 @@ export class Subsonic {
       stream: stream.data,
     }));
 
-  getTranscodeDecision = async (
+  readonly getTranscodeDecision = async (
     credentials: Credentials,
     mediaId: string,
+    // eslint-disable-next-line functional/prefer-immutable-types
     clientInfo: ClientInfo
   ): Promise<TranscodeDecision> =>
     this.postJSON<GetTranscodeDecisionResponse>(
@@ -1051,7 +1053,7 @@ export class Subsonic {
     )
     .then((json) => json.transcodeDecision);
 
-  getTranscodeStream = (
+  readonly getTranscodeStream = (
     credentials: Credentials,
     mediaId: string,
     transcodeParams: string,
@@ -1093,7 +1095,7 @@ export class Subsonic {
       stream: stream.data,
     }));
 
-  playlists = (credentials: Credentials) =>
+  readonly playlists = (credentials: Credentials) =>
     this.getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
     .then(({ playlists }) => (playlists.playlist || []).map( it => ({
         id: it.id,
@@ -1102,12 +1104,12 @@ export class Subsonic {
       }))
     );
 
-  playlist = (credentials: Credentials, id: string): Promise<GetPlaylistResponse["playlist"]> =>
+  readonly playlist = (credentials: Credentials, id: string): Promise<GetPlaylistResponse["playlist"]> =>
     this.getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
       id,
     }).then(({ playlist }) => playlist);
 
-    createPlayList = (credentials: Credentials, name: string) =>
+    readonly createPlayList = (credentials: Credentials, name: string) =>
       this.getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
         name,
       })
@@ -1117,16 +1119,16 @@ export class Subsonic {
         coverArt: coverArtToArt(playlist.coverArt),
       }));
 
-    deletePlayList = (credentials: Credentials, id: string) => 
+    readonly deletePlayList = (credentials: Credentials, id: string) => 
       this.getJSON<SubsonicResponse>(credentials, "/rest/deletePlaylist", {
         id,
       })
       .then(it => it.status == "ok");
 
-    updatePlaylist = (
+    readonly updatePlaylist = (
       credentials: Credentials, 
       playlistId: string, 
-      changes : Partial<{ songIdToAdd: string | undefined, songIndexToRemove: number[] | undefined }> = {}
+      changes : Partial<{ readonly songIdToAdd: string | undefined, readonly songIndexToRemove: readonly number[] | undefined }> = {}
     ) => 
       this.getJSON<SubsonicResponse>(credentials, "/rest/updatePlaylist", {
         playlistId,
@@ -1134,7 +1136,7 @@ export class Subsonic {
       })
       .then(it => it.status == "ok");
 
-    getSimilarSongs2 = (credentials: Credentials, id: string): Promise<OpenSubsonicSong[]> =>
+    readonly getSimilarSongs2 = (credentials: Credentials, id: string): Promise<readonly OpenSubsonicSong[]> =>
       this.getJSON<GetSimilarSongsResponse>(
         credentials,
         "/rest/getSimilarSongs2",
@@ -1143,7 +1145,7 @@ export class Subsonic {
       )
       .then((it) => it.similarSongs2.song || []);
 
-    getTopSongs = (credentials: Credentials, artist: string): Promise<OpenSubsonicSong[]> =>
+    readonly getTopSongs = (credentials: Credentials, artist: string): Promise<readonly OpenSubsonicSong[]> =>
       this.getJSON<GetTopSongsResponse>(
         credentials,
         "/rest/getTopSongs",
@@ -1152,7 +1154,7 @@ export class Subsonic {
       )
       .then((it) => it.topSongs.song || []);
 
-  getInternetRadioStations = (credentials: Credentials) =>
+  readonly getInternetRadioStations = (credentials: Credentials) =>
     this.getJSON<GetInternetRadioStationsResponse>(
       credentials,
       "/rest/getInternetRadioStations"
@@ -1167,7 +1169,7 @@ export class Subsonic {
       }))
     );
 
-  getOpenSubsonicExtensions = (credentials: Credentials): Promise<OpenSubsonicExtension[]> =>
+  readonly getOpenSubsonicExtensions = (credentials: Credentials): Promise<readonly OpenSubsonicExtension[]> =>
     this.getJSON<GetOpenSubsonicExtensionsResponse>(
       credentials,
       "/rest/getOpenSubsonicExtensions.view"

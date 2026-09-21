@@ -92,6 +92,8 @@ export class RangeBytesFromFilter extends Transform {
   range = (number: number) => `${this.from}-${number - 1}/${number}`;
 }
 
+// todo: why do i need this?
+// eslint-disable-next-line functional/no-mixed-types
 export type ServerOpts = {
   linkCodes: () => LinkCodes;
   apiTokens: () => APITokens;

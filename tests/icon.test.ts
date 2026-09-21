@@ -379,10 +379,10 @@ describe("SvgIcon", () => {
 });
 
 class DummyIcon implements Icon {
-  svg: string;
-  features: IconFeatures;
+  readonly svg: string;
+  readonly features: IconFeatures;
 
-  constructor(svg: string, features: Partial<IconFeatures>) {
+  constructor(svg: string, features: Readonly<Partial<IconFeatures>>) {
     this.svg = svg;
     this.features = {
       ...NO_FEATURES,
@@ -390,16 +390,16 @@ class DummyIcon implements Icon {
     };
   }
 
-  public apply = (transformer: Transformer): Icon => transformer(this);
+  public readonly apply = (transformer: Transformer): Icon => transformer(this);
 
-  public with = ({ svg, features }: Partial<IconSpec>) => {
+  public readonly with = ({ svg, features }: Readonly<Partial<IconSpec>>) => {
     return new DummyIcon(svg || this.svg, {
       ...this.features,
       ...(features || {}),
     });
   };
 
-  public toString = () =>
+  public readonly toString = () =>
     JSON.stringify({ svg: this.svg, features: this.features });
 }
 

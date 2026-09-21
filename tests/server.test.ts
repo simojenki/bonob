@@ -1456,7 +1456,9 @@ describe("server", () => {
         const server = (
           clock: Clock = SystemClock,
           iconColors: {
+            // eslint-disable-next-line functional/prefer-readonly-type
             foregroundColor: string | undefined;
+            // eslint-disable-next-line functional/prefer-readonly-type
             backgroundColor: string | undefined;
           } = { foregroundColor: undefined, backgroundColor: undefined }
         ) =>
@@ -1733,7 +1735,9 @@ describe("server", () => {
       describe("/icons", () => {
         const server = (
           iconColors: {
+            // eslint-disable-next-line functional/prefer-readonly-type
             foregroundColor: string | undefined;
+            // eslint-disable-next-line functional/prefer-readonly-type
             backgroundColor: string | undefined;
           } = { foregroundColor: undefined, backgroundColor: undefined }
         ) =>

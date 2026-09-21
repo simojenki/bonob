@@ -1,3 +1,4 @@
+/* eslint-disable functional/prefer-readonly-type */
 import { Art, assertSource, format, formatForURL, parse } from "../src/art";
 
 type ArtSpec = {

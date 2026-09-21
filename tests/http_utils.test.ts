@@ -8,8 +8,8 @@ function makeReq() {
 
 function makeRes() {
   return {
-    write: jest.fn((..._args: any[]) => true),
-    end: jest.fn((..._args: any[]) => ({} as any)),
+    write: jest.fn((..._args: Readonly<readonly any[]>) => true),
+    end: jest.fn((..._args: Readonly<readonly any[]>) => ({} as any)),
   };
 }
 
@@ -113,6 +113,7 @@ describe('peekRequestResponse', () => {
       peekRequestResponse({ request: jest.fn() })(req, makeRes() as any, jest.fn());
 
       // Simulate the soap library attaching its own listener after next()
+      // eslint-disable-next-line functional/prefer-readonly-type
       const soapChunks: string[] = [];
       req.on('data', (chunk: Buffer) => soapChunks.push(chunk.toString()));
 

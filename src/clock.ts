@@ -15,7 +15,7 @@ function fixedDateEvent(date: string) {
   };
 }
 
-function anyOf(rules: ((clock: Clock) => boolean)[]) {
+function anyOf(rules: readonly ((clock: Clock) => boolean)[]) {
   return (clock: Clock = SystemClock) => {
     return rules.find((rule) => rule(clock)) != undefined;
   };
@@ -55,14 +55,15 @@ export interface Clock {
 export const SystemClock = { now: () => dayjs() };
 
 export class FixedClock implements Clock {
+  // eslint-disable-next-line functional/prefer-readonly-type
   time: Dayjs;
 
   constructor(time: Dayjs = dayjs()) {
     this.time = time;
   }
 
-  add = (t: number, unit: dayjs.UnitTypeShort) =>
+  readonly add = (t: number, unit: dayjs.UnitTypeShort) =>
     (this.time = this.time.add(t, unit));
 
-  now = () => this.time;
+  readonly now = () => this.time;
 }

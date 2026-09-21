@@ -7,10 +7,10 @@ export const WORD = /^\w+$/;
 export const COLOR = /^#?\w+$/;
 
 type EnvVarOpts<T> = {
-  default: T | undefined;
-  legacy: string[] | undefined;
-  validationPattern: RegExp | undefined;
-  parser: ((value: string) => T) | undefined
+  readonly default: T | undefined;
+  readonly legacy: readonly string[] | undefined;
+  readonly validationPattern: RegExp | undefined;
+  readonly parser: ((value: string) => T) | undefined
 };
 
 export function envVar<T>(
@@ -35,16 +35,21 @@ export function envVar<T>(
     throw `Invalid value specified for '${name}', must match ${opts.validationPattern}`;
   }
 
+  // eslint-disable-next-line functional/no-conditional-statements
   if(result && result.value && result.key != name) {
     logger.warn(`Configuration key '${result.key}' is deprecated, replace with '${name}'`)
   }
 
+  // eslint-disable-next-line functional/no-let
   let value: T | undefined = undefined;
 
+  // eslint-disable-next-line functional/no-conditional-statements
   if(result?.value && opts.parser) {
     value = opts.parser(result?.value)
-  } else if(result?.value)
+  // eslint-disable-next-line functional/no-conditional-statements
+  } else if(result?.value) {
     value = result?.value as any as T
+  }
 
   return value == undefined ? opts.default as T : value;
 }
@@ -109,11 +114,9 @@ export default function (die: (code?: number) => never = process.exit) {
   }
 
   const secret = bnbEnvVar<string>("SECRET")!
-  if(secret == null || secret === "") {
-    logger.error("BNB_SECRET not provided, choose a secret, make it long");
+  if(secret == null || secret === "" || secret.length < 32) {
+    logger.error("BNB_SECRET must be provided, must have length > 32 chars");
     die(1);
-  } else if(secret.length < 32) {
-    logger.warn("BNB_SECRET length is <32 chars");
   }
 
   return {

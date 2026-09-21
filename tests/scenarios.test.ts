@@ -25,10 +25,14 @@ import supersoap from "./supersoap";
 import url, { URLBuilder } from "../src/url_builder";
 
 class LoggedInSonosDriver {
+  // eslint-disable-next-line functional/prefer-readonly-type
   client: Client;
+  // eslint-disable-next-line functional/prefer-readonly-type
   token: GetDeviceAuthTokenResult;
+  // eslint-disable-next-line functional/prefer-readonly-type
   currentMetadata?: GetMetadataResponse = undefined;
 
+  // eslint-disable-next-line functional/prefer-immutable-types
   constructor(client: Client, token: GetDeviceAuthTokenResult) {
     this.client = client;
     this.token = token;
@@ -44,8 +48,10 @@ class LoggedInSonosDriver {
     });
   }
 
-  async navigate(...path: string[]) {
-    let next = path.shift();
+  async navigate(...path: readonly string[]) {
+    const p = [...path]
+    // eslint-disable-next-line functional/no-let
+    let next = p.shift();
     while (next) {
       if (next != "root") {
         const childIds =
@@ -57,12 +63,12 @@ class LoggedInSonosDriver {
         }
       }
       this.currentMetadata = (await this.getMetadata(next))[0];
-      next = path.shift();
+      next = p.shift();
     }
     return this;
   }
 
-  expectTitles(titles: string[]) {
+  expectTitles(titles: readonly string[]) {
     expect(
       this.currentMetadata!.getMetadataResult.mediaCollection!.map(
         (it) => it.title
@@ -81,17 +87,18 @@ class LoggedInSonosDriver {
 }
 
 class SonosDriver {
-  server: Express;
-  bonobUrl: URLBuilder;
-  service: Service;
+  readonly server: Express;
+  readonly bonobUrl: URLBuilder;
+  readonly service: Service;
 
+  // eslint-disable-next-line functional/prefer-immutable-types
   constructor(server: Express, bonobUrl: URLBuilder, service: Service) {
     this.server = server;
     this.bonobUrl = bonobUrl;
     this.service = service;
   }
 
-  extractPathname = (url: string) => new URL(url).pathname;
+  readonly extractPathname = (url: string) => new URL(url).pathname;
 
   async register() {
     const action = await request(this.server)
@@ -131,10 +138,10 @@ class SonosDriver {
     return client
       .getAppLinkAsync(getAppLinkMessage())
       .then(
-        ([result]: [GetAppLinkResult]) =>
+        ([result]: readonly [GetAppLinkResult]) =>
           result.getAppLinkResult.authorizeAccount.deviceLink
       )
-      .then(({ regUrl, linkCode }: { regUrl: string; linkCode: string }) => ({
+      .then(({ regUrl, linkCode }: { readonly regUrl: string; readonly linkCode: string }) => ({
         login: async ({ username, password }: Credentials) => {
           const action = await request(this.server)
             .get(this.extractPathname(regUrl))
@@ -156,7 +163,7 @@ class SonosDriver {
                 return client
                   .getDeviceAuthTokenAsync({ linkCode })
                   .then(
-                    (authToken: [GetDeviceAuthTokenResult, any]) =>
+                    (authToken: readonly [GetDeviceAuthTokenResult, any]) =>
                       new LoggedInSonosDriver(client, authToken[0])
                   );
               },
@@ -193,6 +200,7 @@ describe("scenarios", () => {
     linkCodes.clear();
   });
 
+  // eslint-disable-next-line functional/prefer-immutable-types
   function itShouldBeAbleToAddTheService(sonosDriver: SonosDriver) {
     describe("registering bonob with the sonos device", () => {
       it("should complete successfully", async () => {
