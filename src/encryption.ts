@@ -4,13 +4,12 @@ import {
   randomBytes,
   createHash,
 } from "crypto";
-import { option as O, either as E } from "fp-ts";
+import { option as O } from "fp-ts";
 import { Either, left, right } from 'fp-ts/Either'
 import { pipe } from "fp-ts/lib/function";
 import jws from "jws";
 
-const ALGORITHM = "aes-256-cbc";
-const IV = randomBytes(16);
+const ALGORITHM = "aes-256-gcm";
 
 export type Hash = {
   readonly iv: string;
@@ -22,7 +21,7 @@ export type Encryption = {
   readonly decrypt: (value: string) => Either<string, string>;
 };
 
-export const jwsEncryption = (secret: string): Encryption => {
+export const jwsSign = (secret: string): Encryption => {
   return {
     encrypt: (value: string) => jws.sign({
       header: { alg: 'HS256' },
@@ -43,36 +42,59 @@ export const jwsEncryption = (secret: string): Encryption => {
 
 export const cryptoEncryption = (secret: string): Encryption => {
   const key = createHash("sha256")
-    .update(String(secret))
-    .digest("base64")
-    .substring(0, 32);
+    .update(secret)
+    .digest();
 
   return {
     encrypt: (value: string) => {
-      const cipher = createCipheriv(ALGORITHM, key, IV);
-      return `${IV.toString("hex")}.${Buffer.concat([
-        cipher.update(value),
+      const iv = randomBytes(12);
+
+      const cipher = createCipheriv(ALGORITHM, key, iv);
+
+      const ciphertext = Buffer.concat([
+        cipher.update(value, "utf8"),
         cipher.final(),
-      ]).toString("hex")}`;
+      ]);
+
+      const tag = cipher.getAuthTag();
+
+      return [
+        iv.toString("hex"),
+        tag.toString("hex"),
+        ciphertext.toString("hex"),
+      ].join(".");
     },
-    decrypt: (value: string) => pipe(
-      right(value),
-      E.map(it => it.split(".")),
-      E.flatMap(it => it.length == 2 ? right({ iv: it[0]!, data: it[1]! }) : left("Invalid value to decrypt")),
-      E.map(it => ({
-        hash: it,
-        decipher: createDecipheriv(
+    decrypt: (value: string) => {
+      try {
+        const [ivHex, tagHex, ciphertextHex] = value.split(".");
+
+        if (!ivHex || !tagHex || !ciphertextHex) {
+          return left("Invalid value to decrypt");
+        }
+
+        const iv = Buffer.from(ivHex, "hex");
+        const tag = Buffer.from(tagHex, "hex");
+        const ciphertext = Buffer.from(ciphertextHex, "hex");
+
+        const decipher = createDecipheriv(
           ALGORITHM,
           key,
-          Buffer.from(it.iv, "hex")
-        )
-      })),
-      E.map(it => Buffer.concat([
-        it.decipher.update(Buffer.from(it.hash.data, "hex")),
-        it.decipher.final(),
-      ]).toString())
-    ),
+          iv,
+        );
+
+        decipher.setAuthTag(tag);
+
+        const plaintext = Buffer.concat([
+          decipher.update(ciphertext),
+          decipher.final(),
+        ]).toString("utf8");
+
+        return right(plaintext);
+      } catch {
+        return left("Invalid value to decrypt");
+      }
+    },
   };
 };
 
-export default jwsEncryption;
+export default jwsSign;

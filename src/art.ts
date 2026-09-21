@@ -2,7 +2,7 @@ import { generateRandomString } from "./random";
 import { pipe } from "fp-ts/lib/function";
 import { either as E } from "fp-ts";
 
-import jwsEncryption from "./encryption";
+import cryptoEncryption from "./encryption";
 
 export type Art = {
   readonly source: string;
@@ -47,8 +47,8 @@ if(SHORTHAND_MAPPINGS.length != REVERSE_SHORTHAND_MAPPINGS.length) {
   throw `Invalid SHORTHAND_MAPPINGS, must be duplicate!`
 }
 
-export const ART_SALT = generateRandomString(5);
-const encryptor = jwsEncryption(ART_SALT);
+export const ART_SALT = generateRandomString(32);
+const encryptor = cryptoEncryption(ART_SALT);
 
 export const format = (
   art: Art,
@@ -105,3 +105,23 @@ export function assertSource(urn: Art, source: string): Art {
   if (urn.source != source) throw `Unsupported urn: '${format(urn)}'`;
   else return urn;
 }
+
+export type CoverArtToken = {
+  readonly token: string;
+  readonly art: Art;
+};
+
+export const formatCoverArt = (token: string, art: Art): string =>
+  encryptor.encrypt(JSON.stringify({ t: token, a: formatForURL(art) }));
+
+export const parseCoverArt = (value: string): CoverArtToken =>
+  pipe(
+    encryptor.decrypt(value),
+    E.match(
+      (err) => { throw new Error(err); },
+      (payload) => {
+        const parsed = JSON.parse(payload) as { t: string; a: string };
+        return { token: parsed.t, art: parse(parsed.a) };
+      }
+    )
+  );

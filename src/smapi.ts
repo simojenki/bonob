@@ -27,11 +27,11 @@ import {
 } from "./music_library";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
-import { URLBuilder } from "./url_builder";
+import { BonobUrl } from "./url_builder";
 import { asLANGs, I8N } from "./i8n";
 import { ICON, iconForGenre } from "./icon";
 import _ from "underscore";
-import { Art, formatForURL } from "./art";
+import { Art, formatCoverArt } from "./art";
 import {
   isExpiredTokenError,
   MissingLoginTokenError,
@@ -192,12 +192,12 @@ export function searchResult(
 
 class SonosSoap {
   linkCodes: LinkCodes;
-  bonobUrl: URLBuilder;
+  bonobUrl: BonobUrl;
   smapiAuthTokens: SmapiAuthTokens;
   clock: Clock;
 
   constructor(
-    bonobUrl: URLBuilder,
+    bonobUrl: BonobUrl,
     linkCodes: LinkCodes,
     smapiAuthTokens: SmapiAuthTokens,
     clock: Clock
@@ -216,6 +216,7 @@ class SonosSoap {
           appUrlStringId: "AppLinkMessage",
           deviceLink: {
             regUrl: this.bonobUrl
+              .asURLBuilder()
               .append({ pathname: LOGIN_ROUTE })
               .with({ searchParams: { linkCode } })
               .href(),
@@ -295,19 +296,19 @@ export type Container = {
 //   canSkip: true, 
 // })
 
-const genre = (bonobUrl: URLBuilder, genre: Genre) => ({
+const genre = (bonobUrl: BonobUrl, genre: Genre) => ({
   id: `genre:${genre.id}`,
   itemType: "albumList",
   title: genre.name,
-  albumArtURI: albumArtURI(iconArtURI(bonobUrl, iconForGenre(genre.name)).href()),
+  albumArtURI: iconArtURI(bonobUrl, iconForGenre(genre.name)),
 });
 
-const yyyy = (bonobUrl: URLBuilder, year: Year) => ({
+const yyyy = (bonobUrl: BonobUrl, year: Year) => ({
   id: `year:${year.year}`,
   itemType: "albumList",
   title: year.year,
   // todo: maybe year.year should be nullable?
-  albumArtURI: albumArtURI(year.year !== "?" ? iconArtURI(bonobUrl, "yyyy", year.year).href() : iconArtURI(bonobUrl, "music").href()),
+  albumArtURI: year.year !== "?" ? iconArtURI(bonobUrl, "yyyy", year.year) : iconArtURI(bonobUrl, "music"),
 });
 
 export const shouldScrobble = (track: Track, playbackTime: number) => (
@@ -324,60 +325,45 @@ export const shouldScrobble = (track: Track, playbackTime: number) => (
 // },
 
 
-const playlist = (bonobUrl: URLBuilder, playlist: PlaylistSummary) => ({
+const playlist = (bonobUrl: BonobUrl, authToken: string, playlist: PlaylistSummary) => ({
   id: `playlist:${playlist.id}`,
   itemType: "playlist",
   title: playlist.name,
   canPlay: true,
-  albumArtURI: albumArtURI(coverArtURI(bonobUrl, playlist).href()),
+  albumArtURI: coverArtURI(bonobUrl, authToken, playlist),
   attributes: {
     userContent: true,
   },
 });
 
 export const coverArtURI = (
-  bonobUrl: URLBuilder,
-  { coverArt }: { coverArt?: Art | undefined }
-) =>
+  bonobUrl: BonobUrl,
+  authToken: string,
+  { coverArt }: { readonly coverArt?: Art | undefined }
+): string =>
   pipe(
     coverArt,
     O.fromNullable,
     O.map((it) =>
-      bonobUrl.append({
-        pathname: `/art/${encodeURIComponent(formatForURL(it))}/size/180`,
-      })
+      bonobUrl.path(`/art/${encodeURIComponent(formatCoverArt(authToken, it))}/size/180`).href
     ),
     O.getOrElseW(() => iconArtURI(bonobUrl, "vinyl"))
   );
 
-export const iconArtURI = (bonobUrl: URLBuilder, icon: ICON, text: string | undefined = undefined) =>
-  bonobUrl.append({
-    pathname: `/icon/${text == undefined ? icon : `${icon}:${text}`}/size/legacy`,
-  });
+export const iconArtURI = (bonobUrl: BonobUrl, icon: ICON, text: string | undefined = undefined): string =>
+  bonobUrl.path(`/icon/${text == undefined ? icon : `${icon}:${text}`}/size/legacy`).href;
 
 export const sonosifyMimeType = (mimeType: string) =>
   mimeType == "audio/x-flac" ? "audio/flac" : mimeType;
 
-
-/* This doesnt seem to work on S2, only S1, ChatGPT seems to imply it has been deprecated
-even though there is no mention of that in the docs that i can find.
-{
-  attributes: {
-      requiresAuthentication: true
-  },
-  $value: value
-}
-*/
-const albumArtURI = (value: string) => value
-
-export const album = (bonobUrl: URLBuilder, album: AlbumSummary) => ({
+export const album = (bonobUrl: BonobUrl, authToken: string, album: AlbumSummary) => ({
   id: `album:${album.id}`,
   itemType: "album",
   title: album.name,
   artist: album.artistName,
   artistId: `artist:${album.artistId}`,
   canPlay: true,
-  albumArtURI: albumArtURI(coverArtURI(bonobUrl, album).href()),
+  albumArtURI: coverArtURI(bonobUrl, authToken, album),
   // defaults
   // canScroll: false,
   // canEnumerate: true,
@@ -394,7 +380,7 @@ export const internetRadioStation = (station: RadioStation) => ({
   streamMetadata: {},
 });
 
-export const track = (bonobUrl: URLBuilder, track: Track) => ({
+export const track = (bonobUrl: BonobUrl, authToken: string, track: Track) => ({
   id: `track:${track.id}`,
   itemType: "track",
   title: track.name,
@@ -410,7 +396,7 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
     genreId: track.album.genre?.id,
     genre: track.album.genre?.name,
     duration: track.duration,
-    albumArtURI: albumArtURI(coverArtURI(bonobUrl, track).href()),
+    albumArtURI: coverArtURI(bonobUrl, authToken, track),
     trackNumber: track.number,
   },
   dynamic: {
@@ -418,12 +404,12 @@ export const track = (bonobUrl: URLBuilder, track: Track) => ({
   },
 });
 
-export const artist = (bonobUrl: URLBuilder, artist: ArtistSummary) => ({
+export const artist = (bonobUrl: BonobUrl, authToken: string, artist: ArtistSummary) => ({
   id: `artist:${artist.id}`,
   itemType: "artist",
   title: artist.name,
   artistId: artist.id,
-  albumArtURI: albumArtURI(coverArtURI(bonobUrl, { coverArt: artist.image }).href()),
+  albumArtURI: coverArtURI(bonobUrl, authToken, { coverArt: artist.image }),
 });
 
 // assumes things is already sorted by _sortBy
@@ -507,7 +493,7 @@ export function findLoginToken(
 function bindSmapiSoapServiceToExpress(
   app: Express,
   soapPath: string,
-  bonobUrl: URLBuilder,
+  bonobUrl: BonobUrl,
   linkCodes: LinkCodes,
   musicService: MusicService,
   apiKeys: APITokens,
@@ -516,13 +502,6 @@ function bindSmapiSoapServiceToExpress(
   smapiAuthTokens: SmapiAuthTokens
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock);
-
-  const urlWithToken = (accessToken: string) =>
-    bonobUrl.append({
-      searchParams: {
-        bat: accessToken,
-      },
-    });
 
   const auth = (loginToken?: string): E.Either<ToSmapiFault, Auth> => {
     const tokenFrom = E.fromNullable(new MissingLoginTokenError());
@@ -674,10 +653,8 @@ function bindSmapiSoapServiceToExpress(
                   case "track":
                     return {
                       getMediaURIResult: bonobUrl
-                        .append({
-                          pathname: `/stream/${type}/${typeId}`,
-                        })
-                        .href(),
+                        .path(`/stream/${type}/${typeId}`)
+                        .href,
                       httpHeaders: [
                         {
                           httpHeader: {
@@ -690,7 +667,7 @@ function bindSmapiSoapServiceToExpress(
                   default:
                     logger.info(`Sonos asked for an unsupported getMediaURI: ${type}:${typeId}`);
                     return {
-                      getMediaURIResult: iconArtURI(bonobUrl, "error", "?").href(),
+                      getMediaURIResult: iconArtURI(bonobUrl, "error", "?"),
                     }
                   }
               }),
@@ -710,7 +687,7 @@ function bindSmapiSoapServiceToExpress(
                     }));
                   case "track":
                     return musicLibrary.track(typeId!).then((it) => ({
-                      getMediaMetadataResult: track(urlWithToken(apiKey), it),
+                      getMediaMetadataResult: track(bonobUrl, apiKey, it),
                     }));
                   default:
                     logger.info(`Sonos asked for an unsupported getMediaMetadata: ${type}:${typeId}`);
@@ -733,7 +710,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((albumSummary) =>
-                          album(urlWithToken(apiKey), albumSummary)
+                          album(bonobUrl, apiKey, albumSummary)
                         ),
                       })
                     );
@@ -742,7 +719,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((artistSummary) =>
-                          artist(urlWithToken(apiKey), artistSummary)
+                          artist(bonobUrl, apiKey, artistSummary)
                         ),
                       })
                     );
@@ -751,7 +728,7 @@ function bindSmapiSoapServiceToExpress(
                       searchResult({
                         count: it.length,
                         mediaCollection: it.map((aTrack) =>
-                          album(urlWithToken(apiKey), aTrack.album)
+                          album(bonobUrl, apiKey, aTrack.album)
                         ),
                       })
                     );
@@ -778,7 +755,7 @@ function bindSmapiSoapServiceToExpress(
                       .artist(typeId)
                       .then((it) => ({
                         getExtendedMetadataResult: {
-                          mediaCollection: artist(urlWithToken(apiKey), it),
+                          mediaCollection: artist(bonobUrl, apiKey, it),
                           relatedBrowse: it
                             .similarArtists
                             .filter((it) => it.inLibrary)
@@ -792,7 +769,7 @@ function bindSmapiSoapServiceToExpress(
                       .track(typeId)
                       .then((it) => ({
                         getExtendedMetadataResult: {
-                          mediaMetadata: track(urlWithToken(apiKey), it),
+                          mediaMetadata: track(bonobUrl, apiKey, it),
                         },
                       }));
                   case "album":
@@ -805,7 +782,7 @@ function bindSmapiSoapServiceToExpress(
                             userContent: false,
                             renameable: false,
                           },
-                          ...album(urlWithToken(apiKey), it),
+                          ...album(bonobUrl, apiKey, it),
                         },
                       },
                     }));
@@ -814,7 +791,7 @@ function bindSmapiSoapServiceToExpress(
                       .playlist(typeId!)
                       .then(it => ({
                         getExtendedMetadataResult: {
-                          mediaCollection: playlist(urlWithToken(apiKey), it),
+                          mediaCollection: playlist(bonobUrl, apiKey, it),
                         },
                       }));                    
                   default:
@@ -847,7 +824,7 @@ function bindSmapiSoapServiceToExpress(
                   musicLibrary.albums(q).then((result) => {
                     return getMetadataResult({
                       mediaCollection: result.results.map((it) =>
-                        album(urlWithToken(apiKey), it)
+                        album(bonobUrl, apiKey, it)
                       ),
                       index: paging._index,
                       total: result.total,
@@ -863,38 +840,38 @@ function bindSmapiSoapServiceToExpress(
                           itemType: "container",
                           title: lang("artists"),
                           canScroll: true,
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "artists").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "artists"),
                         },
                         {
                           id: "albums",
                           itemType: "albumList",
                           title: lang("albums"),
                           canScroll: true,
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "albums").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "albums"),
                         },
                         {
                           id: "randomAlbums",
                           itemType: "albumList",
                           title: lang("random"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "random").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "random"),
                         },
                         {
                           id: "favouriteAlbums",
                           itemType: "albumList",
                           title: lang("favourites"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "heart").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "heart"),
                         },
                         {
                           id: "starredAlbums",
                           itemType: "albumList",
                           title: lang("topRated"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "star").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "star"),
                         },
                         {
                           id: "playlists",
                           itemType: "collection",
                           title: lang("playlists"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "playlists").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "playlists"),
                           attributes: {
                             userContent: true,
                           },
@@ -903,46 +880,46 @@ function bindSmapiSoapServiceToExpress(
                           id: "genres",
                           itemType: "container",
                           title: lang("genres"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "genres").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "genres"),
                         },
                         {
                           id: "years",
                           itemType: "container",
                           title: lang("years"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "music").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "music"),
                         },
                         {
                           id: "recentlyAdded",
                           itemType: "albumList",
                           title: lang("recentlyAdded"),
-                          albumArtURI: albumArtURI(iconArtURI(
+                          albumArtURI: iconArtURI(
                             bonobUrl,
                             "recentlyAdded"
-                          ).href()),
+                          ),
                         },
                         {
                           id: "recentlyPlayed",
                           itemType: "albumList",
                           title: lang("recentlyPlayed"),
-                          albumArtURI: albumArtURI(iconArtURI(
+                          albumArtURI: iconArtURI(
                             bonobUrl,
                             "recentlyPlayed"
-                          ).href()),
+                          ),
                         },
                         {
                           id: "mostPlayed",
                           itemType: "albumList",
                           title: lang("mostPlayed"),
-                          albumArtURI: albumArtURI(iconArtURI(
+                          albumArtURI: iconArtURI(
                             bonobUrl,
                             "mostPlayed"
-                          ).href()),
+                          ),
                         },
                         {
                           id: "internetRadio",
                           itemType: "container",
                           title: lang("internetRadio"),
-                          albumArtURI: albumArtURI(iconArtURI(bonobUrl, "radio").href()),
+                          albumArtURI: iconArtURI(bonobUrl, "radio"),
                         },
                       ],
                     });
@@ -970,7 +947,7 @@ function bindSmapiSoapServiceToExpress(
                     return musicLibrary.artists(paging).then((result) => {
                       return getMetadataResult({
                         mediaCollection: result.results.map((it) =>
-                          artist(urlWithToken(apiKey), it)
+                          artist(bonobUrl, apiKey, it)
                         ),
                         index: paging._index,
                         total: result.total,
@@ -1044,9 +1021,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(slice2(paging))
                       .then(([page, total]) =>
                         getMetadataResult({
-                          mediaCollection: page.map((it) =>
-                            yyyy(bonobUrl, it)
-                          ),
+                          mediaCollection: page.map((it) => yyyy(bonobUrl, it)),
                           index: paging._index,
                           total,
                         })
@@ -1068,7 +1043,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(slice2(paging))
                       .then(([page, total]) => {
                         return getMetadataResult({
-                          mediaCollection: page.map((it) => playlist(urlWithToken(apiKey), it)),
+                          mediaCollection: page.map((it) => playlist(bonobUrl, apiKey, it)),
                           index: paging._index,
                           total,
                         });
@@ -1081,7 +1056,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaMetadata: page.map((it) =>
-                            track(urlWithToken(apiKey), it)
+                            track(bonobUrl, apiKey, it)
                           ),
                           index: paging._index,
                           total,
@@ -1095,7 +1070,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) =>
                         getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            album(urlWithToken(apiKey), it)
+                            album(bonobUrl, apiKey, it)
                           ),
                           index: paging._index,
                           total,
@@ -1109,7 +1084,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaCollection: page.map((it) =>
-                            artist(urlWithToken(apiKey), it)
+                            artist(bonobUrl, apiKey, it)
                           ),
                           index: paging._index,
                           total,
@@ -1123,7 +1098,7 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) => {
                         return getMetadataResult({
                           mediaMetadata: page.map((it) =>
-                            track(urlWithToken(apiKey), it)
+                            track(bonobUrl, apiKey, it)
                           ),
                           index: paging._index,
                           total,

@@ -11,6 +11,24 @@ function isURLSearchParams(
 const stripTrailingSlash = (url: string) =>
   url.endsWith("/") ? url.substring(0, url.length - 1) : url;
 
+export class BonobUrl {
+  private readonly base: string;
+  private readonly _href: string;
+
+  constructor(value: Readonly<string | URL>) {
+    const url = typeof value === "string" ? new URL(value) : value;
+    const full = url.origin + url.pathname;
+    this.base = stripTrailingSlash(full);
+    this._href = full;
+  }
+
+  public readonly path = (pathname: string) => new URL(this.base + pathname);
+  public readonly asURLBuilder = () => new URLBuilder(this.base);
+  public readonly href = () => this._href;
+  public readonly pathname = () => new URL(this._href).pathname;
+  public readonly toString = () => this._href;
+}
+
 export class URLBuilder {
   private readonly url: URL;
 

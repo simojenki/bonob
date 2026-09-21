@@ -1,6 +1,6 @@
 import registrar from "./registrar";
 import readConfig from "./config";
-import { URLBuilder } from "./url_builder";
+import { BonobUrl } from "./url_builder";
 
 const params = process.argv.slice(2);
 
@@ -9,7 +9,7 @@ if (params.length != 1) {
   process.exit(1);
 }
 
-const bonobUrl = new URLBuilder(params[0]!);
+const bonobUrl = new BonobUrl(params[0]!);
 
 const config = readConfig();
 

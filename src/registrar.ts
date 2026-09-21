@@ -2,17 +2,17 @@ import axios from "axios";
 import _ from "underscore";
 import logger from "./logger";
 import sonos, { bonobService } from "./sonos";
-import { URLBuilder } from "./url_builder";
+import { BonobUrl } from "./url_builder";
 
 export default (
-    bonobUrl: URLBuilder,
+    bonobUrl: BonobUrl,
     seedHost?: string
   ) =>
   async () => {
-    const about = bonobUrl.append({ pathname: "/about" });
+    const about = bonobUrl.path("/about");
     logger.info(`Fetching bonob service about from ${about}`);
     return axios
-      .get(about.href())
+      .get(about.href)
       .then((res) => {
         if (res.status == 200) return res.data;
         else throw `Unexpected response status ${res.status} from ${about}`;
@@ -21,7 +21,7 @@ export default (
         const name = _.get(res, ["service", "name"]);
         const sid = _.get(res, ["service", "sid"]);
         if (!name || !sid) {
-          throw `Unexpected response from ${about.href()}, expected service.name and service.sid`;
+          throw `Unexpected response from ${about.href}, expected service.name and service.sid`;
         }
         return {
           name,

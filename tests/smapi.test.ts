@@ -57,9 +57,9 @@ import {
 } from "../src/music_library";
 import { APITokens } from "../src/api_tokens";
 import dayjs from "dayjs";
-import url, { URLBuilder } from "../src/url_builder";
+import { BonobUrl } from "../src/url_builder";
 import { iconForGenre } from "../src/icon";
-import { formatForURL } from "../src/art";
+import { formatCoverArt } from "../src/art";
 import { FixedClock } from "../src/clock";
 import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
 import { SmapiValidationEvent } from "../src/sonos_wsdl";
@@ -142,8 +142,8 @@ describe("findLoginToken", () => {
 });
 
 describe("service config", () => {
-  const bonobWithNoContextPath = url("http://localhost:1234");
-  const bonobWithContextPath = url("http://localhost:5678/some-context-path");
+  const bonobWithNoContextPath = new BonobUrl("http://localhost:1234");
+  const bonobWithContextPath = new BonobUrl("http://localhost:5678/some-context-path");
 
   [bonobWithNoContextPath, bonobWithContextPath].forEach((bonobUrl) => {
     describe(bonobUrl.href(), () => {
@@ -154,13 +154,11 @@ describe("service config", () => {
         new InMemoryMusicService()
       );
 
-      const stringsUrl = bonobUrl.append({ pathname: STRINGS_ROUTE });
-      const presentationUrl = bonobUrl.append({
-        pathname: PRESENTATION_MAP_ROUTE,
-      });
+      const stringsUrl = bonobUrl.path(STRINGS_ROUTE).pathname;
+      const presentationUrl = bonobUrl.path(PRESENTATION_MAP_ROUTE).pathname;
 
       async function fetchStringsXml() {
-        const res = await request(server).get(stringsUrl.path()).send();
+        const res = await request(server).get(stringsUrl).send();
 
         expect(res.status).toEqual(200);
 
@@ -208,7 +206,7 @@ describe("service config", () => {
 
       describe(PRESENTATION_MAP_ROUTE, () => {
         async function presentationMapXml() {
-          const res = await request(server).get(presentationUrl.path()).send();
+          const res = await request(server).get(presentationUrl).send();
           expect(res.status).toEqual(200);
           // removing the sonos xml ns as makes xpath queries with xpath-ts painful
           return parseXML(
@@ -404,7 +402,7 @@ describe("getMetadataResult", () => {
 
 describe("track", () => {
   it("should map into a sonos expected track", () => {
-    const bonobUrl = url("http://localhost:4567/foo?access-token=1234");
+    const bonobUrl = new BonobUrl("http://localhost:4567/foo");
     const someTrack = aTrack({
       id: uuid(),
       // audio/x-flac should be mapped to audio/flac
@@ -428,7 +426,7 @@ describe("track", () => {
       },
     });
 
-    expect(track(bonobUrl, someTrack)).toEqual({
+    expect(track(bonobUrl, '', someTrack)).toEqual({
       itemType: "track",
       id: `track:${someTrack.id}`,
       mimeType: "audio/flac",
@@ -440,8 +438,8 @@ describe("track", () => {
         albumArtist: someTrack.artist.name,
         albumArtistId: `artist:${someTrack.artist.id}`,
         albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
-          formatForURL(someTrack.coverArt!)
-        )}/size/180?access-token=1234`,
+          formatCoverArt('', someTrack.coverArt!)
+        )}/size/180`,
         artist: someTrack.artist.name,
         artistId: `artist:${someTrack.artist.id}`,
         duration: someTrack.duration,
@@ -462,7 +460,7 @@ describe("track", () => {
 
   describe("when there is no artistId from subsonic", () => {
     it("should not send an artist id to sonos", () => {
-      const bonobUrl = url("http://localhost:4567/foo?access-token=1234");
+      const bonobUrl = new BonobUrl("http://localhost:4567/foo");
       const someTrack = aTrack({
         id: uuid(),
         // audio/x-flac should be mapped to audio/flac
@@ -486,7 +484,7 @@ describe("track", () => {
         },
       });
 
-      expect(track(bonobUrl, someTrack)).toEqual({
+      expect(track(bonobUrl, '', someTrack)).toEqual({
         itemType: "track",
         id: `track:${someTrack.id}`,
         mimeType: "audio/flac",
@@ -498,8 +496,8 @@ describe("track", () => {
           albumArtist: someTrack.artist.name,
           albumArtistId: undefined,
           albumArtURI: `http://localhost:4567/foo/art/${encodeURIComponent(
-            formatForURL(someTrack.coverArt!)
-          )}/size/180?access-token=1234`,
+            formatCoverArt("", someTrack.coverArt!)
+          )}/size/180`,
           artist: someTrack.artist.name,
           artistId: undefined,
           duration: someTrack.duration,
@@ -522,14 +520,14 @@ describe("track", () => {
 
 describe("album", () => {
   it("should map to a sonos album", () => {
-    const bonobUrl = url("http://localhost:9988/some-context-path?s=hello");
+    const bonobUrl = new BonobUrl("http://localhost:9988/some-context-path?s=hello");
     const someAlbum = anAlbum({ id: "id123", name: "What a great album" });
 
-    expect(album(bonobUrl, someAlbum)).toEqual({
+    expect(album(bonobUrl, '', someAlbum)).toEqual({
       itemType: "album",
       id: `album:${someAlbum.id}`,
       title: someAlbum.name,
-      albumArtURI: coverArtURI(bonobUrl, someAlbum).href(),
+      albumArtURI: coverArtURI(bonobUrl, '', someAlbum),
       canPlay: true,
       artist: someAlbum.artistName,
       artistId: `artist:${someAlbum.artistId}`,
@@ -568,20 +566,18 @@ describe("sonosifyMimeType", () => {
 
 
 describe("coverArtURI", () => {
-  const bonobUrl = new URLBuilder(
-    "http://bonob.example.com:8080/context?search=yes"
-  );
+  const bonobUrl = new BonobUrl("http://bonob.example.com:8080/context?search=yes");
 
   describe("when there is an album coverArt", () => {
     describe("from subsonic", () => {
       it("should use it", () => {
         const coverArt = { source: "subsonic", id: "12345" };
         expect(
-          coverArtURI(bonobUrl, anAlbum({ coverArt })).href()
+          coverArtURI(bonobUrl, '', anAlbum({ coverArt }))
         ).toEqual(
           `http://bonob.example.com:8080/context/art/${encodeURIComponent(
-            formatForURL(coverArt)
-          )}/size/180?search=yes`
+            formatCoverArt('', coverArt)
+          )}/size/180`
         );
       });
     });
@@ -593,11 +589,11 @@ describe("coverArtURI", () => {
           id: "http://example.com/someimage.jpg",
         };
         expect(
-          coverArtURI(bonobUrl, anAlbum({ coverArt })).href()
+          coverArtURI(bonobUrl, '', anAlbum({ coverArt }))
         ).toEqual(
           `http://bonob.example.com:8080/context/art/${encodeURIComponent(
-            formatForURL(coverArt)
-          )}/size/180?search=yes`
+            formatCoverArt('', coverArt)
+          )}/size/180`
         );
       });
     });
@@ -606,28 +602,26 @@ describe("coverArtURI", () => {
   describe("when there is no album coverArt", () => {
     it("should return a vinly icon image", () => {
       expect(
-        coverArtURI(bonobUrl, anAlbum({ coverArt: undefined })).href()
+        coverArtURI(bonobUrl, '', anAlbum({ coverArt: undefined }))
       ).toEqual(
-        "http://bonob.example.com:8080/context/icon/vinyl/size/legacy?search=yes"
+        "http://bonob.example.com:8080/context/icon/vinyl/size/legacy"
       );
     });
   });
 });
 
 describe("iconArtURI", () => {
-  const bonobUrl = new URLBuilder(
-    "http://bonob.example.com:8080/context?search=yes"
-  );
+  const bonobUrl = new BonobUrl("http://bonob.example.com:8080/context?search=yes");
 
   describe("with no text", () => {
     it("should return just the icon uri", () => {
-      expect(iconArtURI(bonobUrl, "mushroom").href()).toEqual("http://bonob.example.com:8080/context/icon/mushroom/size/legacy?search=yes")
+      expect(iconArtURI(bonobUrl, "mushroom")).toEqual("http://bonob.example.com:8080/context/icon/mushroom/size/legacy")
     });
   });
 
   describe("with text", () => {
     it("should return just the icon uri", () => {
-      expect(iconArtURI(bonobUrl, "yyyy", "foobar10000").href()).toEqual("http://bonob.example.com:8080/context/icon/yyyy:foobar10000/size/legacy?search=yes")
+      expect(iconArtURI(bonobUrl, "yyyy", "foobar10000")).toEqual("http://bonob.example.com:8080/context/icon/yyyy:foobar10000/size/legacy")
     });
   });
 });
@@ -713,8 +707,8 @@ describe("wsdl api", () => {
 
   const clock = new FixedClock();
 
-  const bonobUrlWithoutContextPath = url("http://localhost:222");
-  const bonobUrlWithContextPath = url("http://localhost:111/path/to/bonob");
+  const bonobUrlWithoutContextPath = new BonobUrl("http://localhost:222");
+  const bonobUrlWithContextPath = new BonobUrl("http://localhost:111/path/to/bonob");
 
   [bonobUrlWithoutContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`bonob with url ${bonobUrl}`, () => {
@@ -724,10 +718,7 @@ describe("wsdl api", () => {
         token: `smapiAuthToken.token-${uuid()}`
       };
 
-      const bonobUrlWithAccessToken = bonobUrl.append({
-        searchParams: { bat: apiToken },
-      });
-
+      
       const service = bonobService("test-api", 133, bonobUrl, "AppLink");
       const smapiValidationEvents: SmapiValidationEvent[] = [];
       const server = makeServer(
@@ -814,10 +805,7 @@ describe("wsdl api", () => {
                 authorizeAccount: {
                   appUrlStringId: "AppLinkMessage",
                   deviceLink: {
-                    regUrl: bonobUrl
-                      .append({
-                        pathname: "/login",
-                        searchParams: { linkCode },
+                    regUrl: bonobUrl.asURLBuilder().append({ pathname: "/login", searchParams: { linkCode },
                       })
                       .href(),
                     linkCode: linkCode,
@@ -1059,7 +1047,7 @@ describe("wsdl api", () => {
                 expect(result[0]).toEqual(
                   searchResult({
                     mediaCollection: albums.map((it) =>
-                      album(bonobUrlWithAccessToken, albumToAlbumSummary(it))
+                      album(bonobUrl, apiToken, albumToAlbumSummary(it))
                     ),
                     index: 0,
                     total: 2,
@@ -1093,7 +1081,7 @@ describe("wsdl api", () => {
                 expect(result[0]).toEqual(
                   searchResult({
                     mediaCollection: artists.map((it) =>
-                      artist(bonobUrlWithAccessToken, artistToArtistSummary(it))
+                      artist(bonobUrl, apiToken, artistToArtistSummary(it))
                     ),
                     index: 0,
                     total: 2,
@@ -1124,7 +1112,7 @@ describe("wsdl api", () => {
                 expect(result[0]).toEqual(
                   searchResult({
                     mediaCollection: tracks.map((it) =>
-                      album(bonobUrlWithAccessToken, it.album)
+                      album(bonobUrl, apiToken, it.album)
                     ),
                     index: 0,
                     total: 2,
@@ -1286,39 +1274,39 @@ describe("wsdl api", () => {
                     {
                       id: "artists",
                       title: "Artists",
-                      albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "artists"),
                       itemType: "container",
                       canScroll: true,
                     },
                     {
                       id: "albums",
                       title: "Albums",
-                      albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "albums"),
                       itemType: "albumList",
                       canScroll: true,
                     },
                     {
                       id: "randomAlbums",
                       title: "Random",
-                      albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "random"),
                       itemType: "albumList",
                     },
                     {
                       id: "favouriteAlbums",
                       title: "Favourites",
-                      albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "heart"),
                       itemType: "albumList",
                     },
                     {
                       id: "starredAlbums",
                       title: "Top Rated",
-                      albumArtURI: iconArtURI(bonobUrl, "star").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "star"),
                       itemType: "albumList",
                     },
                     {
                       id: "playlists",
                       title: "Playlists",
-                      albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "playlists"),
                       itemType: "collection",
                       attributes: {
                         userContent: "true",
@@ -1327,40 +1315,39 @@ describe("wsdl api", () => {
                     {
                       id: "genres",
                       title: "Genres",
-                      albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "genres"),
                       itemType: "container",
                     },
                     {
                       id: "years",
                       title: "Years",
-                      albumArtURI: iconArtURI(bonobUrl, "music").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "music"),
                       itemType: "container",
                     },
                     {
                       id: "recentlyAdded",
                       title: "Recently added",
-                      albumArtURI: iconArtURI(bonobUrl, "recentlyAdded").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "recentlyAdded"),
                       itemType: "albumList",
                     },
                     {
                       id: "recentlyPlayed",
                       title: "Recently played",
-                      albumArtURI: iconArtURI(
-                        bonobUrl,
+                      albumArtURI: iconArtURI(bonobUrl,
                         "recentlyPlayed"
-                      ).href(),
+                      ),
                       itemType: "albumList",
                     },
                     {
                       id: "mostPlayed",
                       title: "Most played",
-                      albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "mostPlayed"),
                       itemType: "albumList",
                     },
                     {
                       id: "internetRadio",
                       title: "Internet Radio",
-                      albumArtURI: iconArtURI(bonobUrl, "radio").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "radio"),
                       itemType: "container",
                     },
                   ];
@@ -1386,39 +1373,39 @@ describe("wsdl api", () => {
                     {
                       id: "artists",
                       title: "Artiesten",
-                      albumArtURI: iconArtURI(bonobUrl, "artists").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "artists"),
                       itemType: "container",
                       canScroll: true,
                     },
                     {
                       id: "albums",
                       title: "Albums",
-                      albumArtURI: iconArtURI(bonobUrl, "albums").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "albums"),
                       itemType: "albumList",
                       canScroll: true,
                     },
                     {
                       id: "randomAlbums",
                       title: "Willekeurig",
-                      albumArtURI: iconArtURI(bonobUrl, "random").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "random"),
                       itemType: "albumList",
                     },
                     {
                       id: "favouriteAlbums",
                       title: "Favorieten",
-                      albumArtURI: iconArtURI(bonobUrl, "heart").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "heart"),
                       itemType: "albumList",
                     },
                     {
                       id: "starredAlbums",
                       title: "Best beoordeeld",
-                      albumArtURI: iconArtURI(bonobUrl, "star").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "star"),
                       itemType: "albumList",
                     },
                     {
                       id: "playlists",
                       title: "Afspeellijsten",
-                      albumArtURI: iconArtURI(bonobUrl, "playlists").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "playlists"),
                       itemType: "collection",
                       attributes: {
                         userContent: "true",
@@ -1427,40 +1414,39 @@ describe("wsdl api", () => {
                     {
                       id: "genres",
                       title: "Genres",
-                      albumArtURI: iconArtURI(bonobUrl, "genres").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "genres"),
                       itemType: "container",
                     },
                     {
                       id: "years",
                       title: "Jaren",
-                      albumArtURI: iconArtURI(bonobUrl, "music").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "music"),
                       itemType: "container",
                     },
                     {
                       id: "recentlyAdded",
                       title: "Onlangs toegevoegd",
-                      albumArtURI: iconArtURI(bonobUrl, "recentlyAdded").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "recentlyAdded"),
                       itemType: "albumList",
                     },
                     {
                       id: "recentlyPlayed",
                       title: "Onlangs afgespeeld",
-                      albumArtURI: iconArtURI(
-                        bonobUrl,
+                      albumArtURI: iconArtURI(bonobUrl,
                         "recentlyPlayed"
-                      ).href(),
+                      ),
                       itemType: "albumList",
                     },
                     {
                       id: "mostPlayed",
                       title: "Meest afgespeeld",
-                      albumArtURI: iconArtURI(bonobUrl, "mostPlayed").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "mostPlayed"),
                       itemType: "albumList",
                     },
                     {
                       id: "internetRadio",
                       title: "Internet Radio",
-                      albumArtURI: iconArtURI(bonobUrl, "radio").href(),
+                      albumArtURI: iconArtURI(bonobUrl, "radio"),
                       itemType: "container",
                     },
                   ];
@@ -1533,10 +1519,9 @@ describe("wsdl api", () => {
                         itemType: "albumList",
                         id: `genre:${genre.id}`,
                         title: genre.name,
-                        albumArtURI: iconArtURI(
-                          bonobUrl,
+                        albumArtURI: iconArtURI(bonobUrl,
                           iconForGenre(genre.name)
-                        ).href(),
+                        ),
                       })),
                       index: 0,
                       total: expectedGenres.length,
@@ -1558,10 +1543,9 @@ describe("wsdl api", () => {
                         itemType: "albumList",
                         id: `genre:${genre.id}`,
                         title: genre.name,
-                        albumArtURI: iconArtURI(
-                          bonobUrl,
+                        albumArtURI: iconArtURI(bonobUrl,
                           iconForGenre(genre.name)
-                        ).href(),
+                        ),
                       })),
                       index: 1,
                       total: expectedGenres.length,
@@ -1585,11 +1569,11 @@ describe("wsdl api", () => {
                     index: 0,
                     count: 100,
                   });
-                  const albumListForYear = (year: string, icon: URLBuilder) => ({
+                  const albumListForYear = (year: string, icon: string) => ({
                     itemType: "albumList",
                     id: `year:${year}`,
                     title: year,
-                    albumArtURI: icon.href(),
+                    albumArtURI: icon,
                   });
 
                   expect(result[0]).toEqual(
@@ -1621,11 +1605,10 @@ describe("wsdl api", () => {
                         itemType: "albumList",
                         id: `year:${year.year}`,
                         title: year.year,
-                        albumArtURI: iconArtURI(
-                          bonobUrl,
+                        albumArtURI: iconArtURI(bonobUrl,
                           "yyyy",
                           year.year
-                        ).href(),
+                        ),
                       })),
                       index: 2,
                       total: expectedYears.length,
@@ -1667,9 +1650,10 @@ describe("wsdl api", () => {
                         id: `playlist:${playlist.id}`,
                         title: playlist.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           playlist
-                        ).href(),
+                        ),
                         canPlay: true,
                         attributes: {
                           userContent: "true",
@@ -1697,9 +1681,10 @@ describe("wsdl api", () => {
                           id: `playlist:${playlist.id}`,
                           title: playlist.name,
                           albumArtURI: coverArtURI(
-                            bonobUrlWithAccessToken,
+                            bonobUrl,
+                            apiToken,
                             playlist
-                          ).href(),
+                          ),
                           canPlay: true,
                           attributes: {
                             userContent: "true",
@@ -1739,9 +1724,10 @@ describe("wsdl api", () => {
                           id: `album:${it.id}`,
                           title: it.name,
                           albumArtURI: coverArtURI(
-                            bonobUrlWithAccessToken,
+                            bonobUrl,
+                            apiToken,
                             it
-                          ).href(),
+                          ),
                           canPlay: true,
                           artistId: `artist:${it.artistId}`,
                           artist: it.artistName,
@@ -1776,9 +1762,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -1828,9 +1815,10 @@ describe("wsdl api", () => {
                         artistId: it.id,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           { coverArt: it.image }
-                        ).href(),
+                        ),
                       })),
                       index: 0,
                       total: artistSummaries.length,
@@ -1873,9 +1861,10 @@ describe("wsdl api", () => {
                         artistId: it.id,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           { coverArt: it.image }
-                        ).href(),
+                        ),
                       })),
                       index: 1,
                       total: artistSummaries.length,
@@ -1934,9 +1923,10 @@ describe("wsdl api", () => {
                           artistId: it.id,
                           title: it.name,
                           albumArtURI: coverArtURI(
-                            bonobUrlWithAccessToken,
+                            bonobUrl,
+                            apiToken,
                             { coverArt: it.image }
-                          ).href(),
+                          ),
                         })),
                         index: 0,
                         total: 4,
@@ -1963,9 +1953,10 @@ describe("wsdl api", () => {
                             artistId: it.id,
                             title: it.name,
                             albumArtURI: coverArtURI(
-                              bonobUrlWithAccessToken,
+                              bonobUrl,
+                              apiToken,
                               { coverArt: it.image }
-                            ).href(),
+                            ),
                           })
                         ),
                         index: 1,
@@ -2080,9 +2071,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2128,9 +2120,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2176,9 +2169,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2224,9 +2218,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2272,9 +2267,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2320,9 +2316,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2366,9 +2363,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2412,9 +2410,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2456,9 +2455,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2503,9 +2503,10 @@ describe("wsdl api", () => {
                         id: `album:${it.id}`,
                         title: it.name,
                         albumArtURI: coverArtURI(
-                          bonobUrlWithAccessToken,
+                          bonobUrl,
+                          apiToken,
                           it
-                        ).href(),
+                        ),
                         canPlay: true,
                         artistId: `artist:${it.artistId}`,
                         artist: it.artistName,
@@ -2561,7 +2562,7 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaMetadata: tracks.map((it) =>
-                        track(bonobUrlWithAccessToken, it)
+                        track(bonobUrl, apiToken, it)
                       ),
                       index: 0,
                       total: tracks.length,
@@ -2588,7 +2589,7 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaMetadata: pageOfTracks.map((it) =>
-                        track(bonobUrlWithAccessToken, it)
+                        track(bonobUrl, apiToken, it)
                       ),
                       index: paging.index,
                       total: tracks.length,
@@ -2631,7 +2632,7 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaMetadata: playlist.entries.map((it) =>
-                        track(bonobUrlWithAccessToken, it)
+                        track(bonobUrl, apiToken, it)
                       ),
                       index: 0,
                       total: playlist.entries.length,
@@ -2660,7 +2661,7 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual(
                     getMetadataResult({
                       mediaMetadata: pageOfTracks.map((it) =>
-                        track(bonobUrlWithAccessToken, it)
+                        track(bonobUrl, apiToken, it)
                       ),
                       index: paging.index,
                       total: playlist.entries.length,
@@ -2790,7 +2791,7 @@ describe("wsdl api", () => {
                         id: `artist:${artist.id}`,
                         artistId: artist.id,
                         title: artist.name,
-                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                        albumArtURI: coverArtURI(bonobUrl, apiToken, { coverArt: artist.image }),
                       },
                       relatedBrowse: [{
                         id: `relatedArtists:${artist.id}`,
@@ -2822,7 +2823,7 @@ describe("wsdl api", () => {
                         id: `artist:${artist.id}`,
                         artistId: artist.id,
                         title: artist.name,
-                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                        albumArtURI: coverArtURI(bonobUrl, apiToken, { coverArt: artist.image }),
                       }
                     },
                   });
@@ -2855,7 +2856,7 @@ describe("wsdl api", () => {
                         id: `artist:${artist.id}`,
                         artistId: artist.id,
                         title: artist.name,
-                        albumArtURI: coverArtURI(bonobUrlWithAccessToken, { coverArt: artist.image }).href(),
+                        albumArtURI: coverArtURI(bonobUrl, apiToken, { coverArt: artist.image }),
                       }
                     },
                   });
@@ -2892,9 +2893,10 @@ describe("wsdl api", () => {
                           genreId: track.genre?.id,
                           duration: track.duration,
                           albumArtURI: coverArtURI(
-                            bonobUrlWithAccessToken,
+                            bonobUrl,
+                            apiToken,
                             track
-                          ).href(),
+                          ),
                           trackNumber: track.number,
                         },
                         dynamic: {
@@ -2940,9 +2942,10 @@ describe("wsdl api", () => {
                           genreId: track.genre?.id,
                           duration: track.duration,
                           albumArtURI: coverArtURI(
-                            bonobUrlWithAccessToken,
+                            bonobUrl,
+                            apiToken,
                             track
-                          ).href(),
+                          ),
                           trackNumber: track.number,
                         },
                         dynamic: {
@@ -2983,9 +2986,10 @@ describe("wsdl api", () => {
                       id: `album:${album.id}`,
                       title: album.name,
                       albumArtURI: coverArtURI(
-                        bonobUrlWithAccessToken,
+                        bonobUrl,
+                        apiToken,
                         album
-                      ).href(),
+                      ),
                       canPlay: true,
                       artistId: `artist:${album.artistId}`,
                       artist: album.artistName,
@@ -3039,10 +3043,8 @@ describe("wsdl api", () => {
 
                 expect(root[0]).toEqual({
                   getMediaURIResult: bonobUrl
-                    .append({
-                      pathname: `/stream/track/${trackId}`,
-                    })
-                    .href(),
+                    .path(`/stream/track/${trackId}`)
+                    .href,
                   httpHeaders: {
                       httpHeader: [{
                           header: "authorization",
@@ -3083,7 +3085,7 @@ describe("wsdl api", () => {
                 });
 
                 expect(root[0]).toEqual({
-                  getMediaURIResult: iconArtURI(bonobUrl, "error", "?").href()
+                  getMediaURIResult: iconArtURI(bonobUrl, "error", "?")
                 });
 
                 expect(musicService.login).toHaveBeenCalledWith(serviceToken);
@@ -3122,9 +3124,8 @@ describe("wsdl api", () => {
 
                 expect(root[0]).toEqual({
                   getMediaMetadataResult: track(
-                    bonobUrl.with({
-                      searchParams: { bat: apiToken },
-                    }),
+                    bonobUrl,
+                    apiToken,
                     someTrack
                   ),
                 });

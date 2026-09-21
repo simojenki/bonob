@@ -3,7 +3,7 @@ import { SONOS_DISABLED } from '../src/sonos';
 import { loggingPeeker, validateSmapiMessagePeeker } from '../src/http_utils';
 import { InMemoryMusicService } from './in_memory_music_service';
 import { aService } from './builders';
-import url from '../src/url_builder';
+import { BonobUrl } from '../src/url_builder';
 
 jest.mock('../src/http_utils', () => ({
   ...jest.requireActual('../src/http_utils'),
@@ -11,7 +11,7 @@ jest.mock('../src/http_utils', () => ({
   validateSmapiMessagePeeker: jest.fn().mockReturnValue({ request: jest.fn(), response: jest.fn() }),
 }));
 
-const bonobUrl = url('http://localhost:4534');
+const bonobUrl = new BonobUrl('http://localhost:4534');
 
 describe('SMAPI peeker wiring', () => {
   beforeEach(() => jest.clearAllMocks());

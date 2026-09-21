@@ -30,22 +30,20 @@ import { APITokens, InMemoryAPITokens } from "./api_tokens";
 import logger from "./logger";
 import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
-import { URLBuilder } from "./url_builder";
+import { BonobUrl } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
 import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
 import { DEFAULT_LOGIN_THEME } from './config';
 import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
 import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
 import morgan from "morgan";
-import { parse } from "./art";
+import { parseCoverArt, Art } from "./art";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
 } from "./smapi_auth";
 import { isValidMimeType } from "./utils";
-
-export const BONOB_ACCESS_TOKEN_HEADER = "bat";
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;
@@ -147,7 +145,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
 function server(
   sonos: Sonos,
   service: Service,
-  bonobUrl: URLBuilder,
+  bonobUrl: BonobUrl,
   musicService: MusicService,
   opts: Partial<ServerOpts> = {}
 ): Express {
@@ -208,7 +206,7 @@ function server(
     res.render(`login/${loginTheme}/login`, {
       lang,
       linkCode: req.query.linkCode,
-      loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
+      loginRoute: bonobUrl.path(LOGIN_ROUTE).pathname,
     });
   });
 
@@ -221,7 +219,7 @@ function server(
         lang,
         status: "fail",
         message: lang("invalidLinkCode"),
-        loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
+        loginRoute: bonobUrl.path(LOGIN_ROUTE).pathname,
       });
     } else {
       return pipe(
@@ -239,7 +237,7 @@ function server(
               message: lang("loginFailed"),
               cause: e.message,
               linkCode: linkCode,
-              loginRoute: bonobUrl.append({ pathname: LOGIN_ROUTE }).pathname(),
+              loginRoute: bonobUrl.path(LOGIN_ROUTE).pathname,
             },
           }),
           (success: AuthSuccess) => {
@@ -287,13 +285,11 @@ function server(
       };
 
       const loveRatingIcon = bonobUrl
-        .append({
-          pathname: rating.love ? "/love-selected.svg" : "/love-unselected.svg",
-        })
-        .href();
+        .path(rating.love ? "/love-selected.svg" : "/love-unselected.svg")
+        .href;
       const starsRatingIcon = bonobUrl
-        .append({ pathname: `/star${rating.stars}.svg` })
-        .href();
+        .path(`/star${rating.stars}.svg`)
+        .href;
 
       const loveLabel = nextLove.love ? "LOVE" : "UNLOVE"
 
@@ -610,10 +606,16 @@ function server(
   });
 
   app.get("/art/:art/size/:size", (req, res) => {
-    const serviceToken = apiTokens.authTokenFor(
-      req.query[BONOB_ACCESS_TOKEN_HEADER] as string
-    );
-    const art = parse(req.params["art"]!);
+    let token: string;
+    let art: Art;
+    try {
+      const parsed = parseCoverArt(req.params["art"]!);
+      token = parsed.token;
+      art = parsed.art;
+    } catch {
+      return res.status(400).send();
+    }
+    const serviceToken = apiTokens.authTokenFor(token);
     const size = Number.parseInt(req.params["size"]!);
 
     logger.debug(`Getting art '${JSON.stringify(art)}' in size ${size}`)
@@ -672,7 +674,7 @@ function server(
 
   if (serverOpts.applyContextPath) {
     const container = express();
-    container.use(bonobUrl.path(), app);
+    container.use(bonobUrl.pathname(), app);
     return container;
   } else {
     return app;

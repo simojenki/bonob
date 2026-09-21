@@ -6,7 +6,7 @@ import { head } from "underscore";
 import logger from "./logger";
 import { SOAP_PATH, STRINGS_ROUTE, PRESENTATION_MAP_ROUTE } from "./smapi";
 import qs from "querystring";
-import { URLBuilder } from "./url_builder";
+import { BonobUrl } from "./url_builder";
 import { LANG } from "./i8n";
 
 export const SONOS_LANG: readonly LANG[] = [
@@ -69,19 +69,19 @@ export const stripTrailingSlash = (url: string) =>
 export const bonobService = (
   name: string,
   sid: number,
-  bonobUrl: URLBuilder,
+  bonobUrl: BonobUrl,
   authType: "Anonymous" | "AppLink" | "DeviceLink" | "UserId" = "AppLink"
 ): Service => ({
   name,
   sid,
-  uri: bonobUrl.append({ pathname: SOAP_PATH }).href(),
-  secureUri: bonobUrl.append({ pathname: SOAP_PATH }).href(),
+  uri: bonobUrl.path(SOAP_PATH).href,
+  secureUri: bonobUrl.path(SOAP_PATH).href,
   strings: {
-    uri: bonobUrl.append({ pathname: STRINGS_ROUTE }).href(),
+    uri: bonobUrl.path(STRINGS_ROUTE).href,
     version: PRESENTATION_AND_STRINGS_VERSION,
   },
   presentation: {
-    uri: bonobUrl.append({ pathname: PRESENTATION_MAP_ROUTE }).href(),
+    uri: bonobUrl.path(PRESENTATION_MAP_ROUTE).href,
     version: PRESENTATION_AND_STRINGS_VERSION,
   },
   pollInterval: 1200,

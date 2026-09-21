@@ -14,7 +14,8 @@ export const sha256 = (salt: string) => (value: string) => crypto
   .update(`${value}${salt}`)
   .digest("hex")
 
-
+  
+// todo: why not just use a UUID here?
 export class InMemoryAPITokens implements APITokens {
   tokens = new Map<string, { authToken: string, expiresAt: Dayjs }>();
   clock;
