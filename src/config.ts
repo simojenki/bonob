@@ -1,6 +1,6 @@
 import { hostname } from "os";
 import logger from "./logger";
-import url from "./url_builder";
+import url, { BonobUrl } from "./url_builder";
 import { StringValue } from 'ms'
 
 export const WORD = /^\w+$/;
@@ -121,7 +121,7 @@ export default function (die: (code?: number) => never = process.exit) {
 
   return {
     port,
-    bonobUrl: url(bonobUrl),
+    bonobUrl: new BonobUrl(bonobUrl),
     secret,
     authTimeout: bnbEnvVar<StringValue>("AUTH_TIMEOUT", { default: "1h" })!,
     icons: {

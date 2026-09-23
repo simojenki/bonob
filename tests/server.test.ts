@@ -6,7 +6,6 @@ import { either as E, taskEither as TE } from "fp-ts";
 
 import { AuthFailure, MusicService } from "../src/music_library";
 import makeServer, {
-  BONOB_ACCESS_TOKEN_HEADER,
   RangeBytesFromFilter,
   rangeFilterFor,
 } from "../src/server";
@@ -19,11 +18,11 @@ import { APITokens, InMemoryAPITokens } from "../src/api_tokens";
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import { Response } from "express";
 import { Transform } from "stream";
-import url from "../src/url_builder";
+import { BonobUrl } from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
 import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
 import { Clock, FixedClock, SystemClock } from "../src/clock";
-import { formatForURL } from "../src/art";
+import { formatCoverArt } from "../src/art";
 import { SmapiAuthTokens } from "../src/smapi_auth";
 
 describe("rangeFilterFor", () => {
@@ -170,8 +169,8 @@ describe("server", () => {
     jest.resetAllMocks();
   });
 
-  const bonobUrlWithNoContextPath = url("http://localhost:1234");
-  const bonobUrlWithContextPath = url("http://localhost:1234/aContext");
+  const bonobUrlWithNoContextPath = new BonobUrl("http://localhost:1234");
+  const bonobUrlWithContextPath = new BonobUrl("http://localhost:1234/aContext");
 
   const langName = randomLang();
   const acceptLanguage = `le-ET,${langName};q=0.9,en;q=0.8`;
@@ -193,7 +192,7 @@ describe("server", () => {
 
             it("should display it", async () => {
               const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/" }).pathname())
+                .get(bonobUrl.path("/").pathname)
                 .send();
 
               expect(res.status).toEqual(200);
@@ -211,7 +210,7 @@ describe("server", () => {
 
             it("should display the default", async () => {
               const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/" }).pathname())
+                .get(bonobUrl.path("/").pathname)
                 .send();
 
               expect(res.status).toEqual(200);
@@ -229,7 +228,7 @@ describe("server", () => {
           );
 
           const res = await request(server)
-            .get(bonobUrl.append({ pathname: "/" }).pathname())
+            .get(bonobUrl.path("/").pathname)
             .send();
 
           expect(res.status).toEqual(200);
@@ -253,7 +252,7 @@ describe("server", () => {
 
             it("should display it", async () => {
               const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/s1" }).pathname())
+                .get(bonobUrl.path("/s1").pathname)
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -273,7 +272,7 @@ describe("server", () => {
 
             it("should display the default", async () => {
               const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/s1" }).pathname())
+                .get(bonobUrl.path("/s1").pathname)
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -295,7 +294,7 @@ describe("server", () => {
           describe("devices list", () => {
             it("should be empty", async () => {
               const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/s1" }).pathname())
+                .get(bonobUrl.path("/s1").pathname)
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -332,7 +331,7 @@ describe("server", () => {
             describe("devices list", () => {
               it("should be empty", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/s1" }).path())
+                  .get(bonobUrl.path("/s1").pathname)
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -346,7 +345,7 @@ describe("server", () => {
             describe("services", () => {
               it("should be empty", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/s1" }).path())
+                  .get(bonobUrl.path("/s1").pathname)
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -409,7 +408,7 @@ describe("server", () => {
             describe("devices list", () => {
               it("should contain the devices returned from sonos", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/s1" }).path())
+                  .get(bonobUrl.path("/s1").pathname)
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -423,7 +422,7 @@ describe("server", () => {
             describe("services", () => {
               it("should contain a list of services returned from sonos", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/s1" }).path())
+                  .get(bonobUrl.path("/s1").pathname)
                   .set("accept-language", acceptLanguage)
                   .send();
 
@@ -439,7 +438,7 @@ describe("server", () => {
             describe("registration status", () => {
               it("should be not-registered", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/s1" }).path())
+                  .get(bonobUrl.path("/s1").pathname)
                   .set("accept-language", acceptLanguage)
                   .send();
                 expect(res.status).toEqual(200);
@@ -498,7 +497,7 @@ describe("server", () => {
             describe("registration status", () => {
               it("should be registered", async () => {
                 const res = await request(server)
-                  .get(bonobUrl.append({ pathname: "/s1" }).path())
+                  .get(bonobUrl.path("/s1").pathname)
                   .set("accept-language", acceptLanguage)
                   .send();
                 expect(res.status).toEqual(200);
@@ -535,7 +534,7 @@ describe("server", () => {
 
         it("should report some information about the service", async () => {
           const res = await request(server)
-            .get(bonobUrl.append({ pathname: "/about" }).path())
+            .get(bonobUrl.path("/about").pathname)
             .send();
 
           expect(res.status).toEqual(200);
@@ -571,7 +570,7 @@ describe("server", () => {
               sonos.register.mockResolvedValue(true);
 
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/s1/registration/add" }).path())
+                .post(bonobUrl.path("/s1/registration/add").pathname)
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -589,7 +588,7 @@ describe("server", () => {
               sonos.register.mockResolvedValue(false);
 
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/s1/registration/add" }).path())
+                .post(bonobUrl.path("/s1/registration/add").pathname)
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -610,7 +609,7 @@ describe("server", () => {
 
               const res = await request(server)
                 .post(
-                  bonobUrl.append({ pathname: "/s1/registration/remove" }).path()
+                  bonobUrl.path("/s1/registration/remove").pathname
                 )
                 .set("accept-language", acceptLanguage)
                 .send();
@@ -630,7 +629,7 @@ describe("server", () => {
 
               const res = await request(server)
                 .post(
-                  bonobUrl.append({ pathname: "/s1/registration/remove" }).path()
+                  bonobUrl.path("/s1/registration/remove").pathname
                 )
                 .set("accept-language", acceptLanguage)
                 .send();
@@ -656,7 +655,7 @@ describe("server", () => {
 
           it("should return 400 for GET /s1", async () => {
             const res = await request(disabledServer)
-              .get(bonobUrl.append({ pathname: "/s1" }).path())
+              .get(bonobUrl.path("/s1").pathname)
               .send();
             expect(res.status).toEqual(400);
             expect(res.text).toContain("S1 routes are disabled");
@@ -664,7 +663,7 @@ describe("server", () => {
 
           it("should return 400 for POST /s1/registration/add", async () => {
             const res = await request(disabledServer)
-              .post(bonobUrl.append({ pathname: "/s1/registration/add" }).path())
+              .post(bonobUrl.path("/s1/registration/add").pathname)
               .send();
             expect(res.status).toEqual(400);
             expect(res.text).toContain("S1 routes are disabled");
@@ -673,7 +672,7 @@ describe("server", () => {
 
           it("should return 400 for POST /s1/registration/remove", async () => {
             const res = await request(disabledServer)
-              .post(bonobUrl.append({ pathname: "/s1/registration/remove" }).path())
+              .post(bonobUrl.path("/s1/registration/remove").pathname)
               .send();
             expect(res.status).toEqual(400);
             expect(res.text).toContain("S1 routes are disabled");
@@ -733,7 +732,7 @@ describe("server", () => {
               sonos.register.mockResolvedValue(true);
 
               const res = await request(server)
-                .get(bonobUrl.append({ pathname: "/login" }).path())
+                .get(bonobUrl.path("/login").pathname)
                 .set("accept-language", acceptLanguage)
                 .send();
 
@@ -758,7 +757,7 @@ describe("server", () => {
                 linkCodes.associate.mockReturnValue(true);
 
                 const res = await request(server)
-                  .post(bonobUrl.append({ pathname: "/login" }).pathname())
+                  .post(bonobUrl.path("/login").pathname)
                   .set("accept-language", acceptLanguage)
                   .type("form")
                   .send({ username, password, linkCode })
@@ -789,7 +788,7 @@ describe("server", () => {
                 musicService.generateToken.mockReturnValue(TE.left(new AuthFailure(message)))
 
                 const res = await request(server)
-                  .post(bonobUrl.append({ pathname: "/login" }).pathname())
+                  .post(bonobUrl.path("/login").pathname)
                   .set("accept-language", acceptLanguage)
                   .type("form")
                   .send({ username, password, linkCode })
@@ -809,7 +808,7 @@ describe("server", () => {
                 linkCodes.has.mockReturnValue(false);
 
                 const res = await request(server)
-                  .post(bonobUrl.append({ pathname: "/login" }).pathname())
+                  .post(bonobUrl.path("/login").pathname)
                   .set("accept-language", acceptLanguage)
                   .type("form")
                   .send({ username, password, linkCode })
@@ -875,7 +874,7 @@ describe("server", () => {
           describe("when there is no Bearer token", () => {
             it("should return a 401", async () => {
               const res = await request(server).head(
-                bonobUrl.append({ pathname: `/stream/track/${trackId}` }).path()
+                bonobUrl.path(`/stream/track/${trackId}`).pathname
               );
 
               expect(res.status).toEqual(401);
@@ -888,11 +887,7 @@ describe("server", () => {
               clock.add(2, "h");
 
               const res = await request(server).head(
-                bonobUrl
-                  .append({
-                    pathname: `/stream/track/${trackId}`
-                  })
-                  .path(),
+                bonobUrl.path(`/stream/track/${trackId}`).pathname,
               )
               .set('authorization', apiToken);
 
@@ -918,9 +913,7 @@ describe("server", () => {
 
                 const res = await request(server)
                   .head(
-                    bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}`})
-                      .path()
+                    bonobUrl.path(`/stream/track/${trackId}`).pathname
                   )
                   .set('authorization', apiTokens.mint(serviceToken));
 
@@ -947,9 +940,7 @@ describe("server", () => {
                 musicLibrary.stream.mockResolvedValue(trackStream);
 
                 const res = await request(server)
-                  .head(bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}` })
-                    .path()
+                  .head(bonobUrl.path(`/stream/track/${trackId}`).pathname
                   )
                   .set('authorization', apiTokens.mint(serviceToken));
       
@@ -967,7 +958,7 @@ describe("server", () => {
           describe("when there is no Bearer token", () => {
             it("should return a 401", async () => {
               const res = await request(server).get(
-                bonobUrl.append({ pathname: `/stream/track/${trackId}` }).path()
+                bonobUrl.path(`/stream/track/${trackId}`).pathname
               );
 
               expect(res.status).toEqual(401);
@@ -981,9 +972,7 @@ describe("server", () => {
 
               const res = await request(server)
                 .get(
-                  bonobUrl
-                    .append({ pathname: `/stream/track/${trackId}` })
-                    .path()
+                  bonobUrl.path(`/stream/track/${trackId}`).pathname
                 )                  
                 .set('authorization', apiToken);
 
@@ -1005,9 +994,7 @@ describe("server", () => {
   
                 const res = await request(server)
                   .get(
-                    bonobUrl
-                      .append({ pathname: `/stream/track/${trackId}` })
-                      .path()
+                    bonobUrl.path(`/stream/track/${trackId}`).pathname
                   )                
                   .set('authorization', apiTokens.mint(serviceToken));
   
@@ -1040,9 +1027,7 @@ describe("server", () => {
   
                   const res = await request(server)
                     .get(
-                      bonobUrl
-                        .append({ pathname: `/stream/track/${trackId}` })
-                        .path()
+                      bonobUrl.path(`/stream/track/${trackId}`).pathname
                     )
                     .set('authorization', apiTokens.mint(serviceToken));
   
@@ -1083,9 +1068,7 @@ describe("server", () => {
   
                   const res = await request(server)
                     .get(
-                      bonobUrl
-                        .append({ pathname: `/stream/track/${trackId}` })
-                        .path()
+                      bonobUrl.path(`/stream/track/${trackId}`).pathname
                     )
                     .set('authorization', apiTokens.mint(serviceToken));
   
@@ -1124,9 +1107,7 @@ describe("server", () => {
   
                   const res = await request(server)
                     .get(
-                      bonobUrl
-                        .append({ pathname: `/stream/track/${trackId}` })
-                        .path()
+                      bonobUrl.path(`/stream/track/${trackId}`).pathname
                     )
                     .set('authorization', apiTokens.mint(serviceToken));
   
@@ -1166,9 +1147,7 @@ describe("server", () => {
   
                   const res = await request(server)
                     .get(
-                      bonobUrl
-                        .append({ pathname: `/stream/track/${trackId}` })
-                        .path()
+                      bonobUrl.path(`/stream/track/${trackId}`).pathname
                     )
                     .set('authorization', apiTokens.mint(serviceToken));
   
@@ -1213,9 +1192,7 @@ describe("server", () => {
   
                   const res = await request(server)
                     .get(
-                      bonobUrl
-                        .append({ pathname: `/stream/track/${trackId}` })
-                        .path()
+                      bonobUrl.path(`/stream/track/${trackId}`).pathname
                     )
                     .set('authorization', apiTokens.mint(serviceToken))
                     .set("Range", requestedRange);
@@ -1259,9 +1236,7 @@ describe("server", () => {
   
                   const res = await request(server)
                     .get(
-                      bonobUrl
-                        .append({ pathname: `/stream/track/${trackId}` })
-                        .path()
+                      bonobUrl.path(`/stream/track/${trackId}`).pathname
                     )
                     .set('authorization', apiTokens.mint(serviceToken))
                     .set("Range", "4000-5000");
@@ -1304,7 +1279,7 @@ describe("server", () => {
         const server = makeServer(
           jest.fn() as unknown as Sonos,
           aService(),
-          url("http://localhost:1234"),
+          new BonobUrl("http://localhost:1234"),
           musicService as unknown as MusicService,
           {
             linkCodes: () => new InMemoryLinkCodes(),
@@ -1331,7 +1306,7 @@ describe("server", () => {
 
         describe("when there is no access-token", () => {
           it("should return a 401", async () => {
-            const res = await request(server).get(`/art/${encodeURIComponent(formatForURL({ source: "subsonic", id: "whatever" }))}/size/180`);
+            const res = await request(server).get(`/art/${encodeURIComponent(formatCoverArt("", { source: "subsonic", id: "whatever" }))}/size/180`);
 
             expect(res.status).toEqual(401);
           });
@@ -1347,10 +1322,8 @@ describe("server", () => {
                   musicService.login.mockResolvedValue(musicLibrary);
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/${size}?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
+                      `/art/${encodeURIComponent(formatCoverArt(apiToken, coverArtURN))}/size/${size}`
                     )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
-
                   expect(res.status).toEqual(400);
                 });
               });
@@ -1374,9 +1347,8 @@ describe("server", () => {
 
                       const res = await request(server)
                         .get(
-                          `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/${spec[0]}?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
-                        )
-                        .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
+                          `/art/${encodeURIComponent(formatCoverArt(apiToken, coverArtURN))}/size/${spec[0]}`
+                        );
 
                       expect(res.status).toEqual(coverArt.status);
                       expect(res.header["content-type"]).toEqual(
@@ -1407,9 +1379,8 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
-                    )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
+                      `/art/${encodeURIComponent(formatCoverArt(apiToken, coverArtURN))}/size/180`
+                    );
 
                   expect(res.status).toEqual(502);
                 });
@@ -1424,9 +1395,8 @@ describe("server", () => {
 
                   const res = await request(server)
                     .get(
-                      `/art/${encodeURIComponent(formatForURL(coverArtURN))}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
-                    )
-                    .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
+                      `/art/${encodeURIComponent(formatCoverArt(apiToken, coverArtURN))}/size/180`
+                    );
 
                   expect(res.status).toEqual(404);
                 });
@@ -1441,9 +1411,8 @@ describe("server", () => {
 
                 const res = await request(server)
                   .get(
-                    `/art/artist:${albumId}/size/180?${BONOB_ACCESS_TOKEN_HEADER}=${apiToken}`
-                  )
-                  .set(BONOB_ACCESS_TOKEN_HEADER, apiToken);
+                    `/art/${encodeURIComponent(formatCoverArt(apiToken, { source: "subsonic", id: albumId }))}/size/180`
+                  );
 
                 expect(res.status).toEqual(500);
               });
@@ -1465,7 +1434,7 @@ describe("server", () => {
           makeServer(
             jest.fn() as unknown as Sonos,
             aService(),
-            url("http://localhost:1234"),
+            new BonobUrl("http://localhost:1234"),
             jest.fn() as unknown as MusicService,
             {
               linkCodes: () => new InMemoryLinkCodes(),
@@ -1744,7 +1713,7 @@ describe("server", () => {
           makeServer(
             jest.fn() as unknown as Sonos,
             aService(),
-            url("http://localhost:1234"),
+            new BonobUrl("http://localhost:1234"),
             jest.fn() as unknown as MusicService,
             {
               linkCodes: () => new InMemoryLinkCodes(),
@@ -1826,7 +1795,7 @@ describe("server", () => {
         describe("when no auth token is provided", () => {
           it("should return a 401", async () => {
             await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [] })
                 .expect(401);
 
@@ -1841,7 +1810,7 @@ describe("server", () => {
 
           it("should return a 401", async () => {
             await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [] })
                 .set('authorization', "not-a-valid-token")
                 .expect(401);
@@ -1858,7 +1827,7 @@ describe("server", () => {
 
           it("should auth using the provided authorization header", async () => {
             const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [] })
                 .set('authorization', authToken);
 
@@ -1869,7 +1838,7 @@ describe("server", () => {
           describe("and there are no items to report", () => {
             it("should report ok", async () => {
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [] })
                 .set('authorization', authToken)
                 .expect(200);
@@ -1884,7 +1853,7 @@ describe("server", () => {
           describe("there is only an update", () => {
             it("should not scrobble", async () => {
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [
                   { mediaUrl: "x-sonos-http:track%3xyz.mp3?a=b&c=d", type: "update", durationPlayedMillis: 123000 },
                 ]})
@@ -1904,7 +1873,7 @@ describe("server", () => {
               musicLibrary.scrobble.mockResolvedValue(true);
 
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [
                   { mediaUrl: `x-sonos-http:track%3a${id}.mp3?a=b&c=d`, type: "final", durationPlayedMillis: 123000 },
                 ]})
@@ -1923,7 +1892,7 @@ describe("server", () => {
               musicLibrary.scrobble.mockResolvedValue(true);
 
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [
                   { mediaUrl: `x-sonos-http:track%3a${id}.mp3?a=b&c=d`, type: "final", durationPlayedMillis: 29000 },
                 ]})
@@ -1952,7 +1921,7 @@ describe("server", () => {
               musicLibrary.scrobble.mockResolvedValue(true);
 
               const res = await request(server)
-                .post(bonobUrl.append({ pathname: "/report/timePlayed" }).path())
+                .post(bonobUrl.path("/report/timePlayed").pathname)
                 .send({ items: [
                   { mediaUrl: `x-sonos-http:track%3a${id1}.mp3?a=b&c=d`,  type: "final", durationPlayedMillis: 31000 },
                   { mediaUrl: `x-sonos-http:track%3a${id2}.flac?a=b&c=d`, type: "final", durationPlayedMillis: 29000 },

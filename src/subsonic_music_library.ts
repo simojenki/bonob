@@ -205,6 +205,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       .then(asArtistSummaryWithSort)
       .then(slice2Result(q));
 
+  // todo: the way these images work doesnt match the open subsonic api at all...
   readonly artist = async (id: string): Promise<Artist> =>
     Promise.all([
       this.subsonic.getArtist(this.credentials, id),

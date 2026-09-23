@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { Sonos, Service } from "../sonos";
 import { Lang } from "../i8n";
-import { URLBuilder } from "../url_builder";
+import { BonobUrl } from "../url_builder";
 
 export const CREATE_REGISTRATION_ROUTE = "/s1/registration/add";
 export const REMOVE_REGISTRATION_ROUTE = "/s1/registration/remove";
@@ -10,7 +10,7 @@ export function makeS1Router(
   sonos: Sonos,
   service: Service,
   langFor: (req: Request) => Lang,
-  bonobUrl: URLBuilder,
+  bonobUrl: BonobUrl,
   version: string,
   enableS1: boolean
 ): Router {
@@ -40,11 +40,11 @@ export function makeS1Router(
           bonobService: service,
           registeredBonobService,
           createRegistrationRoute: bonobUrl
-            .append({ pathname: CREATE_REGISTRATION_ROUTE })
-            .pathname(),
+            .path(CREATE_REGISTRATION_ROUTE)
+            .pathname,
           removeRegistrationRoute: bonobUrl
-            .append({ pathname: REMOVE_REGISTRATION_ROUTE })
-            .pathname(),
+            .path(REMOVE_REGISTRATION_ROUTE)
+            .pathname,
           version,
         });
       }

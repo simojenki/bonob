@@ -22,7 +22,7 @@ import { Credentials } from "../src/music_library";
 import makeServer from "../src/server";
 import { Service, bonobService, Sonos } from "../src/sonos";
 import supersoap from "./supersoap";
-import url, { URLBuilder } from "../src/url_builder";
+import { BonobUrl } from "../src/url_builder";
 
 class LoggedInSonosDriver {
   // eslint-disable-next-line functional/prefer-readonly-type
@@ -88,11 +88,11 @@ class LoggedInSonosDriver {
 
 class SonosDriver {
   readonly server: Express;
-  readonly bonobUrl: URLBuilder;
+  readonly bonobUrl: BonobUrl;
   readonly service: Service;
 
   // eslint-disable-next-line functional/prefer-immutable-types
-  constructor(server: Express, bonobUrl: URLBuilder, service: Service) {
+  constructor(server: Express, bonobUrl: BonobUrl, service: Service) {
     this.server = server;
     this.bonobUrl = bonobUrl;
     this.service = service;
@@ -102,7 +102,7 @@ class SonosDriver {
 
   async register() {
     const action = await request(this.server)
-      .get(this.bonobUrl.append({ pathname: "/s1" }).pathname())
+      .get(this.bonobUrl.path("/s1").pathname)
       .expect(200)
       .then((response) => {
         const m = response.text.match(/ action="(.*)" /i);
@@ -277,7 +277,7 @@ describe("scenarios", () => {
   }
 
   describe("when the bonobUrl has no context path and no trailing slash", () => {
-    const bonobUrl = url("http://localhost:1234");
+    const bonobUrl = new BonobUrl("http://localhost:1234");
     const bonob = bonobService("bonob", 123, bonobUrl);
     const server = makeServer(
       fakeSonos,
@@ -296,7 +296,7 @@ describe("scenarios", () => {
   });
 
   describe("when the bonobUrl has no context path, but does have a trailing slash", () => {
-    const bonobUrl = url("http://localhost:1234/");
+    const bonobUrl = new BonobUrl("http://localhost:1234/");
     const bonob = bonobService("bonob", 123, bonobUrl);
     const server = makeServer(
       fakeSonos,
@@ -315,7 +315,7 @@ describe("scenarios", () => {
   });
 
   describe("when the bonobUrl has a context path", () => {
-    const bonobUrl = url("http://localhost:1234/context-for-bonob");
+    const bonobUrl = new BonobUrl("http://localhost:1234/context-for-bonob");
     const bonob = bonobService("bonob", 123, bonobUrl);
     const server = makeServer(
       fakeSonos,

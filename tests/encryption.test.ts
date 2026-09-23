@@ -1,10 +1,10 @@
 import { left, right } from 'fp-ts/Either'
 
-import { cryptoEncryption, jwsEncryption } from '../src/encryption';
+import { cryptoEncryption, jwsSign } from '../src/encryption';
 
-describe("jwsEncryption", () => {
-  it("can encrypt and decrypt", () => {
-    const e = jwsEncryption("secret squirrel");
+describe("jwsSign", () => {
+  it("can encode and decode", () => {
+    const e = jwsSign("secret squirrel");
 
     const value = "bobs your uncle"
     const hash = e.encrypt(value)
@@ -13,8 +13,8 @@ describe("jwsEncryption", () => {
   });
 
   it("returns different values for different secrets", () => {
-    const e1 = jwsEncryption("e1");
-    const e2 = jwsEncryption("e2");
+    const e1 = jwsSign("e1");
+    const e2 = jwsSign("e2");
 
     const value = "bobs your uncle"
     const h1 = e1.encrypt(value)

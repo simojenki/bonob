@@ -13,7 +13,7 @@ import sonos, { bonobService } from "../src/sonos";
 jest.mock("../src/sonos");
 
 import registrar from "../src/registrar";
-import { URLBuilder } from "../src/url_builder";
+import { BonobUrl } from "../src/url_builder";
 
 describe("registrar", () => {
   beforeEach(() => {
@@ -29,12 +29,12 @@ describe("registrar", () => {
         status,
       });
 
-      const bonobUrl = new URLBuilder("http://fail.example.com/bonob");
+      const bonobUrl = new BonobUrl("http://fail.example.com/bonob");
 
       return expect(registrar(bonobUrl)()).rejects.toEqual(
         `Unexpected response status ${status} from ${bonobUrl
-          .append({ pathname: "/about" })
-          .href()}`
+          .path("/about")
+          .href}`
       );
     });
   });
@@ -47,18 +47,18 @@ describe("registrar", () => {
         data: {}
       });
 
-      const bonobUrl = new URLBuilder("http://fail.example.com/bonob");
+      const bonobUrl = new BonobUrl("http://fail.example.com/bonob");
 
       return expect(registrar(bonobUrl)()).rejects.toEqual(
         `Unexpected response from ${bonobUrl
-          .append({ pathname: "/about" })
-          .href()}, expected service.name and service.sid`
+          .path("/about")
+          .href}, expected service.name and service.sid`
       );
     });
   });
 
   describe("when the bonob service can be found", () => {
-    const bonobUrl = new URLBuilder("http://success.example.com/bonob");
+    const bonobUrl = new BonobUrl("http://success.example.com/bonob");
 
     const serviceDetails = {
       name: "bob",

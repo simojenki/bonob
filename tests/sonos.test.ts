@@ -30,7 +30,7 @@ import sonos, {
 } from "../src/sonos";
 
 import { aSonosDevice, aService } from "./builders";
-import url from "../src/url_builder";
+import { BonobUrl } from "../src/url_builder";
 
 const mockSonosManagerConstructor = <jest.Mock<SonosManager>>SonosManager;
 
@@ -116,7 +116,7 @@ describe("sonos", () => {
     describe("when the bonob url does not have a trailing /", () => {
       it("should return a valid bonob service", () => {
         expect(
-          bonobService("some-bonob", 876, url("http://bonob.example.com"))
+          bonobService("some-bonob", 876, new BonobUrl("http://bonob.example.com"))
         ).toEqual({
           name: "some-bonob",
           sid: 876,
@@ -139,7 +139,7 @@ describe("sonos", () => {
     describe("when the bonob url does have a trailing /", () => {
       it("should return a valid bonob service", () => {
         expect(
-          bonobService("some-bonob", 876, url("http://bonob.example.com/"))
+          bonobService("some-bonob", 876, new BonobUrl("http://bonob.example.com/"))
         ).toEqual({
           name: "some-bonob",
           sid: 876,
@@ -162,7 +162,7 @@ describe("sonos", () => {
     describe("when the bonob url has a context of /some-context", () => {
       it("should return a valid bonob service", () => {
         expect(
-          bonobService("some-bonob", 876, url("http://bonob.example.com/some-context"))
+          bonobService("some-bonob", 876, new BonobUrl("http://bonob.example.com/some-context"))
         ).toEqual({
           name: "some-bonob",
           sid: 876,
@@ -185,7 +185,7 @@ describe("sonos", () => {
     describe("when authType is specified", () => {
       it("should return a valid bonob service", () => {
         expect(
-          bonobService("some-bonob", 876, url("http://bonob.example.com"), 'DeviceLink')
+          bonobService("some-bonob", 876, new BonobUrl("http://bonob.example.com"), 'DeviceLink')
         ).toEqual({
           name: "some-bonob",
           sid: 876,
