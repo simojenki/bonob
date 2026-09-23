@@ -318,7 +318,7 @@ export const asTrack = (album: Album | undefined, song: song, customPlayers: Cus
         mimeType: song.transcodedContentType || song.contentType
       }))
     ),
-    duration: song.duration || 0,
+    duration: song.duration,
     number: song.track || 0,
     genre: album?.genre || maybeAsGenre(song.genre), // Use album genre if available, else song genre
     coverArt: coverArtURN(song.coverArt),

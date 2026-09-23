@@ -32,6 +32,8 @@ import {
   ok,
   getAlbumJson, getSongJson,
   PING_OK,
+  subsonicOK,
+  asUnsyncedDirectoryFileJson,
 } from "./subsonic.test.helpers";
 
 describe("Subsonic", () => {
@@ -176,6 +178,33 @@ describe("Subsonic", () => {
               }),
               headers,
             });
+          });
+        });
+
+        describe("that is an unsynced file with no duration", () => {
+          it("should return the track with an undefined duration", async () => {
+            const fileId = uuid();
+
+            mockGET
+              .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+              .mockImplementationOnce(() =>
+                Promise.resolve(
+                  ok(
+                    subsonicOK({
+                      song: asUnsyncedDirectoryFileJson({
+                        id: fileId,
+                        title: "mystery.mp3",
+                      }),
+                    })
+                  )
+                )
+              );
+
+            const result = await login({ username, password })
+              .then((it) => it.track(fileId));
+
+            expect(result.id).toEqual(fileId);
+            expect(result.duration).toBeUndefined();
           });
         });
       });

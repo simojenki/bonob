@@ -70,7 +70,7 @@ export type Track = {
   id: string;
   name: string;
   encoding: Encoding,
-  duration: number;
+  duration: number | undefined;
   number: number | undefined;
   genre: Genre | undefined;
   coverArt: BUrn | undefined;

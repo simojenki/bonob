@@ -248,7 +248,7 @@ describe("Subsonic storage browsing", () => {
       const file = result.files[0]!;
       expect(file.id).toEqual(fileId);
       expect(file.name).toEqual("mystery.mp3");
-      expect(file.duration).toEqual(0);
+      expect(file.duration).toBeUndefined();
       expect(file.number).toEqual(0);
       expect(file.album).toBeUndefined();
       expect(file.artist).toBeUndefined();

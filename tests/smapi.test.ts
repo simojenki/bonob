@@ -68,6 +68,11 @@ import { ExpiredTokenError, InvalidTokenError, JwtTokenString, SmapiAuthTokens, 
 
 const parseXML = (value: string) => new DOMParserImpl().parseFromString(value);
 
+const durationsIn = (soapResponse: string) =>
+  (
+    xpath.select("//*[local-name()='duration']", parseXML(soapResponse)) as Node[]
+  ).map((it) => it.textContent);
+
 describe("rating to and from ints", () => {
   describe("ratingAsInt", () => {
     [
@@ -1714,6 +1719,29 @@ describe("wsdl api", () => {
                   // Playback/drill-in of the album reuses the existing album:<id>
                   // path, so no per-child lookup happens during the listing.
                   expect(musicLibrary.folder).toHaveBeenCalledTimes(1);
+                });
+
+                it("should not send a duration for a file of unknown duration", async () => {
+                  const knownDuration = aTrack({ name: "A file.mp3" });
+                  const unknownDuration = aTrack({
+                    name: "B file.mp3",
+                    duration: undefined,
+                  });
+
+                  musicLibrary.folder.mockResolvedValue({
+                    folders: [],
+                    files: [unknownDuration, knownDuration],
+                  });
+
+                  const [, rawResponse] = await ws.getMetadataAsync({
+                    id: "folder:parent1",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(durationsIn(rawResponse)).toEqual([
+                    `${knownDuration.duration}`,
+                  ]);
                 });
 
                 it("should return empty collections for an empty folder", async () => {
@@ -3502,6 +3530,35 @@ describe("wsdl api", () => {
                 expect(apiTokens.mint).toHaveBeenCalledWith(serviceToken);
                 expect(musicLibrary.track).toHaveBeenCalledWith(someTrack.id);
               });
+
+              it("should send its duration to sonos", async () => {
+                const [, rawResponse] = await ws.getMediaMetadataAsync({
+                  id: `track:${someTrack.id}`,
+                });
+
+                expect(durationsIn(rawResponse)).toEqual([
+                  `${someTrack.duration}`,
+                ]);
+              });
+            });
+
+            describe("asking for media metadata for a track of unknown duration", () => {
+              const someTrack = aTrack({ duration: undefined });
+
+              beforeEach(async () => {
+                musicLibrary.track.mockResolvedValue(someTrack);
+              });
+
+              it("should not send a duration to sonos", async () => {
+                const [result, rawResponse] = await ws.getMediaMetadataAsync({
+                  id: `track:${someTrack.id}`,
+                });
+
+                expect(
+                  result.getMediaMetadataResult.trackMetadata
+                ).not.toHaveProperty("duration");
+                expect(durationsIn(rawResponse)).toEqual([]);
+              });
             });
 
             describe("asking for media metadata for an internet radio station", () => {
@@ -3978,6 +4035,30 @@ describe("wsdl api", () => {
 
                 describe("when the played length is < 10 seconds", () => {
                   itShouldNotScroble({ trackId, secondsPlayed: 9 });
+                });
+              });
+
+              describe("when the track length is unknown", () => {
+                beforeEach(() => {
+                  musicLibrary.track.mockResolvedValue(
+                    aTrack({ id: trackId, duration: undefined })
+                  );
+                });
+
+                describe("when the played length is 30 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 30 });
+                });
+
+                describe("when the played length is > 30 seconds", () => {
+                  itShouldScroble({ trackId, secondsPlayed: 90 });
+                });
+
+                describe("when the played length is < 30 seconds", () => {
+                  itShouldNotScroble({ trackId, secondsPlayed: 29 });
+                });
+
+                describe("when the played length is 10 seconds", () => {
+                  itShouldNotScroble({ trackId, secondsPlayed: 10 });
                 });
               });
             });

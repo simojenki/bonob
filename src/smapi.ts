@@ -1544,14 +1544,11 @@ function bindSmapiSoapServiceToExpress(
           switch (type) {
             case "track":
               return musicLibrary.track(typeId).then(({ duration }) => {
-                if (
-                  (duration < 30 && +seconds >= 10) ||
-                  (duration >= 30 && +seconds >= 30)
-                ) {
-                  return musicLibrary.scrobble(typeId);
-                } else {
-                  return Promise.resolve(true);
-                }
+                const secondsToScrobble =
+                  duration !== undefined && duration < 30 ? 10 : 30;
+                return +seconds >= secondsToScrobble
+                  ? musicLibrary.scrobble(typeId)
+                  : Promise.resolve(true);
               });
             default:
               logger.info(`${reqId} Unsupported scrobble`, { id, seconds });
