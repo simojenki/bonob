@@ -359,7 +359,9 @@ function server(
     </Presentation>`);
   });
 
-  app.post("/report/timePlayed", async (req, res) => {
+  // Sonos posts reports to the configured Reporting Endpoint + /timePlayed, and the dev
+  // portal's example endpoint is versioned (https://sonos.example.com/report/v1).
+  app.post(["/report/timePlayed", "/report/:version/timePlayed"], async (req, res) => {
     const serviceToken = pipe(
       E.fromNullable("Missing authorization header")(req.headers["authorization"] as string),
       E.flatMap((token) => {
