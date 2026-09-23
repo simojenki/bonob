@@ -1269,7 +1269,7 @@ function bindSmapiSoapServiceToExpress(
     switch (type) {
       // routing all soap info messages to debug so less noisy
       case "info":
-        logger.info(message);
+        logger.debug(message);
         break;
       case "warn":
         logger.warn(message);
