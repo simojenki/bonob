@@ -16,3 +16,5 @@ core.*
 token-store
 
 claude-plans
+
+dev/secrets.md
