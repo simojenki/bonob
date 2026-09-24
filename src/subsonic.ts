@@ -78,6 +78,10 @@ export type ArtistID3 = {
   readonly starred?: string;
 };
 
+export type ArtistWithAlbumsID3 = ArtistID3 & {
+  readonly album: readonly AlbumID3[];
+};
+
 export type NavidromeArtist = {
   readonly sortName: string;
 };
@@ -157,9 +161,7 @@ type GetArtistInfoResponse = SubsonicResponse & {
 };
 
 type GetArtistResponse = SubsonicResponse & {
-  readonly artist: ArtistID3 & {
-    readonly album: readonly AlbumID3[];
-  };
+  readonly artist: ArtistWithAlbumsID3;
 };
 
 export type Child = {
@@ -901,19 +903,11 @@ export class Subsonic {
   readonly getArtist = (
     credentials: Credentials,
     id: string
-  ): Promise<
-    IdName & { readonly artistImageUrl: string | undefined; readonly albums: readonly AlbumSummary[] }
-  > =>
+  ): Promise<ArtistWithAlbumsID3> =>
     this.getJSON<GetArtistResponse>(credentials, "/rest/getArtist", {
       id,
     })
-      .then((it) => it.artist)
-      .then((it) => ({
-        id: it.id,
-        name: it.name,
-        artistImageUrl: it.artistImageUrl,
-        albums: this.toAlbumSummary(it.album || []),
-      }));
+      .then((it) => it.artist);
 
   readonly getCoverArt = (credentials: Credentials, id: string, size?: number) =>
     this.get(credentials, "/rest/getCoverArt", size ? { id, size } : { id }, {

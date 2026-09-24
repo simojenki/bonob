@@ -49,7 +49,7 @@ import { getArtistJson, getArtistInfoJson, asArtistsJson } from "./subsonic_musi
 
 import { b64Encode } from "../src/b64";
 
-import { Album, Artist, Track, AlbumSummary, AuthFailure, Sortable } from "../src/music_library";
+import { Album, Artist, Track, AlbumSummary, AuthFailure } from "../src/music_library";
 import { anAlbum, aTrack, anAlbumSummary, anArtistSummary, anArtist, aSimilarArtist, POP, a404 } from "./builders";
 import { Art } from "../src/art";
 
@@ -930,15 +930,7 @@ describe("Subsonic", () => {
           it("should return it", async () => {
             const result = await subsonic.getArtist(credentials, artist.id!);
   
-            expect(result).toEqual({
-              id: artist.id,
-              name: artist.name,
-              artistImageUrl: undefined,
-              albums: artist.albums.map((album) => {
-                const { _sortBy, ...rest } = album as AlbumSummary & Sortable;
-                return rest;
-              })
-            });
+            expect(result).toEqual(getArtistJson(artist)["subsonic-response"].artist);
   
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getArtist" }).href(),
@@ -970,15 +962,7 @@ describe("Subsonic", () => {
           it("should return it", async () => {
             const result = await subsonic.getArtist(credentials, artist.id!);
   
-            expect(result).toEqual({
-              id: artist.id,
-              name: artist.name,
-              artistImageUrl: undefined,
-              albums: artist.albums.map((album) => {
-                const { _sortBy, ...rest } = album as AlbumSummary & Sortable;
-                return rest;
-              }),
-            });
+            expect(result).toEqual(getArtistJson(artist)["subsonic-response"].artist);
   
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getArtist" }).href(),
@@ -1008,12 +992,7 @@ describe("Subsonic", () => {
           it("should return it", async () => {
             const result = await subsonic.getArtist(credentials, artist.id!);
   
-            expect(result).toEqual({
-              id: artist.id,
-              name: artist.name,
-              artistImageUrl: undefined,
-              albums: []
-            });
+            expect(result).toEqual(getArtistJson(artist)["subsonic-response"].artist);
   
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getArtist" }).href(),
@@ -1047,12 +1026,7 @@ describe("Subsonic", () => {
           it("should return the artist image url", async () => {
             const result = await subsonic.getArtist(credentials, artist.id!);
   
-            expect(result).toEqual({
-              id: artist.id,
-              name: artist.name,
-              artistImageUrl,
-              albums: [],
-            });
+            expect(result).toEqual(getArtistJson(artist, { artistImageUrl })["subsonic-response"].artist);
   
             // todo: these are everywhere??
             expect(axios.get).toHaveBeenCalledWith(

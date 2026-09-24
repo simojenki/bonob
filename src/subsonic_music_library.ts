@@ -225,7 +225,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
           // todo: do we still need this isValidImage?
         ].find(isValidImage),
       }),
-      albums: artist.albums,
+      albums: (artist.album || []).map(asAlbumSummary),
       similarArtists: artistInfo.similarArtist,
     }));
 
