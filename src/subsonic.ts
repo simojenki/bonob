@@ -58,17 +58,17 @@ type SubsonicResponse = {
   readonly status: string;
 };
 
-export type OpenSubsonicAlbum = {
+export type AlbumID3 = {
   readonly id: string;
   readonly name: string;
   readonly artist: string | undefined;
   readonly artistId: string | undefined;
   readonly coverArt: string | undefined;
   readonly genre: string | undefined;
-  readonly year: string | undefined;
+  readonly year: number | undefined;
 };
 
-export type OpenSubsonicArtist = {
+export type ArtistID3 = {
   readonly id: string;
   readonly name: string;
   readonly albumCount: number;
@@ -82,10 +82,10 @@ export type NavidromeArtist = {
   readonly sortName: string;
 };
 
-export type ArtistWithSortName = OpenSubsonicArtist & NavidromeArtist;
+export type ArtistWithSortName = ArtistID3 & NavidromeArtist;
 
 export function hasSortName(
-  artist: OpenSubsonicArtist
+  artist: ArtistID3
 ): artist is ArtistWithSortName {
   return "sortName" in artist && artist.sortName !== undefined;
 }
@@ -102,7 +102,7 @@ export type GetArtistsResponse = SubsonicResponse & {
     readonly ignoredArticles: string;
     readonly index: readonly {
       readonly name: string;
-      readonly artist: ReadonlyArray<OpenSubsonicArtist | ArtistWithSortName>;
+      readonly artist: ReadonlyArray<ArtistID3 | ArtistWithSortName>;
     }[];
   };
 };
@@ -111,7 +111,7 @@ export type GetArtists = GetArtistsResponse["artists"];
 
 type GetAlbumListResponse = SubsonicResponse & {
   readonly albumList2: {
-    readonly album: readonly OpenSubsonicAlbum[];
+    readonly album: readonly AlbumID3[];
   };
 };
 
@@ -145,7 +145,7 @@ type artistInfo = images & {
   readonly biography: string | undefined;
   readonly musicBrainzId: string | undefined;
   readonly lastFmUrl: string | undefined;
-  readonly similarArtist: readonly OpenSubsonicArtist[];
+  readonly similarArtist: readonly ArtistID3[];
 };
 
 type ArtistSummary = IdName & {
@@ -157,12 +157,12 @@ type GetArtistInfoResponse = SubsonicResponse & {
 };
 
 type GetArtistResponse = SubsonicResponse & {
-  readonly artist: OpenSubsonicArtist & {
-    readonly album: readonly OpenSubsonicAlbum[];
+  readonly artist: ArtistID3 & {
+    readonly album: readonly AlbumID3[];
   };
 };
 
-export type OpenSubsonicSong = {
+export type Child = {
   readonly id: string;
   readonly parent: string | undefined;
   readonly title: string;
@@ -175,7 +175,7 @@ export type OpenSubsonicSong = {
   readonly duration: number | undefined;
   readonly bitRate: number | undefined;
   readonly track: number | undefined;
-  readonly year: string | undefined;
+  readonly year: number | undefined;
   readonly genre: string | undefined;
   readonly created: string | undefined;
   readonly suffix: string | undefined;
@@ -186,19 +186,19 @@ export type OpenSubsonicSong = {
 };
 
 export type GetAlbumResponse = SubsonicResponse & {
-  readonly album: OpenSubsonicAlbum & {
-    readonly song: readonly OpenSubsonicSong[];
+  readonly album: AlbumID3 & {
+    readonly song: readonly Child[];
   };
 };
 
 export type GetAlbum = GetAlbumResponse["album"];
 
 export type GetPlaylistResponse = {
-  // todo: isnt the type here a composite? playlistSummary && { entry: OpenSubsonicSong[]; }
+  // todo: isnt the type here a composite? playlistSummary && { entry: Child[]; }
   readonly playlist: {
     readonly id: string;
     readonly name: string;
-    readonly entry: readonly OpenSubsonicSong[];
+    readonly entry: readonly Child[];
 
     // todo: this is an ND specific field?
     readonly coverArt: string | undefined;
@@ -224,11 +224,11 @@ export type GetPlaylistsResponse = {
 };
 
 export type GetSimilarSongsResponse = {
-  readonly similarSongs2: { readonly song: readonly OpenSubsonicSong[] };
+  readonly similarSongs2: { readonly song: readonly Child[] };
 };
 
 export type GetTopSongsResponse = {
-  readonly topSongs: { readonly song: readonly OpenSubsonicSong[] };
+  readonly topSongs: { readonly song: readonly Child[] };
 };
 
 export type GetInternetRadioStationsResponse = {
@@ -243,16 +243,16 @@ export type GetInternetRadioStationsResponse = {
 };
 
 export type GetSongResponse = {
-  readonly song: OpenSubsonicSong;
+  readonly song: Child;
 };
 
 export type GetStarredResponse = {
   readonly starred2: {
     // Subsonic servers can omit these entirely when there are no starred
     // items of that kind, rather than returning an empty array.
-    readonly song?: readonly OpenSubsonicSong[];
-    readonly album?: readonly OpenSubsonicAlbum[];
-    readonly artist?: readonly OpenSubsonicArtist[];
+    readonly song?: readonly Child[];
+    readonly album?: readonly AlbumID3[];
+    readonly artist?: readonly ArtistID3[];
   };
 };
 
@@ -265,9 +265,9 @@ export type PingResponse = {
 
 export type Search3Response = SubsonicResponse & {
   readonly searchResult3: {
-    readonly artist: readonly OpenSubsonicArtist[];
-    readonly album: readonly OpenSubsonicAlbum[];
-    readonly song: readonly OpenSubsonicSong[];
+    readonly artist: readonly ArtistID3[];
+    readonly album: readonly AlbumID3[];
+    readonly song: readonly Child[];
   };
 };
 
@@ -323,7 +323,7 @@ export const artistImageURN = (
 };
 
 export const asTrackSummary = (
-  song: OpenSubsonicSong,
+  song: Child,
   customPlayers: CustomPlayers,
   starredSongIds: ReadonlySet<string>
 ): TrackSummary => ({
@@ -362,7 +362,7 @@ export const asTrackSummary = (
 export const asTrack = (
   // eslint-disable-next-line functional/prefer-immutable-types
   album: AlbumSummary,
-  song: OpenSubsonicSong,
+  song: Child,
   customPlayers: CustomPlayers,
   starredSongIds: ReadonlySet<string>
 ): Track => ({
@@ -370,10 +370,10 @@ export const asTrack = (
   album: album,
 });
 
-export const asAlbumSummary = (album: OpenSubsonicAlbum): AlbumSummary => ({
+export const asAlbumSummary = (album: AlbumID3): AlbumSummary => ({
   id: album.id,
   name: album.name,
-  year: album.year,
+  year: album.year !== undefined ? String(album.year) : undefined,
   genre: maybeAsGenre(album.genre),
   artistId: album.artistId,
   artistName: album.artist,
@@ -921,7 +921,7 @@ export class Subsonic {
       responseType: "arraybuffer",
     });
 
-  readonly getTrack = (credentials: Credentials, id: string): Promise<OpenSubsonicSong> =>
+  readonly getTrack = (credentials: Credentials, id: string): Promise<Child> =>
     this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
       id,
     }).then((it) => it.song);
@@ -931,16 +931,8 @@ export class Subsonic {
       (it) => it.starred2
     );
 
-  readonly toAlbumSummary = (albumList: readonly OpenSubsonicAlbum[]): readonly AlbumSummary[] =>
-    albumList.map((album) => ({
-      id: album.id,
-      name: album.name,
-      year: album.year,
-      genre: maybeAsGenre(album.genre),
-      artistId: album.artistId,
-      artistName: album.artist,
-      coverArt: coverArtToArt(album.coverArt),
-    }));
+  readonly toAlbumSummary = (albumList: readonly AlbumID3[]): readonly AlbumSummary[] =>
+    albumList.map(asAlbumSummary);
 
   readonly search3 = (credentials: Credentials, q: any) =>
     this.getJSON<Search3Response>(credentials, "/rest/search3", {
@@ -1136,7 +1128,7 @@ export class Subsonic {
       })
       .then(it => it.status == "ok");
 
-    readonly getSimilarSongs2 = (credentials: Credentials, id: string): Promise<readonly OpenSubsonicSong[]> =>
+    readonly getSimilarSongs2 = (credentials: Credentials, id: string): Promise<readonly Child[]> =>
       this.getJSON<GetSimilarSongsResponse>(
         credentials,
         "/rest/getSimilarSongs2",
@@ -1145,7 +1137,7 @@ export class Subsonic {
       )
       .then((it) => it.similarSongs2.song || []);
 
-    readonly getTopSongs = (credentials: Credentials, artist: string): Promise<readonly OpenSubsonicSong[]> =>
+    readonly getTopSongs = (credentials: Credentials, artist: string): Promise<readonly Child[]> =>
       this.getJSON<GetTopSongsResponse>(
         credentials,
         "/rest/getTopSongs",

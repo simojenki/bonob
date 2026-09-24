@@ -35,7 +35,7 @@ import {
   asAlbumSummary,
   asTrack,
   asTrackSummary,
-  OpenSubsonicSong,
+  Child,
   coverArtToArt,
   maybeAsGenre,
 } from "./subsonic";
@@ -48,10 +48,10 @@ const withSortable = (album: AlbumSummary): AlbumSummary & Sortable => ({
   _sortBy: album.name,
 });
 
-const asAlbumSummaryFromSong = (song: OpenSubsonicSong): AlbumSummary & Sortable => ({
+const asAlbumSummaryFromSong = (song: Child): AlbumSummary & Sortable => ({
   id: song.albumId!,
   name: song.album!,
-  year: song.year,
+  year: song.year !== undefined ? String(song.year) : undefined,
   genre: maybeAsGenre(song.genre),
   artistName: song.artist,
   artistId: song.artistId,

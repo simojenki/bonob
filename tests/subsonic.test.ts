@@ -31,8 +31,8 @@ import {
   cachingImageFetcher,
   asTrack,
   artistImageURN,
-  OpenSubsonicSong,
-  OpenSubsonicArtist,
+  Child,
+  ArtistID3,
   TranscodingCustomPlayers,
   CustomPlayers,
   NO_CUSTOM_PLAYERS,
@@ -258,7 +258,7 @@ const asSongJson = (track: Track) => ({
   artistId: track.artist.id,
   type: "music",
   userRating: track.rating.stars,
-  year: "",
+  year: track.album.year && track.album.year !== "?" ? Number(track.album.year) : undefined,
 });
 
 export type ArtistWithAlbum = {
@@ -272,7 +272,7 @@ const anOpenSubsonicExtension = (fields: Partial<OpenSubsonicExtension> = {}): O
   ...fields,
 });
 
-const anOpenSubsonicArtist = (fields: Partial<OpenSubsonicArtist> = {}): OpenSubsonicArtist => ({
+const anArtistID3 = (fields: Partial<ArtistID3> = {}): ArtistID3 => ({
   id: `artist-${uuid()}`,
   name: `Artist ${uuid()}`,
   albumCount: 1,
@@ -408,7 +408,7 @@ describe("asTrack", () => {
     it("should provide a ? to sonos", () => {
       const result = asTrack(
         album,
-        { id: "1" } as any as OpenSubsonicSong,
+        { id: "1" } as any as Child,
         NO_CUSTOM_PLAYERS,
         new Set()
       );
@@ -628,7 +628,7 @@ export const asArtistAlbumJson = (
   coverArt: maybeIdFromCoverArtUrn(album.coverArt),
   duration: "123",
   playCount: "4",
-  year: album.year,
+  year: album.year && album.year !== "?" ? Number(album.year) : undefined,
   created: "2021-01-07T08:19:55.834207205Z",
   artistId: artist.id,
   songCount: "19",
@@ -649,7 +649,7 @@ export const asAlbumJson = (
   coverArt: maybeIdFromCoverArtUrn(album.coverArt),
   duration: "123",
   playCount: "4",
-  year: album.year,
+  year: album.year && album.year !== "?" ? Number(album.year) : undefined,
   created: "2021-01-07T08:19:55.834207205Z",
   artistId: artist.id,
   songCount: "19",
@@ -700,7 +700,7 @@ export const getAlbumJson = (album: Album) =>
       suffix: "mp3",
       contentType: track.encoding.mimeType,
       path: "ACDC/High voltage/ACDC - The Jack.mp3",
-      // todo: these aren't on OpenSubsonicAlbum...
+      // todo: these aren't on AlbumID3...
       userRating: track.rating.stars,
     })),
   } });
@@ -1721,7 +1721,7 @@ describe("Subsonic", () => {
         { id: album.artistId, name: album.artistName },
         album
       );
-      const artist = anOpenSubsonicArtist();
+      const artist = anArtistID3();
 
       beforeEach(() => {
         mockGET.mockImplementationOnce(() =>
