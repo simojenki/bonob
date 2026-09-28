@@ -1,4 +1,4 @@
-FROM node:20-bullseye-slim as build
+FROM node:20-trixie-slim as build
 
 WORKDIR /bonob
 
@@ -36,7 +36,7 @@ RUN apt-get update && \
     NODE_ENV=production npm install --omit=dev
 
 
-FROM node:20-bullseye-slim
+FROM node:20-trixie-slim
 
 LABEL   maintainer="simojenki" \
         org.opencontainers.image.source="https://github.com/simojenki/bonob" \
