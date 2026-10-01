@@ -20,7 +20,7 @@
     "express": "^5.2.1",
     "fp-ts": "^2.16.11",
     "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.12.0",
+    "morgan": "^1.12.1",
     "neverthrow": "^8.2.0",
     "node-html-parser": "^9.0.0",
     "sharp": "^0.35.4",
