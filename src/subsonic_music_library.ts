@@ -38,6 +38,7 @@ import {
   Child,
   coverArtToArt,
   maybeAsGenre,
+  artistIsInLibrary,
 } from "./subsonic";
 
 const starredSongIds = (starred: { readonly song?: readonly { readonly id: string }[] }) =>
@@ -209,24 +210,31 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   readonly artist = async (id: string): Promise<Artist> =>
     Promise.all([
       this.subsonic.getArtist(this.credentials, id),
-      this.subsonic.getArtistInfo(this.credentials, id),
-    ]).then(([artist, artistInfo]) => ({
+      this.subsonic.getArtistInfo2(this.credentials, id),
+    ]).then(([artist, artistInfo2]) => ({
       id: artist.id,
       name: artist.name,
       image: artistImageURN({
         artistId: artist.id,
         artistImageURL: [
           artist.artistImageUrl,
-          // todo: subsonic.artistInfo should just return a valid image or undefined, then the music lib just chooses first undefined
-          // out of artist.image and artistInfo.image
-          artistInfo.images.l,
-          artistInfo.images.m,
-          artistInfo.images.s,
+          artistInfo2.largeImageUrl,
+          artistInfo2.mediumImageUrl,
+          artistInfo2.smallImageUrl,
           // todo: do we still need this isValidImage?
         ].find(isValidImage),
       }),
       albums: (artist.album || []).map(asAlbumSummary),
-      similarArtists: artistInfo.similarArtist,
+      similarArtists: (artistInfo2.similarArtist || []).map((a) => ({
+        id: `${a.id}`,
+        name: a.name,
+        // todo: whats this inLibrary used for? it probably should be filtered on??
+        inLibrary: artistIsInLibrary(a.id),
+        image: artistImageURN({
+          artistId: a.id,
+          artistImageURL: a.artistImageUrl,
+        }),
+      })),
     }));
 
   private readonly albumsTotalFromArtists = () =>

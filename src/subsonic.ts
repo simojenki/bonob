@@ -145,19 +145,15 @@ export type images = {
   readonly largeImageUrl: string | undefined;
 };
 
-type artistInfo = images & {
+export type ArtistInfo2 = images & {
   readonly biography: string | undefined;
   readonly musicBrainzId: string | undefined;
   readonly lastFmUrl: string | undefined;
   readonly similarArtist: readonly ArtistID3[];
 };
 
-type ArtistSummary = IdName & {
-  readonly image: Art | undefined;
-};
-
 type GetArtistInfoResponse = SubsonicResponse & {
-  readonly artistInfo2: artistInfo;
+  readonly artistInfo2: ArtistInfo2;
 };
 
 type GetArtistResponse = SubsonicResponse & {
@@ -728,7 +724,7 @@ export const AlbumQueryTypeToSubsonicType: Record<AlbumQueryType, string> = {
   starred: "highest",
 };
 
-const artistIsInLibrary = (artistId: string | undefined) =>
+export const artistIsInLibrary = (artistId: string | undefined) =>
   artistId != undefined && artistId != "-1";
 
 export const asToken = (credentials: Credentials) =>
@@ -858,43 +854,16 @@ export class Subsonic {
     this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
       .then((it) => it.artists);
 
-      // todo: should be getArtistInfo2?
-  readonly getArtistInfo = (
+  readonly getArtistInfo2 = (
     credentials: Credentials,
     id: string
-  ): Promise<{
-    readonly similarArtist: readonly (ArtistSummary & { readonly inLibrary: boolean })[];
-    readonly images: {
-      readonly s: string | undefined;
-      readonly m: string | undefined;
-      readonly l: string | undefined;
-    };
-  }> =>
+  ): Promise<ArtistInfo2> =>
     this.getJSON<GetArtistInfoResponse>(credentials, "/rest/getArtistInfo2", {
       id,
       count: 50,
       includeNotPresent: true,
     })
-      .then((it) => it.artistInfo2)
-      .then((it) => ({
-        images: {
-          s: it.smallImageUrl,
-          m: it.mediumImageUrl,
-          l: it.largeImageUrl,
-        },
-        //todo: this does seem to be in OpenSubsonic?? it is also singular
-        similarArtist: (it.similarArtist || []).map((artist) => ({
-          id: `${artist.id}`,
-          name: artist.name,
-          // todo: whats this inLibrary used for? it probably should be filtered on??
-          inLibrary: artistIsInLibrary(artist.id),
-          image: artistImageURN({
-            artistId: artist.id,
-            artistImageURL: artist.artistImageUrl,
-          }),
-        })),
-        })
-      );
+      .then((it) => it.artistInfo2);
 
   readonly getAlbum = (credentials: Credentials, id: string): Promise<GetAlbum> =>
     this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })

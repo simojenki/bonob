@@ -1076,16 +1076,9 @@ describe("Subsonic", () => {
           });
   
           it("should return the similar artists", async () => {
-            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+            const result = await subsonic.getArtistInfo2(credentials, artist.id!);
   
-            expect(result).toEqual({
-              similarArtist: artist.similarArtists,
-              images: {
-                l: undefined,
-                m: undefined,
-                s: undefined
-              }
-            });
+            expect(result).toEqual(getArtistInfoJson(artist)["subsonic-response"].artistInfo2);
     
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getArtistInfo2" }).href(),
@@ -1121,16 +1114,9 @@ describe("Subsonic", () => {
           });
   
           it("should return the similar artists", async () => {
-            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+            const result = await subsonic.getArtistInfo2(credentials, artist.id!);
   
-            expect(result).toEqual({
-              similarArtist: artist.similarArtists,
-              images: {
-                l: undefined,
-                m: undefined,
-                s: undefined
-              }
-            });
+            expect(result).toEqual(getArtistInfoJson(artist)["subsonic-response"].artistInfo2);
   
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getArtistInfo2" }).href(),
@@ -1160,16 +1146,9 @@ describe("Subsonic", () => {
           });
   
           it("should return the similar artists", async () => {
-            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+            const result = await subsonic.getArtistInfo2(credentials, artist.id!);
   
-            expect(result).toEqual({
-              similarArtist: artist.similarArtists,
-              images: {
-                l: undefined,
-                m: undefined,
-                s: undefined
-              }
-            });
+            expect(result).toEqual(getArtistInfoJson(artist)["subsonic-response"].artistInfo2);
   
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getArtistInfo2" }).href(),
@@ -1213,16 +1192,9 @@ describe("Subsonic", () => {
           });
   
           it("should fetch the images", async () => {
-            const result = await subsonic.getArtistInfo(credentials, artist.id!);
+            const result = await subsonic.getArtistInfo2(credentials, artist.id!);
   
-            expect(result).toEqual({
-              similarArtist: [],
-              images: {
-                s: smallImageUrl,
-                m: mediumImageUrl,
-                l: largeImageUrl
-              }
-            });
+            expect(result).toEqual(getArtistInfoJson(artist, { smallImageUrl, mediumImageUrl, largeImageUrl })["subsonic-response"].artistInfo2);
   
             expect(axios.get).toHaveBeenCalledWith(
               url.append({ pathname: "/rest/getArtistInfo2" }).href(),

@@ -21,6 +21,7 @@ import {
   CustomPlayers,
   images,
   artistImageURN,
+  artistIsInLibrary,
   AlbumID3,
   AlbumQueryTypeToSubsonicType,
   NO_CUSTOM_PLAYERS,
@@ -261,13 +262,13 @@ export const getArtistInfoJson = (
 const asSimilarArtistJson = (similarArtist: SimilarArtist) => {
   if (similarArtist.inLibrary)
     return {
-      id: similarArtist.id,
+      id: `${similarArtist.id}`,
       name: similarArtist.name,
       albumCount: 3,
     };
   else
     return {
-      id: -1,
+      id: "-1",
       name: similarArtist.name,
       albumCount: 3,
     };
@@ -661,7 +662,7 @@ describe("SubsonicMusicLibrary_new", () => {
 
   const subsonic = {
     getArtist: jest.fn(),
-    getArtistInfo: jest.fn(),
+    getArtistInfo2: jest.fn(),
     getArtists: jest.fn(),
     getAlbum: jest.fn(),
     getStarred: jest.fn(),
@@ -700,9 +701,20 @@ describe("SubsonicMusicLibrary_new", () => {
           { ...anArtistSummary(), isInLibrary: true },
         ];
 
+        const artistInfo2 = {
+          smallImageUrl: undefined,
+          mediumImageUrl: undefined,
+          largeImageUrl: undefined,
+          similarArtist: similarArtist.map(a => ({
+            id: a.id!,
+            name: a.name,
+            artistImageUrl: undefined,
+          })),
+        };
+
         beforeEach(() => {
           subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl, album });
-          subsonic.getArtistInfo.mockResolvedValue({ similarArtist, images: { s: "s", m: "m", l: "l" }});
+          subsonic.getArtistInfo2.mockResolvedValue(artistInfo2);
         });
 
         it("should fetch the artist and artistInfo and merge", async () => {
@@ -716,18 +728,23 @@ describe("SubsonicMusicLibrary_new", () => {
               const { _sortBy, ...rest } = album;
               return rest;
             }),
-            similarArtists: similarArtist
+            similarArtists: similarArtist.map(a => ({
+              id: `${a.id}`,
+              name: a.name,
+              inLibrary: artistIsInLibrary(a.id),
+              image: artistImageURN({ artistId: a.id }),
+            }))
           });
   
           expect(subsonic.getArtist).toHaveBeenCalledWith(credentials, id);
-          expect(subsonic.getArtistInfo).toHaveBeenCalledWith(credentials, id);
+          expect(subsonic.getArtistInfo2).toHaveBeenCalledWith(credentials, id);
         });  
       });
 
       describe("when the artist has no valid artistImageUrl, or valid images in artistInfo" , () => {
         it("should use the artistId for the image", async () => {
           subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, album: [] });
-          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: undefined, m: undefined, l: undefined }});
+          subsonic.getArtistInfo2.mockResolvedValue({ smallImageUrl: undefined, mediumImageUrl: undefined, largeImageUrl: undefined, similarArtist: [] });
   
           const result = await library.artist(id)
   
@@ -738,7 +755,7 @@ describe("SubsonicMusicLibrary_new", () => {
       describe("when the artist has a valid image.s value" , () => {
         it("should use the artistId for the image", async () => {
           subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, album: [] });
-          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: "http://smallimage", m: undefined, l: undefined }});
+          subsonic.getArtistInfo2.mockResolvedValue({ smallImageUrl: "http://smallimage", mediumImageUrl: undefined, largeImageUrl: undefined, similarArtist: [] });
   
           const result = await library.artist(id)
   
@@ -749,7 +766,7 @@ describe("SubsonicMusicLibrary_new", () => {
       describe("when the artist has a valid image.m value" , () => {
         it("should use the artistId for the image", async () => {
           subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, album: [] });
-          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: "http://smallimage", m: "http://mediumimage", l: undefined }});
+          subsonic.getArtistInfo2.mockResolvedValue({ smallImageUrl: "http://smallimage", mediumImageUrl: "http://mediumimage", largeImageUrl: undefined, similarArtist: [] });
   
           const result = await library.artist(id)
   
@@ -760,7 +777,7 @@ describe("SubsonicMusicLibrary_new", () => {
       describe("when the artist has a valid image.l value" , () => {
         it("should use the artistId for the image", async () => {
           subsonic.getArtist.mockResolvedValue({ id, name, artistImageUrl: undefined, album: [] });
-          subsonic.getArtistInfo.mockResolvedValue({ similarArtist: [], images: { s: "http://smallimage", m: "http://mediumimage", l: "http://largeimage" }});
+          subsonic.getArtistInfo2.mockResolvedValue({ smallImageUrl: "http://smallimage", mediumImageUrl: "http://mediumimage", largeImageUrl: "http://largeimage", similarArtist: [] });
   
           const result = await library.artist(id)
   
