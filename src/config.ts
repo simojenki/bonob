@@ -114,8 +114,8 @@ export default function (die: (code?: number) => never = process.exit) {
   }
 
   const secret = bnbEnvVar<string>("SECRET")!
-  if(secret == null || secret === "" || secret.length < 32) {
-    logger.error("BNB_SECRET must be provided, must have length > 32 chars");
+  if(secret == null || secret === "" || secret.length < 10) {
+    logger.error("BNB_SECRET must be provided, must have length > 10 chars");
     die(1);
   }
 
