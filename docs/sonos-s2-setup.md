@@ -135,6 +135,9 @@ json in the Service Configuration should look like this.
     * State `101` (loved): Icon `HEART_SELECTED`, On Action Set Value `100`
     * Each state's "On Action Set Value" must be the other state's number,
       not its own, or the button becomes a no-op.
+  * A completed form for reference:
+
+    ![Completed Content Actions form](images/sonos-content-actions.png)
   * Save, then separately go to Service Configuration and click
     Refresh, then Send to actually deploy the change (about 10 minutes to
     propagate), then restart the Sonos app.
