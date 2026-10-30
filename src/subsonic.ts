@@ -31,7 +31,7 @@ import _ from "underscore";
 import fse from "fs-extra";
 import path from "path";
 
-import axios, { AxiosRequestConfig } from "axios";
+import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import randomstring from "randomstring";
 import { b64Encode, b64Decode } from "./b64";
 import logger from "./logger";
@@ -113,6 +113,13 @@ type genre = {
 type GetGenresResponse = SubsonicResponse & {
   genres: {
     genre: genre[];
+  };
+};
+
+type GetLibraryFacetValuesResponse = SubsonicResponse & {
+  libraryFacetValues: {
+    value: { value: number; count: number }[];
+    total: number;
   };
 };
 
@@ -537,28 +544,29 @@ export class Subsonic implements MusicService {
     this.externalImageFetcher = externalImageFetcher;
   }
 
-  get = async (
+  private authConfig = (
     { username, password }: Credentials,
+    q: {}
+  ): AxiosRequestConfig => ({
+    params: asURLSearchParams({
+      u: username,
+      v: "1.16.1",
+      c: DEFAULT_CLIENT_APPLICATION,
+      ...t_and_s(password),
+      ...q,
+    }),
+    headers: {
+      "User-Agent": USER_AGENT,
+    },
+  });
+
+  private request = (
     path: string,
-    q: {} = {},
-    config: AxiosRequestConfig | undefined = {}
+    q: {},
+    send: () => Promise<AxiosResponse>
   ) => {
-    logger.debug(username + " " + path + " " + JSON.stringify(q));
     const startTime = Date.now();
-    return axios
-      .get(this.url.append({ pathname: path }).href(), {
-        params: asURLSearchParams({
-          u: username,
-          v: "1.16.1",
-          c: DEFAULT_CLIENT_APPLICATION,
-          ...t_and_s(password),
-          ...q,
-        }),
-        headers: {
-          "User-Agent": USER_AGENT,
-        },
-        ...config,
-      })
+    return send()
       .catch((e) => {
         const durationMs = Date.now() - startTime;
         logger.info(`[TIMING] Subsonic ${path} ${durationMs}ms FAILED`, { path, durationMs, failed: true });
@@ -572,17 +580,18 @@ export class Subsonic implements MusicService {
           throw `Subsonic failed with a ${response.status || "no!"} status`;
         } else return response;
       });
-  }
-  getJSON = async <T>(
-    { username, password }: Credentials,
+  };
+
+  private toJSON = <T>(
     path: string,
-    q: {} = {}
+    q: {},
+    response: Promise<AxiosResponse>
   ): Promise<T> => {
     let rawResponse: any;
-    return this.get({ username, password }, path, { f: "json", ...q })
-      .then((response) => {
-        rawResponse = response.data;
-        return response.data as SubsonicEnvelope;
+    return response
+      .then((it) => {
+        rawResponse = it.data;
+        return it.data as SubsonicEnvelope;
       })
       .then((json) => json["subsonic-response"])
       .then((json) => {
@@ -598,6 +607,48 @@ export class Subsonic implements MusicService {
         });
         throw error;
       });
+  };
+
+  get = async (
+    credentials: Credentials,
+    path: string,
+    q: {} = {},
+    config: AxiosRequestConfig | undefined = {}
+  ) => {
+    logger.debug(credentials.username + " " + path + " " + JSON.stringify(q));
+    return this.request(path, q, () =>
+      axios.get(this.url.append({ pathname: path }).href(), {
+        ...this.authConfig(credentials, q),
+        ...config,
+      })
+    );
+  };
+  getJSON = async <T>(
+    credentials: Credentials,
+    path: string,
+    q: {} = {}
+  ): Promise<T> => {
+    const query = { f: "json", ...q };
+    return this.toJSON<T>(path, query, this.get(credentials, path, query));
+  };
+  postJSON = async <T>(
+    credentials: Credentials,
+    path: string,
+    body: {}
+  ): Promise<T> => {
+    const query = { f: "json" };
+    logger.debug(credentials.username + " POST " + path + " " + JSON.stringify(body));
+    return this.toJSON<T>(
+      path,
+      query,
+      this.request(path, query, () =>
+        axios.post(
+          this.url.append({ pathname: path }).href(),
+          body,
+          this.authConfig(credentials, query)
+        )
+      )
+    );
   };
   generateToken = (credentials: Credentials) =>
     pipe(
@@ -1163,24 +1214,25 @@ export class Subsonic implements MusicService {
         .then(it => 
           it.find(station => station.id === id)!
         ),
-      years: async () => {
-        const q: AlbumQuery = {
-          _index: 0,
-          _count: 100000,  // FIXME: better than this ?
-          type: "alphabeticalByArtist",
-        };
-        const years = subsonic.getAlbumList2(credentials, q)
-            .then(({ results }) =>
-              results.map((album) => album.year || "?")
-                .filter((item, i, ar) => ar.indexOf(item) === i)
-                .sort()
-                .map((year) => ({
-                  ...asYear(year)
-                }))
-                .reverse()
-            );
-        return years;
-      },
+      years: async () =>
+        subsonic
+          .postJSON<GetLibraryFacetValuesResponse>(
+            credentials,
+            "/rest/getLibraryFacetValues",
+            { entity: "album", field: "year", limit: 500 }
+          )
+          .then(({ libraryFacetValues }) => {
+            if (libraryFacetValues.total > libraryFacetValues.value.length) {
+              logger.warn(
+                `Subsonic returned ${libraryFacetValues.value.length} of ${libraryFacetValues.total} album years; the rest are not listed`
+              );
+            }
+            return libraryFacetValues.value
+              .map((it) => (it.value ? `${it.value}` : "?"))
+              .sort()
+              .map(asYear)
+              .reverse();
+          }),
       musicFolders: () => subsonic.getMusicFolders(credentials),
       folder: (id: string) => subsonic.getMusicDirectory(credentials, id),
     };
