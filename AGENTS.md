@@ -43,7 +43,7 @@ npx jest --testNamePattern="some test description"
 
 ## Build / deploy notes
 
-- Docker builds need `libvips-dev`, `python3`, `make`, `g++`, and `git` because `sharp` compiles native code and the build reads `.git` for `npm run gitinfo`.
+- Docker builds need `python3`, `make`, `g++`, and `git` because `sharp` compiles native code and the build reads `.git` for `npm run gitinfo`.
 - `Makefile` only builds an OCI image with `podman` (`make image`).
 
 ## Existing instruction sources
