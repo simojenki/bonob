@@ -27,11 +27,12 @@ import { Art } from "./art";
 import { URLBuilder } from "./url_builder";
 
 export const BROWSER_HEADERS = {
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.9",
   "Accept-Encoding": "gzip, deflate, br, zstd",
   "Upgrade-Insecure-Requests": "1",
-  "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0",
+  "User-Agent":
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0",
 };
 
 export const t = (password: string, s: string) =>
@@ -85,17 +86,19 @@ export type NavidromeArtist = {
 export type ArtistWithSortName = OpenSubsonicArtist & NavidromeArtist;
 
 export function hasSortName(
-  artist: OpenSubsonicArtist
+  artist: OpenSubsonicArtist,
 ): artist is ArtistWithSortName {
   return "sortName" in artist && artist.sortName !== undefined;
 }
 
-export type AlbumList2Query = { 
-    readonly offset?: number, readonly size?: number,
-    readonly type: string,
-    readonly genre?: string,
-    readonly fromYear?: string, readonly toYear?: string 
-  }
+export type AlbumList2Query = {
+  readonly offset?: number;
+  readonly size?: number;
+  readonly type: string;
+  readonly genre?: string;
+  readonly fromYear?: string;
+  readonly toYear?: string;
+};
 
 export type GetArtistsResponse = SubsonicResponse & {
   readonly artists: {
@@ -193,6 +196,66 @@ export type GetAlbumResponse = SubsonicResponse & {
 
 export type GetAlbum = GetAlbumResponse["album"];
 
+export type OpenSubsonicMusicFolder = {
+  readonly id: number;
+  readonly name: string | undefined;
+};
+
+type GetMusicFoldersResponse = SubsonicResponse & {
+  readonly musicFolders: {
+    readonly musicFolder?: readonly OpenSubsonicMusicFolder[];
+  };
+};
+
+// A top-level directory of a music folder
+export type OpenSubsonicIndexEntry = {
+  readonly id: string;
+  readonly name: string;
+  readonly coverArt?: string;
+};
+
+export type OpenSubsonicDirectoryChild = {
+  readonly id: string;
+  readonly parent: string | undefined;
+  readonly isDir: true;
+  readonly title: string;
+  readonly coverArt: string | undefined;
+};
+
+export type OpenSubsonicSongChild = OpenSubsonicSong & {
+  readonly isDir: false;
+  readonly isVideo?: boolean;
+};
+
+export type OpenSubsonicChild =
+  | OpenSubsonicDirectoryChild
+  | OpenSubsonicSongChild;
+
+export type GetIndexesResponse = SubsonicResponse & {
+  readonly indexes: {
+    readonly ignoredArticles?: string;
+    readonly index?: readonly {
+      readonly name: string;
+      readonly artist?: readonly OpenSubsonicIndexEntry[];
+    }[];
+    // files in the root of the music folder
+    readonly child?: readonly OpenSubsonicChild[];
+  };
+};
+
+export type GetIndexes = GetIndexesResponse["indexes"];
+
+export type GetMusicDirectoryResponse = SubsonicResponse & {
+  readonly directory: {
+    readonly id: string;
+    readonly parent?: string;
+    readonly name: string;
+    readonly child?: readonly OpenSubsonicChild[];
+  };
+};
+
+export type GetMusicDirectory = GetMusicDirectoryResponse["directory"];
+
 export type GetPlaylistResponse = {
   // todo: isnt the type here a composite? playlistSummary && { entry: OpenSubsonicSong[]; }
   readonly playlist: {
@@ -206,7 +269,7 @@ export type GetPlaylistResponse = {
 };
 
 export type GetPlaylistsResponse = {
-  readonly playlists: { 
+  readonly playlists: {
     readonly playlist: readonly {
       readonly id: string;
       readonly name: string;
@@ -219,7 +282,7 @@ export type GetPlaylistsResponse = {
 
       // todo: this is an ND specific field.
       readonly coverArt: string | undefined;
-    }[] 
+    }[];
   };
 };
 
@@ -281,7 +344,7 @@ type GetOpenSubsonicExtensionsResponse = SubsonicResponse & {
 };
 
 export function isError(
-  subsonicResponse: SubsonicResponse
+  subsonicResponse: SubsonicResponse,
 ): subsonicResponse is SubsonicError {
   return (subsonicResponse as SubsonicError).error !== undefined;
 }
@@ -296,11 +359,16 @@ export const coverArtToArt = (coverArt: string | undefined): Art | undefined =>
     coverArt,
     O.fromNullable,
     O.map((it: string) => ({ source: "subsonic", id: it })),
-    O.getOrElseW(() => undefined)
+    O.getOrElseW(() => undefined),
   );
 
 export const artistImageURN = (
-  spec: Readonly<Partial<{ readonly artistId: string | undefined; readonly artistImageURL: string | undefined; }>>
+  spec: Readonly<
+    Partial<{
+      readonly artistId: string | undefined;
+      readonly artistImageURL: string | undefined;
+    }>
+  >,
 ): Art | undefined => {
   const deets = {
     artistId: undefined,
@@ -325,7 +393,7 @@ export const artistImageURN = (
 export const asTrackSummary = (
   song: OpenSubsonicSong,
   customPlayers: CustomPlayers,
-  starredSongIds: ReadonlySet<string>
+  starredSongIds: ReadonlySet<string>,
 ): TrackSummary => ({
   id: song.id,
   name: song.title,
@@ -337,7 +405,7 @@ export const asTrackSummary = (
       mimeType: song.transcodedContentType
         ? song.transcodedContentType
         : song.contentType,
-    }))
+    })),
   ),
   duration: song.duration || 0,
   number: song.track || 0,
@@ -364,7 +432,7 @@ export const asTrack = (
   album: AlbumSummary,
   song: OpenSubsonicSong,
   customPlayers: CustomPlayers,
-  starredSongIds: ReadonlySet<string>
+  starredSongIds: ReadonlySet<string>,
 ): Track => ({
   ...asTrackSummary(song, customPlayers, starredSongIds),
   album: album,
@@ -386,13 +454,13 @@ export const asGenre = (genreName: string) => ({
 });
 
 export const maybeAsGenre = (
-  genreName: string | undefined
+  genreName: string | undefined,
 ): Genre | undefined =>
   pipe(
     genreName,
     O.fromNullable,
     O.map(asGenre),
-    O.getOrElseW(() => undefined)
+    O.getOrElseW(() => undefined),
   );
 
 export const asYear = (year: string) => ({
@@ -422,20 +490,23 @@ export class TranscodingCustomPlayers implements CustomPlayers {
       .map((pair) => {
         if (pair.length == 1) return [pair[0]!, pair[0]!];
         else if (pair.length == 2) return [pair[0]!, pair[1]!];
-        // eslint-disable-next-line functional/no-throw-statements
         else throw new Error(`Invalid configuration item ${config}`);
       });
     return new TranscodingCustomPlayers(new Map(parts));
   }
 
-  readonly encodingFor = ({ mimeType }: { readonly mimeType: string }): O.Option<Encoding> =>
+  readonly encodingFor = ({
+    mimeType,
+  }: {
+    readonly mimeType: string;
+  }): O.Option<Encoding> =>
     pipe(
       this.transcodings.get(mimeType),
       O.fromNullable,
       O.map((transcodedMimeType) => ({
         player: `${DEFAULT_CLIENT_APPLICATION}+${mimeType}`,
         mimeType: transcodedMimeType,
-      }))
+      })),
     );
 }
 
@@ -675,13 +746,13 @@ export const SONOS_CLIENT_INFO: ClientInfo = {
 
 export type ImageFetcher = (url: string) => Promise<CoverArt | undefined>;
 
-export const cachingImageFetcher = (
-  cacheDir: string, 
-  delegate: ImageFetcher, 
-  makeSharp = sharp
-) =>
+export const cachingImageFetcher =
+  (cacheDir: string, delegate: ImageFetcher, makeSharp = sharp) =>
   async (url: string): Promise<CoverArt | undefined> => {
-    const filename = path.join(cacheDir, `${createHash("md5").update(url).digest("hex")}.png`);
+    const filename = path.join(
+      cacheDir,
+      `${createHash("md5").update(url).digest("hex")}.png`,
+    );
     return readFile(filename)
       .then((data) => ({ contentType: "image/png", data }))
       .catch(() =>
@@ -691,13 +762,15 @@ export const cachingImageFetcher = (
               .png()
               .toBuffer()
               .then((png) => {
-                return writeFile(filename, png)
-                  .then(() => ({ contentType: "image/png", data: png }));
+                return writeFile(filename, png).then(() => ({
+                  contentType: "image/png",
+                  data: png,
+                }));
               });
           } else {
             return undefined;
           }
-        })
+        }),
       );
   };
 
@@ -744,7 +817,7 @@ export class Subsonic {
     // eslint-disable-next-line functional/prefer-immutable-types
     url: URLBuilder,
     customPlayers: CustomPlayers = NO_CUSTOM_PLAYERS,
-    externalImageFetcher: ImageFetcher = axiosImageFetcher
+    externalImageFetcher: ImageFetcher = axiosImageFetcher,
   ) {
     this.url = url;
     this.customPlayers = customPlayers;
@@ -755,7 +828,7 @@ export class Subsonic {
     { username, password }: Credentials,
     path: string,
     q: {} = {},
-    config: AxiosRequestConfig | undefined = {}
+    config: AxiosRequestConfig | undefined = {},
   ) =>
     axios
       .get(this.url.append({ pathname: path }).href(), {
@@ -783,7 +856,7 @@ export class Subsonic {
     q: {} = {},
     headers: {} = {},
     body: any = {},
-    config: AxiosRequestConfig | undefined = {}
+    config: AxiosRequestConfig | undefined = {},
   ) =>
     axios
       .post(this.url.append({ pathname: path }).href(), body, {
@@ -796,7 +869,7 @@ export class Subsonic {
         }),
         headers: {
           "User-Agent": USER_AGENT,
-          ...headers
+          ...headers,
         },
         ...config,
       })
@@ -809,7 +882,7 @@ export class Subsonic {
   private readonly getJSON = async <T>(
     { username, password }: Credentials,
     path: string,
-    q: {} = {}
+    q: {} = {},
   ): Promise<T> =>
     this.get({ username, password }, path, { f: "json", ...q })
       .then((response) => response.data as SubsonicEnvelope)
@@ -823,15 +896,15 @@ export class Subsonic {
     credentials: Credentials,
     path: string,
     q: {} = {},
-    body: any = {}
+    body: any = {},
   ): Promise<T> =>
     this.post(
-        credentials, 
-        path, 
-        { f: "json", ...q }, 
-        { "Content-Type": "application/json" }, 
-        body
-      )
+      credentials,
+      path,
+      { f: "json", ...q },
+      { "Content-Type": "application/json" },
+      body,
+    )
       .then((response) => response.data as SubsonicEnvelope)
       .then((json) => json["subsonic-response"])
       .then((json) => {
@@ -839,29 +912,37 @@ export class Subsonic {
         else return json as unknown as T;
       });
 
-  readonly ping = (credentials: Credentials): TE.TaskEither<AuthFailure, { readonly authenticated: boolean, readonly type: string}> => 
+  readonly ping = (
+    credentials: Credentials,
+  ): TE.TaskEither<
+    AuthFailure,
+    { readonly authenticated: boolean; readonly type: string }
+  > =>
     pipe(
       TE.tryCatch(
         () => this.getJSON<PingResponse>(credentials, "/rest/ping.view"),
-        (e) => new AuthFailure(String(e))
+        (e) => new AuthFailure(String(e)),
       ),
-      TE.chain(it =>
+      TE.chain((it) =>
         it.status === "ok"
           ? TE.right({ authenticated: true, type: it.type })
-          : TE.left(new AuthFailure("Not authenticated, status not 'ok'"))
-      )
+          : TE.left(new AuthFailure("Not authenticated, status not 'ok'")),
+      ),
     );
 
   readonly getArtists = (credentials: Credentials): Promise<GetArtists> =>
-    this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists")
-      .then((it) => it.artists);
+    this.getJSON<GetArtistsResponse>(credentials, "/rest/getArtists").then(
+      (it) => it.artists,
+    );
 
-      // todo: should be getArtistInfo2?
+  // todo: should be getArtistInfo2?
   readonly getArtistInfo = (
     credentials: Credentials,
-    id: string
+    id: string,
   ): Promise<{
-    readonly similarArtist: readonly (ArtistSummary & { readonly inLibrary: boolean })[];
+    readonly similarArtist: readonly (ArtistSummary & {
+      readonly inLibrary: boolean;
+    })[];
     readonly images: {
       readonly s: string | undefined;
       readonly m: string | undefined;
@@ -891,18 +972,24 @@ export class Subsonic {
             artistImageURL: artist.artistImageUrl,
           }),
         })),
-        })
-      );
+      }));
 
-  readonly getAlbum = (credentials: Credentials, id: string): Promise<GetAlbum> =>
-    this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id })
-      .then((it) => it.album);
-   
+  readonly getAlbum = (
+    credentials: Credentials,
+    id: string,
+  ): Promise<GetAlbum> =>
+    this.getJSON<GetAlbumResponse>(credentials, "/rest/getAlbum", { id }).then(
+      (it) => it.album,
+    );
+
   readonly getArtist = (
     credentials: Credentials,
-    id: string
+    id: string,
   ): Promise<
-    IdName & { readonly artistImageUrl: string | undefined; readonly albums: readonly AlbumSummary[] }
+    IdName & {
+      readonly artistImageUrl: string | undefined;
+      readonly albums: readonly AlbumSummary[];
+    }
   > =>
     this.getJSON<GetArtistResponse>(credentials, "/rest/getArtist", {
       id,
@@ -915,23 +1002,34 @@ export class Subsonic {
         albums: this.toAlbumSummary(it.album || []),
       }));
 
-  readonly getCoverArt = (credentials: Credentials, id: string, size?: number) =>
+  readonly getCoverArt = (
+    credentials: Credentials,
+    id: string,
+    size?: number,
+  ) =>
     this.get(credentials, "/rest/getCoverArt", size ? { id, size } : { id }, {
       headers: { "User-Agent": "bonob" },
       responseType: "arraybuffer",
     });
 
-  readonly getTrack = (credentials: Credentials, id: string): Promise<OpenSubsonicSong> =>
+  readonly getTrack = (
+    credentials: Credentials,
+    id: string,
+  ): Promise<OpenSubsonicSong> =>
     this.getJSON<GetSongResponse>(credentials, "/rest/getSong", {
       id,
     }).then((it) => it.song);
 
-  readonly getStarred = (credentials: Credentials): Promise<GetStarredResponse["starred2"]> =>
+  readonly getStarred = (
+    credentials: Credentials,
+  ): Promise<GetStarredResponse["starred2"]> =>
     this.getJSON<GetStarredResponse>(credentials, "/rest/getStarred2").then(
-      (it) => it.starred2
+      (it) => it.starred2,
     );
 
-  readonly toAlbumSummary = (albumList: readonly OpenSubsonicAlbum[]): readonly AlbumSummary[] =>
+  readonly toAlbumSummary = (
+    albumList: readonly OpenSubsonicAlbum[],
+  ): readonly AlbumSummary[] =>
     albumList.map((album) => ({
       id: album.id,
       name: album.name,
@@ -974,36 +1072,73 @@ export class Subsonic {
         A.map((it) => it.value),
         A.sort(ordString),
         A.map(maybeAsGenre),
-        A.filter((it) => it != undefined)
-      )
+        A.filter((it) => it != undefined),
+      ),
     );
 
-  private readonly st4r = (credentials: Credentials, action: string,  { id } : { readonly id: string }) => 
-    this.getJSON<SubsonicResponse>(credentials, `/rest/${action}`, { id }).then(it => 
-      it.status == "ok"
+  readonly getMusicFolders = (
+    credentials: Credentials,
+  ): Promise<readonly OpenSubsonicMusicFolder[]> =>
+    this.getJSON<GetMusicFoldersResponse>(
+      credentials,
+      "/rest/getMusicFolders",
+    ).then((it) => it.musicFolders.musicFolder || []);
+
+  readonly getIndexes = (
+    credentials: Credentials,
+    musicFolderId: string,
+  ): Promise<GetIndexes> =>
+    this.getJSON<GetIndexesResponse>(credentials, "/rest/getIndexes", {
+      musicFolderId,
+    }).then((it) => it.indexes);
+
+  readonly getMusicDirectory = (
+    credentials: Credentials,
+    id: string,
+  ): Promise<GetMusicDirectory> =>
+    this.getJSON<GetMusicDirectoryResponse>(
+      credentials,
+      "/rest/getMusicDirectory",
+      { id },
+    ).then((it) => it.directory);
+
+  private readonly st4r = (
+    credentials: Credentials,
+    action: string,
+    { id }: { readonly id: string },
+  ) =>
+    this.getJSON<SubsonicResponse>(credentials, `/rest/${action}`, { id }).then(
+      (it) => it.status == "ok",
     );
 
-  readonly star = (credentials: Credentials, ids : { readonly id: string }) => 
-    this.st4r(credentials, "star", ids)
+  readonly star = (credentials: Credentials, ids: { readonly id: string }) =>
+    this.st4r(credentials, "star", ids);
 
-  readonly unstar = (credentials: Credentials, ids : { readonly id: string }) => 
-    this.st4r(credentials, "unstar", ids)
+  readonly unstar = (credentials: Credentials, ids: { readonly id: string }) =>
+    this.st4r(credentials, "unstar", ids);
 
-  readonly setRating = (credentials: Credentials, id: string, rating: number) => 
+  readonly setRating = (credentials: Credentials, id: string, rating: number) =>
     this.getJSON<SubsonicResponse>(credentials, `/rest/setRating`, {
       id,
       rating,
-    })
-    .then(it => it.status == "ok");
+    }).then((it) => it.status == "ok");
 
-  readonly scrobble = (credentials: Credentials, id: string, submission: boolean) =>
+  readonly scrobble = (
+    credentials: Credentials,
+    id: string,
+    submission: boolean,
+  ) =>
     this.getJSON<SubsonicResponse>(credentials, `/rest/scrobble`, {
-        id,
-        submission,
-      })
-      .then(it => it.status == "ok")
+      id,
+      submission,
+    }).then((it) => it.status == "ok");
 
-  readonly stream = (credentials: Credentials, id: string, c: string, range: string | undefined) =>
+  readonly stream = (
+    credentials: Credentials,
+    id: string,
+    c: string,
+    range: string | undefined,
+  ) =>
     this.get(
       credentials,
       `/rest/stream`,
@@ -1021,18 +1156,19 @@ export class Subsonic {
           })),
           O.getOrElse(() => ({
             "User-Agent": USER_AGENT,
-          }))
+          })),
         ),
         responseType: "stream",
-      }
-    )
-    .then((stream) => ({
+      },
+    ).then((stream) => ({
       status: stream.status,
       // Response headers are always strings (or absent) on the wire - axios's broader
       // AxiosHeaderValue union only matters for headers set programmatically pre-request.
       headers: {
         "content-type": stream.headers["content-type"] as string | undefined,
-        "content-length": stream.headers["content-length"] as string | undefined,
+        "content-length": stream.headers["content-length"] as
+          | string
+          | undefined,
         "content-range": stream.headers["content-range"] as string | undefined,
         "accept-ranges": stream.headers["accept-ranges"] as string | undefined,
       },
@@ -1043,21 +1179,20 @@ export class Subsonic {
     credentials: Credentials,
     mediaId: string,
     // eslint-disable-next-line functional/prefer-immutable-types
-    clientInfo: ClientInfo
+    clientInfo: ClientInfo,
   ): Promise<TranscodeDecision> =>
     this.postJSON<GetTranscodeDecisionResponse>(
       credentials,
       `/rest/getTranscodeDecision`,
       { mediaId, mediaType: "song" },
-      clientInfo
-    )
-    .then((json) => json.transcodeDecision);
+      clientInfo,
+    ).then((json) => json.transcodeDecision);
 
   readonly getTranscodeStream = (
     credentials: Credentials,
     mediaId: string,
     transcodeParams: string,
-    range: string | undefined
+    range: string | undefined,
   ) =>
     this.get(
       credentials,
@@ -1077,18 +1212,19 @@ export class Subsonic {
           })),
           O.getOrElse(() => ({
             "User-Agent": USER_AGENT,
-          }))
+          })),
         ),
         responseType: "stream",
-      }
-    )
-    .then((stream) => ({
+      },
+    ).then((stream) => ({
       status: stream.status,
       // Response headers are always strings (or absent) on the wire - axios's broader
       // AxiosHeaderValue union only matters for headers set programmatically pre-request.
       headers: {
         "content-type": stream.headers["content-type"] as string | undefined,
-        "content-length": stream.headers["content-length"] as string | undefined,
+        "content-length": stream.headers["content-length"] as
+          | string
+          | undefined,
         "content-range": stream.headers["content-range"] as string | undefined,
         "accept-ranges": stream.headers["accept-ranges"] as string | undefined,
       },
@@ -1096,87 +1232,97 @@ export class Subsonic {
     }));
 
   readonly playlists = (credentials: Credentials) =>
-    this.getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists")
-    .then(({ playlists }) => (playlists.playlist || []).map( it => ({
-        id: it.id,
-        name: it.name,
-        coverArt: coverArtToArt(it.coverArt),
-      }))
+    this.getJSON<GetPlaylistsResponse>(credentials, "/rest/getPlaylists").then(
+      ({ playlists }) =>
+        (playlists.playlist || []).map((it) => ({
+          id: it.id,
+          name: it.name,
+          coverArt: coverArtToArt(it.coverArt),
+        })),
     );
 
-  readonly playlist = (credentials: Credentials, id: string): Promise<GetPlaylistResponse["playlist"]> =>
+  readonly playlist = (
+    credentials: Credentials,
+    id: string,
+  ): Promise<GetPlaylistResponse["playlist"]> =>
     this.getJSON<GetPlaylistResponse>(credentials, "/rest/getPlaylist", {
       id,
     }).then(({ playlist }) => playlist);
 
-    readonly createPlayList = (credentials: Credentials, name: string) =>
-      this.getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
-        name,
-      })
-      .then(({ playlist }) => ({
-        id: playlist.id,
-        name: playlist.name,
-        coverArt: coverArtToArt(playlist.coverArt),
-      }));
+  readonly createPlayList = (credentials: Credentials, name: string) =>
+    this.getJSON<GetPlaylistResponse>(credentials, "/rest/createPlaylist", {
+      name,
+    }).then(({ playlist }) => ({
+      id: playlist.id,
+      name: playlist.name,
+      coverArt: coverArtToArt(playlist.coverArt),
+    }));
 
-    readonly deletePlayList = (credentials: Credentials, id: string) => 
-      this.getJSON<SubsonicResponse>(credentials, "/rest/deletePlaylist", {
-        id,
-      })
-      .then(it => it.status == "ok");
+  readonly deletePlayList = (credentials: Credentials, id: string) =>
+    this.getJSON<SubsonicResponse>(credentials, "/rest/deletePlaylist", {
+      id,
+    }).then((it) => it.status == "ok");
 
-    readonly updatePlaylist = (
-      credentials: Credentials, 
-      playlistId: string, 
-      changes : Partial<{ readonly songIdToAdd: string | undefined, readonly songIndexToRemove: readonly number[] | undefined }> = {}
-    ) => 
-      this.getJSON<SubsonicResponse>(credentials, "/rest/updatePlaylist", {
-        playlistId,
-        ...changes
-      })
-      .then(it => it.status == "ok");
+  readonly updatePlaylist = (
+    credentials: Credentials,
+    playlistId: string,
+    changes: Partial<{
+      readonly songIdToAdd: string | undefined;
+      readonly songIndexToRemove: readonly number[] | undefined;
+    }> = {},
+  ) =>
+    this.getJSON<SubsonicResponse>(credentials, "/rest/updatePlaylist", {
+      playlistId,
+      ...changes,
+    }).then((it) => it.status == "ok");
 
-    readonly getSimilarSongs2 = (credentials: Credentials, id: string): Promise<readonly OpenSubsonicSong[]> =>
-      this.getJSON<GetSimilarSongsResponse>(
-        credentials,
-        "/rest/getSimilarSongs2",
-        //todo: remove this hard coded 50?
-        { id, count: 50 }
-      )
-      .then((it) => it.similarSongs2.song || []);
+  readonly getSimilarSongs2 = (
+    credentials: Credentials,
+    id: string,
+  ): Promise<readonly OpenSubsonicSong[]> =>
+    this.getJSON<GetSimilarSongsResponse>(
+      credentials,
+      "/rest/getSimilarSongs2",
+      //todo: remove this hard coded 50?
+      { id, count: 50 },
+    ).then((it) => it.similarSongs2.song || []);
 
-    readonly getTopSongs = (credentials: Credentials, artist: string): Promise<readonly OpenSubsonicSong[]> =>
-      this.getJSON<GetTopSongsResponse>(
-        credentials,
-        "/rest/getTopSongs",
-        //todo: remove this hard coded 50?
-        { artist, count: 50 }
-      )
-      .then((it) => it.topSongs.song || []);
+  readonly getTopSongs = (
+    credentials: Credentials,
+    artist: string,
+  ): Promise<readonly OpenSubsonicSong[]> =>
+    this.getJSON<GetTopSongsResponse>(
+      credentials,
+      "/rest/getTopSongs",
+      //todo: remove this hard coded 50?
+      { artist, count: 50 },
+    ).then((it) => it.topSongs.song || []);
 
   readonly getInternetRadioStations = (credentials: Credentials) =>
     this.getJSON<GetInternetRadioStationsResponse>(
       credentials,
-      "/rest/getInternetRadioStations"
+      "/rest/getInternetRadioStations",
     )
-    .then((it) => it.internetRadioStations.internetRadioStation || [])
-    .then((stations) =>
-      stations.map((it) => ({
-        id: it.id,
-        name: it.name,
-        url: it.streamUrl,
-        homePage: it.homePageUrl,
-      }))
-    );
+      .then((it) => it.internetRadioStations.internetRadioStation || [])
+      .then((stations) =>
+        stations.map((it) => ({
+          id: it.id,
+          name: it.name,
+          url: it.streamUrl,
+          homePage: it.homePageUrl,
+        })),
+      );
 
-  readonly getOpenSubsonicExtensions = (credentials: Credentials): Promise<readonly OpenSubsonicExtension[]> =>
+  readonly getOpenSubsonicExtensions = (
+    credentials: Credentials,
+  ): Promise<readonly OpenSubsonicExtension[]> =>
     this.getJSON<GetOpenSubsonicExtensionsResponse>(
       credentials,
-      "/rest/getOpenSubsonicExtensions.view"
+      "/rest/getOpenSubsonicExtensions.view",
     )
-    .then((it) => it.openSubsonicExtensions || [])
-    .catch((e: unknown) => {
-      if (axios.isAxiosError(e) && e.response?.status === 404) return [];
-      throw e
-    });
-};
+      .then((it) => it.openSubsonicExtensions || [])
+      .catch((e: unknown) => {
+        if (axios.isAxiosError(e) && e.response?.status === 404) return [];
+        throw e;
+      });
+}
