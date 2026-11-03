@@ -164,6 +164,8 @@ export class InMemoryMusicService implements MusicService {
       directories: async (_: string) => Promise.resolve([]),
       directory: async (id: string) =>
         Promise.reject(`No directory with id '${id}'`),
+      directoryTracks: async (id: string, _: number) =>
+        Promise.reject(`No directory with id '${id}'`),
     });
   }
 

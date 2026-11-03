@@ -28,6 +28,7 @@ import {
   findLoginToken,
   scrollIndicesFrom,
   ALBUMS_SORT_TYPE,
+  MAX_PLAYABLE_FOLDER_TRACKS,
 } from "../src/smapi";
 
 import { keys as i8nKeys } from "../src/i8n";
@@ -698,6 +699,7 @@ describe("wsdl api", () => {
     musicFolders: jest.fn(),
     directories: jest.fn(),
     directory: jest.fn(),
+    directoryTracks: jest.fn(),
   };
   const apiTokens = {
     mint: jest.fn(),
@@ -1668,18 +1670,21 @@ describe("wsdl api", () => {
                   itemType: "container",
                   id: `directory:${directoryWithArt.id}`,
                   title: directoryWithArt.name,
+                  canPlay: true,
                   albumArtURI: coverArtURI(bonobUrl, apiToken, directoryWithArt),
                 },
                 {
                   itemType: "container",
                   id: `directory:${directoryWithoutArt.id}`,
                   title: directoryWithoutArt.name,
+                  canPlay: true,
                   albumArtURI: folderIcon,
                 },
                 {
                   itemType: "container",
                   id: `directory:${anotherDirectory.id}`,
                   title: anotherDirectory.name,
+                  canPlay: true,
                   albumArtURI: coverArtURI(bonobUrl, apiToken, anotherDirectory),
                 },
               ];
@@ -1780,11 +1785,11 @@ describe("wsdl api", () => {
                 const tracks = [track1, track2, track3];
 
                 beforeEach(() => {
-                  musicLibrary.directory.mockResolvedValue({ directories, tracks });
+                  musicLibrary.directory.mockResolvedValue({ name: "al-2", directories, tracks });
                 });
 
                 describe("asking for all of it", () => {
-                  it("should return its sub-directories followed by its tracks", async () => {
+                  it("should return its tracks followed by its sub-directories", async () => {
                     const result = await ws.getMetadataAsync({
                       id: "directory:al-2",
                       index: 0,
@@ -1793,17 +1798,37 @@ describe("wsdl api", () => {
 
                     expect(result[0]).toEqual(
                       getMetadataResult({
-                        mediaCollection: expectedDirectories,
                         mediaMetadata: tracks.map((it) => track(bonobUrl, apiToken, it)),
+                        mediaCollection: expectedDirectories,
                         index: 0,
                         total: 6,
                       })
                     );
                     expect(musicLibrary.directory).toHaveBeenCalledWith("al-2");
                   });
+
+                  it("should list the tracks before the sub-directories in the response", async () => {
+                    const [, rawResponse] = await ws.getMetadataAsync({
+                      id: "directory:al-2",
+                      index: 0,
+                      count: 100,
+                    });
+
+                    const items = (
+                      xpath.select(
+                        "//*[local-name()='getMetadataResult']/*[local-name()='mediaMetadata' or local-name()='mediaCollection']",
+                        parseXML(rawResponse)
+                      ) as Element[]
+                    ).map((it) => it.localName);
+
+                    expect(items).toEqual([
+                      ...tracks.map(() => "mediaMetadata"),
+                      ...directories.map(() => "mediaCollection"),
+                    ]);
+                  });
                 });
 
-                describe("asking for a page spanning sub-directories and tracks", () => {
+                describe("asking for a page spanning tracks and sub-directories", () => {
                   it("should return only that page", async () => {
                     const result = await ws.getMetadataAsync({
                       id: "directory:al-2",
@@ -1813,12 +1838,59 @@ describe("wsdl api", () => {
 
                     expect(result[0]).toEqual(
                       getMetadataResult({
-                        mediaCollection: expectedDirectories.slice(1),
-                        mediaMetadata: [track1, track2].map((it) =>
+                        mediaMetadata: [track2, track3].map((it) =>
+                          track(bonobUrl, apiToken, it)
+                        ),
+                        mediaCollection: expectedDirectories.slice(0, 2),
+                        index: 1,
+                        total: 6,
+                      })
+                    );
+                  });
+                });
+
+                describe("playing it", () => {
+                  beforeEach(() => {
+                    musicLibrary.directoryTracks.mockResolvedValue(tracks);
+                  });
+
+                  it("should return its tracks and those of its sub-directories as a flat list", async () => {
+                    const result = await ws.getMetadataAsync({
+                      id: "directory:al-2",
+                      index: 0,
+                      count: 100,
+                      recursive: true,
+                    });
+
+                    expect(result[0]).toEqual(
+                      getMetadataResult({
+                        mediaMetadata: tracks.map((it) => track(bonobUrl, apiToken, it)),
+                        index: 0,
+                        total: tracks.length,
+                      })
+                    );
+                    expect(musicLibrary.directoryTracks).toHaveBeenCalledWith(
+                      "al-2",
+                      MAX_PLAYABLE_FOLDER_TRACKS
+                    );
+                    expect(musicLibrary.directory).not.toHaveBeenCalled();
+                  });
+
+                  it("should return a page of them", async () => {
+                    const result = await ws.getMetadataAsync({
+                      id: "directory:al-2",
+                      index: 1,
+                      count: 2,
+                      recursive: true,
+                    });
+
+                    expect(result[0]).toEqual(
+                      getMetadataResult({
+                        mediaMetadata: [track2, track3].map((it) =>
                           track(bonobUrl, apiToken, it)
                         ),
                         index: 1,
-                        total: 6,
+                        total: tracks.length,
                       })
                     );
                   });
@@ -3205,6 +3277,58 @@ describe("wsdl api", () => {
                   },
                 });
                 expect(musicLibrary.album).toHaveBeenCalledWith(album.id);
+              });
+            });
+
+            describe("asking for a directory", () => {
+              describe("when it has tracks", () => {
+                it("should return it as playable, with the cover art of its first track", async () => {
+                  const firstTrack = aTrack();
+                  musicLibrary.directory.mockResolvedValue({
+                    name: "Elgin Avenue Breakdown",
+                    directories: [],
+                    tracks: [firstTrack, aTrack()],
+                  });
+
+                  const result = await ws.getExtendedMetadataAsync({ id: "directory:al-6" });
+
+                  expect(result[0]).toEqual({
+                    getExtendedMetadataResult: {
+                      mediaCollection: {
+                        itemType: "container",
+                        id: "directory:al-6",
+                        title: "Elgin Avenue Breakdown",
+                        canPlay: true,
+                        albumArtURI: coverArtURI(bonobUrl, apiToken, firstTrack),
+                      },
+                    },
+                  });
+                  expect(musicLibrary.directory).toHaveBeenCalledWith("al-6");
+                });
+              });
+
+              describe("when it has no tracks", () => {
+                it("should use the folder icon", async () => {
+                  musicLibrary.directory.mockResolvedValue({
+                    name: "Artists",
+                    directories: [aDirectorySummary()],
+                    tracks: [],
+                  });
+
+                  const result = await ws.getExtendedMetadataAsync({ id: "directory:al-2" });
+
+                  expect(result[0]).toEqual({
+                    getExtendedMetadataResult: {
+                      mediaCollection: {
+                        itemType: "container",
+                        id: "directory:al-2",
+                        title: "Artists",
+                        canPlay: true,
+                        albumArtURI: iconArtURI(bonobUrl, "folder"),
+                      },
+                    },
+                  });
+                });
               });
             });
 

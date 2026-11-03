@@ -4177,6 +4177,7 @@ describe("SubsonicMusicLibrary", () => {
           const result = await subsonic.directory(id);
 
           expect(result).toEqual({
+            name: `Directory ${id}`,
             directories: [subDirectory1, subDirectory2],
             tracks: [
               track1,
@@ -4231,7 +4232,69 @@ describe("SubsonicMusicLibrary", () => {
 
           const result = await subsonic.directory(id);
 
-          expect(result).toEqual({ directories: [], tracks: [] });
+          expect(result).toEqual({ name: "Empty", directories: [], tracks: [] });
+        });
+      });
+    });
+
+    describe("getting the tracks of a directory and its sub-directories", () => {
+      const track1 = aTrackInDirectory();
+      const track2 = aTrackInDirectory();
+      const track3 = aTrackInDirectory();
+      const track4 = aTrackInDirectory();
+      const track5 = aTrackInDirectory();
+
+      const subDirectory = (id: string, parent: string) =>
+        asDirectoryChildJson(aDirectorySummary({ id }), parent);
+
+      const children: Record<string, readonly object[]> = {
+        "al-1": [
+          subDirectory("al-2", "al-1"),
+          subDirectory("al-5", "al-1"),
+          asSongChildJson(track1, "al-1"),
+        ],
+        "al-2": [subDirectory("al-3", "al-2"), asSongChildJson(track2, "al-2")],
+        "al-3": [asSongChildJson(track3, "al-3"), asSongChildJson(track4, "al-3")],
+        "al-5": [asSongChildJson(track5, "al-5")],
+      };
+
+      const requestsTo = (path: string) =>
+        mockGET.mock.calls.filter(([url]) => url.endsWith(path));
+
+      const fetchedDirectories = () =>
+        requestsTo("/rest/getMusicDirectory").map(([, { params }]) => params.get("id"));
+
+      beforeEach(() => {
+        mockGET.mockImplementation(
+          (url: string, { params }: { readonly params: URLSearchParams }) => {
+            if (url.endsWith("/rest/getStarred2"))
+              return Promise.resolve(ok(getStarred2Json([track3])));
+            const id = params.get("id")!;
+            return Promise.resolve(ok(getMusicDirectoryJson(id, children[id]!)));
+          }
+        );
+      });
+
+      it("should return the directory's tracks followed by those of its sub-directories, depth first", async () => {
+        const result = await subsonic.directoryTracks("al-1", 100);
+
+        expect(result).toEqual([
+          track1,
+          track2,
+          { ...track3, rating: { ...track3.rating, love: true } },
+          track4,
+          track5,
+        ]);
+        expect(fetchedDirectories()).toEqual(["al-1", "al-2", "al-3", "al-5"]);
+        expect(requestsTo("/rest/getStarred2")).toHaveLength(1);
+      });
+
+      describe("when the limit is reached", () => {
+        it("should stop there, without fetching further sub-directories", async () => {
+          const result = await subsonic.directoryTracks("al-1", 3);
+
+          expect(result.map((it) => it.id)).toEqual([track1.id, track2.id, track3.id]);
+          expect(fetchedDirectories()).toEqual(["al-1", "al-2", "al-3"]);
         });
       });
     });

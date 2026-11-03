@@ -222,6 +222,7 @@ export type DirectorySummary = {
 };
 
 export type Directory = {
+  readonly name: string;
   readonly directories: readonly DirectorySummary[];
   readonly tracks: readonly Track[];
 };
@@ -252,6 +253,8 @@ export interface MusicLibrary {
   musicFolders(): Promise<readonly MusicFolder[]>;
   directories(musicFolderId: string): Promise<readonly DirectorySummary[]>;
   directory(id: string): Promise<Directory>;
+  // The directory's tracks followed by those of its sub-directories
+  directoryTracks(id: string, limit: number): Promise<readonly Track[]>;
   stream({
     trackId,
     range,
