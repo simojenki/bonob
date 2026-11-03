@@ -4178,6 +4178,7 @@ describe("SubsonicMusicLibrary", () => {
 
           expect(result).toEqual({
             name: `Directory ${id}`,
+            album: { artist: track1.artist.name },
             directories: [subDirectory1, subDirectory2],
             tracks: [
               track1,
@@ -4232,7 +4233,78 @@ describe("SubsonicMusicLibrary", () => {
 
           const result = await subsonic.directory(id);
 
-          expect(result).toEqual({ name: "Empty", directories: [], tracks: [] });
+          expect(result).toEqual({
+            name: "Empty",
+            album: undefined,
+            directories: [],
+            tracks: [],
+          });
+        });
+      });
+    });
+
+    describe("getting the album formed by a directory's own tracks", () => {
+      const id = "al-6";
+
+      describe("when the directory holds tracks", () => {
+        it("should take the artist of its first track", async () => {
+          const track1 = aTrackInDirectory();
+          const track2 = aTrackInDirectory();
+
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getMusicDirectoryJson(id, [
+                  asDirectoryChildJson(aDirectorySummary(), id),
+                  asSongChildJson(track1, id),
+                  asSongChildJson(track2, id),
+                ])
+              )
+            )
+          );
+
+          const result = await subsonic.directoryAlbum(id);
+
+          expect(result).toEqual({ artist: track1.artist.name });
+          expect(mockGET).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/getMusicDirectory" }).href(),
+            {
+              params: asURLSearchParams({ ...authParamsPlusJson, id }),
+              headers,
+            }
+          );
+        });
+      });
+
+      describe("when its first track has no artist", () => {
+        it("should have no artist", async () => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getMusicDirectoryJson(id, [
+                  { ...asSongChildJson(aTrackInDirectory(), id), artist: "" },
+                ])
+              )
+            )
+          );
+
+          const result = await subsonic.directoryAlbum(id);
+
+          expect(result).toEqual({ artist: undefined });
+        });
+      });
+
+      describe("when the directory holds only sub-directories", () => {
+        it("should be undefined", async () => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getMusicDirectoryJson(id, [asDirectoryChildJson(aDirectorySummary(), id)]))
+            )
+          );
+
+          const result = await subsonic.directoryAlbum(id);
+
+          expect(result).toBeUndefined();
         });
       });
     });

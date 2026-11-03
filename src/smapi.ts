@@ -26,6 +26,7 @@ import {
   PlaylistSummary,
   MusicFolder,
   DirectorySummary,
+  DirectoryAlbum,
 } from "./music_library";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
@@ -349,15 +350,28 @@ const musicFolder = (bonobUrl: BonobUrl, musicFolder: MusicFolder) => ({
   albumArtURI: iconArtURI(bonobUrl, "folder"),
 });
 
-const directory = (bonobUrl: BonobUrl, authToken: string, directory: DirectorySummary) => ({
-  id: `directory:${directory.id}`,
-  itemType: "container",
-  title: directory.name,
-  canPlay: true,
-  albumArtURI: directory.coverArt
+// The Sonos app only offers to play albums, not containers,
+// so folders holding tracks themselves are presented as albums
+const directory = (
+  bonobUrl: BonobUrl,
+  authToken: string,
+  directory: DirectorySummary,
+  album: DirectoryAlbum | undefined
+) => {
+  const id = `directory:${directory.id}`;
+  const albumArtURI = directory.coverArt
     ? coverArtURI(bonobUrl, authToken, directory)
-    : iconArtURI(bonobUrl, "folder"),
-});
+    : iconArtURI(bonobUrl, "folder");
+  if (!album) return { id, itemType: "container", title: directory.name, albumArtURI };
+  return {
+    id,
+    itemType: "album",
+    title: directory.name,
+    artist: album.artist,
+    canPlay: true,
+    albumArtURI,
+  };
+};
 
 export const coverArtURI = (
   bonobUrl: BonobUrl,
@@ -821,12 +835,17 @@ function bindSmapiSoapServiceToExpress(
                   case "directory":
                     return musicLibrary.directory(typeId).then((it) => ({
                       getExtendedMetadataResult: {
-                        mediaCollection: directory(bonobUrl, apiKey, {
-                          id: typeId,
-                          name: it.name,
-                          // Subsonic has no cover art for the directory itself
-                          coverArt: it.tracks[0]?.coverArt,
-                        }),
+                        mediaCollection: directory(
+                          bonobUrl,
+                          apiKey,
+                          {
+                            id: typeId,
+                            name: it.name,
+                            // Subsonic has no cover art for the directory itself
+                            coverArt: it.tracks[0]?.coverArt,
+                          },
+                          it.album
+                        ),
                       },
                     }));
                   default:
@@ -866,16 +885,24 @@ function bindSmapiSoapServiceToExpress(
                     });
                   });
 
+                // Looks into the directory to tell album folders from others
+                const directoryItem = (it: DirectorySummary) =>
+                  musicLibrary
+                    .directoryAlbum(it.id)
+                    .then((album) => directory(bonobUrl, apiKey, it, album));
+
                 const musicFolderDirectories = (musicFolderId: string): Promise<GetMetadataResponse> =>
                   musicLibrary
                     .directories(musicFolderId)
                     .then(slice2(paging))
                     .then(([page, total]) =>
-                      getMetadataResult({
-                        mediaCollection: page.map((it) => directory(bonobUrl, apiKey, it)),
-                        index: paging._index,
-                        total,
-                      })
+                      Promise.all(page.map(directoryItem)).then((mediaCollection) =>
+                        getMetadataResult({
+                          mediaCollection,
+                          index: paging._index,
+                          total,
+                        })
+                      )
                     );
 
                 switch (type) {
@@ -1125,17 +1152,20 @@ function bindSmapiSoapServiceToExpress(
                       // Tracks first, so they're at the same positions as in the flat list Sonos plays.
                       // The key order of the result sets the element order in the response.
                       .then(({ directories, tracks }) => [
-                        ...tracks.map((it) => track(bonobUrl, apiKey, it)),
-                        ...directories.map((it) => directory(bonobUrl, apiKey, it)),
+                        ...tracks.map((it) => () => Promise.resolve(track(bonobUrl, apiKey, it))),
+                        // Only looked into when on the requested page
+                        ...directories.map((it) => () => directoryItem(it)),
                       ])
                       .then(slice2(paging))
                       .then(([page, total]) =>
-                        getMetadataResult({
-                          mediaMetadata: page.filter((it) => it.itemType == "track"),
-                          mediaCollection: page.filter((it) => it.itemType != "track"),
-                          index: paging._index,
-                          total,
-                        })
+                        Promise.all(page.map((item) => item())).then((items) =>
+                          getMetadataResult({
+                            mediaMetadata: items.filter((it) => it.itemType == "track"),
+                            mediaCollection: items.filter((it) => it.itemType != "track"),
+                            index: paging._index,
+                            total,
+                          })
+                        )
                       );
                   case "playlists":
                     return musicLibrary

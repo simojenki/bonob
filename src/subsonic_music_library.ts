@@ -20,6 +20,7 @@ import {
   MusicFolder,
   DirectorySummary,
   Directory,
+  DirectoryAlbum,
   Track,
 } from "./music_library";
 import {
@@ -70,6 +71,11 @@ const isDirectoryChild = (it: OpenSubsonicChild): it is OpenSubsonicDirectoryChi
 
 const isSongChild = (it: OpenSubsonicChild): it is OpenSubsonicSongChild =>
   !it.isDir && !it.isVideo;
+
+const asDirectoryAlbum = (children: readonly OpenSubsonicChild[]): DirectoryAlbum | undefined => {
+  const song = children.find(isSongChild);
+  return song && { artist: song.artist || undefined };
+};
 
 import logger from "./logger";
 import { assertSource, Art } from "./art";
@@ -614,6 +620,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       const ids = starredSongIds(starred);
       return {
         name: directory.name,
+        album: asDirectoryAlbum(children),
         directories: children.filter(isDirectoryChild).map((it) => ({
           id: it.id,
           name: it.title,
@@ -624,6 +631,11 @@ export class SubsonicMusicLibrary implements MusicLibrary {
           .map((it) => asTrack(asAlbumSummaryFromSong(it), it, this.customPlayers, ids)),
       };
     });
+
+  readonly directoryAlbum = async (id: string): Promise<DirectoryAlbum | undefined> =>
+    this.subsonic
+      .getMusicDirectory(this.credentials, id)
+      .then((it) => asDirectoryAlbum(it.child || []));
 
   // Stops fetching sub-directories once the limit is reached
   private readonly songsUnder = async (

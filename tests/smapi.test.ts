@@ -56,6 +56,7 @@ import {
   artistToArtistSummary,
   MusicService,
   playlistToPlaylistSummary,
+  DirectoryAlbum,
 } from "../src/music_library";
 import { APITokens } from "../src/api_tokens";
 import dayjs from "dayjs";
@@ -700,6 +701,7 @@ describe("wsdl api", () => {
     directories: jest.fn(),
     directory: jest.fn(),
     directoryTracks: jest.fn(),
+    directoryAlbum: jest.fn(),
   };
   const apiTokens = {
     mint: jest.fn(),
@@ -1660,32 +1662,47 @@ describe("wsdl api", () => {
             describe("browsing by folder", () => {
               const folderIcon = iconArtURI(bonobUrl, "folder");
 
-              const directoryWithArt = aDirectorySummary();
-              const directoryWithoutArt = aDirectorySummary({ coverArt: undefined });
-              const anotherDirectory = aDirectorySummary();
-              const directories = [directoryWithArt, directoryWithoutArt, anotherDirectory];
+              const albumFolder = aDirectorySummary();
+              const parentFolder = aDirectorySummary({ coverArt: undefined });
+              const albumFolderWithoutArtist = aDirectorySummary();
+              const directories = [albumFolder, parentFolder, albumFolderWithoutArtist];
+
+              const albums: Record<string, DirectoryAlbum | undefined> = {
+                [albumFolder.id]: { artist: "The 101ers" },
+                [parentFolder.id]: undefined,
+                [albumFolderWithoutArtist.id]: { artist: undefined },
+              };
+
+              beforeEach(() => {
+                musicLibrary.directoryAlbum.mockImplementation((id: string) =>
+                  Promise.resolve(albums[id])
+                );
+              });
+
+              const lookedInto = () =>
+                musicLibrary.directoryAlbum.mock.calls.map(([id]) => id);
 
               const expectedDirectories = [
                 {
-                  itemType: "container",
-                  id: `directory:${directoryWithArt.id}`,
-                  title: directoryWithArt.name,
+                  itemType: "album",
+                  id: `directory:${albumFolder.id}`,
+                  title: albumFolder.name,
+                  artist: "The 101ers",
                   canPlay: true,
-                  albumArtURI: coverArtURI(bonobUrl, apiToken, directoryWithArt),
+                  albumArtURI: coverArtURI(bonobUrl, apiToken, albumFolder),
                 },
                 {
                   itemType: "container",
-                  id: `directory:${directoryWithoutArt.id}`,
-                  title: directoryWithoutArt.name,
-                  canPlay: true,
+                  id: `directory:${parentFolder.id}`,
+                  title: parentFolder.name,
                   albumArtURI: folderIcon,
                 },
                 {
-                  itemType: "container",
-                  id: `directory:${anotherDirectory.id}`,
-                  title: anotherDirectory.name,
+                  itemType: "album",
+                  id: `directory:${albumFolderWithoutArtist.id}`,
+                  title: albumFolderWithoutArtist.name,
                   canPlay: true,
-                  albumArtURI: coverArtURI(bonobUrl, apiToken, anotherDirectory),
+                  albumArtURI: coverArtURI(bonobUrl, apiToken, albumFolderWithoutArtist),
                 },
               ];
 
@@ -1775,6 +1792,7 @@ describe("wsdl api", () => {
                     })
                   );
                   expect(musicLibrary.directories).toHaveBeenCalledWith("1");
+                  expect(lookedInto()).toEqual([parentFolder.id, albumFolderWithoutArtist.id]);
                 });
               });
 
@@ -1846,6 +1864,7 @@ describe("wsdl api", () => {
                         total: 6,
                       })
                     );
+                    expect(lookedInto()).toEqual([albumFolder.id, parentFolder.id]);
                   });
                 });
 
@@ -3282,10 +3301,11 @@ describe("wsdl api", () => {
 
             describe("asking for a directory", () => {
               describe("when it has tracks", () => {
-                it("should return it as playable, with the cover art of its first track", async () => {
+                it("should return it as a playable album, with the cover art of its first track", async () => {
                   const firstTrack = aTrack();
                   musicLibrary.directory.mockResolvedValue({
                     name: "Elgin Avenue Breakdown",
+                    album: { artist: "The 101ers" },
                     directories: [],
                     tracks: [firstTrack, aTrack()],
                   });
@@ -3295,9 +3315,10 @@ describe("wsdl api", () => {
                   expect(result[0]).toEqual({
                     getExtendedMetadataResult: {
                       mediaCollection: {
-                        itemType: "container",
+                        itemType: "album",
                         id: "directory:al-6",
                         title: "Elgin Avenue Breakdown",
+                        artist: "The 101ers",
                         canPlay: true,
                         albumArtURI: coverArtURI(bonobUrl, apiToken, firstTrack),
                       },
@@ -3308,9 +3329,10 @@ describe("wsdl api", () => {
               });
 
               describe("when it has no tracks", () => {
-                it("should use the folder icon", async () => {
+                it("should return it as a container with the folder icon", async () => {
                   musicLibrary.directory.mockResolvedValue({
                     name: "Artists",
+                    album: undefined,
                     directories: [aDirectorySummary()],
                     tracks: [],
                   });
@@ -3323,7 +3345,6 @@ describe("wsdl api", () => {
                         itemType: "container",
                         id: "directory:al-2",
                         title: "Artists",
-                        canPlay: true,
                         albumArtURI: iconArtURI(bonobUrl, "folder"),
                       },
                     },
