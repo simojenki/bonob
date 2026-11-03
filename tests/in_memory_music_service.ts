@@ -160,6 +160,10 @@ export class InMemoryMusicService implements MusicService {
       radioStations: async () => Promise.resolve([]),
       radioStation: async (_: string) => Promise.reject("Unsupported operation"),
       years: async () => Promise.resolve([]),
+      musicFolders: async () => Promise.resolve([]),
+      directories: async (_: string) => Promise.resolve([]),
+      directory: async (id: string) =>
+        Promise.reject(`No directory with id '${id}'`),
     });
   }
 

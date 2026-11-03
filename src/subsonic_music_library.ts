@@ -17,6 +17,9 @@ import {
   AuthSuccess,
   Paging,
   slice2Result,
+  MusicFolder,
+  DirectorySummary,
+  Directory,
 } from "./music_library";
 import {
   Subsonic,
@@ -36,6 +39,8 @@ import {
   asTrack,
   asTrackSummary,
   OpenSubsonicSong,
+  OpenSubsonicDirectoryChild,
+  OpenSubsonicSongChild,
   coverArtToArt,
   maybeAsGenre,
 } from "./subsonic";
@@ -570,4 +575,47 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       }))
       .reverse()
   );
+
+  readonly musicFolders = async (): Promise<readonly MusicFolder[]> =>
+    this.subsonic
+      .getMusicFolders(this.credentials)
+      .then((folders) =>
+        folders.map((it) => ({ id: `${it.id}`, name: it.name || `${it.id}` }))
+      );
+
+  // Ignore files in the music folder root (indexes.child)
+  // Gonic and Navidrome never return any
+  readonly directories = async (musicFolderId: string): Promise<readonly DirectorySummary[]> =>
+    this.subsonic
+      .getIndexes(this.credentials, musicFolderId)
+      .then((indexes) =>
+        (indexes.index || [])
+          .flatMap((it) => it.artist || [])
+          .map((it) => ({
+            id: it.id,
+            name: it.name,
+            coverArt: coverArtToArt(it.coverArt),
+          }))
+      );
+
+  readonly directory = async (id: string): Promise<Directory> =>
+    Promise.all([
+      this.subsonic.getMusicDirectory(this.credentials, id),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([directory, starred]) => {
+      const children = directory.child || [];
+      const ids = starredSongIds(starred);
+      return {
+        directories: children
+          .filter((it): it is OpenSubsonicDirectoryChild => it.isDir)
+          .map((it) => ({
+            id: it.id,
+            name: it.title,
+            coverArt: coverArtToArt(it.coverArt),
+          })),
+        tracks: children
+          .filter((it): it is OpenSubsonicSongChild => !it.isDir && !it.isVideo)
+          .map((it) => asTrack(asAlbumSummaryFromSong(it), it, this.customPlayers, ids)),
+      };
+    });
 }
