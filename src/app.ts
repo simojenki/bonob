@@ -101,6 +101,7 @@ const app = server(
     externalImageResolver: artistImageFetcher,
     loginTheme: config.loginTheme,
     enableS1: config.sonos.enableS1,
+    browseByFolder: config.browseByFolder,
   }
 );
 

@@ -145,6 +145,7 @@ export default function (die: (code?: number) => never = process.exit) {
     scrobbleTracks: bnbEnvVar<boolean>("SCROBBLE_TRACKS", { default: true, parser: asBoolean }),
     reportNowPlaying:
       bnbEnvVar<boolean>("REPORT_NOW_PLAYING", { default: true, parser: asBoolean }),
+    browseByFolder: bnbEnvVar<boolean>("BROWSE_BY_FOLDER", { default: false, parser: asBoolean }),
     loginTheme: bnbEnvVar<string>("LOGIN_THEME", { default: "classic", parser: cleanLoginTheme }),
   };
 }

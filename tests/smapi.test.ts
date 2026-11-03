@@ -45,6 +45,7 @@ import {
   aRadioStation,
   anArtistSummary,
   anAlbumSummary,
+  aDirectorySummary,
   someSoapHeadersForToken,
 } from "./builders";
 import { InMemoryMusicService } from "./in_memory_music_service";
@@ -694,6 +695,9 @@ describe("wsdl api", () => {
     rate: jest.fn(),
     radioStation: jest.fn(),
     radioStations: jest.fn(),
+    musicFolders: jest.fn(),
+    directories: jest.fn(),
+    directory: jest.fn(),
   };
   const apiTokens = {
     mint: jest.fn(),
@@ -721,19 +725,21 @@ describe("wsdl api", () => {
       
       const service = bonobService("test-api", 133, bonobUrl, "AppLink");
       const smapiValidationEvents: SmapiValidationEvent[] = [];
+      const serverOpts = {
+        linkCodes: () => linkCodes as unknown as LinkCodes,
+        apiTokens: () => apiTokens as unknown as APITokens,
+        clock,
+        smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens,
+        validateSmapiRequests: true,
+        smapiValidationHandler: (event: SmapiValidationEvent) =>
+          smapiValidationEvents.push(event),
+      };
       const server = makeServer(
         SONOS_DISABLED,
         service,
         bonobUrl,
         musicService as unknown as MusicService,
-        {
-          linkCodes: () => linkCodes as unknown as LinkCodes,
-          apiTokens: () => apiTokens as unknown as APITokens,
-          clock,
-          smapiAuthTokens: smapiAuthTokens as unknown as SmapiAuthTokens,
-          validateSmapiRequests: true,
-          smapiValidationHandler: (event) => smapiValidationEvents.push(event),
-        }
+        serverOpts
       );
 
       beforeEach(() => {
@@ -1459,6 +1465,37 @@ describe("wsdl api", () => {
                   );
                 });
               });
+
+              describe("when browsing by folder is enabled", () => {
+                const serverBrowsingByFolder = makeServer(
+                  SONOS_DISABLED,
+                  service,
+                  bonobUrl,
+                  musicService as unknown as MusicService,
+                  { ...serverOpts, browseByFolder: true }
+                );
+
+                it("should include folders", async () => {
+                  const wsBrowsingByFolder = await createClientAsync(`${service.uri}?wsdl`, {
+                    endpoint: service.uri,
+                    httpClient: supersoap(serverBrowsingByFolder),
+                  });
+                  setupAuthenticatedRequest(wsBrowsingByFolder);
+
+                  const root = await wsBrowsingByFolder.getMetadataAsync({
+                    id: "root",
+                    index: 0,
+                    count: 100,
+                  });
+
+                  expect(root[0].getMetadataResult.mediaCollection).toContainEqual({
+                    id: "folders",
+                    title: "Folders",
+                    albumArtURI: iconArtURI(bonobUrl, "folder"),
+                    itemType: "container",
+                  });
+                });
+              });
             });
 
             describe("asking for a type that doesnt exist", () => {
@@ -1614,6 +1651,177 @@ describe("wsdl api", () => {
                       total: expectedYears.length,
                     })
                   );
+                });
+              });
+            });
+
+            describe("browsing by folder", () => {
+              const folderIcon = iconArtURI(bonobUrl, "folder");
+
+              const directoryWithArt = aDirectorySummary();
+              const directoryWithoutArt = aDirectorySummary({ coverArt: undefined });
+              const anotherDirectory = aDirectorySummary();
+              const directories = [directoryWithArt, directoryWithoutArt, anotherDirectory];
+
+              const expectedDirectories = [
+                {
+                  itemType: "container",
+                  id: `directory:${directoryWithArt.id}`,
+                  title: directoryWithArt.name,
+                  albumArtURI: coverArtURI(bonobUrl, apiToken, directoryWithArt),
+                },
+                {
+                  itemType: "container",
+                  id: `directory:${directoryWithoutArt.id}`,
+                  title: directoryWithoutArt.name,
+                  albumArtURI: folderIcon,
+                },
+                {
+                  itemType: "container",
+                  id: `directory:${anotherDirectory.id}`,
+                  title: anotherDirectory.name,
+                  albumArtURI: coverArtURI(bonobUrl, apiToken, anotherDirectory),
+                },
+              ];
+
+              describe("asking for folders", () => {
+                describe("when there is a single music folder", () => {
+                  beforeEach(() => {
+                    musicLibrary.musicFolders.mockResolvedValue([{ id: "0", name: "music" }]);
+                    musicLibrary.directories.mockResolvedValue(directories);
+                  });
+
+                  it("should return its directories", async () => {
+                    const result = await ws.getMetadataAsync({
+                      id: "folders",
+                      index: 0,
+                      count: 100,
+                    });
+
+                    expect(result[0]).toEqual(
+                      getMetadataResult({
+                        mediaCollection: expectedDirectories,
+                        index: 0,
+                        total: directories.length,
+                      })
+                    );
+                    expect(musicLibrary.directories).toHaveBeenCalledWith("0");
+                  });
+                });
+
+                describe("when there are many music folders", () => {
+                  beforeEach(() => {
+                    musicLibrary.musicFolders.mockResolvedValue([
+                      { id: "0", name: "music" },
+                      { id: "1", name: "audiobooks" },
+                      { id: "2", name: "podcasts" },
+                    ]);
+                  });
+
+                  it("should return a page of them", async () => {
+                    const result = await ws.getMetadataAsync({
+                      id: "folders",
+                      index: 1,
+                      count: 2,
+                    });
+
+                    expect(result[0]).toEqual(
+                      getMetadataResult({
+                        mediaCollection: [
+                          {
+                            itemType: "container",
+                            id: "musicFolder:1",
+                            title: "audiobooks",
+                            albumArtURI: folderIcon,
+                          },
+                          {
+                            itemType: "container",
+                            id: "musicFolder:2",
+                            title: "podcasts",
+                            albumArtURI: folderIcon,
+                          },
+                        ],
+                        index: 1,
+                        total: 3,
+                      })
+                    );
+                    expect(musicLibrary.directories).not.toHaveBeenCalled();
+                  });
+                });
+              });
+
+              describe("asking for a music folder", () => {
+                beforeEach(() => {
+                  musicLibrary.directories.mockResolvedValue(directories);
+                });
+
+                it("should return a page of its directories", async () => {
+                  const result = await ws.getMetadataAsync({
+                    id: "musicFolder:1",
+                    index: 1,
+                    count: 2,
+                  });
+
+                  expect(result[0]).toEqual(
+                    getMetadataResult({
+                      mediaCollection: expectedDirectories.slice(1),
+                      index: 1,
+                      total: directories.length,
+                    })
+                  );
+                  expect(musicLibrary.directories).toHaveBeenCalledWith("1");
+                });
+              });
+
+              describe("asking for a directory", () => {
+                const track1 = aTrack();
+                const track2 = aTrack();
+                const track3 = aTrack();
+                const tracks = [track1, track2, track3];
+
+                beforeEach(() => {
+                  musicLibrary.directory.mockResolvedValue({ directories, tracks });
+                });
+
+                describe("asking for all of it", () => {
+                  it("should return its sub-directories followed by its tracks", async () => {
+                    const result = await ws.getMetadataAsync({
+                      id: "directory:al-2",
+                      index: 0,
+                      count: 100,
+                    });
+
+                    expect(result[0]).toEqual(
+                      getMetadataResult({
+                        mediaCollection: expectedDirectories,
+                        mediaMetadata: tracks.map((it) => track(bonobUrl, apiToken, it)),
+                        index: 0,
+                        total: 6,
+                      })
+                    );
+                    expect(musicLibrary.directory).toHaveBeenCalledWith("al-2");
+                  });
+                });
+
+                describe("asking for a page spanning sub-directories and tracks", () => {
+                  it("should return only that page", async () => {
+                    const result = await ws.getMetadataAsync({
+                      id: "directory:al-2",
+                      index: 1,
+                      count: 4,
+                    });
+
+                    expect(result[0]).toEqual(
+                      getMetadataResult({
+                        mediaCollection: expectedDirectories.slice(1),
+                        mediaMetadata: [track1, track2].map((it) =>
+                          track(bonobUrl, apiToken, it)
+                        ),
+                        index: 1,
+                        total: 6,
+                      })
+                    );
+                  });
                 });
               });
             });

@@ -23,7 +23,9 @@ import {
   slice2,
   Sortable,
   Track,
-  PlaylistSummary
+  PlaylistSummary,
+  MusicFolder,
+  DirectorySummary,
 } from "./music_library";
 import { APITokens } from "./api_tokens";
 import { Clock } from "./clock";
@@ -336,6 +338,22 @@ const playlist = (bonobUrl: BonobUrl, authToken: string, playlist: PlaylistSumma
   },
 });
 
+const musicFolder = (bonobUrl: BonobUrl, musicFolder: MusicFolder) => ({
+  id: `musicFolder:${musicFolder.id}`,
+  itemType: "container",
+  title: musicFolder.name,
+  albumArtURI: iconArtURI(bonobUrl, "folder"),
+});
+
+const directory = (bonobUrl: BonobUrl, authToken: string, directory: DirectorySummary) => ({
+  id: `directory:${directory.id}`,
+  itemType: "container",
+  title: directory.name,
+  albumArtURI: directory.coverArt
+    ? coverArtURI(bonobUrl, authToken, directory)
+    : iconArtURI(bonobUrl, "folder"),
+});
+
 export const coverArtURI = (
   bonobUrl: BonobUrl,
   authToken: string,
@@ -499,7 +517,8 @@ function bindSmapiSoapServiceToExpress(
   apiKeys: APITokens,
   clock: Clock,
   i8n: I8N,
-  smapiAuthTokens: SmapiAuthTokens
+  smapiAuthTokens: SmapiAuthTokens,
+  browseByFolder: boolean
 ) {
   const sonosSoap = new SonosSoap(bonobUrl, linkCodes, smapiAuthTokens, clock);
 
@@ -831,6 +850,18 @@ function bindSmapiSoapServiceToExpress(
                     });
                   });
 
+                const musicFolderDirectories = (musicFolderId: string): Promise<GetMetadataResponse> =>
+                  musicLibrary
+                    .directories(musicFolderId)
+                    .then(slice2(paging))
+                    .then(([page, total]) =>
+                      getMetadataResult({
+                        mediaCollection: page.map((it) => directory(bonobUrl, apiKey, it)),
+                        index: paging._index,
+                        total,
+                      })
+                    );
+
                 switch (type) {
                   case "root":
                     return getMetadataResult({
@@ -888,6 +919,16 @@ function bindSmapiSoapServiceToExpress(
                           title: lang("years"),
                           albumArtURI: iconArtURI(bonobUrl, "music"),
                         },
+                        ...(browseByFolder
+                          ? [
+                              {
+                                id: "folders",
+                                itemType: "container",
+                                title: lang("folders"),
+                                albumArtURI: iconArtURI(bonobUrl, "folder"),
+                              },
+                            ]
+                          : []),
                         {
                           id: "recentlyAdded",
                           itemType: "albumList",
@@ -1033,6 +1074,36 @@ function bindSmapiSoapServiceToExpress(
                       .then(([page, total]) =>
                         getMetadataResult({
                           mediaCollection: page.map((it) => genre(bonobUrl, it)),
+                          index: paging._index,
+                          total,
+                        })
+                      );
+                  case "folders":
+                    return musicLibrary.musicFolders().then((musicFolders) => {
+                      // nothing to choose from with a single music folder, so skip to its directories
+                      if (musicFolders.length == 1) return musicFolderDirectories(musicFolders[0]!.id);
+                      const [page, total] = slice2<MusicFolder>(paging)(musicFolders);
+                      return getMetadataResult({
+                        mediaCollection: page.map((it) => musicFolder(bonobUrl, it)),
+                        index: paging._index,
+                        total,
+                      });
+                    });
+                  case "musicFolder":
+                    return musicFolderDirectories(typeId);
+                  case "directory":
+                    return musicLibrary
+                      .directory(typeId)
+                      // sub-directories first, as the response lists all mediaCollection before mediaMetadata
+                      .then(({ directories, tracks }) => [
+                        ...directories.map((it) => directory(bonobUrl, apiKey, it)),
+                        ...tracks.map((it) => track(bonobUrl, apiKey, it)),
+                      ])
+                      .then(slice2(paging))
+                      .then(([page, total]) =>
+                        getMetadataResult({
+                          mediaCollection: page.filter((it) => it.itemType != "track"),
+                          mediaMetadata: page.filter((it) => it.itemType == "track"),
                           index: paging._index,
                           total,
                         })

@@ -465,4 +465,17 @@ describe("config", () => {
       (config) => config.reportNowPlaying
     );
   });
+
+  describe("browsing", () => {
+    beforeEach(() => {
+      process.env["BNB_SECRET"] = VALID_BNB_SECRET;
+    });
+
+    describeBooleanConfigValue(
+      "browseByFolder",
+      "BNB_BROWSE_BY_FOLDER",
+      false,
+      (config) => config.browseByFolder
+    );
+  });
 });

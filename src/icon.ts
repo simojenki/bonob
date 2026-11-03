@@ -174,6 +174,7 @@ export const HOLI_COLORS = [
 export type ICON =
   | "artists"
   | "albums"
+  | "folder"
   | "radio"
   | "playlists"
   | "genres"
@@ -270,6 +271,7 @@ const iconFrom = (name: string) => svgFrom(name).with({ features: { viewPortIncr
 export const ICONS: Record<ICON, SvgIcon> = {
   artists: iconFrom("navidrome-artists.svg"),
   albums: iconFrom("navidrome-all.svg"),
+  folder: iconFrom("material-folder.svg"),
   radio: iconFrom("navidrome-radio.svg"),
   blank: svgFrom("blank.svg"),
   playlists: iconFrom("navidrome-playlists.svg"),
