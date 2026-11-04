@@ -7,7 +7,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
-        libvips-dev \
         python3 \
         make \
         git \
@@ -48,7 +47,6 @@ WORKDIR /bonob
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
-        libvips \
         tzdata \
         wget && \
     apt-get clean && \
