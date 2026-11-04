@@ -2,6 +2,7 @@
 
 [![Docker Hub](https://img.shields.io/docker/v/simojenki/bonob?label=Docker%20Hub)](https://hub.docker.com/r/simojenki/bonob)
 [![Docker Pulls](https://img.shields.io/docker/pulls/simojenki/bonob?label=Docker%20Pulls)](https://hub.docker.com/r/simojenki/bonob)
+[![CI](https://github.com/simojenki/bonob/actions/workflows/ci.yml/badge.svg)](https://github.com/simojenki/bonob/actions/workflows/ci.yml)
 
 A Sonos SMAPI implementation to allow registering sources of music with Sonos.  
 
