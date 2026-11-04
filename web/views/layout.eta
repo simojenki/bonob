@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><%= it.title || "bonob" %></title>
     <style>
 body {
@@ -14,6 +16,7 @@ div#content {
 
 h1 {
   font-size: 700%;
+  overflow-wrap: break-word;
 }
 
 label {
@@ -25,22 +28,49 @@ input {
   width: 80%;
 }
 
+input[type="text"], input[type="password"] {
+  border: 1px solid #767676;
+  border-radius: 4px;
+}
+
 input#submit {
   margin-top: 100px
 }
 
 .one-word-per-line {
-    word-spacing: 100000px; 
+  word-spacing: normal;
 }
 
-.login{
-    width: min-intrinsic;
-    width: -webkit-min-content;
-    width: -moz-min-content;
-    width: min-content;
-    display: table-caption;
-    display: -ms-grid;
-    -ms-grid-columns: min-content;
+.login {
+  width: auto;
+  display: block;
+}
+
+@media (max-width: 600px) {
+  div#content {
+    width: 90%;
+  }
+
+  h1 {
+    font-size: 300%;
+  }
+
+  h1.cause {
+    font-size: 175%;
+  }
+
+  label, input {
+    font-size: 150%;
+  }
+
+  input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  input#submit {
+    margin-top: 40px;
+  }
 }
     </style>
   </head>
