@@ -16,7 +16,6 @@ RUN apt-get update && \
         g++ \
         git \
         less \
-        libvips-dev \
         make \
         podman \
         python3 \
