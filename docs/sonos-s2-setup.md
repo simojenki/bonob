@@ -131,10 +131,27 @@ json in the Service Configuration should look like this.
     this model (max two icons, two states each).
   * Add one Content Action:
     * Resources: `Track`, Placement: `NOW_PLAYING`
-    * State `100` (unrated): Icon `HEART_UNSELECTED`, On Action Set Value `101`
-    * State `101` (loved): Icon `HEART_SELECTED`, On Action Set Value `100`
+    * State `100` (unrated): Name `feedback-positive-unselected`, Icon
+      `HEART_UNSELECTED`, On Action Set Value `101`
+    * State `101` (loved): Name `feedback-positive-selected`, Icon
+      `HEART_SELECTED`, On Action Set Value `100`
     * Each state's "On Action Set Value" must be the other state's number,
       not its own, or the button becomes a no-op.
+    * The **Name** must be one of the values the Sonos app accepts. Sonos's own
+      rating docs use `inactive-heart` as an example name, but the Sonos
+      Android app (checked on v90.01.9) fails to parse a service
+      configuration that contains it (`UIElementEnum does not contain element
+      with name 'inactive-heart'` in `adb logcat`), and the service does not
+      appear in the Android app even though it works in the web controller.
+      The values the app accepts for Name are
+      `feedback-positive-unselected`, `feedback-positive-selected`,
+      `feedback-negative-unselected`, `feedback-negative-selected`, `heart`,
+      `NOW_PLAYING_ACTION_LEFT`, `NOW_PLAYING_ACTION_RIGHT`,
+      `SKIP_BACK_ACTION` and `SKIP_FORWARD_ACTION`. This list comes from the
+      app's own code, not Sonos documentation, so it may change.
+    * A completed form:
+
+      ![Content Action form with both rating states](images/s2ContentActions.png)
   * Save, then separately go to Service Configuration and click
     Refresh, then Send to actually deploy the change (about 10 minutes to
     propagate), then restart the Sonos app.
