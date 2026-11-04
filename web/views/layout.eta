@@ -28,6 +28,11 @@ input {
   width: 80%;
 }
 
+input[type="text"], input[type="password"] {
+  border: 1px solid #767676;
+  border-radius: 4px;
+}
+
 input#submit {
   margin-top: 100px
 }
