@@ -1835,6 +1835,16 @@ describe("server", () => {
             expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: authToken });
           });
 
+          it("should accept reports on a versioned reporting endpoint", async () => {
+            const res = await request(server)
+                .post(bonobUrl.path("/report/v1/timePlayed").pathname)
+                .send({ items: [] })
+                .set('authorization', authToken);
+
+            expect(res.status).toEqual(200);
+            expect(smapiAuthTokens.verify).toHaveBeenCalledWith({ token: authToken });
+          });
+
           describe("and there are no items to report", () => {
             it("should report ok", async () => {
               const res = await request(server)
