@@ -110,6 +110,7 @@ export type ServerOpts = {
   externalImageResolver: ImageFetcher;
   loginTheme: string;
   enableS1: boolean;
+  browseByFolder: boolean;
 };
 
 const DEFAULT_TIMEOUT = "1h"
@@ -140,6 +141,7 @@ const DEFAULT_SERVER_OPTS: ServerOpts = {
   externalImageResolver: axiosImageFetcher,
   loginTheme: DEFAULT_LOGIN_THEME,
   enableS1: false,
+  browseByFolder: false,
 };
 
 function server(
@@ -669,7 +671,8 @@ function server(
     apiTokens,
     clock,
     i8n,
-    serverOpts.smapiAuthTokens
+    serverOpts.smapiAuthTokens,
+    serverOpts.browseByFolder
   );
 
   if (serverOpts.applyContextPath) {

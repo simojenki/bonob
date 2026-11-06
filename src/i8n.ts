@@ -41,6 +41,7 @@ export type KEY =
   | "noSonosDevices" 
   | "favourites"
   | "years"
+  | "folders"
   | "LOVE"
   | "LOVE_SUCCESS"
   | "UNLOVE"
@@ -90,6 +91,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "No sonos devices",
     favourites: "Favourites",
     years: "Years",
+    folders: "Folders",
     STAR: "Star",
     STAR_SUCCESS_0: "No stars",
     STAR_SUCCESS_1: "1 star",
@@ -138,6 +140,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "Ingen Sonos enheder",
     favourites: "Favoritter",
     years: "Flere år",
+    folders: "Mapper",
     STAR: "Stjerne",
     STAR_SUCCESS_0: "Ingen stjerner",
     STAR_SUCCESS_1: "1 stjerne",
@@ -186,6 +189,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "Aucun appareil Sonos",
     favourites: "Favoris",
     years: "Années",
+    folders: "Dossiers",
     STAR: "Étoile",
     STAR_SUCCESS_0: "Aucune étoile",
     STAR_SUCCESS_1: "1 étoile",
@@ -234,6 +238,7 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     noSonosDevices: "Geen Sonos-apparaten",
     favourites: "Favorieten",
     years: "Jaren",
+    folders: "Mappen",
     STAR: "Ster",
     STAR_SUCCESS_0: "Geen sterren",
     STAR_SUCCESS_1: "1 ster",

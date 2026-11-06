@@ -17,6 +17,11 @@ import {
   AuthSuccess,
   Paging,
   slice2Result,
+  MusicFolder,
+  DirectorySummary,
+  Directory,
+  DirectoryAlbum,
+  Track,
 } from "./music_library";
 import {
   Subsonic,
@@ -36,6 +41,9 @@ import {
   asTrack,
   asTrackSummary,
   OpenSubsonicSong,
+  OpenSubsonicChild,
+  OpenSubsonicDirectoryChild,
+  OpenSubsonicSongChild,
   coverArtToArt,
   maybeAsGenre,
 } from "./subsonic";
@@ -58,6 +66,16 @@ const asAlbumSummaryFromSong = (song: OpenSubsonicSong): AlbumSummary & Sortable
   coverArt: coverArtToArt(song.coverArt),
   _sortBy: song.album!,
 });
+
+const isDirectoryChild = (it: OpenSubsonicChild): it is OpenSubsonicDirectoryChild => it.isDir;
+
+const isSongChild = (it: OpenSubsonicChild): it is OpenSubsonicSongChild =>
+  !it.isDir && !it.isVideo;
+
+const asDirectoryAlbum = (children: readonly OpenSubsonicChild[]): DirectoryAlbum | undefined => {
+  const song = children.find(isSongChild);
+  return song && { artist: song.artist || undefined };
+};
 
 import logger from "./logger";
 import { assertSource, Art } from "./art";
@@ -570,4 +588,78 @@ export class SubsonicMusicLibrary implements MusicLibrary {
       }))
       .reverse()
   );
+
+  readonly musicFolders = async (): Promise<readonly MusicFolder[]> =>
+    this.subsonic
+      .getMusicFolders(this.credentials)
+      .then((folders) =>
+        folders.map((it) => ({ id: `${it.id}`, name: it.name || `${it.id}` }))
+      );
+
+  // Ignore files in the music folder root (indexes.child)
+  // Gonic and Navidrome never return any
+  readonly directories = async (musicFolderId: string): Promise<readonly DirectorySummary[]> =>
+    this.subsonic
+      .getIndexes(this.credentials, musicFolderId)
+      .then((indexes) =>
+        (indexes.index || [])
+          .flatMap((it) => it.artist || [])
+          .map((it) => ({
+            id: it.id,
+            name: it.name,
+            coverArt: coverArtToArt(it.coverArt),
+          }))
+      );
+
+  readonly directory = async (id: string): Promise<Directory> =>
+    Promise.all([
+      this.subsonic.getMusicDirectory(this.credentials, id),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([directory, starred]) => {
+      const children = directory.child || [];
+      const ids = starredSongIds(starred);
+      return {
+        name: directory.name,
+        album: asDirectoryAlbum(children),
+        directories: children.filter(isDirectoryChild).map((it) => ({
+          id: it.id,
+          name: it.title,
+          coverArt: coverArtToArt(it.coverArt),
+        })),
+        tracks: children
+          .filter(isSongChild)
+          .map((it) => asTrack(asAlbumSummaryFromSong(it), it, this.customPlayers, ids)),
+      };
+    });
+
+  readonly directoryAlbum = async (id: string): Promise<DirectoryAlbum | undefined> =>
+    this.subsonic
+      .getMusicDirectory(this.credentials, id)
+      .then((it) => asDirectoryAlbum(it.child || []));
+
+  // Stops fetching sub-directories once the limit is reached
+  private readonly songsUnder = async (
+    id: string,
+    limit: number
+  ): Promise<readonly OpenSubsonicSongChild[]> => {
+    const children = await this.subsonic
+      .getMusicDirectory(this.credentials, id)
+      .then((it) => it.child || []);
+    return children
+      .filter(isDirectoryChild)
+      .reduce<Promise<readonly OpenSubsonicSongChild[]>>(async (previous, subDirectory) => {
+        const songs = await previous;
+        if (songs.length >= limit) return songs;
+        return [...songs, ...(await this.songsUnder(subDirectory.id, limit - songs.length))];
+      }, Promise.resolve(children.filter(isSongChild).slice(0, limit)));
+  };
+
+  readonly directoryTracks = async (id: string, limit: number): Promise<readonly Track[]> =>
+    Promise.all([
+      this.songsUnder(id, limit),
+      this.subsonic.getStarred(this.credentials),
+    ]).then(([songs, starred]) => {
+      const ids = starredSongIds(starred);
+      return songs.map((it) => asTrack(asAlbumSummaryFromSong(it), it, this.customPlayers, ids));
+    });
 }

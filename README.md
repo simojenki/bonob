@@ -13,6 +13,7 @@ Support for Subsonic API clones (tested against Navidrome and Gonic).
 - SONOS S1 and S2 support
 - Integrates with Subsonic API clones (Navidrome, Gonic)
 - Browse by Artist, Albums, Random, Favourites, Top Rated, Playlist, Genres, Years, Recently Added Albums, Recently Played Albums, Most Played Albums
+- Browse by folder (opt-in, see `BNB_BROWSE_BY_FOLDER`)
 - Artist & Album Art
 - View Related Artists via Artist -> '...' -> Menu -> Related Arists
 - Now playing & Track Scrobbling
@@ -75,6 +76,7 @@ BNB_SUBSONIC_CUSTOM_CLIENTS | undefined | This probably should not be used any m
 BNB_SUBSONIC_ARTIST_IMAGE_CACHE | undefined | Path for caching of artist images that are sourced externally. ie. Navidrome provides spotify URLs. Remember to provide a volume-mapping for Docker, when enabling this cache.
 BNB_SCROBBLE_TRACKS | true | Whether to scrobble the playing of a track if it has been played for >30s
 BNB_REPORT_NOW_PLAYING | true | Whether to report a track as now playing
+BNB_BROWSE_BY_FOLDER | false | Adds a 'Folders' menu for browsing your music by its folder structure. Requires a Subsonic server that exposes the actual folder tree (such as Gonic). Navidrome only returns a simulated Artist/Album tree, which duplicates the 'Artists' menu. Folders holding tracks themselves show up as albums and can be played, which queues their tracks and then those of their sub-folders, up to 500 tracks. Folders holding only sub-folders can be browsed but not played.
 BNB_ICON_FOREGROUND_COLOR | undefined | Icon foreground color in Sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
 BNB_ICON_BACKGROUND_COLOR | undefined | Icon background color in Sonos app, must be a valid [svg color](https://www.december.com/html/spec/colorsvg.html)
 BNB_LOGIN_THEME | classic | Theme for login page. Options are: <p><p>'classic' for the original timeless bonob login page.<p>'navidrome-ish' for a simplified navidrome login page.<p>'[@wkulhanek](https://github.com/wkulhanek)' for more 'modernized login page'. 

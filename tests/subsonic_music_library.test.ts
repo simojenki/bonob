@@ -43,6 +43,7 @@ import {
   PlaylistSummary,
   Playlist,
   SimilarArtist,
+  DirectorySummary,
   AuthFailure,
   RadioStation,
   AlbumSummary,
@@ -62,6 +63,7 @@ import {
   aRadioStation,
   anAlbumSummary,
   anArtistSummary,
+  aDirectorySummary,
 } from "./builders";
 import { b64Encode } from "../src/b64";
 import { Art } from "../src/art";
@@ -341,6 +343,80 @@ const getPlayListJson = (playlist: Playlist) =>
       })),
     },
   });
+
+const getMusicFoldersJson = (
+  musicFolders: readonly { readonly id: number; readonly name?: string }[]
+) => subsonicOK({ musicFolders: { musicFolder: musicFolders } });
+
+const getIndexesJson = (
+  index: readonly {
+    readonly name: string;
+    readonly directories: readonly DirectorySummary[];
+  }[]
+) =>
+  subsonicOK({
+    indexes: {
+      lastModified: 0,
+      ignoredArticles: "",
+      index: index.map((it) => ({
+        name: it.name,
+        artist: it.directories.map((directory) => ({
+          id: directory.id,
+          name: directory.name,
+          coverArt: directory.coverArt?.id,
+          albumCount: 1,
+        })),
+      })),
+    },
+  });
+
+const asDirectoryChildJson = (directory: DirectorySummary, parent: string) => ({
+  id: directory.id,
+  parent,
+  isDir: true,
+  isVideo: false,
+  title: directory.name,
+  coverArt: directory.coverArt?.id,
+  mediaType: "album",
+});
+
+const asSongChildJson = (track: Track, parent: string) => ({
+  id: track.id,
+  parent,
+  isDir: false,
+  isVideo: false,
+  title: track.name,
+  album: track.album.name,
+  albumId: track.album.id,
+  artist: track.artist.name,
+  artistId: track.artist.id,
+  track: track.number,
+  year: track.album.year,
+  genre: track.album.genre?.name,
+  coverArt: track.coverArt?.id,
+  contentType: track.encoding.mimeType,
+  suffix: "mp3",
+  duration: track.duration,
+  type: "music",
+  mediaType: "song",
+  userRating: track.rating.stars,
+});
+
+const getMusicDirectoryJson = (id: string, child: readonly object[]) =>
+  subsonicOK({ directory: { id, parent: "al-1", name: `Directory ${id}`, child } });
+
+// album details of a track in a directory come from the song itself, so they must agree with the track
+const aTrackInDirectory = () => {
+  const artist = anArtistSummary();
+  const coverArt: Art = { source: "subsonic", id: uuid() };
+  const album = anAlbumSummary({
+    artistId: artist.id,
+    artistName: artist.name,
+    genre: POP,
+    coverArt,
+  });
+  return aTrack({ artist, album, genre: POP, coverArt });
+};
 
 const getSearchResult3Json = ({
   artists,
@@ -3980,6 +4056,317 @@ describe("SubsonicMusicLibrary", () => {
               headers,
             }
           );
+        });
+      });
+    });
+  });
+
+  describe("browsing by folder", () => {
+    beforeEach(() => {
+      customPlayers.encodingFor.mockReturnValue(O.none);
+    });
+
+    describe("getting music folders", () => {
+      it("should return them with string ids", async () => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(
+            ok(
+              getMusicFoldersJson([
+                { id: 0, name: "music" },
+                { id: 1, name: "audiobooks" },
+              ])
+            )
+          )
+        );
+
+        const result = await subsonic.musicFolders();
+
+        expect(result).toEqual([
+          { id: "0", name: "music" },
+          { id: "1", name: "audiobooks" },
+        ]);
+      });
+
+      describe("when a music folder has no name", () => {
+        it("should use its id as the name", async () => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(getMusicFoldersJson([{ id: 3 }])))
+          );
+
+          const result = await subsonic.musicFolders();
+
+          expect(result).toEqual([{ id: "3", name: "3" }]);
+        });
+      });
+    });
+
+    describe("getting the directories of a music folder", () => {
+      describe("when there are some", () => {
+        it("should return the directories of all indexes", async () => {
+          const abba = aDirectorySummary({ name: "ABBA" });
+          const acdc = aDirectorySummary({ name: "AC-DC", coverArt: undefined });
+          const beatles = aDirectorySummary({ name: "Beatles" });
+
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getIndexesJson([
+                  { name: "a", directories: [abba, acdc] },
+                  { name: "b", directories: [beatles] },
+                ])
+              )
+            )
+          );
+
+          const result = await subsonic.directories("0");
+
+          expect(result).toEqual([abba, acdc, beatles]);
+          expect(mockGET).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/getIndexes" }).href(),
+            {
+              params: asURLSearchParams({
+                ...authParamsPlusJson,
+                musicFolderId: "0",
+              }),
+              headers,
+            }
+          );
+        });
+      });
+
+      describe("when there are none", () => {
+        it("should return []", async () => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(ok(subsonicOK({ indexes: { lastModified: 0 } })))
+          );
+
+          const result = await subsonic.directories("0");
+
+          expect(result).toEqual([]);
+        });
+      });
+    });
+
+    describe("getting a directory", () => {
+      const id = "al-2";
+
+      describe("when it has sub-directories and tracks", () => {
+        it("should return them, loving the starred tracks", async () => {
+          const subDirectory1 = aDirectorySummary();
+          const subDirectory2 = aDirectorySummary({ coverArt: undefined });
+          const track1 = aTrackInDirectory();
+          const track2 = aTrackInDirectory();
+
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(
+                ok(
+                  getMusicDirectoryJson(id, [
+                    asDirectoryChildJson(subDirectory1, id),
+                    asDirectoryChildJson(subDirectory2, id),
+                    asSongChildJson(track1, id),
+                    asSongChildJson(track2, id),
+                  ])
+                )
+              )
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getStarred2Json([track2])))
+            );
+
+          const result = await subsonic.directory(id);
+
+          expect(result).toEqual({
+            name: `Directory ${id}`,
+            album: { artist: track1.artist.name },
+            directories: [subDirectory1, subDirectory2],
+            tracks: [
+              track1,
+              { ...track2, rating: { ...track2.rating, love: true } },
+            ],
+          });
+          expect(mockGET).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/getMusicDirectory" }).href(),
+            {
+              params: asURLSearchParams({ ...authParamsPlusJson, id }),
+              headers,
+            }
+          );
+        });
+      });
+
+      describe("when it has videos", () => {
+        it("should skip them", async () => {
+          const track = aTrackInDirectory();
+          const video = aTrackInDirectory();
+
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(
+                ok(
+                  getMusicDirectoryJson(id, [
+                    asSongChildJson(track, id),
+                    { ...asSongChildJson(video, id), isVideo: true },
+                  ])
+                )
+              )
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getStarred2Json([])))
+            );
+
+          const result = await subsonic.directory(id);
+
+          expect(result.tracks).toEqual([track]);
+        });
+      });
+
+      describe("when it is empty", () => {
+        it("should return no directories or tracks", async () => {
+          mockGET
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(subsonicOK({ directory: { id, name: "Empty" } })))
+            )
+            .mockImplementationOnce(() =>
+              Promise.resolve(ok(getStarred2Json([])))
+            );
+
+          const result = await subsonic.directory(id);
+
+          expect(result).toEqual({
+            name: "Empty",
+            album: undefined,
+            directories: [],
+            tracks: [],
+          });
+        });
+      });
+    });
+
+    describe("getting the album formed by a directory's own tracks", () => {
+      const id = "al-6";
+
+      describe("when the directory holds tracks", () => {
+        it("should take the artist of its first track", async () => {
+          const track1 = aTrackInDirectory();
+          const track2 = aTrackInDirectory();
+
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getMusicDirectoryJson(id, [
+                  asDirectoryChildJson(aDirectorySummary(), id),
+                  asSongChildJson(track1, id),
+                  asSongChildJson(track2, id),
+                ])
+              )
+            )
+          );
+
+          const result = await subsonic.directoryAlbum(id);
+
+          expect(result).toEqual({ artist: track1.artist.name });
+          expect(mockGET).toHaveBeenCalledWith(
+            url.append({ pathname: "/rest/getMusicDirectory" }).href(),
+            {
+              params: asURLSearchParams({ ...authParamsPlusJson, id }),
+              headers,
+            }
+          );
+        });
+      });
+
+      describe("when its first track has no artist", () => {
+        it("should have no artist", async () => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(
+                getMusicDirectoryJson(id, [
+                  { ...asSongChildJson(aTrackInDirectory(), id), artist: "" },
+                ])
+              )
+            )
+          );
+
+          const result = await subsonic.directoryAlbum(id);
+
+          expect(result).toEqual({ artist: undefined });
+        });
+      });
+
+      describe("when the directory holds only sub-directories", () => {
+        it("should be undefined", async () => {
+          mockGET.mockImplementationOnce(() =>
+            Promise.resolve(
+              ok(getMusicDirectoryJson(id, [asDirectoryChildJson(aDirectorySummary(), id)]))
+            )
+          );
+
+          const result = await subsonic.directoryAlbum(id);
+
+          expect(result).toBeUndefined();
+        });
+      });
+    });
+
+    describe("getting the tracks of a directory and its sub-directories", () => {
+      const track1 = aTrackInDirectory();
+      const track2 = aTrackInDirectory();
+      const track3 = aTrackInDirectory();
+      const track4 = aTrackInDirectory();
+      const track5 = aTrackInDirectory();
+
+      const subDirectory = (id: string, parent: string) =>
+        asDirectoryChildJson(aDirectorySummary({ id }), parent);
+
+      const children: Record<string, readonly object[]> = {
+        "al-1": [
+          subDirectory("al-2", "al-1"),
+          subDirectory("al-5", "al-1"),
+          asSongChildJson(track1, "al-1"),
+        ],
+        "al-2": [subDirectory("al-3", "al-2"), asSongChildJson(track2, "al-2")],
+        "al-3": [asSongChildJson(track3, "al-3"), asSongChildJson(track4, "al-3")],
+        "al-5": [asSongChildJson(track5, "al-5")],
+      };
+
+      const requestsTo = (path: string) =>
+        mockGET.mock.calls.filter(([url]) => url.endsWith(path));
+
+      const fetchedDirectories = () =>
+        requestsTo("/rest/getMusicDirectory").map(([, { params }]) => params.get("id"));
+
+      beforeEach(() => {
+        mockGET.mockImplementation(
+          (url: string, { params }: { readonly params: URLSearchParams }) => {
+            if (url.endsWith("/rest/getStarred2"))
+              return Promise.resolve(ok(getStarred2Json([track3])));
+            const id = params.get("id")!;
+            return Promise.resolve(ok(getMusicDirectoryJson(id, children[id]!)));
+          }
+        );
+      });
+
+      it("should return the directory's tracks followed by those of its sub-directories, depth first", async () => {
+        const result = await subsonic.directoryTracks("al-1", 100);
+
+        expect(result).toEqual([
+          track1,
+          track2,
+          { ...track3, rating: { ...track3.rating, love: true } },
+          track4,
+          track5,
+        ]);
+        expect(fetchedDirectories()).toEqual(["al-1", "al-2", "al-3", "al-5"]);
+        expect(requestsTo("/rest/getStarred2")).toHaveLength(1);
+      });
+
+      describe("when the limit is reached", () => {
+        it("should stop there, without fetching further sub-directories", async () => {
+          const result = await subsonic.directoryTracks("al-1", 3);
+
+          expect(result.map((it) => it.id)).toEqual([track1.id, track2.id, track3.id]);
+          expect(fetchedDirectories()).toEqual(["al-1", "al-2", "al-3"]);
         });
       });
     });

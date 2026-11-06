@@ -210,6 +210,30 @@ export type Playlist = PlaylistSummary & {
   readonly entries: readonly Track[]
 }
 
+export type MusicFolder = {
+  readonly id: string;
+  readonly name: string;
+};
+
+export type DirectorySummary = {
+  readonly id: string;
+  readonly name: string;
+  readonly coverArt: Art | undefined;
+};
+
+// The album formed by the tracks directly in a directory
+export type DirectoryAlbum = {
+  readonly artist: string | undefined;
+};
+
+export type Directory = {
+  readonly name: string;
+  // Undefined when the directory holds no tracks itself
+  readonly album: DirectoryAlbum | undefined;
+  readonly directories: readonly DirectorySummary[];
+  readonly tracks: readonly Track[];
+};
+
 export const range = (size: number) => [...Array(size).keys()];
 
 // eslint-disable-next-line functional/prefer-readonly-type
@@ -233,6 +257,13 @@ export interface MusicLibrary {
   track(trackId: string): Promise<Track>;
   genres(): Promise<readonly Genre[]>;
   years(): Promise<readonly Year[]>;
+  musicFolders(): Promise<readonly MusicFolder[]>;
+  directories(musicFolderId: string): Promise<readonly DirectorySummary[]>;
+  directory(id: string): Promise<Directory>;
+  // Undefined when the directory holds no tracks itself
+  directoryAlbum(id: string): Promise<DirectoryAlbum | undefined>;
+  // The directory's tracks followed by those of its sub-directories
+  directoryTracks(id: string, limit: number): Promise<readonly Track[]>;
   stream({
     trackId,
     range,

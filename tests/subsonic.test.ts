@@ -1437,6 +1437,116 @@ describe("Subsonic", () => {
     });
   });
 
+  describe("getMusicFolders", () => {
+    describe("when there are music folders", () => {
+      const musicFolders = [
+        { id: 0, name: "music" },
+        { id: 1, name: "audiobooks" },
+      ];
+
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(subsonicOK({ musicFolders: { musicFolder: musicFolders } })))
+        );
+      });
+
+      it("should return them and call subsonic with correct params", async () => {
+        const result = await subsonic.getMusicFolders(credentials);
+
+        expect(result).toEqual(musicFolders);
+        expect(axios.get).toHaveBeenCalledWith(
+          url.append({ pathname: "/rest/getMusicFolders" }).href(),
+          { params: asURLSearchParams(authParamsPlusJson), headers }
+        );
+      });
+    });
+
+    describe("when there are no music folders", () => {
+      beforeEach(() => {
+        mockGET.mockImplementationOnce(() =>
+          Promise.resolve(ok(subsonicOK({ musicFolders: {} })))
+        );
+      });
+
+      it("should return an empty array", async () => {
+        const result = await subsonic.getMusicFolders(credentials);
+
+        expect(result).toEqual([]);
+      });
+    });
+  });
+
+  describe("getIndexes", () => {
+    const indexes = {
+      ignoredArticles: "The El La Los Las Le Les",
+      index: [
+        { name: "A", artist: [{ id: "al-1", name: "ABBA" }] },
+        { name: "B", artist: [{ id: "al-2", name: "Beatles", coverArt: "al-2" }] },
+      ],
+    };
+
+    beforeEach(() => {
+      mockGET.mockImplementationOnce(() =>
+        Promise.resolve(ok(subsonicOK({ indexes })))
+      );
+    });
+
+    it("should return the raw indexes payload for the music folder", async () => {
+      const result = await subsonic.getIndexes(credentials, "0");
+
+      expect(result).toEqual(indexes);
+      expect(axios.get).toHaveBeenCalledWith(
+        url.append({ pathname: "/rest/getIndexes" }).href(),
+        {
+          params: asURLSearchParams({ ...authParamsPlusJson, musicFolderId: "0" }),
+          headers,
+        }
+      );
+    });
+  });
+
+  describe("getMusicDirectory", () => {
+    const directory = {
+      id: "al-2",
+      parent: "al-1",
+      name: "Arrival",
+      child: [
+        { id: "al-3", parent: "al-2", isDir: true, title: "Bonus", coverArt: "al-3" },
+        {
+          id: "tr-4",
+          parent: "al-2",
+          isDir: false,
+          title: "Dancing Queen",
+          album: "Arrival",
+          artist: "ABBA",
+          track: 2,
+          duration: 230,
+          suffix: "mp3",
+          contentType: "audio/mpeg",
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      mockGET.mockImplementationOnce(() =>
+        Promise.resolve(ok(subsonicOK({ directory })))
+      );
+    });
+
+    it("should return the raw directory payload", async () => {
+      const result = await subsonic.getMusicDirectory(credentials, "al-2");
+
+      expect(result).toEqual(directory);
+      expect(axios.get).toHaveBeenCalledWith(
+        url.append({ pathname: "/rest/getMusicDirectory" }).href(),
+        {
+          params: asURLSearchParams({ ...authParamsPlusJson, id: "al-2" }),
+          headers,
+        }
+      );
+    });
+  });
+
   describe("stars and unstars", () => {
     const id = uuid();
 

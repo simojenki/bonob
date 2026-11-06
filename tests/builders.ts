@@ -18,6 +18,7 @@ import {
   ArtistSummary,
   TrackSummary,
   Sortable,
+  DirectorySummary,
 } from "../src/music_library";
 
 import { b64Encode } from "../src/b64";
@@ -75,6 +76,18 @@ export function aPlaylist(fields: Partial<Playlist> = {}): Playlist {
     id: `playlist-${uuid()}`,
     name: `playlist-${randomstring.generate()}`,
     entries: [aTrack(), aTrack()],
+    ...fields,
+  };
+}
+
+export function aDirectorySummary(
+  fields: Partial<DirectorySummary> = {}
+): DirectorySummary {
+  const id = uuid();
+  return {
+    id,
+    name: `Directory ${id}`,
+    coverArt: { source: "subsonic", id: `${uuid()}` },
     ...fields,
   };
 }
