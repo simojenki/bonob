@@ -2,6 +2,7 @@ import * as xpath from "xpath";
 import { DOMParser, Node } from '@xmldom/xmldom';
 import _ from "underscore";
 import fs from "fs";
+import { createHash } from "crypto";
 
 import {
   Clock,
@@ -57,6 +58,14 @@ export const NO_FEATURES: IconFeatures = {
   foregroundColor: undefined,
   text: undefined
 }
+
+export const iconRevision = (
+  colors: Readonly<Pick<IconFeatures, "foregroundColor" | "backgroundColor">>
+): string =>
+  createHash("sha256")
+    .update(JSON.stringify([colors.foregroundColor ?? null, colors.backgroundColor ?? null]))
+    .digest("hex")
+    .slice(0, 12);
 
 export type IconSpec = {
   readonly svg: string | undefined;

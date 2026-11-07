@@ -15,7 +15,7 @@ export class BonobUrl {
   private readonly base: string;
   private readonly _href: string;
 
-  constructor(value: Readonly<string | URL>) {
+  constructor(value: Readonly<string | URL>, private readonly iconRevision?: string) {
     const url = typeof value === "string" ? new URL(value) : value;
     const full = url.origin + url.pathname;
     this.base = stripTrailingSlash(full);
@@ -23,6 +23,11 @@ export class BonobUrl {
   }
 
   public readonly path = (pathname: string) => new URL(this.base + pathname);
+  public readonly withIconRevision = (revision: string) => new BonobUrl(this._href, revision);
+  public readonly iconPath = (name: string) => {
+    if (this.iconRevision == undefined) return this.path(`/icon/${name}/size/legacy`);
+    return this.path(`/icon/${name}/v/${this.iconRevision}/size/legacy`);
+  };
   public readonly asURLBuilder = () => new URLBuilder(this.base);
   public readonly href = () => this._href;
   public readonly pathname = () => new URL(this._href).pathname;

@@ -32,7 +32,7 @@ import { Clock, SystemClock } from "./clock";
 import { pipe } from "fp-ts/lib/function";
 import { BonobUrl } from "./url_builder";
 import makeI8N, { asLANGs, KEY, keys as i8nKeys, LANG } from "./i8n";
-import { Icon, ICONS, festivals, features, no_festivals } from "./icon";
+import { Icon, ICONS, festivals, features, iconRevision, no_festivals } from "./icon";
 import { DEFAULT_LOGIN_THEME } from './config';
 import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
 import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
@@ -532,7 +532,10 @@ function server(
     }
   });
 
-  app.get("/icon/:type_text/size/:size", (req, res) => {
+  app.get([
+    "/icon/:type_text/size/:size",
+    "/icon/:type_text/v/:revision/size/:size",
+  ], (req, res) => {
     const apply_festivals = req.query["nofest"] == null
     const match = (req.params["type_text"] || "").match("^([A-Za-z0-9]+)(?::([A-Za-z0-9]+))?$")
     if (!match)
@@ -665,7 +668,7 @@ function server(
   bindSmapiSoapServiceToExpress(
     app,
     SOAP_PATH,
-    bonobUrl,
+    bonobUrl.withIconRevision(iconRevision(serverOpts.iconColors)),
     linkCodes,
     musicService,
     apiTokens,
