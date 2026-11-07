@@ -44,9 +44,11 @@ WORKDIR /bonob
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get -y install --no-install-recommends \
-        libatomic1 \
         tzdata \
         wget && \
+    if [ "$(dpkg --print-architecture)" = armhf ]; then \
+        apt-get -y install --no-install-recommends libatomic1; \
+    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
