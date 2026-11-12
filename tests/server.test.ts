@@ -26,6 +26,8 @@ import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
 import { Clock, SystemClock } from "../src/clock";
 import { formatForURL } from "../src/burn";
 import { ExpiredTokenError, JwtTokenString, SmapiAuthTokens, SmapiKeyString, SmapiToken, ServiceTokenString } from "../src/smapi_auth";
+import { SubsonicStreamError } from "../src/subsonic";
+import logger from "../src/logger";
 
 describe("rangeFilterFor", () => {
   describe("invalid range header string", () => {
@@ -947,7 +949,78 @@ describe("server", () => {
                 expect(stream.stream.destroyed).toBe(true);
               });
             });
-  
+
+            describe("when play answers a storage failure instead of audio (#1550)", () => {
+              const username = `user-${uuid()}`;
+              const helpUrl = "https://play.asti.ga/settings/edit-storage/OneDrive";
+
+              const failures: [string, ConstructorParameters<typeof SubsonicStreamError>[0], number][] = [
+                ["a missing file (Subsonic code 70)", { status: 200, code: 70, message: "File not found in storage 'OneDrive': /Music/track.mp3. Resync your library in the Astiga web app.", username, durationMs: 6012 }, 404],
+                ["a play 404", { status: 404, message: "File not found: /Music/track.mp3", username, durationMs: 210 }, 404],
+                ["a storage to reconnect (Subsonic code 0 with helpUrl)", { status: 206, code: 0, message: `Storage 'OneDrive' needs to be reconnected to Astiga. Click "Update token" in the Astiga web app under Storage accounts: ${helpUrl}`, helpUrl, username, durationMs: 840 }, 502],
+                ["a play 502", { status: 502, message: "Upstream error", username, durationMs: 12731 }, 502],
+              ];
+
+              failures.forEach(([description, failure, expectedStatus]) => {
+                describe(description, () => {
+                  it(`should answer Sonos ${expectedStatus} with no body and log play's reason`, async () => {
+                    const warn = jest.spyOn(logger, "warn").mockImplementation(() => logger);
+                    musicService.login.mockResolvedValue(musicLibrary);
+                    musicLibrary.stream.mockRejectedValue(new SubsonicStreamError(failure));
+
+                    const res = await request(server)
+                      .get(
+                        bonobUrl
+                          .append({ pathname: `/stream/track/${trackId}` })
+                          .path()
+                      )
+                      .set('bnbt', smapiAuthToken.token)
+                      .set('bnbk', smapiAuthToken.key)
+                      .set("Range", "bytes=0-");
+
+                    const logged = JSON.stringify(warn.mock.calls);
+                    // winston lets a metadata `message` replace the line's own text (#1550 R6)
+                    const metadata = warn.mock.calls.map((call: any[]) => call[1] ?? {});
+                    warn.mockRestore();
+
+                    metadata.forEach((it: any) => expect(it).not.toHaveProperty("message"));
+
+                    expect(res.status).toEqual(expectedStatus);
+                    expect(res.text).toEqual("");
+                    expect(musicLibrary.nowPlaying).not.toHaveBeenCalled();
+
+                    [
+                      trackId,
+                      username,
+                      JSON.stringify(failure.message).slice(1, -1),
+                      `${failure.status}`,
+                      `${failure.durationMs}`,
+                      ...(failure.code === undefined ? [] : [`${failure.code}`]),
+                      ...(failure.helpUrl === undefined ? [] : [failure.helpUrl]),
+                    ].forEach((expected) => expect(logged).toContain(expected));
+                  });
+                });
+              });
+
+              describe("a failure that is not play's answer, such as getTrack failing", () => {
+                it("should still answer Sonos 500", async () => {
+                  musicService.login.mockResolvedValue(musicLibrary);
+                  musicLibrary.stream.mockRejectedValue("Subsonic failed with: IO error occured");
+
+                  const res = await request(server)
+                    .get(
+                      bonobUrl
+                        .append({ pathname: `/stream/track/${trackId}` })
+                        .path()
+                    )
+                    .set('bnbt', smapiAuthToken.token)
+                    .set('bnbk', smapiAuthToken.key);
+
+                  expect(res.status).toEqual(500);
+                });
+              });
+            });
+
             describe("when sonos does not ask for a range", () => {
               describe("when the music service does not return a content-range, content-length or accept-ranges", () => {
                 it("should return a 200 with the data, without adding the undefined headers", async () => {

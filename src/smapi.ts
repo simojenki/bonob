@@ -51,8 +51,29 @@ export const CREATE_REGISTRATION_ROUTE = "/registration/add";
 export const REMOVE_REGISTRATION_ROUTE = "/registration/remove";
 export const SOAP_PATH = "/ws/sonos";
 export const STRINGS_ROUTE = "/sonos/strings.xml";
+export const I18N_ROUTE = "/sonos/i18n.json";
 export const PRESENTATION_MAP_ROUTE = "/sonos/presentationMap.xml";
 export const NO_STORAGE_ACCOUNT_SONOS_ERROR = "900";
+
+// #1550 E4b — a custom Sonos message is shown for a fault whose code has no fixed Sonos
+// message, and the fault must be answered with HTTP 500. node-soap takes the HTTP status from
+// Fault.statusCode and leaves a 200 otherwise, so every fault carrying a SonosError is built
+// here. NOT_LINKED_RETRY keeps its own code and status, since linking depends on it.
+export const customFault = (
+  sonosError: string,
+  exceptionInfo: string,
+  faultstring: string
+) => ({
+  Fault: {
+    faultcode: "Server.ServiceUnknownError",
+    faultstring,
+    statusCode: 500,
+    detail: {
+      ExceptionInfo: exceptionInfo,
+      SonosError: sonosError,
+    },
+  },
+});
 export const SONOS_RECOMMENDED_IMAGE_SIZES = [
   "60",
   "80",
@@ -1402,16 +1423,11 @@ function bindSmapiSoapServiceToExpress(
             case "musicFolders":
               return musicLibrary.musicFolders().then((accounts) => {
                 if (accounts.length === 0) {
-                  throw {
-                    Fault: {
-                      faultcode: "Client.ItemNotFound",
-                      faultstring: "No storage account connected",
-                      detail: {
-                        ExceptionInfo: "NO_STORAGE_ACCOUNT",
-                        SonosError: NO_STORAGE_ACCOUNT_SONOS_ERROR,
-                      },
-                    },
-                  };
+                  throw customFault(
+                    NO_STORAGE_ACCOUNT_SONOS_ERROR,
+                    "NO_STORAGE_ACCOUNT",
+                    "No storage account connected"
+                  );
                 }
                 if (accounts.length === 1) {
                   return folderContents(accounts[0]!.id);

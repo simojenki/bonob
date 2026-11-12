@@ -12,6 +12,7 @@ import makeServer from "../src/server";
 import { bonobService, SONOS_DISABLED, SONOS_LANG } from "../src/sonos";
 import {
   STRINGS_ROUTE,
+  I18N_ROUTE,
   getMetadataResult,
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
@@ -183,6 +184,81 @@ describe("service config", () => {
                 xml
               )
             ).toBeDefined();
+          });
+        });
+      });
+
+      // #1550 E4b — a Sonos developer portal integration reads its strings only from an uploaded
+      // i18next file, not from strings.xml, so bonob generates that file from the same source.
+      describe(I18N_ROUTE, () => {
+        const PORTAL_COMMON_EN_US = {
+          "service-summary":
+            "Stream your music collection with Astiga. Connect your music in cloud storage (Google Drive, Dropbox et al) and listen to your music in full native quality.",
+          "service-description":
+            "Stream your music collection with Astiga. Add Astiga to Sonos to listen to your own music library stored in cloud storage, such as Google Drive, Dropbox, OneDrive, pCloud and many more.\n\nAstiga streams music in full native quality. There's also an Astiga app where you can sync your music for offline listening and cast to other devices.",
+          "service-promo":
+            "Astiga allows you to stream your music collection to your Sonos from cloud storage.",
+        };
+        // Sonos limits a localized error message to 125 characters
+        const SONOS_ERROR_MESSAGE_LIMIT = 125;
+
+        async function fetchI18n() {
+          const res = await request(server)
+            .get(bonobUrl.append({ pathname: I18N_ROUTE }).path())
+            .send();
+
+          expect(res.status).toEqual(200);
+          expect(res.headers["content-type"]).toContain("application/json");
+          return res.body;
+        }
+
+        const stringsXmlFor = (xml: Document, lang: string) =>
+          Object.fromEntries(
+            (
+              xpath.select(
+                `/stringtables/stringtable[@xml:lang="${lang}"]/string`,
+                xml
+              ) as Element[]
+            ).map((it) => [it.getAttribute("stringId"), it.textContent])
+          );
+
+        it("should have a section for every sonos supported language, each with common and integration", async () => {
+          const i18n = await fetchI18n();
+
+          expect(Object.keys(i18n).sort()).toEqual([...SONOS_LANG].sort());
+          SONOS_LANG.forEach((lang) => {
+            expect(Object.keys(i18n[lang]).sort()).toEqual(["common", "integration"]);
+          });
+        });
+
+        it("should have the portal's three common strings in every language, as uploaded in E4b for en-US", async () => {
+          const i18n = await fetchI18n();
+
+          expect(i18n["en-US"].common).toEqual(PORTAL_COMMON_EN_US);
+          SONOS_LANG.forEach((lang) => {
+            expect(Object.keys(i18n[lang].common).sort()).toEqual(Object.keys(PORTAL_COMMON_EN_US).sort());
+            Object.values(i18n[lang].common).forEach((value) =>
+              expect((value as string).length).toBeGreaterThan(0)
+            );
+          });
+        });
+
+        it("should have every string from strings.xml in each language's integration section", async () => {
+          const i18n = await fetchI18n();
+          const xml = await fetchStringsXml();
+
+          SONOS_LANG.forEach((lang) => {
+            expect(i18n[lang].integration).toEqual(stringsXmlFor(xml, lang));
+          });
+        });
+
+        it("should carry Error900Message within Sonos's limit in every language", async () => {
+          const i18n = await fetchI18n();
+
+          SONOS_LANG.forEach((lang) => {
+            const message: string = i18n[lang].integration["Error900Message"];
+            expect(message.length).toBeGreaterThan(0);
+            expect(message.length).toBeLessThanOrEqual(SONOS_ERROR_MESSAGE_LIMIT);
           });
         });
       });
@@ -1498,7 +1574,10 @@ describe("wsdl api", () => {
               });
 
               describe("when there are no storage accounts", () => {
-                it("should raise an ItemNotFound fault carrying the no-account SonosError", async () => {
+                // #1550 E4b — Client.ItemNotFound carries Sonos's own "Content is unavailable", so the
+                // fault uses a code with no fixed Sonos message, for which Sonos shows Error900Message.
+                // Sonos requires HTTP 500 for every SOAP fault; node-soap sends 200 unless told.
+                it("should raise a generic fault with HTTP 500 carrying the no-account SonosError", async () => {
                   musicLibrary.musicFolders.mockResolvedValue([]);
 
                   await ws
@@ -1506,13 +1585,14 @@ describe("wsdl api", () => {
                     .then(() => fail("Shouldnt get here"))
                     .catch((e: any) => {
                       expect(e.root.Envelope.Body.Fault).toEqual({
-                        faultcode: "Client.ItemNotFound",
+                        faultcode: "Server.ServiceUnknownError",
                         faultstring: "No storage account connected",
                         detail: {
                           ExceptionInfo: "NO_STORAGE_ACCOUNT",
                           SonosError: "900",
                         },
                       });
+                      expect(e.response?.status).toEqual(500);
                     });
                 });
               });

@@ -48,7 +48,10 @@ export type KEY =
   | "STAR_SUCCESS"
   | "UNSTAR_SUCCESS"
   | "browseStorage"
-  | "Error900Message";
+  | "Error900Message"
+  | "service-summary"
+  | "service-description"
+  | "service-promo";
 
 const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
   "en-US": {
@@ -94,7 +97,10 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     LOVE: "Love",
     LOVE_SUCCESS: "Track loved",
     browseStorage: "Browse storage",
-    Error900Message: "No storage account is connected. Set one up at https://play.asti.ga/setup"
+    Error900Message: "No storage account is connected. Set one up at https://play.asti.ga/setup",
+    "service-summary": "Stream your music collection with Astiga. Connect your music in cloud storage (Google Drive, Dropbox et al) and listen to your music in full native quality.",
+    "service-description": "Stream your music collection with Astiga. Add Astiga to Sonos to listen to your own music library stored in cloud storage, such as Google Drive, Dropbox, OneDrive, pCloud and many more.\n\nAstiga streams music in full native quality. There's also an Astiga app where you can sync your music for offline listening and cast to other devices.",
+    "service-promo": "Astiga allows you to stream your music collection to your Sonos from cloud storage."
   },
   "da-DK": {
     AppLinkMessage: "Forbinder Sonos med $BNB_SONOS_SERVICE_NAME",
@@ -139,7 +145,10 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     LOVE: "Synes godt om",
     LOVE_SUCCESS: "Syntes godt om",
     browseStorage: "Gennemse lager",
-    Error900Message: "Ingen lagerkonto er tilsluttet. Konfigurer en på https://play.asti.ga/setup"
+    Error900Message: "Ingen lagerkonto er tilsluttet. Konfigurer en på https://play.asti.ga/setup",
+    "service-summary": "Stream your music collection with Astiga. Connect your music in cloud storage (Google Drive, Dropbox et al) and listen to your music in full native quality.",
+    "service-description": "Stream your music collection with Astiga. Add Astiga to Sonos to listen to your own music library stored in cloud storage, such as Google Drive, Dropbox, OneDrive, pCloud and many more.\n\nAstiga streams music in full native quality. There's also an Astiga app where you can sync your music for offline listening and cast to other devices.",
+    "service-promo": "Astiga allows you to stream your music collection to your Sonos from cloud storage."
   },
   "fr-FR": {
     AppLinkMessage: "Associer Sonos à $BNB_SONOS_SERVICE_NAME",
@@ -184,7 +193,10 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     LOVE: "Aimer",
     LOVE_SUCCESS: "Pistes aimée",
     browseStorage: "Parcourir le stockage",
-    Error900Message: "Aucun compte de stockage n'est connecté. Configurez-en un sur https://play.asti.ga/setup"
+    Error900Message: "Aucun compte de stockage n'est connecté. Configurez-en un sur https://play.asti.ga/setup",
+    "service-summary": "Stream your music collection with Astiga. Connect your music in cloud storage (Google Drive, Dropbox et al) and listen to your music in full native quality.",
+    "service-description": "Stream your music collection with Astiga. Add Astiga to Sonos to listen to your own music library stored in cloud storage, such as Google Drive, Dropbox, OneDrive, pCloud and many more.\n\nAstiga streams music in full native quality. There's also an Astiga app where you can sync your music for offline listening and cast to other devices.",
+    "service-promo": "Astiga allows you to stream your music collection to your Sonos from cloud storage."
   },
   "nl-NL": {
     AppLinkMessage: "Sonos koppelen aan $BNB_SONOS_SERVICE_NAME",
@@ -229,7 +241,10 @@ const translations: Record<SUPPORTED_LANG, Record<KEY, string>> = {
     LOVE: "Liefde",
     LOVE_SUCCESS: "Volg geliefd",
     browseStorage: "Bladeren door opslag",
-    Error900Message: "Er is geen opslagaccount verbonden. Stel er een in via https://play.asti.ga/setup"
+    Error900Message: "Er is geen opslagaccount verbonden. Stel er een in via https://play.asti.ga/setup",
+    "service-summary": "Stream your music collection with Astiga. Connect your music in cloud storage (Google Drive, Dropbox et al) and listen to your music in full native quality.",
+    "service-description": "Stream your music collection with Astiga. Add Astiga to Sonos to listen to your own music library stored in cloud storage, such as Google Drive, Dropbox, OneDrive, pCloud and many more.\n\nAstiga streams music in full native quality. There's also an Astiga app where you can sync your music for offline listening and cast to other devices.",
+    "service-promo": "Astiga allows you to stream your music collection to your Sonos from cloud storage."
   },
 };
 

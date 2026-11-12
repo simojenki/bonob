@@ -2,11 +2,14 @@ import { v4 as uuid } from 'uuid';
 import { pipe } from 'fp-ts/lib/function';
 import { option as O, taskEither as TE, task as T } from 'fp-ts';
 
+import { Readable } from 'stream';
+
 import {
   Subsonic,
   t,
   asURLSearchParams,
   CustomPlayers,
+  SubsonicStreamError,
 } from '../src/subsonic';
 
 import axios from 'axios';
@@ -211,39 +214,164 @@ describe('Subsonic', () => {
                 params: asURLSearchParams({
                   ...authParams,
                   id: trackId,
+                  f: 'json',
                 }),
                 headers: {
                   'User-Agent': 'bonob',
                 },
                 responseType: 'stream',
+                validateStatus: expect.any(Function),
               });
             });
           });
   
-          describe('navidrome returns something other than a 200', () => {
-            it('should fail', async () => {
-              const trackId = 'track123';
-  
-              const streamResponse = {
-                status: 400,
-                headers: {
-                  'content-type': 'text/html',
-                  'content-length': '33'
-                }
-              };
-  
+          describe('play answers a failure instead of audio (#1550)', () => {
+            const subsonicError = (error: { code: number; message: string; helpUrl?: string }) =>
+              JSON.stringify({
+                'subsonic-response': {
+                  status: 'failed',
+                  version: '1.16.1',
+                  error,
+                },
+              });
+
+            const streamFailure = async (streamResponse: any) => {
               mockGET
                 .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
                 .mockImplementationOnce(() =>
                   Promise.resolve(ok(getSongJson(track)))
                 )
                 .mockImplementationOnce(() => Promise.resolve(streamResponse));
-  
+
               const musicLibrary = await login({ username, password });
-  
-              return expect(
-                musicLibrary.stream({ trackId, range: undefined })
-              ).rejects.toEqual(`Subsonic failed with a 400 status`);
+
+              return musicLibrary
+                .stream({ trackId, range: 'bytes=0-' })
+                .then(
+                  (it) => `Expected a SubsonicStreamError, got status ${it.status}`,
+                  (e) => e
+                );
+            };
+
+            it('should reject a 200 Subsonic error with its code and message', async () => {
+              const message = "File not found in storage 'OneDrive': /Music/track.mp3. Resync your library in the Astiga web app.";
+
+              const failure = await streamFailure({
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+                data: Readable.from([subsonicError({ code: 70, message })]),
+              });
+
+              expect(failure).toBeInstanceOf(SubsonicStreamError);
+              expect(failure).toMatchObject({
+                status: 200,
+                code: 70,
+                message,
+                helpUrl: undefined,
+                username,
+                durationMs: expect.any(Number),
+              });
+            });
+
+            it('should reject a 206 Subsonic error, as Apache sends for a Range request, with its helpUrl', async () => {
+              const helpUrl = 'https://play.asti.ga/settings/edit-storage/OneDrive';
+              const message = `Storage 'OneDrive' needs to be reconnected to Astiga. Click "Update token" in the Astiga web app under Storage accounts: ${helpUrl}`;
+
+              const failure = await streamFailure({
+                status: 206,
+                headers: { 'content-type': 'application/json; charset=utf-8', 'content-range': 'bytes 0-200/201' },
+                data: Readable.from([subsonicError({ code: 0, message, helpUrl })]),
+              });
+
+              expect(failure).toBeInstanceOf(SubsonicStreamError);
+              expect(failure).toMatchObject({ status: 206, code: 0, message, helpUrl, username });
+            });
+
+            it('should reject an HTTP error status with its X-Error as the message', async () => {
+              const message = 'File not found: /Music/track.mp3';
+
+              const failure = await streamFailure({
+                status: 404,
+                headers: { 'content-type': 'text/html', 'x-error': JSON.stringify(message) },
+                data: Readable.from(['']),
+              });
+
+              expect(failure).toBeInstanceOf(SubsonicStreamError);
+              expect(failure).toMatchObject({ status: 404, code: undefined, message, username });
+            });
+
+            // #1550 review — with validateStatus accepting every status, an error body that is
+            // never read holds play's connection open until it times out.
+            it('should release the body of an HTTP error status', async () => {
+              const data = Readable.from(['<html>Not Found</html>']);
+
+              await streamFailure({
+                status: 404,
+                headers: { 'content-type': 'text/html', 'x-error': JSON.stringify('File not found') },
+                data,
+              });
+
+              expect(data.destroyed).toBe(true);
+            });
+
+            it('should reject an HTTP error status without an X-Error', async () => {
+              const failure = await streamFailure({
+                status: 502,
+                headers: { 'content-type': 'text/html' },
+                data: Readable.from(['<html>Bad Gateway</html>']),
+              });
+
+              expect(failure).toBeInstanceOf(SubsonicStreamError);
+              expect(failure).toMatchObject({ status: 502, code: undefined });
+            });
+
+            it('should ask play for a JSON error body and read an error status rather than letting axios throw', async () => {
+              await streamFailure({
+                status: 404,
+                headers: { 'x-error': JSON.stringify('File not found') },
+                data: Readable.from(['']),
+              });
+
+              const config = mockGET.mock.calls[2][1];
+              expect(config.params.get('f')).toEqual('json');
+              expect(config.validateStatus?.(404)).toBe(true);
+              expect(config.validateStatus?.(502)).toBe(true);
+            });
+          });
+
+          describe('play answers a 206 with audio', () => {
+            it('should return the content', async () => {
+              const stream = { pipe: jest.fn() };
+
+              mockGET
+                .mockImplementationOnce(() => Promise.resolve(ok(PING_OK)))
+                .mockImplementationOnce(() =>
+                  Promise.resolve(ok(getSongJson(track)))
+                )
+                .mockImplementationOnce(() =>
+                  Promise.resolve({
+                    status: 206,
+                    headers: {
+                      'content-type': 'audio/mpeg',
+                      'content-length': '201',
+                      'content-range': 'bytes 0-200/1667',
+                      'accept-ranges': 'bytes',
+                    },
+                    data: stream,
+                  })
+                );
+
+              const result = await login({ username, password })
+                .then((it) => it.stream({ trackId, range: 'bytes=0-200' }));
+
+              expect(result.status).toEqual(206);
+              expect(result.headers).toEqual({
+                'content-type': 'audio/mpeg',
+                'content-length': '201',
+                'content-range': 'bytes 0-200/1667',
+                'accept-ranges': 'bytes',
+              });
+              expect(result.stream).toEqual(stream);
             });
           });
   
@@ -308,12 +436,14 @@ describe('Subsonic', () => {
               params: asURLSearchParams({
                 ...authParams,
                 id: trackId,
+                f: 'json',
               }),
               headers: {
                 'User-Agent': 'bonob',
                 Range: range,
               },
               responseType: 'stream',
+              validateStatus: expect.any(Function),
             });
           });
         });
@@ -358,12 +488,14 @@ describe('Subsonic', () => {
             params: asURLSearchParams({
               ...authParams,
               id: trackId,
+              f: 'json',
               c: trackWithCustomPlayer.encoding.player,
             }),
             headers: {
               'User-Agent': 'bonob',
             },
             responseType: 'stream',
+            validateStatus: expect.any(Function),
           });
         });
       });
@@ -394,6 +526,7 @@ describe('Subsonic', () => {
             params: asURLSearchParams({
               ...authParams,
               id: trackId,
+              f: 'json',
               c: trackWithCustomPlayer.encoding.player,
             }),
             headers: {
@@ -401,6 +534,7 @@ describe('Subsonic', () => {
               Range: range,
             },
             responseType: 'stream',
+            validateStatus: expect.any(Function),
           });
         });
       });

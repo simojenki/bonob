@@ -12,6 +12,7 @@ import { Sonos, Service, SONOS_LANG } from "./sonos";
 import {
   SOAP_PATH,
   STRINGS_ROUTE,
+  I18N_ROUTE,
   PRESENTATION_MAP_ROUTE,
   SONOS_RECOMMENDED_IMAGE_SIZES,
   LOGIN_ROUTE,
@@ -34,7 +35,11 @@ import { Icon, ICONS, festivals, features } from "./icon";
 import _ from "underscore";
 import morgan from "morgan";
 import { parse } from "./burn";
-import { axiosImageFetcher, ImageFetcher } from "./subsonic";
+import {
+  axiosImageFetcher,
+  ImageFetcher,
+  SubsonicStreamError,
+} from "./subsonic";
 import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
@@ -293,6 +298,26 @@ function server(
 `);
   });
 
+  // #1550 The Sonos developer portal takes its localization as an i18next JSON file, not
+  // strings.xml. Generated from i8n.ts so the portal upload always has the current keys.
+  app.get(I18N_ROUTE, (_, res) => {
+    const commonKeys: KEY[] = ["service-summary", "service-description", "service-promo"];
+    const i18n = Object.fromEntries(
+      SONOS_LANG.map((langName) => [
+        langName,
+        {
+          common: Object.fromEntries(
+            commonKeys.map((key) => [key, i8n(langName)(key)])
+          ),
+          integration: Object.fromEntries(
+            i8nKeys().map((key) => [key, i8n(langName)(key as KEY)])
+          ),
+        },
+      ])
+    );
+    res.type("application/json").send(i18n);
+  });
+
   app.get(PRESENTATION_MAP_ROUTE, (_, res) => {
     const LastModified = startUpTime.format("HH:mm:ss D MMM YYYY");
 
@@ -505,8 +530,31 @@ function server(
           }
         })
         .catch((error) => {
+          if (error instanceof SubsonicStreamError) {
+            // Sonos shows its own message for a stream status (E4/E5), so play's reason is
+            // logged here, with how long play took: an answer after Sonos's ~10 s is never
+            // seen (F5). 404 is "the file is not there"; everything else is a service fault.
+            // play's message goes in `reason`: winston lets a metadata `message` replace the
+            // line's own text.
+            logger.warn(
+              `${req.id} bnb<- /stream/track/${id} failed for user ${error.username}`,
+              {
+                trackId: id,
+                username: error.username,
+                status: error.status,
+                code: error.code,
+                reason: error.message,
+                helpUrl: error.helpUrl,
+                durationMs: error.durationMs,
+              }
+            );
+            const sonosStatus =
+              error.code === 70 || error.status === 404 ? 404 : 502;
+            return res.status(sonosStatus).send();
+          }
+
           logger.error(`${req.id} bnb-> /stream/track/${id} failed`, { error: error instanceof Error ? error.message : String(error) });
-          res.status(500).send();
+          return res.status(500).send();
         });
     }
   });

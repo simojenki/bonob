@@ -438,6 +438,118 @@ export class TranscodingCustomPlayers implements CustomPlayers {
   )
 }
 
+/**
+ * A /rest/stream request that play answered with a failure instead of audio: a Subsonic error
+ * (code, message and OpenSubsonic's helpUrl) or an HTTP error status with its X-Error.
+ */
+export class SubsonicStreamError extends Error {
+  readonly status: number;
+  readonly code: number | undefined;
+  readonly helpUrl: string | undefined;
+  readonly username: string;
+  readonly durationMs: number;
+
+  constructor({
+    status,
+    code,
+    message,
+    helpUrl,
+    username,
+    durationMs,
+  }: {
+    status: number;
+    code?: number;
+    message: string;
+    helpUrl?: string;
+    username: string;
+    durationMs: number;
+  }) {
+    super(message);
+    this.name = "SubsonicStreamError";
+    this.status = status;
+    this.code = code;
+    this.helpUrl = helpUrl;
+    this.username = username;
+    this.durationMs = durationMs;
+  }
+}
+
+const readBody = (data: any): Promise<string> =>
+  new Promise((resolve, reject) => {
+    if (data === undefined || data === null) {
+      return resolve("");
+    }
+    if (typeof data === "string") {
+      return resolve(data);
+    }
+    if (Buffer.isBuffer(data)) {
+      return resolve(data.toString("utf8"));
+    }
+    const chunks: Buffer[] = [];
+    data.on("data", (chunk: any) =>
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    );
+    data.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    data.on("error", reject);
+  });
+
+const decodeXmlAttribute = (value: string) =>
+  value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+/**
+ * The Subsonic error in a JSON or XML body, for a stream that failed before any audio:
+ * code, message and OpenSubsonic's helpUrl.
+ */
+const subsonicErrorIn = (
+  contentType: string,
+  body: string
+): { code?: number; message?: string; helpUrl?: string } | undefined => {
+  const type = contentType.toLowerCase();
+  if (type.includes("application/json")) {
+    try {
+      const error = JSON.parse(body)["subsonic-response"]?.error;
+      if (error) {
+        return {
+          code: error.code === undefined ? undefined : Number(error.code),
+          message: error.message,
+          helpUrl: error.helpUrl,
+        };
+      }
+    } catch {
+      return undefined;
+    }
+  } else if (type.includes("text/xml")) {
+    const element = body.match(/<error\b([^>]*)\/?>/i);
+    if (element) {
+      const attribute = (name: string) =>
+        element[1]!.match(new RegExp(`${name}="([^"]*)"`, "i"))?.[1];
+      const code = attribute("code");
+      const message = attribute("message");
+      const helpUrl = attribute("helpUrl");
+      return {
+        code: code === undefined ? undefined : Number(code),
+        message: message === undefined ? undefined : decodeXmlAttribute(message),
+        helpUrl: helpUrl === undefined ? undefined : decodeXmlAttribute(helpUrl),
+      };
+    }
+  }
+  return undefined;
+};
+
+const decodeXError = (xError: string): string => {
+  try {
+    const decoded = JSON.parse(xError);
+    return typeof decoded === "string" ? decoded : xError;
+  } catch {
+    return xError;
+  }
+};
+
 export const NO_CUSTOM_PLAYERS: CustomPlayers = {
   encodingFor(_) {
     return O.none
@@ -985,41 +1097,104 @@ export class Subsonic implements MusicService {
         trackId: string;
         range: string | undefined;
       }) =>
-        subsonic.getTrack(credentials, trackId).then((track) =>
-          subsonic
+        subsonic.getTrack(credentials, trackId).then((track) => {
+          const query = {
+            id: trackId,
+            c: track.encoding.player,
+            f: "json",
+          };
+          const requestConfig: AxiosRequestConfig = {
+            ...subsonic.authConfig(credentials, query),
+            headers: pipe(
+              range,
+              O.fromNullable,
+              O.map((range) => ({
+                "User-Agent": USER_AGENT,
+                Range: range,
+              })),
+              O.getOrElse(() => ({
+                "User-Agent": USER_AGENT,
+              }))
+            ),
+            responseType: "stream",
+            // A 4xx/5xx from play is an answer to read, not an axios failure (#1550).
+            validateStatus: () => true,
+          };
+
+          const started = Date.now();
+          return axios
             .get(
-              credentials,
-              `/rest/stream`,
-              {
-                id: trackId,
-                c: track.encoding.player,
-              },
-              {
-                headers: pipe(
-                  range,
-                  O.fromNullable,
-                  O.map((range) => ({
-                    "User-Agent": USER_AGENT,
-                    Range: range,
-                  })),
-                  O.getOrElse(() => ({
-                    "User-Agent": USER_AGENT,
-                  }))
-                ),
-                responseType: "stream",
-              }
+              subsonic.url.append({ pathname: "/rest/stream" }).href(),
+              requestConfig
             )
-            .then((stream) => ({
-              status: stream.status,
-              headers: {
-                "content-type": stream.headers["content-type"],
-                "content-length": stream.headers["content-length"],
-                "content-range": stream.headers["content-range"],
-                "accept-ranges": stream.headers["accept-ranges"],
+            .then(
+              async (stream) => {
+                const durationMs = Date.now() - started;
+                const contentType = `${stream.headers["content-type"] ?? ""}`;
+                const successStatus =
+                  stream.status === 200 || stream.status === 206;
+
+                // A 200/206 carrying JSON or XML is a Subsonic error, whether Apache
+                // turned play's 200 into a 206 under Range or not (#1550, F1).
+                if (
+                  successStatus &&
+                  (contentType.toLowerCase().includes("application/json") ||
+                    contentType.toLowerCase().includes("text/xml"))
+                ) {
+                  const error = subsonicErrorIn(
+                    contentType,
+                    await readBody(stream.data)
+                  );
+                  throw new SubsonicStreamError({
+                    status: stream.status,
+                    code: error?.code,
+                    message:
+                      error?.message ??
+                      `Subsonic stream failed with HTTP ${stream.status}`,
+                    helpUrl: error?.helpUrl,
+                    username: credentials.username,
+                    durationMs,
+                  });
+                }
+
+                if (!successStatus) {
+                  // The body is not read, so release it rather than holding play's
+                  // connection open until it times out (#1550 review R3).
+                  stream.data?.destroy?.();
+                  const xError = stream.headers["x-error"] as
+                    | string
+                    | undefined;
+                  throw new SubsonicStreamError({
+                    status: stream.status,
+                    message:
+                      xError === undefined
+                        ? `Subsonic stream failed with a ${stream.status} status`
+                        : decodeXError(xError),
+                    username: credentials.username,
+                    durationMs,
+                  });
+                }
+
+                logger.info(
+                  `[TIMING] Subsonic /rest/stream ${durationMs}ms`,
+                  { path: "/rest/stream", durationMs }
+                );
+                return {
+                  status: stream.status,
+                  headers: {
+                    "content-type": stream.headers["content-type"],
+                    "content-length": stream.headers["content-length"],
+                    "content-range": stream.headers["content-range"],
+                    "accept-ranges": stream.headers["accept-ranges"],
+                  },
+                  stream: stream.data,
+                };
               },
-              stream: stream.data,
-            }))
-        ),
+              (e) => {
+                throw `Subsonic failed with: ${e}`;
+              }
+            );
+        }),
       coverArt: async (coverArtURN: BUrn, size?: number) =>
         Promise.resolve(coverArtURN)
           .then((it) => assertSystem(it, "subsonic"))
