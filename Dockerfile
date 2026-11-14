@@ -26,7 +26,7 @@ RUN npm run gitinfo && \
     npm prune --omit=dev
 
 
-FROM node:22-bookworm-slim
+FROM debian:bookworm-slim
 
 LABEL   maintainer="simojenki" \
         org.opencontainers.image.source="https://github.com/simojenki/bonob" \
@@ -47,9 +47,13 @@ RUN apt-get update && \
     apt-get -y install --no-install-recommends \
         tzdata \
         wget && \
+    if [ "$(dpkg --print-architecture)" = armhf ]; then \
+        apt-get -y install --no-install-recommends libatomic1; \
+    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+COPY --from=build /usr/local/bin/node /usr/local/bin/docker-entrypoint.sh /usr/local/bin/
 COPY package.json package-lock.json ./
 COPY --from=build /bonob/build/src ./src
 COPY --from=build /bonob/node_modules ./node_modules
@@ -63,4 +67,5 @@ WORKDIR /bonob/src
 
 HEALTHCHECK CMD wget -O- http://localhost:${BNB_PORT}/about || exit 1
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "app.js"]
