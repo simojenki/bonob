@@ -388,7 +388,7 @@ export const coverArtURI = (
   );
 
 export const iconArtURI = (bonobUrl: BonobUrl, icon: ICON, text: string | undefined = undefined): string =>
-  bonobUrl.path(`/icon/${text == undefined ? icon : `${icon}:${text}`}/size/legacy`).href;
+  bonobUrl.iconPath(text == undefined ? icon : `${icon}:${text}`).href;
 
 export const sonosifyMimeType = (mimeType: string) =>
   mimeType == "audio/x-flac" ? "audio/flac" : mimeType;

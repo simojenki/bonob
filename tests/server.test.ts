@@ -20,7 +20,8 @@ import { Response } from "express";
 import { Transform } from "stream";
 import { BonobUrl } from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
-import { SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
+import { iconArtURI, SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
+import { iconRevision } from "../src/icon";
 import { Clock, FixedClock, SystemClock } from "../src/clock";
 import { formatCoverArt } from "../src/art";
 import { SmapiAuthTokens } from "../src/smapi_auth";
@@ -1443,6 +1444,34 @@ describe("server", () => {
               iconColors,
             }
           );
+
+        describe("versioned URLs", () => {
+          const colors = { foregroundColor: "lime", backgroundColor: "darkgrey" };
+          const bonobUrl = new BonobUrl("http://localhost:1234")
+            .withIconRevision(iconRevision(colors));
+
+          it("renders the configured colors after size substitution", async () => {
+            const url = new URL(iconArtURI(bonobUrl, "artists"));
+            const response = await request(server(SystemClock, colors))
+              .get(`${url.pathname.replace("/size/legacy", "/size/180")}?nofest`);
+
+            expect(response.status).toEqual(200);
+            const svg = Buffer.from(response.body).toString();
+            expect(svg).toContain('fill="lime"');
+            expect(svg).toContain('fill="darkgrey"');
+          });
+
+          it.each(["legacy", "180"])("preserves icon text for size %s", async (size) => {
+            const app = server(SystemClock, colors);
+            const url = new URL(iconArtURI(bonobUrl, "yyyy", "1980"));
+            const versioned = await request(app)
+              .get(`${url.pathname.replace("/size/legacy", `/size/${size}`)}?nofest`);
+            const original = await request(app).get(`/icon/yyyy:1980/size/${size}?nofest`);
+
+            expect(versioned.status).toEqual(200);
+            expect(versioned.body).toEqual(original.body);
+          });
+        });
 
         describe("invalid icon names", () => {
           [

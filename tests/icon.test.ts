@@ -23,7 +23,26 @@ import {
   NO_FEATURES,
   LUNAR_NY_ICONS,
   lunarNewYearIcon,
+  iconRevision,
 } from "../src/icon";
+
+describe("iconRevision", () => {
+  const colors = { foregroundColor: "lime", backgroundColor: "darkgrey" };
+
+  it("is stable for the same colors", () => {
+    expect(iconRevision({ backgroundColor: "darkgrey", foregroundColor: "lime" }))
+      .toEqual(iconRevision(colors));
+  });
+
+  it.each([
+    { foregroundColor: "red", backgroundColor: "darkgrey" },
+    { foregroundColor: "lime", backgroundColor: "white" },
+    { foregroundColor: undefined, backgroundColor: "darkgrey" },
+    { foregroundColor: "lime", backgroundColor: undefined },
+  ])("changes when either color changes to %j", (updatedColors) => {
+    expect(iconRevision(updatedColors)).not.toEqual(iconRevision(colors));
+  });
+});
 
 describe("SvgIcon", () => {
   const svgIcon24 = `<?xml version="1.0" encoding="UTF-8"?>
