@@ -80,3 +80,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      -
+        name: Update Docker Hub README
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: simojenki/bonob
+          readme-filepath: ./README.md
+          enable-url-completion: true
