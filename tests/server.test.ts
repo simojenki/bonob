@@ -1354,6 +1354,7 @@ describe("server", () => {
                       expect(res.header["content-type"]).toEqual(
                         coverArt.contentType
                       );
+                      expect(res.header["access-control-allow-origin"]).toEqual("*");
 
                       expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                       expect(musicLibrary.coverArt).toHaveBeenCalledWith(
