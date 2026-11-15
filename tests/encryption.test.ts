@@ -44,7 +44,13 @@ describe("cryptoEncryption", () => {
 
     expect(h1).not.toEqual(h2);
   });
-  
+
+  it("returns the same value when encrypting the same value", () => {
+    const e = cryptoEncryption("secret squirrel");
+
+    expect(e.encrypt("bobs your uncle")).toEqual(e.encrypt("bobs your uncle"));
+  });
+
   it("should return left on invalid value", () => {
     const e = cryptoEncryption("secret squirrel");
 
