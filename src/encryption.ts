@@ -4,10 +4,7 @@ import {
   createHash,
   createHmac,
 } from "crypto";
-import { option as O } from "fp-ts";
 import { Either, left, right } from 'fp-ts/Either'
-import { pipe } from "fp-ts/lib/function";
-import jws from "jws";
 
 const ALGORITHM = "aes-256-gcm";
 
@@ -20,25 +17,6 @@ export type Encryption = {
   readonly encrypt: (value: string) => string;
   readonly decrypt: (value: string) => Either<string, string>;
 };
-
-export const jwsSign = (secret: string): Encryption => {
-  return {
-    encrypt: (value: string) => jws.sign({
-      header: { alg: 'HS256' },
-      payload: value,
-      secret: secret,
-    }),
-    decrypt: (value: string) => pipe(
-      jws.decode(value),
-      O.fromNullable,
-      O.map(it => it.payload),
-      O.match(
-        () => left("Failed to decrypt jws"),
-        (payload) => right(payload)
-      )
-    )
-  }
-}
 
 export const cryptoEncryption = (secret: string): Encryption => {
   const key = createHash("sha256")
@@ -101,5 +79,3 @@ export const cryptoEncryption = (secret: string): Encryption => {
     },
   };
 };
-
-export default jwsSign;

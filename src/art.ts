@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { pipe } from "fp-ts/lib/function";
 import { either as E } from "fp-ts";
 
-import cryptoEncryption from "./encryption";
+import { cryptoEncryption } from "./encryption";
 
 export type Art = {
   readonly source: string;

@@ -1,28 +1,6 @@
 import { left, right } from 'fp-ts/Either'
 
-import { cryptoEncryption, jwsSign } from '../src/encryption';
-
-describe("jwsSign", () => {
-  it("can encode and decode", () => {
-    const e = jwsSign("secret squirrel");
-
-    const value = "bobs your uncle"
-    const hash = e.encrypt(value)
-    expect(hash).not.toContain(value);
-    expect(e.decrypt(hash)).toEqual(right(value));
-  });
-
-  it("returns different values for different secrets", () => {
-    const e1 = jwsSign("e1");
-    const e2 = jwsSign("e2");
-
-    const value = "bobs your uncle"
-    const h1 = e1.encrypt(value)
-    const h2 = e2.encrypt(value)
-
-    expect(h1).not.toEqual(h2);
-  });
-})
+import { cryptoEncryption } from '../src/encryption';
 
 describe("cryptoEncryption", () => {
   it("can encrypt and decrypt", () => {
@@ -55,5 +33,15 @@ describe("cryptoEncryption", () => {
     const e = cryptoEncryption("secret squirrel");
 
     expect(e.decrypt("not-valid")).toEqual(left("Invalid value to decrypt"));
+  });
+
+  it("should return left when the value has been tampered with", () => {
+    const e = cryptoEncryption("secret squirrel");
+
+    const [iv, tag, ciphertext] = e.encrypt("bobs your uncle").split(".");
+    const tampered = Buffer.from(ciphertext!, "hex");
+    tampered[0] = tampered[0]! ^ 1;
+
+    expect(e.decrypt([iv, tag, tampered.toString("hex")].join("."))).toEqual(left("Invalid value to decrypt"));
   });
 })

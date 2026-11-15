@@ -1,5 +1,5 @@
 /* eslint-disable functional/prefer-readonly-type */
-import { Art, assertSource, format, formatForURL, parse } from "../src/art";
+import { Art, assertSource, format, formatCoverArt, formatForURL, parse, parseCoverArt } from "../src/art";
 
 type ArtSpec = {
   art: Art;
@@ -104,6 +104,36 @@ describe("Art", () => {
     it("should pass if the source is equal", () => {
       const art = { source: "external", id: "something"};
       expect(assertSource(art, "external")).toEqual(art);
+    });
+  });
+
+  describe("coverArt", () => {
+    const art = { source: "subsonic", id: "al-123" };
+
+    it("can be formatted and then parsed back", () => {
+      expect(parseCoverArt(formatCoverArt("token-123", art))).toEqual({ token: "token-123", art });
+    });
+
+    it("should not expose the token or art", () => {
+      // decode each segment the way anyone holding the URL could
+      const readable = formatCoverArt("token-123", art)
+        .split(".")
+        .flatMap((it) => [it, Buffer.from(it, "base64url").toString(), Buffer.from(it, "hex").toString()])
+        .join(" ");
+
+      expect(readable).not.toContain("token-123");
+      expect(readable).not.toContain("al-123");
+    });
+
+    it("should reject values bonob did not issue", () => {
+      const b64url = (value: string) => Buffer.from(value).toString("base64url");
+      const unsigned = [
+        b64url(JSON.stringify({ alg: "HS256" })),
+        b64url(JSON.stringify({ t: "token-123", a: "bnb:e:http://127.0.0.1/internal" })),
+        "",
+      ].join(".");
+
+      expect(() => parseCoverArt(unsigned)).toThrow();
     });
   });
 });

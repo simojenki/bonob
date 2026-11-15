@@ -1274,6 +1274,7 @@ describe("server", () => {
         const musicLibrary = {
           coverArt: jest.fn(),
         };
+        const externalImageResolver = jest.fn();
         const apiTokens = new InMemoryAPITokens();
 
         const server = makeServer(
@@ -1284,6 +1285,7 @@ describe("server", () => {
           {
             linkCodes: () => new InMemoryLinkCodes(),
             apiTokens: () => apiTokens,
+            externalImageResolver,
           }
         );
 
@@ -1309,6 +1311,24 @@ describe("server", () => {
             const res = await request(server).get(`/art/${encodeURIComponent(formatCoverArt("", { source: "subsonic", id: "whatever" }))}/size/180`);
 
             expect(res.status).toEqual(401);
+          });
+        });
+
+        describe("when the art was not issued by bonob", () => {
+          it("should return a 400 without fetching anything", async () => {
+            const b64url = (value: string) => Buffer.from(value).toString("base64url");
+            const forged = [
+              b64url(JSON.stringify({ alg: "HS256" })),
+              b64url(JSON.stringify({ t: apiToken, a: "bnb:e:http://127.0.0.1/internal" })),
+              "",
+            ].join(".");
+
+            musicService.login.mockResolvedValue(musicLibrary);
+
+            const res = await request(server).get(`/art/${encodeURIComponent(forged)}/size/180`);
+
+            expect(res.status).toEqual(400);
+            expect(externalImageResolver).not.toHaveBeenCalled();
           });
         });
 
