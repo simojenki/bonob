@@ -1,4 +1,4 @@
-import { generateRandomString } from "./random";
+import { randomBytes } from "crypto";
 import { pipe } from "fp-ts/lib/function";
 import { either as E } from "fp-ts";
 
@@ -47,7 +47,7 @@ if(SHORTHAND_MAPPINGS.length != REVERSE_SHORTHAND_MAPPINGS.length) {
   throw `Invalid SHORTHAND_MAPPINGS, must be duplicate!`
 }
 
-export const ART_SALT = generateRandomString(32);
+export const ART_SALT = randomBytes(32).toString("hex");
 const encryptor = cryptoEncryption(ART_SALT);
 
 export const format = (
