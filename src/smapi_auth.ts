@@ -1,7 +1,9 @@
 import { either as E } from "fp-ts";
-import jwt from "jsonwebtoken";
+import { pipe } from "fp-ts/lib/function";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { Clock } from "./clock";
 import { StringValue } from 'ms'
+import { cryptoEncryption, Encryption } from "./encryption";
 
 export type SmapiFault = { readonly Fault: { readonly faultcode: string; readonly faultstring: string } };
 export type SmapiRefreshTokenResultFault = SmapiFault & {
@@ -104,12 +106,13 @@ function isTokenExpiredError(thing: any): thing is TokenExpiredError {
   return thing.name == "TokenExpiredError";
 }
 
-export const SMAPI_TOKEN_VERSION = 5;
+export const SMAPI_TOKEN_VERSION = 6;
 
 export class JWTSmapiLoginTokens implements SmapiAuthTokens {
   private readonly clock: Clock;
   private readonly secret: string;
   private readonly expiresIn: StringValue;
+  private readonly encryption: Encryption;
 
   constructor(
     clock: Clock,
@@ -120,11 +123,12 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
     this.clock = clock;
     this.expiresIn = expiresIn;
     this.secret = secret + "." + version 
+    this.encryption = cryptoEncryption(`${this.secret}.serviceToken`);
   }
 
   readonly issue = (serviceToken: string) => ({
       token: jwt.sign(
-        { serviceToken, iat: this.clock.now().unix() },
+        { serviceToken: this.encryption.encrypt(serviceToken), iat: this.clock.now().unix() },
         this.secret,
         { 
           algorithm: "HS256",
@@ -134,26 +138,32 @@ export class JWTSmapiLoginTokens implements SmapiAuthTokens {
       )
     });
 
+  private readonly serviceTokenFrom = (payload: string | Readonly<JwtPayload>): E.Either<ToSmapiFault, string> =>
+    pipe(
+      this.encryption.decrypt((payload as any).serviceToken),
+      E.mapLeft(() => new InvalidTokenError("Failed to decrypt service token"))
+    );
+
   readonly verify = (smapiToken: SmapiToken): E.Either<ToSmapiFault, string> => {
     try {
-      return E.right(
-        (
-          jwt.verify(
-            smapiToken.token,
-            this.secret
-          ) as any
-        ).serviceToken
+      return this.serviceTokenFrom(
+        jwt.verify(
+          smapiToken.token,
+          this.secret
+        )
       );
     } catch (e) {
       if (isTokenExpiredError(e)) {
-        const serviceToken = (
-          jwt.verify(
-            smapiToken.token,
-            this.secret,
-            { ignoreExpiration: true }
-          ) as any
-        ).serviceToken;
-        return E.left(new ExpiredTokenError(serviceToken));
+        return pipe(
+          this.serviceTokenFrom(
+            jwt.verify(
+              smapiToken.token,
+              this.secret,
+              { ignoreExpiration: true }
+            )
+          ),
+          E.flatMap((serviceToken) => E.left(new ExpiredTokenError(serviceToken)))
+        );
       } else if (isError(e)) return E.left(new InvalidTokenError(e.message));
       else return E.left(new InvalidTokenError("Failed to verify token"));
     }

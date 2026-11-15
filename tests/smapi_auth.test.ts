@@ -48,32 +48,35 @@ describe("auth", () => {
     const smapiLoginTokens = new JWTSmapiLoginTokens(clock, secret, expiresIn);
 
     describe("issuing a new token", () => {
-      it("should issue a token that can then be verified", () => {
-        const serviceToken = `service-token-${uuid()}`;
+      const serviceToken = `service-token-${uuid()}`;
 
+      it("should issue a token that can then be verified", () => {
         const smapiToken = smapiLoginTokens.issue(serviceToken);
 
-        const expected = jwt.sign(
-          {
-            serviceToken,
-            iat: clock.now().unix(),
-          },
-          secret + "." + SMAPI_TOKEN_VERSION,
-          { 
-            algorithm: "HS256",
-            expiresIn,
-            issuer: "bonob"
-          }
-        );
-
-        expect(smapiToken.token).toEqual(expected);
-        expect(smapiToken.token).not.toContain(serviceToken);
         expect(smapiToken.token).not.toContain(secret);
         expect(smapiToken.token).not.toContain(":");
 
         const roundTripped = smapiLoginTokens.verify(smapiToken);
 
         expect(roundTripped).toEqual(E.right(serviceToken));
+      });
+
+      it("should sign it with HS256 as bonob, expiring after expiresIn", () => {
+        const { header, payload } = jwt.decode(smapiLoginTokens.issue(serviceToken).token, { complete: true })!;
+
+        expect(header.alg).toEqual("HS256");
+        expect(payload).toMatchObject({
+          iss: "bonob",
+          iat: clock.now().unix(),
+          exp: clock.now().unix() + 60 * 60,
+        });
+      });
+
+      it("should not expose the service token", () => {
+        // JWT payloads are only base64-encoded, so anyone holding the token can decode them
+        const decoded = JSON.stringify(jwt.decode(smapiLoginTokens.issue(serviceToken).token));
+
+        expect(decoded).not.toContain(serviceToken);
       });
     });
 
@@ -131,6 +134,23 @@ describe("auth", () => {
           const result = new JWTSmapiLoginTokens(clock, "different-secret", expiresIn).verify(smapiToken);
           expect(result).toEqual(
             E.left(new InvalidTokenError("invalid signature"))
+          );
+        });
+      });
+
+      describe("due to the service token not being encrypted", () => {
+        it("should return an error", () => {
+          const smapiToken = {
+            token: jwt.sign(
+              { serviceToken: uuid(), iat: clock.now().unix() },
+              secret + "." + SMAPI_TOKEN_VERSION,
+              { algorithm: "HS256", expiresIn, issuer: "bonob" }
+            ),
+          };
+
+          const result = smapiLoginTokens.verify(smapiToken);
+          expect(result).toEqual(
+            E.left(new InvalidTokenError("Failed to decrypt service token"))
           );
         });
       });
