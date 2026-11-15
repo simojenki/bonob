@@ -1,4 +1,4 @@
-import { isValidMimeType, takeWithRepeats } from "../src/utils";
+import { isImageMimeType, isValidMimeType, takeWithRepeats } from "../src/utils";
 
 describe("takeWithRepeat", () => {
   describe("when there is nothing in the input", () => {
@@ -45,5 +45,21 @@ describe("isValidMimeType", () => {
     ["blahblah", false]
   ].forEach((spec) => {
     expect(isValidMimeType(spec[0] as string)).toEqual(spec[1])
+  });
+});
+
+describe("isImageMimeType", () => {
+  [
+    ["image/jpeg", true],
+    ["image/webp", true],
+    ["IMAGE/PNG", true],
+    ["text/plain", false],
+    ["application/json", false],
+    ["image", false],
+    ["image/", false],
+  ].forEach(([value, expected]) => {
+    it(`should return ${expected} for '${value}'`, () => {
+      expect(isImageMimeType(value as string)).toEqual(expected);
+    });
   });
 });

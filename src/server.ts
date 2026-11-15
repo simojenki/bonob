@@ -43,7 +43,7 @@ import {
   JWTSmapiLoginTokens,
   SmapiAuthTokens,
 } from "./smapi_auth";
-import { isValidMimeType } from "./utils";
+import { isImageMimeType } from "./utils";
 
 interface RangeFilter extends Transform {
   range: (length: number) => string;
@@ -640,7 +640,7 @@ function server(
       .then((image) => {
         if(image == undefined) {
           return res.status(404).send();
-        } else if(isValidMimeType(image.contentType)) {
+        } else if(isImageMimeType(image.contentType)) {
           res.status(200);
           res.setHeader("content-type", image.contentType);
           return res.send(image.data);
