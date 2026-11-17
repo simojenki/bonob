@@ -1366,24 +1366,24 @@ describe("server", () => {
                 });
               });
 
-              describe("when the images is available however it has an invalid content type", () => {
-                it("should return a 502", async () => {
-                  const coverArtURN = { source: "subsonic", id: "200" };
+              ["not-valid", "text/plain"].forEach((contentType) => {
+                describe(`when the images is available however it has a content type of ${contentType}`, () => {
+                  it("should return a 502", async () => {
+                    const coverArtURN = { source: "subsonic", id: "200" };
 
-                  const coverArt = coverArtResponse({
-                    contentType: "not-valid"
+                    const coverArt = coverArtResponse({ contentType });
+
+                    musicService.login.mockResolvedValue(musicLibrary);
+
+                    musicLibrary.coverArt.mockResolvedValue(coverArt);
+
+                    const res = await request(server)
+                      .get(
+                        `/art/${encodeURIComponent(formatCoverArt(apiToken, coverArtURN))}/size/180`
+                      );
+
+                    expect(res.status).toEqual(502);
                   });
-
-                  musicService.login.mockResolvedValue(musicLibrary);
-
-                  musicLibrary.coverArt.mockResolvedValue(coverArt);
-
-                  const res = await request(server)
-                    .get(
-                      `/art/${encodeURIComponent(formatCoverArt(apiToken, coverArtURN))}/size/180`
-                    );
-
-                  expect(res.status).toEqual(502);
                 });
               });
 

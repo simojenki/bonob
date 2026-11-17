@@ -38,3 +38,7 @@ export function isValidMimeType(value: string): boolean {
   return MIME_TYPE_REGEX.test(value);
 }
 
+export function isImageMimeType(value: string): boolean {
+  return isValidMimeType(value) && /^image\//i.test(value);
+}
+
