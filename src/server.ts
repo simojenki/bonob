@@ -611,6 +611,10 @@ function server(
   });
 
   app.get("/art/:art/size/:size", (req, res) => {
+    // The Sonos web app (play.sonos.com) loads cover art as CORS requests.
+    // Any origin is fine: art is guarded by the token in its URL, not by cookies.
+    res.setHeader("access-control-allow-origin", "*");
+
     let token: string;
     let art: Art;
     try {
