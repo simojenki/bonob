@@ -8,7 +8,7 @@ import * as xpath from "xpath-ts";
 import { randomInt } from "crypto";
 
 import { LinkCodes } from "../src/link_codes";
-import makeServer from "../src/server";
+import makeServer, { ServerOpts } from "../src/server";
 import { bonobService, SONOS_DISABLED, SONOS_LANG } from "../src/sonos";
 import {
   STRINGS_ROUTE,
@@ -61,7 +61,7 @@ import {
 import { APITokens } from "../src/api_tokens";
 import dayjs from "dayjs";
 import { BonobUrl } from "../src/url_builder";
-import { iconForGenre } from "../src/icon";
+import { iconForGenre, iconRevision } from "../src/icon";
 import { formatCoverArt } from "../src/art";
 import { FixedClock } from "../src/clock";
 import { ExpiredTokenError, InvalidTokenError, SmapiAuthTokens, SmapiToken, ToSmapiFault } from "../src/smapi_auth";
@@ -627,6 +627,20 @@ describe("iconArtURI", () => {
       expect(iconArtURI(bonobUrl, "yyyy", "foobar10000")).toEqual("http://bonob.example.com:8080/context/icon/yyyy:foobar10000/size/legacy")
     });
   });
+
+  it("puts the configured revision before the size suffix", () => {
+    const versionedUrl = bonobUrl.withIconRevision("9b47c2a18d30");
+    expect(iconArtURI(versionedUrl, "yyyy", "1980")).toEqual(
+      "http://bonob.example.com:8080/context/icon/yyyy:1980/v/9b47c2a18d30/size/legacy"
+    );
+  });
+
+  it("uses the configured revision for fallback artwork", () => {
+    const versionedUrl = bonobUrl.withIconRevision("9b47c2a18d30");
+    expect(coverArtURI(versionedUrl, "token", {})).toEqual(
+      "http://bonob.example.com:8080/context/icon/vinyl/v/9b47c2a18d30/size/legacy"
+    );
+  });
 });
 
 describe("scrollIndicesFrom", () => {
@@ -718,7 +732,11 @@ describe("wsdl api", () => {
   const bonobUrlWithoutContextPath = new BonobUrl("http://localhost:222");
   const bonobUrlWithContextPath = new BonobUrl("http://localhost:111/path/to/bonob");
 
-  [bonobUrlWithoutContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
+  [bonobUrlWithoutContextPath, bonobUrlWithContextPath].forEach((baseUrl) => {
+    const bonobUrl = baseUrl.withIconRevision(iconRevision({
+      foregroundColor: undefined,
+      backgroundColor: undefined,
+    }));
     describe(`bonob with url ${bonobUrl}`, () => {
       const serviceToken = `serviceToken-${uuid()}`;
       const apiToken = `apiToken-${uuid()}`;
@@ -774,6 +792,51 @@ describe("wsdl api", () => {
       }
 
       describe("soap api", () => {
+        describe("versioned icon URLs", () => {
+          const colors = { foregroundColor: "lime", backgroundColor: "darkgrey" };
+
+          const clientFor = async (iconColors: ServerOpts["iconColors"] = colors) => {
+            const app = makeServer(
+              SONOS_DISABLED,
+              service,
+              bonobUrl,
+              musicService as unknown as MusicService,
+              { ...serverOpts, iconColors, browseByFolder: true }
+            );
+            const ws = await createClientAsync(`${service.uri}?wsdl`, {
+              endpoint: service.uri,
+              httpClient: supersoap(app),
+            });
+            return setupAuthenticatedRequest(ws);
+          };
+
+          const rootIcons = async (iconColors: ServerOpts["iconColors"]) => {
+            const ws = await clientFor(iconColors);
+            const [result] = await ws.getMetadataAsync({ id: "root", index: 0, count: 100 });
+            return result.getMetadataResult.mediaCollection.map(
+              (item: { albumArtURI: string }) => item.albumArtURI
+            ) as string[];
+          };
+
+          it("keeps the same URLs when restarted with the same colors", async () => {
+            expect(await rootIcons({ ...colors })).toEqual(await rootIcons(colors));
+          });
+
+          it.each([
+            { foregroundColor: "red", backgroundColor: "darkgrey" },
+            { foregroundColor: "lime", backgroundColor: "white" },
+          ])("changes every root icon URL when colors change to %j", async (updatedColors) => {
+            const original = await rootIcons(colors);
+            const updated = await rootIcons(updatedColors);
+
+            expect(updated).toHaveLength(original.length);
+            updated.forEach((uri, index) => {
+              expect(uri).not.toEqual(original[index]);
+              expect(uri).toContain(`/v/${iconRevision(updatedColors)}/size/legacy`);
+            });
+          });
+        });
+
         describe("unhandled errors", () => {
           it("should return a fault of ServiceUnknownError rather than a raw exception", async () => {
             const ws = await createClientAsync(`${service.uri}?wsdl`, {

@@ -1,4 +1,35 @@
-import url from "../src/url_builder";
+import url, { BonobUrl } from "../src/url_builder";
+
+describe("BonobUrl icon revisions", () => {
+  it("versions icon URLs while preserving the port, context path and text", () => {
+    const original = new BonobUrl("http://example.com:8080/context/");
+    const versioned = original.withIconRevision("9b47c2a18d30");
+
+    expect(versioned.iconPath("yyyy:1980").href).toEqual(
+      "http://example.com:8080/context/icon/yyyy:1980/v/9b47c2a18d30/size/legacy"
+    );
+    expect(original.iconPath("yyyy:1980").href).toEqual(
+      "http://example.com:8080/context/icon/yyyy:1980/size/legacy"
+    );
+  });
+
+  it("replaces the revision without changing the previous URL builder", () => {
+    const first = new BonobUrl("https://example.com").withIconRevision("first");
+    const second = first.withIconRevision("second");
+
+    expect(first.iconPath("artists").pathname).toEqual("/icon/artists/v/first/size/legacy");
+    expect(second.iconPath("artists").pathname).toEqual("/icon/artists/v/second/size/legacy");
+  });
+
+  it("keeps other resource URLs independent of the icon revision", () => {
+    const original = new BonobUrl("https://example.com/context");
+    const versioned = original.withIconRevision("9b47c2a18d30");
+
+    expect(versioned.path("/art/123/size/180").href)
+      .toEqual(original.path("/art/123/size/180").href);
+    expect(versioned.path("/ws/sonos").href).toEqual(original.path("/ws/sonos").href);
+  });
+});
 
 describe("URLBuilder", () => {
   describe("construction", () => {
