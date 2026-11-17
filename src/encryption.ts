@@ -1,13 +1,10 @@
 import {
   createCipheriv,
   createDecipheriv,
-  randomBytes,
   createHash,
+  createHmac,
 } from "crypto";
-import { option as O } from "fp-ts";
 import { Either, left, right } from 'fp-ts/Either'
-import { pipe } from "fp-ts/lib/function";
-import jws from "jws";
 
 const ALGORITHM = "aes-256-gcm";
 
@@ -21,33 +18,19 @@ export type Encryption = {
   readonly decrypt: (value: string) => Either<string, string>;
 };
 
-export const jwsSign = (secret: string): Encryption => {
-  return {
-    encrypt: (value: string) => jws.sign({
-      header: { alg: 'HS256' },
-      payload: value,
-      secret: secret,
-    }),
-    decrypt: (value: string) => pipe(
-      jws.decode(value),
-      O.fromNullable,
-      O.map(it => it.payload),
-      O.match(
-        () => left("Failed to decrypt jws"),
-        (payload) => right(payload)
-      )
-    )
-  }
-}
-
 export const cryptoEncryption = (secret: string): Encryption => {
   const key = createHash("sha256")
     .update(secret)
     .digest();
+  const ivKey = createHash("sha256")
+    .update(`iv:${secret}`)
+    .digest();
 
   return {
     encrypt: (value: string) => {
-      const iv = randomBytes(12);
+      // Derived from the value rather than random: the same value always encrypts the same way,
+      // so art URLs stay cacheable, while different values never share an IV.
+      const iv = createHmac("sha256", ivKey).update(value).digest().subarray(0, 12);
 
       const cipher = createCipheriv(ALGORITHM, key, iv);
 
@@ -96,5 +79,3 @@ export const cryptoEncryption = (secret: string): Encryption => {
     },
   };
 };
-
-export default jwsSign;
