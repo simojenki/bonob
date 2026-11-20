@@ -18,7 +18,7 @@
     "neverthrow": "^8.2.0",
     "node-html-parser": "^9.0.0",
     "sharp": "^0.35.5",
-    "soap": "^1.11.0",
+    "soap": "^1.14.0",
     "underscore": "^1.13.8",
     "winston": "^3.19.0",
     "xmllint-wasm": "^5.2.0",
