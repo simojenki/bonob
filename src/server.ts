@@ -550,6 +550,9 @@ function server(
     "/icon/:type_text/size/:size",
     "/icon/:type_text/v/:revision/size/:size",
   ], (req, res) => {
+    // Allow cross-origin requests for icons from play.sonos.com:
+    res.setHeader("cross-origin-resource-policy", "cross-origin");
+
     const apply_festivals = req.query["nofest"] == null
     const match = (req.params["type_text"] || "").match("^([A-Za-z0-9]+)(?::([A-Za-z0-9]+))?$")
     if (!match)
@@ -628,6 +631,7 @@ function server(
     // The Sonos web app (play.sonos.com) loads cover art as CORS requests.
     // Any origin is fine: art is guarded by the token in its URL, not by cookies.
     res.setHeader("access-control-allow-origin", "*");
+    res.setHeader("cross-origin-resource-policy", "cross-origin");
 
     let token: string;
     let art: Art;
