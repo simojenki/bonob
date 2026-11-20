@@ -37,6 +37,7 @@ import { DEFAULT_LOGIN_THEME } from './config';
 import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
 import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
 import morgan from "morgan";
+import helmet from "helmet";
 import { parseCoverArt, Art } from "./art";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 import {
@@ -167,6 +168,19 @@ function server(
   if (serverOpts.logHttpRequests) {
     app.use(morgan("combined"));
   }
+  // Set security headers for all responses
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          // Disable upgrading to HTTPS to allow serving over plain HTTP:
+          upgradeInsecureRequests: null,
+        },
+      },
+      // Leave HSTS to the reverse proxy:
+      strictTransportSecurity: false,
+    }),
+  );
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json());
 
@@ -536,6 +550,9 @@ function server(
     "/icon/:type_text/size/:size",
     "/icon/:type_text/v/:revision/size/:size",
   ], (req, res) => {
+    // Allow cross-origin requests for icons from play.sonos.com:
+    res.setHeader("cross-origin-resource-policy", "cross-origin");
+
     const apply_festivals = req.query["nofest"] == null
     const match = (req.params["type_text"] || "").match("^([A-Za-z0-9]+)(?::([A-Za-z0-9]+))?$")
     if (!match)
@@ -614,6 +631,7 @@ function server(
     // The Sonos web app (play.sonos.com) loads cover art as CORS requests.
     // Any origin is fine: art is guarded by the token in its URL, not by cookies.
     res.setHeader("access-control-allow-origin", "*");
+    res.setHeader("cross-origin-resource-policy", "cross-origin");
 
     let token: string;
     let art: Art;

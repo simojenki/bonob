@@ -180,6 +180,33 @@ describe("server", () => {
 
   [bonobUrlWithNoContextPath, bonobUrlWithContextPath].forEach((bonobUrl) => {
     describe(`a bonobUrl of ${bonobUrl}`, () => {
+      describe("security headers", () => {
+        const server = makeServer(
+          SONOS_DISABLED,
+          aService(),
+          bonobUrl,
+          new InMemoryMusicService()
+        );
+
+        it("should stop other sites from framing the login page", async () => {
+          const res = await request(server)
+            .get(bonobUrl.path("/login").pathname)
+            .send();
+
+          expect(res.status).toEqual(200);
+          expect(res.header["content-security-policy"]).toContain("frame-ancestors 'self'");
+        });
+
+        it("should not upgrade requests to HTTPS, as bonob is often served over plain HTTP", async () => {
+          const res = await request(server)
+            .get(bonobUrl.path("/login").pathname)
+            .send();
+
+          expect(res.status).toEqual(200);
+          expect(res.header["content-security-policy"]).not.toContain("upgrade-insecure-requests");
+        });
+      });
+
       describe("/", () => {
         describe("version", () => {
           describe("when specified", () => {
@@ -1376,6 +1403,7 @@ describe("server", () => {
                         coverArt.contentType
                       );
                       expect(res.header["access-control-allow-origin"]).toEqual("*");
+                      expect(res.header["cross-origin-resource-policy"]).toEqual("cross-origin");
 
                       expect(musicService.login).toHaveBeenCalledWith(serviceToken);
                       expect(musicLibrary.coverArt).toHaveBeenCalledWith(
@@ -1582,6 +1610,7 @@ describe("server", () => {
 
                   expect(response.status).toEqual(200);
                   expect(response.header["content-type"]).toEqual("image/png");
+                  expect(response.header["cross-origin-resource-policy"]).toEqual("cross-origin");
                   const metadata = await sharp(response.body).metadata();
                   expect(metadata.width).toEqual(80);
                   expect(metadata.height).toEqual(80);
