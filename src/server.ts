@@ -37,6 +37,7 @@ import { DEFAULT_LOGIN_THEME } from './config';
 import { Peekers, loggingPeeker, validateSmapiMessagePeeker } from './http_utils';
 import { SmapiValidationEvent, SmapiValidationHandler } from './sonos_wsdl';
 import morgan from "morgan";
+import helmet from "helmet";
 import { parseCoverArt, Art } from "./art";
 import { axiosImageFetcher, ImageFetcher } from "./subsonic";
 import {
@@ -167,6 +168,19 @@ function server(
   if (serverOpts.logHttpRequests) {
     app.use(morgan("combined"));
   }
+  // Set security headers for all responses
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          // Disable upgrading to HTTPS to allow serving over plain HTTP:
+          upgradeInsecureRequests: null,
+        },
+      },
+      // Leave HSTS to the reverse proxy:
+      strictTransportSecurity: false,
+    }),
+  );
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json());
 
