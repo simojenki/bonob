@@ -999,7 +999,7 @@ export class Subsonic {
         id: it.id,
         name: it.name,
         artistImageUrl: it.artistImageUrl,
-        albums: this.toAlbumSummary(it.album || []),
+        albums: (it.album || []).map(asAlbumSummary),
       }));
 
   readonly getCoverArt = (
@@ -1027,19 +1027,6 @@ export class Subsonic {
       (it) => it.starred2,
     );
 
-  readonly toAlbumSummary = (
-    albumList: readonly OpenSubsonicAlbum[],
-  ): readonly AlbumSummary[] =>
-    albumList.map((album) => ({
-      id: album.id,
-      name: album.name,
-      year: album.year,
-      genre: maybeAsGenre(album.genre),
-      artistId: album.artistId,
-      artistName: album.artist,
-      coverArt: coverArtToArt(album.coverArt),
-    }));
-
   readonly search3 = (credentials: Credentials, q: any) =>
     this.getJSON<Search3Response>(credentials, "/rest/search3", {
       artistCount: 0,
@@ -1062,7 +1049,7 @@ export class Subsonic {
       offset: q.offset,
     })
       .then((response) => response.albumList2.album || [])
-      .then(this.toAlbumSummary);
+      .then((albums) => albums.map(asAlbumSummary));
 
   readonly getGenres = (credentials: Credentials) =>
     this.getJSON<GetGenresResponse>(credentials, "/rest/getGenres").then((it) =>
