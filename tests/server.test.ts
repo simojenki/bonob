@@ -5,10 +5,7 @@ import sharp from "sharp";
 import { either as E, taskEither as TE } from "fp-ts";
 
 import { AuthFailure, MusicService } from "../src/music_library";
-import makeServer, {
-  RangeBytesFromFilter,
-  rangeFilterFor,
-} from "../src/server";
+import makeServer from "../src/server";
 
 import { Device, Sonos, SONOS_DISABLED } from "../src/sonos";
 
@@ -17,7 +14,6 @@ import { InMemoryMusicService } from "./in_memory_music_service";
 import { APITokens, InMemoryAPITokens } from "../src/api_tokens";
 import { InMemoryLinkCodes, LinkCodes } from "../src/link_codes";
 import { Response } from "express";
-import { Transform } from "stream";
 import { BonobUrl } from "../src/url_builder";
 import i8n, { randomLang } from "../src/i8n";
 import { iconArtURI, SONOS_RECOMMENDED_IMAGE_SIZES } from "../src/smapi";
@@ -25,144 +21,6 @@ import { iconRevision } from "../src/icon";
 import { Clock, FixedClock, SystemClock } from "../src/clock";
 import { formatCoverArt } from "../src/art";
 import { SmapiAuthTokens } from "../src/smapi_auth";
-
-describe("rangeFilterFor", () => {
-  describe("invalid range header string", () => {
-    it("should fail", () => {
-      const cases = [
-        "bytes",
-        "bytes=0",
-        "bytes=-",
-        "bytes=100-200,300-400",
-        "bytes=100-200, 300-400",
-        "seconds",
-        "seconds=0",
-        "seconds=-",
-      ];
-
-      for (const range in cases) {
-        expect(() => rangeFilterFor(range)).toThrow(
-          `Unsupported range: ${range}`
-        );
-      }
-    });
-  });
-
-  describe("bytes", () => {
-    describe("0-", () => {
-      it("should return a RangeBytesFromFilter", () => {
-        const filter = rangeFilterFor("bytes=0-");
-
-        expect(filter instanceof RangeBytesFromFilter).toEqual(true);
-        expect((filter as RangeBytesFromFilter).from).toEqual(0);
-        expect(filter.range(100)).toEqual("0-99/100");
-      });
-    });
-
-    describe("64-", () => {
-      it("should return a RangeBytesFromFilter", () => {
-        const filter = rangeFilterFor("bytes=64-");
-
-        expect(filter instanceof RangeBytesFromFilter).toEqual(true);
-        expect((filter as RangeBytesFromFilter).from).toEqual(64);
-        expect(filter.range(8877)).toEqual("64-8876/8877");
-      });
-    });
-
-    describe("-900", () => {
-      it("should fail", () => {
-        expect(() => rangeFilterFor("bytes=-900")).toThrow(
-          "Unsupported range: bytes=-900"
-        );
-      });
-    });
-
-    describe("100-200", () => {
-      it("should fail", () => {
-        expect(() => rangeFilterFor("bytes=100-200")).toThrow(
-          "Unsupported range: bytes=100-200"
-        );
-      });
-    });
-
-    describe("100-200, 400-500", () => {
-      it("should fail", () => {
-        expect(() => rangeFilterFor("bytes=100-200, 400-500")).toThrow(
-          "Unsupported range: bytes=100-200, 400-500"
-        );
-      });
-    });
-  });
-
-  describe("not bytes", () => {
-    it("should fail", () => {
-      const cases = [
-        "seconds=0-",
-        "seconds=100-200",
-        "chickens=100-200, 400-500",
-      ];
-
-      for (const range in cases) {
-        expect(() => rangeFilterFor(range)).toThrow(
-          `Unsupported range: ${range}`
-        );
-      }
-    });
-  });
-});
-
-describe("RangeBytesFromFilter", () => {
-  describe("range from", () => {
-    describe("0-", () => {
-      it("should not filter at all", () => {
-        const filter = new RangeBytesFromFilter(0);
-        const result: any[] = [];
-
-        const callback = (_?: Error | null, data?: any) => {
-          if (data) result.push(...data!);
-        };
-
-        filter._transform(["a", "b", "c"], "ascii", callback);
-        filter._transform(["d", "e", "f"], "ascii", callback);
-
-        expect(result).toEqual(["a", "b", "c", "d", "e", "f"]);
-      });
-    });
-
-    describe("1-", () => {
-      it("should filter the first byte", () => {
-        const filter = new RangeBytesFromFilter(1);
-        const result: any[] = [];
-
-        const callback = (_?: Error | null, data?: any) => {
-          if (data) result.push(...data!);
-        };
-
-        filter._transform(["a", "b", "c"], "ascii", callback);
-        filter._transform(["d", "e", "f"], "ascii", callback);
-
-        expect(result).toEqual(["b", "c", "d", "e", "f"]);
-      });
-    });
-
-    describe("5-", () => {
-      it("should filter the first byte", () => {
-        const filter = new RangeBytesFromFilter(5);
-        const result: any[] = [];
-
-        const callback = (_?: Error | null, data?: any) => {
-          if (data) result.push(...data!);
-        };
-
-        filter._transform(["a", "b", "c"], "ascii", callback);
-        filter._transform(["d", "e", "f"], "ascii", callback);
-
-        expect(result).toEqual(["f"]);
-      });
-    });
-  });
-});
-
 
 describe("server", () => {
   beforeEach(() => {
@@ -884,13 +742,7 @@ describe("server", () => {
         const streamContent = (content: string) => {
           const self = {
             destroyed: false,
-            pipe: (_: Transform) => {
-              return {
-                pipe: (res: Response) => {
-                  res.send(content);
-                }
-              };
-            },
+            pipe: (res: Response) => res.send(content),
             destroy: () => {
               self.destroyed = true;
             }

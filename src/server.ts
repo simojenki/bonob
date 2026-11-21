@@ -6,8 +6,6 @@ import sharp from "sharp";
 import { randomUUID as uuid } from "crypto";
 import dayjs from "dayjs";
 
-import { PassThrough, Transform, TransformCallback } from "stream";
-
 import { Sonos, Service, SONOS_LANG } from "./sonos";
 import {
   SOAP_PATH,
@@ -46,49 +44,12 @@ import {
 } from "./smapi_auth";
 import { isImageMimeType } from "./utils";
 
-interface RangeFilter extends Transform {
-  range: (length: number) => string;
-}
-
 type TimePlayed = {
   items: {
       mediaUrl: string,
       type: "update" | "final"
       durationPlayedMillis: number
   }[]
-}
-
-export function rangeFilterFor(rangeHeader: string): RangeFilter {
-  // if (rangeHeader == undefined) return new PassThrough();
-  const match = rangeHeader.match(/^bytes=(\d+)-$/);
-  if (match) return new RangeBytesFromFilter(Number.parseInt(match[1]!));
-  else throw `Unsupported range: ${rangeHeader}`;
-}
-
-export class RangeBytesFromFilter extends Transform {
-  from: number;
-  count: number = 0;
-
-  constructor(f: number) {
-    super();
-    this.from = f;
-  }
-
-  _transform(chunk: any, _: BufferEncoding, next: TransformCallback) {
-    if (this.count + chunk.length <= this.from) {
-      // before start
-      next();
-    } else if (this.from <= this.count) {
-      // off the end
-      next(null, chunk);
-    } else {
-      // from somewhere in chunk
-      next(null, chunk.slice(this.from - this.count));
-    }
-    this.count = this.count + chunk.length;
-  }
-
-  range = (number: number) => `${this.from}-${number - 1}/${number}`;
 }
 
 // todo: why do i need this?
@@ -475,13 +436,11 @@ function server(
 
           const respondWith = ({
             status,
-            filter,
             headers,
             sendStream,
             nowPlaying,
           }: {
             status: number;
-            filter: Transform;
             headers: Record<string, string | undefined>;
             sendStream: boolean;
             nowPlaying: boolean;
@@ -499,7 +458,7 @@ function server(
                 .forEach(([header, value]) => {
                   res.setHeader(header, value!);
                 });
-              if (sendStream) stream.stream.pipe(filter).pipe(res)
+              if (sendStream) stream.stream.pipe(res)
               else res.send()
             });
           };
@@ -507,7 +466,6 @@ function server(
           if (stream.status == 200) {
             respondWith({
               status: 200,
-              filter: new PassThrough(),
               headers: {
                 "content-type": stream.headers["content-type"]
                   ? sonosisfyContentType(stream.headers["content-type"])
@@ -521,7 +479,6 @@ function server(
           } else if (stream.status == 206) {
             respondWith({
               status: 206,
-              filter: new PassThrough(),
               headers: {
                 "content-type": stream.headers["content-type"]
                   ? sonosisfyContentType(stream.headers["content-type"])
@@ -536,7 +493,6 @@ function server(
           } else {
             respondWith({
               status: stream.status,
-              filter: new PassThrough(),
               headers: {},
               sendStream: req.method == "GET",
               nowPlaying: false,
