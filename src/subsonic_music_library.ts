@@ -487,7 +487,7 @@ export class SubsonicMusicLibrary implements MusicLibrary {
   readonly searchAlbums = async (query: string) =>
     this.subsonic
       .search3(this.credentials, { query, albumCount: 20 })
-      .then(({ albums }) => this.subsonic.toAlbumSummary(albums).map(withSortable));
+      .then(({ albums }) => albums.map(asAlbumSummary).map(withSortable));
 
   readonly searchTracks = async (query: string) =>
     Promise.all([
