@@ -1180,7 +1180,7 @@ describe("SubsonicMusicLibrary", () => {
 
   const subsonic = new SubsonicMusicLibrary(
     // todo: this should be a mock...
-    new Subsonic(url, customPlayers),
+    new Subsonic(url),
     { username, password },
     customPlayers as unknown as CustomPlayers
   );
@@ -2903,7 +2903,7 @@ describe("SubsonicMusicLibrary", () => {
 
     describe("when useTranscode is false", () => {
       const noTranscodeLibrary = new SubsonicMusicLibrary(
-        new Subsonic(url, customPlayers),
+        new Subsonic(url),
         { username, password },
         customPlayers as unknown as CustomPlayers,
         false

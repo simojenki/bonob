@@ -42,11 +42,7 @@ const artistImageFetcher = config.subsonic.artistImageCache
   : axiosImageFetcher;
 
 const subsonic = new SubsonicMusicService(
-  new Subsonic(
-    config.subsonic.url,
-    customPlayers,
-    artistImageFetcher
-  ),
+  new Subsonic(config.subsonic.url),
   customPlayers,
   config.subsonic.transcode
 );
