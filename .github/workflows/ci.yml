@@ -34,6 +34,9 @@ jobs:
     name: Push Docker image to Docker registries
     needs: build_and_test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       -
         name: Check out the repo
