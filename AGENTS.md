@@ -12,7 +12,7 @@ Compact repo guidance for OpenCode sessions.
 ## Commands
 
 ```bash
-npm install       # install deps
+npm ci            # install deps
 npm run build     # tsc — typecheck + emit to ./build
 npm test          # jest full suite
 npm run testw     # jest --watch
@@ -21,7 +21,7 @@ npx jest --testNamePattern="some test description"
 ```
 
 - There is no separate `lint`, `format`, or `typecheck` script. `npm run build` is the typecheck.
-- CI runs `npm install && npm test` on Node 22.
+- CI runs `npm ci && npm test` on Node 22.
 
 ## Testing
 
