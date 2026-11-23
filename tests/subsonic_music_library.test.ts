@@ -697,11 +697,26 @@ describe("SubsonicMusicService", () => {
 
     it("should be able to refresh a token", async () => {
       const result = await service.refreshToken(asToken(credentials))()
-      expect(result).toEqual(E.right({ 
+      expect(result).toEqual(E.right({
         serviceToken: asToken(credentials),
         userId: credentials.username,
         nickname: credentials.username
       }));
+    });
+
+    describe("with non-ASCII characters", () => {
+      const nonAsciiCredentials = { username: "grägör", password: "pässwörd-À&ې=wé" };
+
+      it("should refresh the token with the original credentials", async () => {
+        const result = await service.refreshToken(asToken(nonAsciiCredentials))()
+
+        expect(subsonic.ping).toHaveBeenCalledWith(nonAsciiCredentials);
+        expect(result).toEqual(E.right({
+          serviceToken: asToken(nonAsciiCredentials),
+          userId: nonAsciiCredentials.username,
+          nickname: nonAsciiCredentials.username
+        }));
+      });
     });
   });
 
