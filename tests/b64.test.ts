@@ -14,4 +14,11 @@ describe("b64", () => {
             expect(b64Decode(encoded)).toEqual(value);
         });
     });
+    describe("non-ASCII values", () => {
+        const nonAscii = "Música dö ゴジラ";
+
+        it("should round trip", () => {
+            expect(b64Decode(b64Encode(nonAscii))).toEqual(nonAscii);
+        });
+    });
 });
