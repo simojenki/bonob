@@ -809,20 +809,10 @@ export const parseToken = (token: string): Credentials =>
   JSON.parse(b64Decode(token));
 
 export class Subsonic {
-  readonly url: URLBuilder;
-  readonly customPlayers: CustomPlayers;
-  readonly externalImageFetcher: ImageFetcher;
-
   constructor(
     // eslint-disable-next-line functional/prefer-immutable-types
-    url: URLBuilder,
-    customPlayers: CustomPlayers = NO_CUSTOM_PLAYERS,
-    externalImageFetcher: ImageFetcher = axiosImageFetcher,
-  ) {
-    this.url = url;
-    this.customPlayers = customPlayers;
-    this.externalImageFetcher = externalImageFetcher;
-  }
+    readonly url: URLBuilder,
+  ) {}
 
   private readonly get = async (
     { username, password }: Credentials,

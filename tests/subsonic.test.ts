@@ -729,13 +729,10 @@ const getTranscodeDecisionJson = (decision: TranscodeDecision) =>
 
 describe("Subsonic", () => {
   const url = new URLBuilder("http://127.0.0.22:4567/some-context-path");
-  const customPlayers = {
-    encodingFor: jest.fn(),
-  };
   const username = `user1-${uuid()}`;
   const password = `pass1-${uuid()}`;
   const credentials = { username, password };
-  const subsonic = new Subsonic(url, customPlayers);
+  const subsonic = new Subsonic(url);
 
   const mockRandomstring = jest.fn();
   const mockGET = jest.fn();
